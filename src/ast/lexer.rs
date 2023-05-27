@@ -48,20 +48,10 @@ impl<'a> Lexer<'a> {
     }
 
     fn current(&self) -> Option<char> {
-        if self.is_end() {
-            return None
-        }
         self.input.chars().nth(self.cursor)
     }
 
-    fn is_end(&self) -> bool {
-        self.cursor + 1 >= self.input.len()
-    }
-
     fn consume(&mut self) -> Option<char> {
-        if self.is_end() {
-            return None
-        }
         let c = self.current();
         self.cursor += 1;
         c
@@ -107,16 +97,12 @@ impl<'a> Iterator for Lexer<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.cursor;
         let kind: TokenKind;
-        if self.is_end() {
-            return None;
-        }
-        else if self.is_number_start()? {
+        if self.is_number_start()? {
             let n = self.consume_number()?;
             kind = TokenKind::Number(n);
         }
         else if self.is_whitespace()? {
-            loop {
-                let c = self.current()?;
+            while let Some(c) = self.current() {
                 if !c.is_whitespace() { break; }
                 self.consume().unwrap();
             }

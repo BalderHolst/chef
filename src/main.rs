@@ -5,18 +5,17 @@ use crate::ast::AST;
 mod ast;
 
 fn main() {
-    let lexer = Lexer::new("151");
+    let lexer = Lexer::new("45+     115 * 4");
     let tokens: Vec<Token> = lexer.collect();
     println!("{:?}", tokens);
     let parser = Parser::new(tokens);
     let mut ast = AST::new();
 
-    println!("Building AST...");
+    println!("\nBuilding AST...");
     for statement in parser {
-        dbg!(&statement);
         ast.add_statement(statement);
     }
 
-    println!("Printing!");
+    println!("\nPrinting AST:");
     ast.print();
 }

@@ -35,7 +35,6 @@ impl Parser {
 
     fn parse_statement(&mut self) -> Option<Statement> {
         let expr = self.parse_expression()?;
-        dbg!(&expr);
         Some(Statement::new(StatementKind::Expression(expr)))
     }
 
