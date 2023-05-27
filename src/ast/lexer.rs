@@ -1,5 +1,5 @@
-#[derive(Debug)]
-enum TokenKind {
+#[derive(Debug, PartialEq)]
+pub enum TokenKind {
     Number(u32),
     Plus,
     Minus,
@@ -13,7 +13,7 @@ enum TokenKind {
 }
 
 #[derive(Debug)]
-pub(crate) struct TokenSpan {
+pub struct TokenSpan {
     start: usize,
     end: usize,
     text: String,
@@ -26,9 +26,9 @@ impl TokenSpan {
 }
 
 #[derive(Debug)]
-pub(crate) struct Token {
-    kind: TokenKind,
-    span: TokenSpan,
+pub struct Token {
+    pub kind: TokenKind,
+    pub span: TokenSpan,
 }
 
 impl Token {
@@ -39,20 +39,23 @@ impl Token {
 
 pub(crate) struct Lexer<'a> {
     input: &'a str,
-    position: usize,
+    cursor: usize,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
-        Lexer { input, position: 0 }
+        Lexer { input, cursor: 0 }
     }
 
-    fn current(&self) -> char {
-        self.input.chars().nth(self.position).unwrap()
+    fn current(&self) -> Option<char> {
+        if self.is_end() {
+            return None
+        }
+        self.input.chars().nth(self.cursor)
     }
 
     fn is_end(&self) -> bool {
-        self.position + 1 >= self.input.len()
+        self.cursor + 1 >= self.input.len()
     }
 
     fn consume(&mut self) -> Option<char> {
@@ -60,18 +63,17 @@ impl<'a> Lexer<'a> {
             return None
         }
         let c = self.current();
-        self.position += 1;
-        Some(c)
+        self.cursor += 1;
+        c
     }
 
-    fn is_number_start(&self) -> bool {
-        self.current().is_digit(10)
+    fn is_number_start(&self) -> Option<bool> {
+        Some(self.current()?.is_digit(10))
     }
 
-    fn consume_number(&mut self) -> u32 {
+    fn consume_number(&mut self) -> Option<u32> {
         let mut n: u32 = 0;
-        loop {
-            let c = self.current();
+        while let Some(c) = self.current() {
             if c.is_digit(10) {
                 self.consume().unwrap();
                 n = n * 10 + c.to_digit(10).unwrap();
@@ -80,11 +82,11 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
-        n
+        Some(n)
     }
 
-    fn is_whitespace(&self) -> bool {
-        self.current().is_whitespace()
+    fn is_whitespace(&self) -> Option<bool> {
+        Some(self.current()?.is_whitespace())
     }
 
     fn consume_punctuation(&mut self) -> TokenKind {
@@ -103,17 +105,18 @@ impl<'a> Lexer<'a> {
 impl<'a> Iterator for Lexer<'a> {
     type Item = Token;
     fn next(&mut self) -> Option<Self::Item> {
-        let start = self.position;
+        let start = self.cursor;
         let kind: TokenKind;
         if self.is_end() {
             return None;
         }
-        else if self.is_number_start() {
-            kind = TokenKind::Number(self.consume_number());
+        else if self.is_number_start()? {
+            let n = self.consume_number()?;
+            kind = TokenKind::Number(n);
         }
-        else if self.is_whitespace() {
+        else if self.is_whitespace()? {
             loop {
-                let c = self.current();
+                let c = self.current()?;
                 if !c.is_whitespace() { break; }
                 self.consume().unwrap();
             }
@@ -122,7 +125,7 @@ impl<'a> Iterator for Lexer<'a> {
         else {
             kind = self.consume_punctuation();
         }
-        let end = self.position;
+        let end = self.cursor;
         let token = Token::new(kind, TokenSpan::new(start, end, self.input[start..end].to_string()));
         Some(token)
     }
