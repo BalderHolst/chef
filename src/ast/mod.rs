@@ -74,7 +74,7 @@ enum StatementKind {
     Expression(Expression),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Expression {
     kind: ExpressionKind,
 }
@@ -93,13 +93,13 @@ impl Expression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum ExpressionKind {
     Number(NumberExpression),
     Binary(BinaryExpression),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NumberExpression {
     number: u32,
 }
@@ -110,7 +110,7 @@ impl NumberExpression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BinaryExpression {
     left: Box<Expression>,
     right: Box<Expression>,
@@ -123,7 +123,7 @@ impl BinaryExpression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct BinaryOperator {
     kind: BinaryOperatorKind,
 }
@@ -154,7 +154,7 @@ impl Display for BinaryOperator {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum BinaryOperatorKind {
     Plus,
     Minus,
