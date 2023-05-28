@@ -12,8 +12,18 @@ pub enum TokenKind {
     Slash,
     LeftParen,
     RightParen,
+    LeftSquare,
+    RightSquare,
+    LeftCurly,
+    RightCurly,
+    Equals,
+    Comma,
+    Period,
+    Colon,
+    Semicolon,
+    DoubleEquals,
+    RightArrow,
     Whitespace,
-    End,
     Bad,
 }
 
@@ -90,14 +100,40 @@ impl Lexer {
     }
 
     fn consume_punctuation(&mut self) -> TokenKind {
-        match self.consume().unwrap() {
-        '+' => TokenKind::Plus,
-        '-' => TokenKind::Minus,
-        '*' => TokenKind::Asterisk,
-        '/' => TokenKind::Slash,
-        '(' => TokenKind::LeftParen,
-        ')' => TokenKind::RightParen,
-        _ => TokenKind::Bad,
+        let first = self.consume().unwrap();
+        if self.is_whitespace() != Some(false) || self.is_word_char() == Some(true) {
+            match first {
+                '+' => TokenKind::Plus,
+                '-' => TokenKind::Minus,
+                '*' => TokenKind::Asterisk,
+                '/' => TokenKind::Slash,
+                '(' => TokenKind::LeftParen,
+                ')' => TokenKind::RightParen,
+                '[' => TokenKind::LeftSquare,
+                ']' => TokenKind::RightSquare,
+                '{' => TokenKind::LeftCurly,
+                '}' => TokenKind::RightCurly,
+                '=' => TokenKind::Equals,
+                ',' => TokenKind::Comma,
+                '.' => TokenKind::Period,
+                ':' => TokenKind::Colon,
+                ';' => TokenKind::Semicolon,
+                _ => TokenKind::Bad,
+            }
+        }
+        else {
+            let second = self.consume().unwrap();
+            match (first, second) {
+                ('=', '=') => TokenKind::DoubleEquals,
+                ('-', '>') => TokenKind::RightArrow,
+                _ => {
+                    dbg!(self.is_word_char());
+                    while self.is_whitespace() == Some(true) && self.is_word_char() == Some(false) {
+                        self.consume().unwrap();
+                    }
+                    TokenKind::Bad
+                }
+            }
         }
     }
 
