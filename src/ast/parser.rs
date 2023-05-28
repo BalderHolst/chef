@@ -18,28 +18,33 @@ impl Parser {
         Self { tokens, cursor: 0 }
     }
 
-    fn current(&self) -> Option<&Token> {
+    fn current(&mut self) -> Option<&Token> {
+
+        // Skip Whitespace
+        while self.tokens.get(self.cursor)?.kind == TokenKind::Whitespace {
+            self.cursor += 1;
+        }
+
         self.tokens.get(self.cursor)
     }
 
     fn consume(&mut self) -> Option<&Token> {
-
-        // Skip Whitespace
-        while self.current()?.kind == TokenKind::Whitespace {
-            self.cursor += 1;
-        }
-
+        self.current()?; // Skip Whitespace
+        println!("{} : {:?}", self.cursor.clone(), self.current().clone());
         self.cursor += 1;
         self.tokens.get(self.cursor - 1)
     }
 
     fn parse_statement(&mut self) -> Option<Statement> {
+        self.current()?;
+        println!("Parsing statement...");
         let expr = self.parse_expression()?;
         Some(Statement::new(StatementKind::Expression(expr)))
     }
 
     fn parse_expression(&mut self) -> Option<Expression> {
-        self.parse_binary_expression(0)
+        println!("Parsing expression...");
+        Some(self.parse_binary_expression(0))
     }
 
     fn parse_binary_operator(&mut self) -> Option<BinaryOperator> {
@@ -53,24 +58,24 @@ impl Parser {
         }
     }
 
-    fn parse_binary_expression(&mut self, precedence: u8) -> Option<Expression> {
-        let mut left = self.parse_primary_expression()?;
-        while let Some(operator) = self.parse_binary_operator() {
-            if operator.precedence() < precedence {
-                break;
-            }
-            let right = self.parse_binary_expression(operator.precedence())?;
-            left = Expression::new(ExpressionKind::Binary(BinaryExpression::new(Box::new(left), Box::new(right), operator)));
+    fn parse_binary_expression(&mut self, precedence: u8) -> Expression {
+        let mut left = self.parse_primary_expression().expect("no primary expression found.");
+
+        if let Some(operator) = self.parse_binary_operator() {
+            let right = self.parse_binary_expression(precedence);
+            left = Expression::new(ExpressionKind::Binary(BinaryExpression::new(Box::new(left.clone()), Box::new(right), operator)));
         }
-        Some(left)
+        return left;
     }
 
     fn parse_primary_expression(&mut self) -> Option<Expression> {
+        println!("Getting primary expression...");
         let token = self.consume()?;
         if let TokenKind::Number(number) = token.kind {
             return Some(Expression::new(ExpressionKind::Number(NumberExpression::new(number))))
         }
-        panic!("No primary expression could be parsed from token: {:?}", token);
+        println!("No primary expression could be parsed from token: {:?}", token);
+        None
     }
 }
 
