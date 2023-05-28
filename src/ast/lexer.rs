@@ -1,3 +1,7 @@
+use std::path::Path;
+use std::fs;
+use std::io;
+
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {
     Number(u32),
@@ -37,14 +41,19 @@ impl Token {
     }
 }
 
-pub(crate) struct Lexer<'a> {
-    input: &'a str,
+pub(crate) struct Lexer {
+    input: String,
     cursor: usize,
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
-        Lexer { input, cursor: 0 }
+impl Lexer {
+    pub fn new(input: &str) -> Self {
+        Lexer { input: input.to_string(), cursor: 0 }
+    }
+
+    pub fn from_file(path: &str) -> io::Result<Self> {
+        let input = fs::read_to_string(path)?;
+        Ok(Lexer { input, cursor: 0 })
     }
 
     fn current(&self) -> Option<char> {
@@ -92,7 +101,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
-impl<'a> Iterator for Lexer<'a> {
+impl Iterator for Lexer {
     type Item = Token;
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.cursor;

@@ -101,7 +101,6 @@ impl Parser {
                 let inner = self.parse_expression()?;
                 let expr = Some(Expression::new(ExpressionKind::Parenthesized(ParenthesizedExpression::new(Box::new(inner)))));
                 let end_token = self.consume().expect("Expected paren end token");
-                dbg!(end_token);
                 if end_token.kind != TokenKind::RightParen {
                     panic!("Could not find end paren.")
                 }
