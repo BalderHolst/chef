@@ -5,7 +5,7 @@ use crate::ast::AST;
 mod ast;
 
 fn main() {
-    let lexer = Lexer::new("45*115*5");
+    let lexer = Lexer::new("45*115 +5 / 5");
     let tokens: Vec<Token> = lexer.collect();
     println!("{:?}", tokens);
     let parser = Parser::new(tokens);
