@@ -5,6 +5,7 @@ use std::io;
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {
     Number(u32),
+    Word(String),
     Plus,
     Minus,
     Asterisk,
@@ -99,6 +100,10 @@ impl Lexer {
         _ => TokenKind::Bad,
         }
     }
+
+    fn is_word_char(&self) -> Option<bool> {
+        Some(self.current()?.is_alphabetic())
+    }
 }
 
 impl Iterator for Lexer {
@@ -116,6 +121,13 @@ impl Iterator for Lexer {
                 self.consume().unwrap();
             }
             kind = TokenKind::Whitespace;
+        }
+        else if self.is_word_char()? {
+            let mut word = "".to_string();
+            while Some(true) == self.is_word_char() {
+                word += self.consume().unwrap().to_string().as_str();
+            }
+            kind = TokenKind::Word(word);
         }
         else {
             kind = self.consume_punctuation();
