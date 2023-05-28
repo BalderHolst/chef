@@ -6,7 +6,7 @@ pub enum TokenKind {
     Asterisk,
     Slash,
     LeftParen,
-    RightRaren,
+    RightParen,
     Whitespace,
     End,
     Bad,
@@ -86,7 +86,7 @@ impl<'a> Lexer<'a> {
         '*' => TokenKind::Asterisk,
         '/' => TokenKind::Slash,
         '(' => TokenKind::LeftParen,
-        ')' => TokenKind::RightRaren,
+        ')' => TokenKind::RightParen,
         _ => TokenKind::Bad,
         }
     }

@@ -1,6 +1,6 @@
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
-    Expression, ExpressionKind, NumberExpression, 
+    Expression, ExpressionKind, NumberExpression, ParenthesizedExpression, 
     Statement, StatementKind,
     BinaryOperator, BinaryOperatorKind
 };
@@ -69,14 +69,12 @@ impl Parser {
 
     fn parse_binary_expression_part(&mut self, primary_expr: Option<Expression>, precedence: u8) -> Option<Expression> {
 
-
         let mut left: Expression;
         if primary_expr.is_none() {
             left = self.parse_primary_expression()?;
-            self.consume().unwrap();
         }
-        else {
-            self.current()?; // Return None if no tokens left
+        else { // TODO prettify
+            self.parse_binary_operator()?; // Return None if next token is not an operator
             left = primary_expr.unwrap();
         }
 
@@ -93,11 +91,27 @@ impl Parser {
 
     fn parse_primary_expression(&mut self) -> Option<Expression> {
         let token = self.current()?;
-        if let TokenKind::Number(number) = token.kind {
-            return Some(Expression::new(ExpressionKind::Number(NumberExpression::new(number))))
+        match token.kind {
+            TokenKind::Number(number) => {
+                self.consume().unwrap();
+                Some(Expression::new(ExpressionKind::Number(NumberExpression::new(number))))
+            },
+            TokenKind::LeftParen => {
+                self.consume().unwrap();
+                let inner = self.parse_expression()?;
+                let expr = Some(Expression::new(ExpressionKind::Parenthesized(ParenthesizedExpression::new(Box::new(inner)))));
+                let end_token = self.consume().expect("Expected paren end token");
+                dbg!(end_token);
+                if end_token.kind != TokenKind::RightParen {
+                    panic!("Could not find end paren.")
+                }
+                expr
+            }
+            _ => {
+                println!("No primary expression could be parsed from token: {:?}", token);
+                None
+            }
         }
-        println!("No primary expression could be parsed from token: {:?}", token);
-        None
     }
 }
 

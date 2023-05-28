@@ -44,6 +44,9 @@ pub trait Visitor {
             ExpressionKind::Binary(expr) => {
                 self.visit_binary_expression(expr);
             }
+            ExpressionKind::Parenthesized(expr) => {
+                self.visit_parenthesized_expression(expr);
+            }
         }
     }
     fn visit_expression(&mut self, expression: &Expression) {
@@ -51,6 +54,10 @@ pub trait Visitor {
     }
 
     fn visit_number(&mut self, number: &NumberExpression);
+
+    fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression) {
+        self.visit_expression(&expr.expression);
+    }
 
     fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression) {
         self.visit_expression(&binary_expression.left);
@@ -97,6 +104,7 @@ impl Expression {
 enum ExpressionKind {
     Number(NumberExpression),
     Binary(BinaryExpression),
+    Parenthesized(ParenthesizedExpression),
 }
 
 #[derive(Debug, Clone)]
@@ -107,6 +115,17 @@ pub struct NumberExpression {
 impl NumberExpression {
     fn new(number: u32) -> Self {
         Self { number }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ParenthesizedExpression {
+    expression: Box<Expression>,
+}
+
+impl ParenthesizedExpression {
+    fn new(expression: Box<Expression>) -> Self {
+        Self { expression }
     }
 }
 
@@ -211,5 +230,13 @@ impl Visitor for Printer {
         self.print(&format!("Operator: {}", binary_expression.operator));
         self.visit_expression(&binary_expression.left);
         self.visit_expression(&binary_expression.right);
+        self.unindent();
+    }
+
+    fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression) {
+        self.print("Parenthesized");
+        self.indent();
+        self.visit_expression(&expr.expression);
+        self.unindent();
     }
 }
