@@ -2,7 +2,7 @@ use std::path::Path;
 use std::fs;
 use std::io;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     Number(u32),
     Word(String),
@@ -27,7 +27,7 @@ pub enum TokenKind {
     Bad,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TokenSpan {
     start: usize,
     end: usize,
@@ -40,7 +40,7 @@ impl TokenSpan {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: TokenSpan,
@@ -99,41 +99,45 @@ impl Lexer {
         Some(self.current()?.is_whitespace())
     }
 
+    fn is_punctuation_start(&self) -> Option<bool> {
+        Some(!self.is_word_char()? && !self.is_whitespace()? && !self.is_number_start()?)
+    }
+
     fn consume_punctuation(&mut self) -> TokenKind {
         let first = self.consume().unwrap();
-        if self.is_whitespace() != Some(false) || self.is_word_char() == Some(true) {
-            match first {
-                '+' => TokenKind::Plus,
-                '-' => TokenKind::Minus,
-                '*' => TokenKind::Asterisk,
-                '/' => TokenKind::Slash,
-                '(' => TokenKind::LeftParen,
-                ')' => TokenKind::RightParen,
-                '[' => TokenKind::LeftSquare,
-                ']' => TokenKind::RightSquare,
-                '{' => TokenKind::LeftCurly,
-                '}' => TokenKind::RightCurly,
-                '=' => TokenKind::Equals,
-                ',' => TokenKind::Comma,
-                '.' => TokenKind::Period,
-                ':' => TokenKind::Colon,
-                ';' => TokenKind::Semicolon,
-                _ => TokenKind::Bad,
-            }
-        }
-        else {
-            let second = self.consume().unwrap();
-            match (first, second) {
-                ('=', '=') => TokenKind::DoubleEquals,
-                ('-', '>') => TokenKind::RightArrow,
-                _ => {
-                    dbg!(self.is_word_char());
-                    while self.is_whitespace() == Some(true) && self.is_word_char() == Some(false) {
+        match first {
+            '+' => TokenKind::Plus,
+            '-' => {
+                match self.current() {
+                    Some('>') => {
                         self.consume().unwrap();
+                        TokenKind::RightArrow
                     }
-                    TokenKind::Bad
+                    _ => TokenKind::Minus
                 }
-            }
+            },
+            '*' => TokenKind::Asterisk,
+            '/' => TokenKind::Slash,
+            '(' => TokenKind::LeftParen,
+            ')' => TokenKind::RightParen,
+            '[' => TokenKind::LeftSquare,
+            ']' => TokenKind::RightSquare,
+            '{' => TokenKind::LeftCurly,
+            '}' => TokenKind::RightCurly,
+            '=' => {
+                match self.current() {
+                    Some('=') => {
+                        self.consume().unwrap();
+                        TokenKind::DoubleEquals
+                    }
+                    _ => TokenKind::Equals,
+                }
+            },
+            ',' => TokenKind::Comma,
+            '.' => TokenKind::Period,
+            ':' => TokenKind::Colon,
+            ';' => TokenKind::Semicolon,
+            _ => TokenKind::Bad,
         }
     }
 

@@ -31,6 +31,9 @@ pub trait Visitor {
             StatementKind::Expression(expr) => {
                 self.visit_expression(expr);
             }
+            StatementKind::Block(block) => {
+                self.visit_block(block);
+            }
         }
     }
     fn visit_statement(&mut self, statement: &Statement) {
@@ -40,6 +43,9 @@ pub trait Visitor {
         match &expression.kind {
             ExpressionKind::Number(number) => {
                 self.visit_number(number);
+            }
+            ExpressionKind::Variable(variable) => {
+                self.visit_variable(variable);
             }
             ExpressionKind::Binary(expr) => {
                 self.visit_binary_expression(expr);
@@ -53,7 +59,18 @@ pub trait Visitor {
         self.do_visit_expression(expression);
     }
 
+    fn do_visit_block(&mut self, block: &Block) {
+        for statement in &block.statements {
+            self.visit_statement(&statement);
+        }
+    }
+
+    fn visit_block(&mut self, block: &Block) {
+        self.do_visit_block(block);
+    }
+
     fn visit_number(&mut self, number: &NumberExpression);
+    fn visit_variable(&mut self, var: &Variable);
 
     fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression) {
         self.visit_expression(&expr.expression);
@@ -65,7 +82,7 @@ pub trait Visitor {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Statement {
     kind: StatementKind,
 }
@@ -76,9 +93,45 @@ impl Statement {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum StatementKind {
     Expression(Expression),
+    Block(Block),
+}
+
+#[derive(Debug, Clone)]
+enum VariableType {
+    Any,
+    RED,
+    GREEN,
+    BLUE,
+    WHITE,
+}
+
+#[derive(Debug, Clone)]
+pub struct Variable {
+    name: String,
+    variable_type: Option<VariableType>,
+}
+
+impl Variable {
+    fn new(name: String, variable_type: Option<VariableType>) -> Self {
+        Self { name, variable_type }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Block {
+    name: String,
+    inputs: Vec<Variable>,
+    outputs: Vec<Variable>,
+    statements: Vec<Statement>
+}
+
+impl Block {
+    fn new(name: String, inputs: Vec<Variable>, outputs: Vec<Variable>, statements: Vec<Statement>) -> Self {
+        Self { name, inputs, outputs, statements }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -105,6 +158,7 @@ enum ExpressionKind {
     Number(NumberExpression),
     Binary(BinaryExpression),
     Parenthesized(ParenthesizedExpression),
+    Variable(Variable),
 }
 
 #[derive(Debug, Clone)]
@@ -213,6 +267,13 @@ impl Visitor for Printer {
         self.unindent();
     }
 
+    fn visit_block(&mut self, block: &Block) {
+        self.print("Block:");
+        self.indent();
+        self.do_visit_block(&block);
+        self.unindent();
+    }
+
     fn visit_expression(&mut self, expression: &Expression) {
         self.print("Expression:");
         self.indent();
@@ -222,6 +283,10 @@ impl Visitor for Printer {
 
     fn visit_number(&mut self, number: &NumberExpression) {
         self.print(&format!("Number: {}", number.number));
+    }
+
+    fn visit_variable(&mut self, var: &Variable) {
+        self.print(&format!("Variable: {} (type: {:?})", var.name, var.variable_type))
     }
 
     fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression) {

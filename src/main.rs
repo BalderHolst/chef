@@ -5,7 +5,8 @@ use crate::ast::AST;
 mod ast;
 
 fn main() {
-    let lexer = Lexer::from_file("./examples/simple_block.rcp").unwrap();
+    // let lexer = Lexer::from_file("./examples/simple_block.rcp").unwrap();
+    let lexer = Lexer::new("a = 5 + 8; 5 * (9 + 2);");
     let tokens: Vec<Token> = lexer.collect();
     println!("{:?}", tokens);
     let parser = Parser::new(tokens);
