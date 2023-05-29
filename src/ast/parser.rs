@@ -104,6 +104,7 @@ impl Parser {
             TokenKind::Minus => Some(BinaryOperator::new(BinaryOperatorKind::Minus)),
             TokenKind::Asterisk => Some(BinaryOperator::new(BinaryOperatorKind::Multiply)),
             TokenKind::Slash => Some(BinaryOperator::new(BinaryOperatorKind::Divide)),
+            TokenKind::Equals => Some(BinaryOperator::new(BinaryOperatorKind::Assign)),
             _ => None,
         }
     }

@@ -212,6 +212,7 @@ impl BinaryOperator {
             BinaryOperatorKind::Minus => 1,
             BinaryOperatorKind::Multiply => 2,
             BinaryOperatorKind::Divide => 2,
+            BinaryOperatorKind::Assign => 0,
         }
     }
 }
@@ -223,6 +224,7 @@ impl Display for BinaryOperator {
             BinaryOperatorKind::Minus => write!(f, "-"),
             BinaryOperatorKind::Multiply => write!(f, "*"),
             BinaryOperatorKind::Divide => write!(f, "/"),
+            BinaryOperatorKind::Assign => write!(f, "="),
         }
     }
 }
@@ -233,6 +235,7 @@ enum BinaryOperatorKind {
     Minus,
     Multiply,
     Divide,
+    Assign,
 }
 
 const INDENTATON: usize = 2;
