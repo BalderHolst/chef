@@ -57,18 +57,43 @@ impl Parser {
         Some(Statement::new(StatementKind::Expression(expr)))
     }
 
+    fn parse_variable_type(&self) -> Option<VariableType> {
+        if let TokenKind::Word(word) = self.current().expect("Expected token for variable type.").kind.clone() {
+            match word.as_str() {
+                "any"   => Some(VariableType::Any),
+                "RED"   => Some(VariableType::RED),
+                "GREEN" => Some(VariableType::GREEN),
+                "BLUE"  => Some(VariableType::BLUE),
+                "WHITE" => Some(VariableType::WHITE),
+                _ => {
+                    panic!("Unknown type: {}", word);
+                }
+            }
+        }
+        else {
+            panic!("Expected word as variable type.")
+        }
+    }
+
     fn parse_argument(&mut self) -> Option<Variable> {
-        let name = if let TokenKind::Word(s) = &self.consume()?.kind { s.clone() } 
+        let current_token_kind  = self.current()?.kind.clone();
+        let name = if let TokenKind::Word(s) = current_token_kind { 
+            self.consume().unwrap();
+            s.clone() 
+        } 
+        else if TokenKind::RightParen == current_token_kind {
+            return None;
+        }
         else { panic!("Could not find variable name.") };
-
         if self.consume()?.kind != TokenKind::Colon { panic!("Found no colon in argument definition.") };
-
-        todo!()
+        let t = self.parse_variable_type();
+        self.consume().unwrap();
+        Some(Variable::new(name, t))
     }
 
     fn parse_block(&mut self) -> Option<Statement> {
         self.consume().unwrap();
-        let mut name: String;
+        let name: String;
         let mut inputs: Vec<Variable> = vec![];
         let mut outputs: Vec<Variable> = vec![];
         let mut statements: Vec<Statement> = vec![];
@@ -80,6 +105,9 @@ impl Parser {
 
         while let Some(variable) = self.parse_argument() {
             inputs.push(variable);
+            if self.current().expect("Expexted token after argument.").kind == TokenKind::Comma {
+                self.consume().unwrap();
+            }
         }
 
         if self.consume()?.kind != TokenKind::RightParen { panic!("Did not find RIGHT input paren for block") }
@@ -88,7 +116,20 @@ impl Parser {
 
         while let Some(variable) = self.parse_argument() {
             outputs.push(variable);
+            if self.current().expect("Expexted token after argument.").kind == TokenKind::Comma {
+                self.consume().unwrap();
+            }
         }
+
+        if self.consume()?.kind != TokenKind::RightParen { panic!("Did not find RIGHT output paren for block") }
+
+        if self.consume()?.kind != TokenKind::LeftCurly { panic!("Did not find LEFTCURLY output paren for block") }
+
+        while let Some(statement) = self.parse_expression_statement() {
+            statements.push(statement);
+        }
+
+        if self.consume()?.kind != TokenKind::RightCurly { panic!("Did not find RIGHTCURLY output paren for block") }
 
         Some(Statement::new(StatementKind::Block(Block::new(name, inputs, outputs, statements))))
     }

@@ -238,7 +238,7 @@ enum BinaryOperatorKind {
     Assign,
 }
 
-const INDENTATON: usize = 2;
+const INDENTATON: usize = 4;
 
 struct Printer {
     current_intent: usize
@@ -271,7 +271,7 @@ impl Visitor for Printer {
     }
 
     fn visit_block(&mut self, block: &Block) {
-        self.print("Block:");
+        self.print(&format!("Block: {} {:?} -> {:?}", block.name, block.inputs, block.outputs));
         self.indent();
         self.do_visit_block(&block);
         self.unindent();
@@ -302,7 +302,7 @@ impl Visitor for Printer {
     }
 
     fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression) {
-        self.print("Parenthesized");
+        self.print("Parenthesized:");
         self.indent();
         self.visit_expression(&expr.expression);
         self.unindent();

@@ -1,3 +1,4 @@
-block main(a: RED, b: GREEN, c: BLUE) -> (d: WHITE) {
+block main(a: RED, b: GREEN, c: BLUE) -> (d: WHITE, e: any) {
     d = a + b * c - 500;
+    e = b / 4;
 }
