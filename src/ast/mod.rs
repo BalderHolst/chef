@@ -1,4 +1,5 @@
 use std::{fmt::Display, fs::write};
+use std::rc::Rc;
 use lexer::Token;
 
 pub mod lexer;
@@ -100,7 +101,7 @@ enum StatementKind {
 }
 
 #[derive(Debug, Clone)]
-enum VariableType {
+enum SignalType {
     Any,
     RED,
     GREEN,
@@ -108,14 +109,20 @@ enum VariableType {
     WHITE,
 }
 
+
+#[derive(Debug, Clone)]
+enum VariableType {
+    Int(SignalType)
+}
+
 #[derive(Debug, Clone)]
 pub struct Variable {
     name: String,
-    variable_type: Option<VariableType>,
+    variable_type: VariableType,
 }
 
 impl Variable {
-    fn new(name: String, variable_type: Option<VariableType>) -> Self {
+    fn new(name: String, variable_type: VariableType) -> Self {
         Self { name, variable_type }
     }
 }
@@ -123,13 +130,13 @@ impl Variable {
 #[derive(Debug, Clone)]
 pub struct Block {
     name: String,
-    inputs: Vec<Variable>,
-    outputs: Vec<Variable>,
+    inputs: Vec<Rc<Variable>>,
+    outputs: Vec<Rc<Variable>>,
     statements: Vec<Statement>
 }
 
 impl Block {
-    fn new(name: String, inputs: Vec<Variable>, outputs: Vec<Variable>, statements: Vec<Statement>) -> Self {
+    fn new(name: String, inputs: Vec<Rc<Variable>>, outputs: Vec<Rc<Variable>>, statements: Vec<Statement>) -> Self {
         Self { name, inputs, outputs, statements }
     }
 }
@@ -158,7 +165,7 @@ enum ExpressionKind {
     Number(NumberExpression),
     Binary(BinaryExpression),
     Parenthesized(ParenthesizedExpression),
-    Variable(Variable),
+    Variable(Rc<Variable>),
 }
 
 #[derive(Debug, Clone)]

@@ -1,16 +1,17 @@
+use std::rc::Rc;
+
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
     Expression, ExpressionKind, NumberExpression, ParenthesizedExpression, Variable,
-    Statement, StatementKind,
-    BinaryOperator, BinaryOperatorKind,
-    VariableType,
+    Statement, StatementKind, Block,
+    BinaryExpression, BinaryOperator, BinaryOperatorKind,
+    VariableType, SignalType,
 };
-
-use super::{BinaryExpression, Block};
 
 pub struct Parser {
     tokens: Vec<Token>,
     cursor: usize,
+    scopes: Vec<Vec<Rc<Variable>>>,
 }
 
 impl Parser {
@@ -20,6 +21,7 @@ impl Parser {
                 |token| token.kind != TokenKind::Whitespace
             ).map(|token| token.clone()).collect(),
             cursor: 0,
+            scopes: vec![vec![]],
         }
     }
 
@@ -32,6 +34,31 @@ impl Parser {
         println!("{} : {:?}", self.cursor.clone(), self.current().clone());
         self.cursor += 1;
         self.tokens.get(self.cursor - 1)
+    }
+
+    fn search_scope(&self, name: &str) -> Option<Rc<Variable>> {
+        let mut rev_scopes = self.scopes.clone();
+        rev_scopes.reverse();
+        for scope in rev_scopes {
+            for var in scope {
+                if var.name == name {
+                    return Some(var);
+                }
+            }
+        }
+        None
+    }
+
+    fn enter_scope(&mut self) {
+        self.scopes.push(vec![]);
+    }
+
+    fn exit_scope(&mut self) {
+        self.scopes.pop().unwrap();
+    }
+
+    fn add_to_scope(&mut self, var: Rc<Variable>) {
+        self.scopes.last_mut().unwrap().push(var);
     }
 
     fn parse_statement(&mut self) -> Option<Statement> {
@@ -57,14 +84,45 @@ impl Parser {
         Some(Statement::new(StatementKind::Expression(expr)))
     }
 
-    fn parse_variable_type(&self) -> Option<VariableType> {
-        if let TokenKind::Word(word) = self.current().expect("Expected token for variable type.").kind.clone() {
+    fn parse_variable_type(&mut self) -> VariableType {
+        if let TokenKind::Word(word) = self.consume().expect("Expected token for variable type.").kind.clone() {
             match word.as_str() {
-                "any"   => Some(VariableType::Any),
-                "RED"   => Some(VariableType::RED),
-                "GREEN" => Some(VariableType::GREEN),
-                "BLUE"  => Some(VariableType::BLUE),
-                "WHITE" => Some(VariableType::WHITE),
+                "int" => {
+                    match self.current() {
+                        Some(token) => {
+                            match token.kind {
+                                TokenKind::LeftParen => {
+                                    self.consume().unwrap();
+                                    let type_token = self.consume().expect("Expected type in paren").clone();
+                                        if let Some(end_token) = self.consume() {
+                                            if end_token.kind != TokenKind::RightParen {
+                                                panic!("Expexted right paren after type.")
+                                            }
+                                        }
+                                    if let TokenKind::Word(word) = type_token.kind.clone() {
+                                        match word.as_str() {
+                                            "any"   => VariableType::Int(SignalType::Any),
+                                            "RED"   => VariableType::Int(SignalType::RED),
+                                            "GREEN" => VariableType::Int(SignalType::GREEN),
+                                            "BLUE"  => VariableType::Int(SignalType::BLUE),
+                                            "WHITE" => VariableType::Int(SignalType::WHITE),
+                                            _ => {
+                                                panic!("No type named {}", word);
+                                            }
+                                        }
+                                    }
+                                    else {
+                                        panic!("Variable types should be words not {:?}", type_token);
+                                    }
+                                }
+                                _ => {
+                                    VariableType::Int(SignalType::Any)
+                                }
+                            }
+                        }
+                        None => VariableType::Int(SignalType::Any)
+                    }
+                }
                 _ => {
                     panic!("Unknown type: {}", word);
                 }
@@ -85,17 +143,24 @@ impl Parser {
             return None;
         }
         else { panic!("Could not find variable name.") };
+
         if self.consume()?.kind != TokenKind::Colon { panic!("Found no colon in argument definition.") };
         let t = self.parse_variable_type();
-        self.consume().unwrap();
+
+
+        if self.current().is_some() && self.current().unwrap().kind == TokenKind::Comma {
+            self.consume().unwrap();
+        }
         Some(Variable::new(name, t))
     }
 
     fn parse_block(&mut self) -> Option<Statement> {
         self.consume().unwrap();
+        self.enter_scope();
+
         let name: String;
-        let mut inputs: Vec<Variable> = vec![];
-        let mut outputs: Vec<Variable> = vec![];
+        let mut inputs: Vec<Rc<Variable>> = vec![];
+        let mut outputs: Vec<Rc<Variable>> = vec![];
         let mut statements: Vec<Statement> = vec![];
 
         name = if let TokenKind::Word(s) = &self.consume()?.kind { s.clone() } 
@@ -104,7 +169,9 @@ impl Parser {
         if self.consume()?.kind != TokenKind::LeftParen { panic!("Did not find LEFT input paren for block") }
 
         while let Some(variable) = self.parse_argument() {
-            inputs.push(variable);
+            let var_ref = Rc::new(variable);
+            self.add_to_scope(var_ref.clone());
+            inputs.push(var_ref);
             if self.current().expect("Expexted token after argument.").kind == TokenKind::Comma {
                 self.consume().unwrap();
             }
@@ -115,7 +182,9 @@ impl Parser {
         if self.consume()?.kind != TokenKind::LeftParen { panic!("Did not find LEFT output paren for block") }
 
         while let Some(variable) = self.parse_argument() {
-            outputs.push(variable);
+            let var_ref = Rc::new(variable);
+            self.add_to_scope(var_ref.clone());
+            outputs.push(var_ref);
             if self.current().expect("Expexted token after argument.").kind == TokenKind::Comma {
                 self.consume().unwrap();
             }
@@ -130,6 +199,8 @@ impl Parser {
         }
 
         if self.consume()?.kind != TokenKind::RightCurly { panic!("Did not find RIGHTCURLY output paren for block") }
+
+        self.exit_scope();
 
         Some(Statement::new(StatementKind::Block(Block::new(name, inputs, outputs, statements))))
     }
@@ -192,12 +263,17 @@ impl Parser {
             },
             TokenKind::Word(word) => {
                 self.consume().unwrap();
-                let t: Option<VariableType> = None; // type
                 let current_token = self.current();
-                if current_token.is_some() && current_token.unwrap().kind == TokenKind::Colon {
+
+                if let Some(var) = self.search_scope(&word) {
+                    return Some(Expression::new(ExpressionKind::Variable(var)));
+                }
+                else if current_token.is_some() && current_token.unwrap().kind == TokenKind::Colon {
                     todo!("Parse type");
                 }
-                Some(Expression::new(ExpressionKind::Variable(Variable::new(word, t))))
+                else {
+                    panic!("No type for variable.")
+                };
             }
             TokenKind::LeftParen => {
                 self.consume().unwrap();
@@ -210,7 +286,6 @@ impl Parser {
                 expr
             }
             _ => {
-                println!("No primary expression could be parsed from token: {:?}", token);
                 None
             }
         }
