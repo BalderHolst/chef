@@ -5,7 +5,7 @@ use crate::ast::{
     Expression, ExpressionKind, NumberExpression, ParenthesizedExpression, Variable,
     Statement, StatementKind, Block,
     BinaryExpression, BinaryOperator, BinaryOperatorKind,
-    VariableType, SignalType,
+    VariableType,
 };
 
 pub struct Parser {
@@ -100,27 +100,18 @@ impl Parser {
                                             }
                                         }
                                     if let TokenKind::Word(word) = type_token.kind.clone() {
-                                        match word.as_str() {
-                                            "any"   => VariableType::Int(SignalType::Any),
-                                            "RED"   => VariableType::Int(SignalType::RED),
-                                            "GREEN" => VariableType::Int(SignalType::GREEN),
-                                            "BLUE"  => VariableType::Int(SignalType::BLUE),
-                                            "WHITE" => VariableType::Int(SignalType::WHITE),
-                                            _ => {
-                                                panic!("No type named {}", word);
-                                            }
-                                        }
+                                        VariableType::Int(word)
                                     }
                                     else {
                                         panic!("Variable types should be words not {:?}", type_token);
                                     }
                                 }
                                 _ => {
-                                    VariableType::Int(SignalType::Any)
+                                    VariableType::Any
                                 }
                             }
                         }
-                        None => VariableType::Int(SignalType::Any)
+                        None => VariableType::Any
                     }
                 }
                 _ => {

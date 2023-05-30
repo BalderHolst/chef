@@ -100,19 +100,12 @@ enum StatementKind {
     Block(Block),
 }
 
+
 #[derive(Debug, Clone)]
-enum SignalType {
+pub enum VariableType {
+    Int(String),
     Any,
-    RED,
-    GREEN,
-    BLUE,
-    WHITE,
-}
-
-
-#[derive(Debug, Clone)]
-enum VariableType {
-    Int(SignalType)
+    All
 }
 
 #[derive(Debug, Clone)]
@@ -122,7 +115,7 @@ pub struct Variable {
 }
 
 impl Variable {
-    fn new(name: String, variable_type: VariableType) -> Self {
+    pub fn new(name: String, variable_type: VariableType) -> Self {
         Self { name, variable_type }
     }
 }
