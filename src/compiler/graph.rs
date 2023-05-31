@@ -42,13 +42,39 @@ pub enum Connection {
 
 }
 
+#[derive(Clone, Debug)]
+pub enum Node {
+    Inner(InnerNode),
+    Input(InputNode),
+}
+
+trait NodeInputs {
+    fn get_inputs(&self) -> Vec<IOType>;
+}
 
 #[derive(Clone, Debug)]
-pub struct Node {
+pub struct InputNode {
+    inputs: Vec<IOType>
+}
+
+impl InputNode {
+    pub fn new(inputs: Vec<IOType>) -> Self {
+        Self { inputs }
+    }
+}
+
+impl NodeInputs for InputNode {
+    fn get_inputs(&self) -> Vec<IOType> {
+        self.inputs.clone()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct InnerNode {
     inputs: Vec<Edge>,
 }
 
-impl Node {
+impl InnerNode {
     pub fn new() -> Self {
         Self { inputs: vec![] }
     }
@@ -56,7 +82,9 @@ impl Node {
     fn add_input(&mut self, edge: Edge) {
         self.inputs.push(edge);
     }
+}
 
+impl NodeInputs for InnerNode {
     fn get_inputs(&self) -> Vec<IOType> {
         self.inputs.iter().map(|c| match c.as_ref().clone() {
             Connection::Arithmetic(ac) => {
@@ -89,36 +117,49 @@ impl Graph
         self.vertices.get_mut(vid)
     }
 
-    pub fn push_vertex(&mut self) -> VId {
+    pub fn push_node(&mut self, node: Node) -> VId {
         let vid = self.next_vid;
-        if self.vertices.insert(vid, Node::new()).is_some() {
+        if self.vertices.insert(vid, node).is_some() {
             panic!("Could not insert node into graph")
         }
         self.next_vid += 1;
         vid
     }
 
-    pub fn push_edge(&mut self, from: VId, to: VId, edge: Edge) {
-        self.get_mut_vertex(&to).expect(&format!("Could not access vertex: {}", to)).add_input(edge.clone());
-        let adjacent_to_from = self.adjacency.entry(from).or_default();
-        adjacent_to_from.push((to, edge));
+    pub fn push_inner_node(&mut self) -> VId {
+        self.push_node(Node::Inner(InnerNode::new()))
     }
 
-    pub fn push_undirected_edge(
-        &mut self,
-        from: VId,
-        to: VId,
-        edge: Edge,
-        ) {
-        self.push_edge(from.clone(), to.clone(), edge.clone());
-        self.push_edge(from, to, edge);
+    pub fn push_connection(&mut self, from: VId, to: VId, connection: Connection) {
+        let to_node = self.get_mut_vertex(&to).expect(&format!("Could not access vertex: {}", to));
+        match to_node {
+            Node::Inner(to_vertex) => {
+                to_vertex.add_input(Rc::new(connection.clone()));
+                let adjacent_to_from = self.adjacency.entry(from).or_default();
+                adjacent_to_from.push((to, Rc::new(connection)));
+            },
+            _ => panic!("You an edge cannot point to an input node")
+        }
     }
+
+    // pub fn push_undirected_edge(
+    //     &mut self,
+    //     from: VId,
+    //     to: VId,
+    //     edge: Edge,
+    //     ) {
+    //     self.push_connection(from.clone(), to.clone(), edge.clone());
+    //     self.push_connection(from, to, edge);
+    // }
 
     pub fn print(&self) {
         println!("Graph:");
         println!("\tVertecies:");
         for (k, v) in &self.vertices {
-            println!("\t\t{} : {:?}", k, v.get_inputs())
+            match v {
+                Node::Inner(n) => println!("\t\t{} : INNER : {:?}", k, n.get_inputs()),
+                Node::Input(n) => println!("\t\t{} : INPUT : {:?}", k, n.get_inputs()),
+            }
         }
         println!("\n\tConnections:");
         for (vid, to) in &self.adjacency {

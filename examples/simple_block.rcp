@@ -1,4 +1,3 @@
-block main(a: int(RED), b: int (GREEN), c: int(BLUE)) -> (d: int(WHITE), e: int) {
+block main(a: int(RED), b: int (GREEN), c: int(BLUE)) -> (d: int(WHITE)) {
     d = a + b * c - 500;
-    e = b / 4;
 }

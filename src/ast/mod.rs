@@ -6,7 +6,7 @@ pub mod lexer;
 pub mod parser;
 
 pub struct AST {
-    statements: Vec<Statement>,
+    pub statements: Vec<Statement>,
 }
 
 impl AST {
@@ -85,7 +85,7 @@ pub trait Visitor {
 
 #[derive(Debug, Clone)]
 pub struct Statement {
-    kind: StatementKind,
+    pub kind: StatementKind,
 }
 
 impl Statement {
@@ -95,7 +95,7 @@ impl Statement {
 }
 
 #[derive(Debug, Clone)]
-enum StatementKind {
+pub enum StatementKind {
     Expression(Expression),
     Block(Block),
 }
@@ -110,8 +110,8 @@ pub enum VariableType {
 
 #[derive(Debug, Clone)]
 pub struct Variable {
-    name: String,
-    variable_type: VariableType,
+    pub name: String,
+    pub variable_type: VariableType,
 }
 
 impl Variable {
@@ -122,10 +122,10 @@ impl Variable {
 
 #[derive(Debug, Clone)]
 pub struct Block {
-    name: String,
-    inputs: Vec<Rc<Variable>>,
-    outputs: Vec<Rc<Variable>>,
-    statements: Vec<Statement>
+    pub name: String,
+    pub inputs: Vec<Rc<Variable>>,
+    pub outputs: Vec<Rc<Variable>>,
+    pub statements: Vec<Statement>
 }
 
 impl Block {
