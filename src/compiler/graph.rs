@@ -38,7 +38,8 @@ impl ArithmeticConnection {
 
 #[derive(Clone, Debug)]
 pub enum Connection {
-    Arithmetic(ArithmeticConnection)
+    Arithmetic(ArithmeticConnection),
+
 }
 
 
@@ -54,6 +55,14 @@ impl Node {
 
     fn add_input(&mut self, edge: Edge) {
         self.inputs.push(edge);
+    }
+
+    fn get_inputs(&self) -> Vec<IOType> {
+        self.inputs.iter().map(|c| match c.as_ref().clone() {
+            Connection::Arithmetic(ac) => {
+                ac.output
+            }
+        }).collect()
     }
 }
 
@@ -80,9 +89,9 @@ impl Graph
         self.vertices.get_mut(vid)
     }
 
-    pub fn push_vertex(&mut self, vertex: Node) -> VId {
+    pub fn push_vertex(&mut self) -> VId {
         let vid = self.next_vid;
-        if self.vertices.insert(vid, vertex).is_some() {
+        if self.vertices.insert(vid, Node::new()).is_some() {
             panic!("Could not insert node into graph")
         }
         self.next_vid += 1;
@@ -109,7 +118,7 @@ impl Graph
         println!("Graph:");
         println!("\tVertecies:");
         for (k, v) in &self.vertices {
-            println!("\t\t{} {:?}", k, v)
+            println!("\t\t{} : {:?}", k, v.get_inputs())
         }
         println!("\n\tConnections:");
         for (vid, to) in &self.adjacency {
