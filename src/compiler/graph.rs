@@ -14,7 +14,7 @@ pub enum ArithmeticOperation {
 pub enum IOType {
     Signal(String),
     AnySignal(u64),
-    Constant(i32)
+    Constant(u32)
 }
 
 #[derive(Clone, Debug)]
@@ -31,15 +31,21 @@ impl ArithmeticConnection {
         Self {left, right, operation, output}
     }
 
-    pub fn new_pick(t: IOType) -> Self {
-        Self::new(t.clone(), IOType::Constant(0), ArithmeticOperation::ADD, t)
+    pub fn new_pick(signal: &str) -> Self {
+        let s = IOType::Signal(signal.to_string());
+        Self::new(s.clone(), IOType::Constant(0), ArithmeticOperation::ADD, s)
     }
 }
 
 #[derive(Clone, Debug)]
 pub enum Connection {
     Arithmetic(ArithmeticConnection),
+}
 
+impl Connection {
+    pub fn pick(signal: &str) -> Self {
+        Self::Arithmetic(ArithmeticConnection::new_pick(signal))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -89,13 +95,13 @@ impl NodeInputs for InnerNode {
         self.inputs.iter().map(|c| match c.as_ref().clone() {
             Connection::Arithmetic(ac) => {
                 ac.output
-            }
+            },
         }).collect()
     }
 }
 
 pub type Edge = Rc<Connection>;
-type VId = u64;
+pub type VId = u64;
 
 pub struct Graph {
     vertices: FnvHashMap<VId, Node>,
@@ -124,6 +130,10 @@ impl Graph
         }
         self.next_vid += 1;
         vid
+    }
+
+    pub fn push_input_node(&mut self, inputs: Vec<IOType>) -> VId {
+        self.push_node(Node::Input(InputNode::new(inputs)))
     }
 
     pub fn push_inner_node(&mut self) -> VId {

@@ -27,13 +27,15 @@ fn main() {
     println!("\nPrinting AST:");
     ast.print();
 
+    println!("\n-------------------------------------------------------------------------------\n");
 
     let mut graph = Graph::new();
-    let input = graph.push_node(Node::Input(InputNode::new(vec![
-                                              IOType::Signal("RED".to_string()),
-                                              IOType::Signal("GREEN".to_string()),
-                                              IOType::Signal("BLUE".to_string()),
-                                              ])));
+    let input = graph.push_input_node(vec![ 
+                                      IOType::Signal("RED".to_string()), 
+                                      IOType::Signal("GREEN".to_string()), 
+                                      IOType::Signal("BLUE".to_string()),
+    ]); 
+
     let v2 = graph.push_inner_node();
     let v3 = graph.push_inner_node();
     let output = graph.push_inner_node();
@@ -48,7 +50,7 @@ fn main() {
                 ));
 
     graph.push_connection(input, v2, Connection::Arithmetic(
-                ArithmeticConnection::new_pick(IOType::Signal("RED".to_string()))
+                ArithmeticConnection::new_pick("RED")
                 ));
 
     graph.push_connection(v2, v3, Connection::Arithmetic(
@@ -71,10 +73,10 @@ fn main() {
 
     graph.print();
 
-    println!("\n\n");
+    println!("\n-------------------------------------------------------------------------------\n");
 
     let mut compiler = Compiler::new(ast);
-    compiler.compile_next();
+    compiler.compile();
 
     println!("DONE.");
 }

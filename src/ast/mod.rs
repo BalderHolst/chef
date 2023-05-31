@@ -35,11 +35,12 @@ pub trait Visitor {
             StatementKind::Block(block) => {
                 self.visit_block(block);
             }
+            StatementKind::Assignment(assignment) => {
+                self.visit_assignment(assignment);
+            }
         }
     }
-    fn visit_statement(&mut self, statement: &Statement) {
-        self.do_visit_statement(statement);
-    }
+
     fn do_visit_expression(&mut self, expression: &Expression) {
         match &expression.kind {
             ExpressionKind::Number(number) => {
@@ -56,18 +57,29 @@ pub trait Visitor {
             }
         }
     }
-    fn visit_expression(&mut self, expression: &Expression) {
-        self.do_visit_expression(expression);
-    }
-
     fn do_visit_block(&mut self, block: &Block) {
         for statement in &block.statements {
             self.visit_statement(&statement);
         }
     }
+    fn do_visit_assignment(&mut self, assignment: &Assignment) {
+        self.visit_expression(&assignment.expression)
+    }
+
+    fn visit_statement(&mut self, statement: &Statement) {
+        self.do_visit_statement(statement);
+    }
+    fn visit_expression(&mut self, expression: &Expression) {
+        self.do_visit_expression(expression);
+    }
+
 
     fn visit_block(&mut self, block: &Block) {
         self.do_visit_block(block);
+    }
+
+    fn visit_assignment(&mut self, assignment: &Assignment) {
+        self.do_visit_assignment(assignment);
     }
 
     fn visit_number(&mut self, number: &NumberExpression);
@@ -97,6 +109,7 @@ impl Statement {
 #[derive(Debug, Clone)]
 pub enum StatementKind {
     Expression(Expression),
+    Assignment(Assignment),
     Block(Block),
 }
 
@@ -121,6 +134,18 @@ impl Variable {
 }
 
 #[derive(Debug, Clone)]
+pub struct Assignment {
+    pub variable: Rc<Variable>,
+    pub expression: Expression,
+}
+
+impl Assignment {
+    pub fn new(variable: Rc<Variable>, expression: Expression) -> Self {
+        Self { variable, expression }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Block {
     pub name: String,
     pub inputs: Vec<Rc<Variable>>,
@@ -136,7 +161,7 @@ impl Block {
 
 #[derive(Debug, Clone)]
 pub struct Expression {
-    kind: ExpressionKind,
+    pub kind: ExpressionKind,
 }
 
 impl Expression {
@@ -154,7 +179,7 @@ impl Expression {
 }
 
 #[derive(Debug, Clone)]
-enum ExpressionKind {
+pub enum ExpressionKind {
     Number(NumberExpression),
     Binary(BinaryExpression),
     Parenthesized(ParenthesizedExpression),
@@ -163,7 +188,7 @@ enum ExpressionKind {
 
 #[derive(Debug, Clone)]
 pub struct NumberExpression {
-    number: u32,
+    pub number: u32,
 }
 
 impl NumberExpression {
@@ -185,9 +210,9 @@ impl ParenthesizedExpression {
 
 #[derive(Debug, Clone)]
 pub struct BinaryExpression {
-    left: Box<Expression>,
-    right: Box<Expression>,
-    operator: BinaryOperator,
+    pub left: Box<Expression>,
+    pub right: Box<Expression>,
+    pub operator: BinaryOperator,
 }
 
 impl BinaryExpression {
@@ -197,8 +222,8 @@ impl BinaryExpression {
 }
 
 #[derive(Debug, Clone)]
-struct BinaryOperator {
-    kind: BinaryOperatorKind,
+pub struct BinaryOperator {
+    pub kind: BinaryOperatorKind,
 }
 
 impl BinaryOperator {
@@ -208,11 +233,10 @@ impl BinaryOperator {
 
     fn precedence(&self) -> u8 {
         match self.kind {
-            BinaryOperatorKind::Plus => 1,
-            BinaryOperatorKind::Minus => 1,
-            BinaryOperatorKind::Multiply => 2,
-            BinaryOperatorKind::Divide => 2,
-            BinaryOperatorKind::Assign => 0,
+            BinaryOperatorKind::Plus => 2,
+            BinaryOperatorKind::Minus => 2,
+            BinaryOperatorKind::Multiply => 3,
+            BinaryOperatorKind::Divide => 3,
         }
     }
 }
@@ -224,18 +248,16 @@ impl Display for BinaryOperator {
             BinaryOperatorKind::Minus => write!(f, "-"),
             BinaryOperatorKind::Multiply => write!(f, "*"),
             BinaryOperatorKind::Divide => write!(f, "/"),
-            BinaryOperatorKind::Assign => write!(f, "="),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-enum BinaryOperatorKind {
+pub enum BinaryOperatorKind {
     Plus,
     Minus,
     Multiply,
     Divide,
-    Assign,
 }
 
 const INDENTATON: usize = 4;
@@ -274,6 +296,13 @@ impl Visitor for Printer {
         self.print(&format!("Block: {} {:?} -> {:?}", block.name, block.inputs, block.outputs));
         self.indent();
         self.do_visit_block(&block);
+        self.unindent();
+    }
+
+    fn visit_assignment(&mut self, assignment: &Assignment) {
+        self.print(&format!("Assignment: {:?}", assignment.variable));
+        self.indent();
+        self.do_visit_assignment(&assignment);
         self.unindent();
     }
 

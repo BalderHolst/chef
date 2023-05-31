@@ -1,3 +1,4 @@
+use std::env::var;
 use std::rc::Rc;
 
 use crate::ast::lexer::{Token, TokenKind};
@@ -7,6 +8,8 @@ use crate::ast::{
     BinaryExpression, BinaryOperator, BinaryOperatorKind,
     VariableType,
 };
+
+use super::Assignment;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -64,24 +67,35 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<Statement> {
         match &self.current()?.kind {
             TokenKind::Word(word) => {
-                match word.as_str() {
-                    "block" => self.parse_block(),
-                    _ => self.parse_expression_statement()
-                }
+                let kind = match word.as_str() {
+                    "block" => StatementKind::Block(self.parse_block()?),
+                    _ => StatementKind::Assignment(self.parse_assignment_statement()?),
+                };
+                Some(Statement::new(kind))
             },
             _ => {
-                self.parse_expression_statement()
+                None
             }
         }
     }
 
-    fn parse_expression_statement(&mut self) -> Option<Statement> {
+    fn parse_assignment_statement(&mut self) -> Option<Assignment> {
+        let variable: Rc<Variable>;
+        if let ExpressionKind::Variable(v) = self.parse_primary_expression()?.kind {
+            variable = v;
+        }
+        else { panic!("expected variable.") }
+
+        if self.consume().expect("expected second token for variable assignment").kind != TokenKind::Equals {
+            panic!("Could not find assignment operator")
+        }
+
         let expr = self.parse_expression()?;
         let end_token = self.consume().expect("Expected end token at the end of expression statement.");
         if end_token.kind != TokenKind::Semicolon {
             panic!("Expected ; at the end of expression statement.")
         }
-        Some(Statement::new(StatementKind::Expression(expr)))
+        Some(Assignment::new(variable, expr))
     }
 
     fn parse_variable_type(&mut self) -> VariableType {
@@ -145,7 +159,7 @@ impl Parser {
         Some(Variable::new(name, t))
     }
 
-    fn parse_block(&mut self) -> Option<Statement> {
+    fn parse_block(&mut self) -> Option<Block> {
         self.consume().unwrap();
         self.enter_scope();
 
@@ -185,7 +199,7 @@ impl Parser {
 
         if self.consume()?.kind != TokenKind::LeftCurly { panic!("Did not find LEFTCURLY output paren for block") }
 
-        while let Some(statement) = self.parse_expression_statement() {
+        while let Some(statement) = self.parse_statement() {
             statements.push(statement);
         }
 
@@ -193,7 +207,7 @@ impl Parser {
 
         self.exit_scope();
 
-        Some(Statement::new(StatementKind::Block(Block::new(name, inputs, outputs, statements))))
+        Some(Block::new(name, inputs, outputs, statements))
     }
 
     fn parse_expression(&mut self) -> Option<Expression> {
@@ -207,7 +221,6 @@ impl Parser {
             TokenKind::Minus => Some(BinaryOperator::new(BinaryOperatorKind::Minus)),
             TokenKind::Asterisk => Some(BinaryOperator::new(BinaryOperatorKind::Multiply)),
             TokenKind::Slash => Some(BinaryOperator::new(BinaryOperatorKind::Divide)),
-            TokenKind::Equals => Some(BinaryOperator::new(BinaryOperatorKind::Assign)),
             _ => None,
         }
     }

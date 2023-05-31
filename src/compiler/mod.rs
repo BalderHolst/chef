@@ -1,23 +1,24 @@
 use crate::compiler::graph::*;
-use crate::ast::AST;
+use crate::ast::{AST, Expression, ExpressionKind, BinaryExpression, BinaryOperator, Assignment, BinaryOperatorKind};
 use crate::ast::{Statement, StatementKind, VariableType};
 
 pub mod graph;
 
 pub struct Compiler {
     ast: AST,
-    cursor: usize,
     next_anysignal: u64,
+    graph: Graph,
 }
 
 impl Compiler {
     pub fn new(ast: AST) -> Self {
-        Self { ast, cursor:0, next_anysignal: 0 }
+        Self { ast, next_anysignal: 0, graph: Graph::new() }
     }
 
-    pub fn compile_next(&mut self) -> Option<Graph> {
-        let statement = self.ast.statements.get(self.cursor)?.clone();
-        Some(self.compile_statement(statement))
+    pub fn compile(&mut self) {
+        for statement in self.ast.statements.clone() {
+            self.compile_statement(statement);
+        }
     }
 
     fn get_new_anysignal(&mut self) -> IOType {
@@ -26,45 +27,73 @@ impl Compiler {
         signal
     }
 
-    fn compile_statement(&mut self, statement: Statement) -> Graph {
-        let mut graph = Graph::new();
+    fn compile_expression(&mut self, expr: &Expression) -> (VId, IOType) {
+        match &expr.kind {
+            ExpressionKind::Number(n) => {
+                let t = IOType::Constant(n.number);
+                (self.graph.push_input_node(vec![t.clone()]), t)
+            },
+            ExpressionKind::Variable(var) => {
+                let signal = match &var.variable_type {
+                    VariableType::All => todo!(),
+                    VariableType::Any => self.get_new_anysignal(),
+                    VariableType::Int(s) => IOType::Signal(s.clone()),
+                };
+                (self.graph.push_input_node(vec![signal.clone()]), signal)
+            },
+            ExpressionKind::Parenthesized(expr) => todo!(),
+            ExpressionKind::Binary(bin_expr) => {
+                let (left_vid, left_type) = self.compile_expression(&*bin_expr.left);
+                let (right_vid, right_type) = self.compile_expression(&*bin_expr.right);
+
+                let operation = match bin_expr.operator.kind {
+                    BinaryOperatorKind::Plus => ArithmeticOperation::ADD,
+                    BinaryOperatorKind::Minus => ArithmeticOperation::SUBTRACT,
+                    BinaryOperatorKind::Multiply => ArithmeticOperation::MULTIPLY,
+                    BinaryOperatorKind::Divide => ArithmeticOperation::DIVIDE,
+                };
+
+                let input = self.graph.push_inner_node();
+                let output = self.graph.push_inner_node();
+
+                self.graph.push_connection(left_vid, input, Connection::Arithmetic(
+                        ArithmeticConnection::new(left_type.clone(), IOType::Constant(0), ArithmeticOperation::ADD, left_type.clone()
+                )));
+
+                self.graph.push_connection(right_vid, input, Connection::Arithmetic(
+                        ArithmeticConnection::new(right_type.clone(), IOType::Constant(0), ArithmeticOperation::ADD, right_type.clone()
+                )));
+
+                let out_type = self.get_new_anysignal();
+                let arithmetic_connection = ArithmeticConnection::new(left_type, right_type, operation, out_type.clone());
+                self.graph.push_connection(input, output, Connection::Arithmetic(arithmetic_connection));
+                (output, out_type)
+            },
+        }
+    }
+
+    fn compile_assignment(&mut self, assignment: &Assignment) {
+        self.compile_expression(&assignment.expression);
+    }
+
+    fn compile_statement(&mut self, statement: Statement) {
         match &statement.kind {
             StatementKind::Block(block) => {
-                // let all = graph.push_vertex();
-                // let input = graph.push_vertex();
-
-                // for input_var in &block.inputs {
-                //     let io_type = match &input_var.variable_type {
-                //         VariableType::Int(t) => IOType::Signal(t.clone()),
-                //         VariableType::Any => self.get_new_anysignal(),
-                //         VariableType::All => {
-                //             todo!("All not implemented as input")
-                //         }
-                //     };
-
-                //     graph.push_edge(all, input, Edge::new(
-                //             Connection::Arithmetic(
-                //                 ArithmeticConnection::new_pick(io_type)
-                //                 )
-                //             ))
-                // }
-
                 for statement in &block.statements {
                     match &statement.kind {
-                        StatementKind::Expression(expr) => {
-                             
+                        StatementKind::Block(_) => todo!("Blocks within block are not implemented."),
+                        StatementKind::Expression(expr) => { self.compile_expression(expr); },
+                        StatementKind::Assignment(assignment) => {
+                            let output_vid = self.compile_assignment(assignment);
                         },
-                        StatementKind::Block(_) => todo!("Blocks within block are not implemented.")
-                    }
+                    };
                 }
 
             }
             _ => todo!("Only block statements inplemented"),
         }
 
-        graph.print();
-
-        todo!()
+        self.graph.print();
     }
 
 }
