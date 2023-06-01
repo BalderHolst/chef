@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::compiler::graph::*;
 use crate::ast::{AST, Expression, ExpressionKind, BinaryExpression, BinaryOperator, Assignment, BinaryOperatorKind};
 use crate::ast::{Statement, StatementKind, VariableType};
@@ -8,11 +10,38 @@ pub struct Compiler {
     ast: AST,
     next_anysignal: u64,
     graph: Graph,
+    scopes: Vec<HashMap<String, VId>>,
 }
 
 impl Compiler {
     pub fn new(ast: AST) -> Self {
-        Self { ast, next_anysignal: 0, graph: Graph::new() }
+        Self { ast, next_anysignal: 0, graph: Graph::new(), scopes: vec![HashMap::new()] }
+    }
+
+    fn enter_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    fn exit_scope(&mut self) {
+        self.scopes.pop().unwrap();
+    }
+
+    fn add_to_scope(&mut self, variable_name: String, output_vid: VId) {
+        if self.scopes.last_mut().unwrap().insert(variable_name.clone(), output_vid).is_some() {
+            panic!("tried to override a variable in scope.")
+        }
+        println!("Added {} to scope.", variable_name)
+    }
+
+    fn search_scope(&self, variable_name: String) -> Option<VId> {
+        let scopes_len = self.scopes.len();
+        for i in 0..scopes_len {
+            let p = scopes_len - i - 1;
+            if let Some(vid) = self.scopes.get(p).unwrap().get(&variable_name) {
+                return Some(vid.clone());
+            }
+        }
+        None
     }
 
     pub fn compile(&mut self) {
@@ -31,15 +60,39 @@ impl Compiler {
         match &expr.kind {
             ExpressionKind::Number(n) => {
                 let t = IOType::Constant(n.number);
-                (self.graph.push_input_node(vec![t.clone()]), t)
+                (self.graph.push_input_node("".to_string(), vec![t.clone()]), t) // TODO: It is ugly with "" being the variable name.
             },
             ExpressionKind::Variable(var) => {
-                let signal = match &var.variable_type {
-                    VariableType::All => todo!(),
-                    VariableType::Any => self.get_new_anysignal(),
-                    VariableType::Int(s) => IOType::Signal(s.clone()),
-                };
-                (self.graph.push_input_node(vec![signal.clone()]), signal)
+                if let Some(var_node_vid) = self.search_scope(var.name.clone()) {
+                    let var_node = self.graph.get_vertex(&var_node_vid).unwrap();
+                    if let Node::Output(var_output_node) = var_node {
+                        println!("Found {} in scope!", var.name);
+                        let signal = var_output_node.output_type.clone(); // TODO add connection
+                        let vid = self.graph.push_node(Node::Inner(InnerNode::new()));
+
+                        // pick
+                        self.graph.push_connection(var_node_vid, vid, Connection::Arithmetic(
+                                ArithmeticConnection::new(signal.clone(), IOType::Constant(0), ArithmeticOperation::ADD, signal.clone())
+                                ));
+
+                        (vid, signal)
+                    }
+                    else { panic!("Var nodes should be output nodes") }
+                }
+                else {
+                    match &var.variable_type {
+                        VariableType::All => todo!(),
+                        VariableType::Any => {
+                            println!("Could not find {} in scope.", var.name);
+                            let signal = self.get_new_anysignal();
+                            (self.graph.push_input_node(var.name.clone(), vec![signal.clone()]), signal)
+                        },
+                        VariableType::Int(s) => {
+                            let signal = IOType::Signal(s.clone());
+                            (self.graph.push_input_node(var.name.clone(), vec![signal.clone()]), signal)
+                        }
+                    }
+                }
             },
             ExpressionKind::Parenthesized(expr) => todo!(),
             ExpressionKind::Binary(bin_expr) => {
@@ -77,27 +130,43 @@ impl Compiler {
         }
     }
 
+    fn variable_type_to_iotype(&mut self, variable_type: &VariableType) -> IOType {
+        match variable_type {
+            VariableType::Int(s) => IOType::Signal(s.clone()),
+            VariableType::Any => self.get_new_anysignal(),
+            VariableType::All => todo!()
+        }
+    }
+
     fn compile_statement(&mut self, statement: Statement) {
         match &statement.kind {
             StatementKind::Block(block) => {
+                self.enter_scope();
                 for statement in &block.statements {
                     match &statement.kind {
                         StatementKind::Block(_) => todo!("Blocks within block are not implemented."),
                         StatementKind::Expression(expr) => { self.compile_expression(expr, None); },
                         StatementKind::Assignment(assignment) => {
-                            let out_type = match &assignment.variable.variable_type {
-                                VariableType::Int(s) => IOType::Signal(s.clone()),
-                                VariableType::Any => self.get_new_anysignal(),
-                                VariableType::All => todo!()
-                            };
-                            let (output_vid, _) = self.compile_expression(&assignment.expression, Some(out_type));
-                            let mut output_node = self.graph.get_mut_vertex(&output_vid).unwrap();
+                            let out_type = self.variable_type_to_iotype(&assignment.variable.variable_type);
+                            let (output_vid, _) = self.compile_expression(&assignment.expression, Some(out_type.clone()));
+                            let output_node = self.graph.get_vertex(&output_vid).unwrap();
+                            match output_node {
+                                Node::Inner(n) => { // Convert inner node to output node
+                                    let mut new_out_node = OutputNode::new(assignment.variable.name.clone(), out_type);
+                                    new_out_node.inputs = n.inputs.clone();
+                                    let new_node = Node::Output(new_out_node);
+                                    self.graph.override_node(output_vid, new_node);
+                                    self.add_to_scope(assignment.variable.name.clone(), output_vid);
+                                },
+                                Node::Input(_) => todo!(),
+                                Node::Output(_) => panic!("dont think there should be an ouput node here at this stage..."),
+                            }
                         },
                     };
                 }
-
+            self.exit_scope();
             }
-            _ => todo!("Only block statements inplemented"),
+            _ => todo!("Only block statements inplemented for now."),
         }
 
         self.graph.print();

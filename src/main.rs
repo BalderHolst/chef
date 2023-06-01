@@ -30,7 +30,7 @@ fn main() {
     println!("\n-------------------------------------------------------------------------------\n");
 
     let mut graph = Graph::new();
-    let input = graph.push_input_node(vec![ 
+    let input = graph.push_input_node("a".to_string(), vec![ 
                                       IOType::Signal("RED".to_string()), 
                                       IOType::Signal("GREEN".to_string()), 
                                       IOType::Signal("BLUE".to_string()),

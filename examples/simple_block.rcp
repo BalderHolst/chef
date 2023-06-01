@@ -1,3 +1,5 @@
 block main(a: int(RED), b: int(BLUE)) -> (output: int(WHITE)) {
-    output = 2 + a * b;
+    c: int = a / 4;
+    d: int(DTYPE)= b + 3;
+    output = c + d;
 }
