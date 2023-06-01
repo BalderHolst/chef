@@ -273,7 +273,11 @@ impl Parser {
                     return Some(Expression::new(ExpressionKind::Variable(var)));
                 }
                 else if current_token.is_some() && current_token.unwrap().kind == TokenKind::Colon {
-                    todo!("Parse type");
+                    self.consume().unwrap();
+                    let t = self.parse_variable_type();
+                    let var = Rc::new(Variable::new(word, t));
+                    self.add_to_scope(var.clone());
+                    return Some(Expression::new( ExpressionKind::Variable(var)))
                 }
                 else {
                     panic!("No type for variable.")
