@@ -33,13 +33,15 @@ fn main() {
         ast.add_statement(statement);
     }
 
+    println!("\nPrinting AST:");
+    ast.print();
+
     if diagnostics_bag.borrow().has_errored() {
+        println!("\n");
         diagnostics_bag.borrow().print(&text);
         return;
     }
 
-    println!("\nPrinting AST:");
-    ast.print();
 
 //     println!("\n-------------------------------------------------------------------------------\n");
 

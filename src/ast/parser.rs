@@ -83,7 +83,8 @@ impl Parser {
         self.scopes.last_mut().unwrap().push(var);
     }
 
-    fn parse_statement(&mut self) -> Option<Statement> {
+    fn next_statement(&mut self) -> Option<Statement> {
+        println!("next statement!");
         match &self.current().kind {
             TokenKind::Word(word) => {
                 let kind = match word.as_str() {
@@ -92,13 +93,13 @@ impl Parser {
                 };
                 Some(Statement::new(kind))
             },
-            TokenKind::End => {
-                None
-            }
+            TokenKind::End => None,
+            TokenKind::RightCurly => None,
             _ => {
+                let token = self.current();
                 self.diagnostics_bag.borrow_mut().report_error(
-                    self.current(),
-                    "A statement cannot begin with this token."
+                    token,
+                    &format!("A statement cannot begin with a `{}` token", token.kind)
                     );
                 self.consume();
                 Some(Statement::new(StatementKind::Error))
@@ -220,7 +221,7 @@ impl Parser {
 
         self.consume_and_check(TokenKind::LeftCurly);
 
-        while let Some(statement) = self.parse_statement() {
+        while let Some(statement) = self.next_statement() {
             statements.push(statement);
         }
 
@@ -324,6 +325,6 @@ impl Parser {
 impl Iterator for Parser {
     type Item = Statement;
     fn next(&mut self) -> Option<Self::Item> {
-        self.parse_statement()
+        self.next_statement()
     }
 }
