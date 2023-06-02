@@ -2,6 +2,9 @@ use std::path::Path;
 use std::fs;
 use std::io;
 
+use crate::diagnostics::DiagnosticsBagRef;
+use crate::text::SourceText;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     Number(u32),
@@ -28,13 +31,13 @@ pub enum TokenKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct TokenSpan {
-    start: usize,
-    end: usize,
-    text: String,
+pub struct TextSpan {
+    pub start: usize,
+    pub end: usize,
+    pub text: String,
 }
 
-impl TokenSpan {
+impl TextSpan {
     fn new(start: usize, end: usize, text: String) -> Self {
         Self { start, end, text }
     }
@@ -43,28 +46,28 @@ impl TokenSpan {
 #[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
-    pub span: TokenSpan,
+    pub span: TextSpan,
 }
 
 impl Token {
-    fn new(kind: TokenKind, span: TokenSpan) -> Self {
+    fn new(kind: TokenKind, span: TextSpan) -> Self {
         Self { kind, span }
     }
 }
 
-pub(crate) struct Lexer {
-    input: String,
+pub struct Lexer<'a> {
+    input: &'a str,
     cursor: usize,
+    diagnostics_bag: DiagnosticsBagRef,
 }
 
-impl Lexer {
-    pub fn new(input: &str) -> Self {
-        Lexer { input: input.to_string(), cursor: 0 }
+impl<'a> Lexer<'a> {
+    pub fn new(diagnostics_bag: DiagnosticsBagRef, input: &'a str) -> Self {
+        Lexer { diagnostics_bag, input, cursor: 0 }
     }
 
-    pub fn from_file(path: &str) -> io::Result<Self> {
-        let input = fs::read_to_string(path)?;
-        Ok(Lexer { input, cursor: 0 })
+    pub fn from_source(diagnostics_bag: DiagnosticsBagRef, text: &'a SourceText) -> Self {
+        Lexer { diagnostics_bag, input: &text.text.as_str(), cursor: 0 }
     }
 
     fn current(&self) -> Option<char> {
@@ -146,7 +149,7 @@ impl Lexer {
     }
 }
 
-impl Iterator for Lexer {
+impl<'a> Iterator for Lexer<'a> {
     type Item = Token;
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.cursor;
@@ -173,7 +176,12 @@ impl Iterator for Lexer {
             kind = self.consume_punctuation();
         }
         let end = self.cursor;
-        let token = Token::new(kind, TokenSpan::new(start, end, self.input[start..end].to_string()));
+        let token = Token::new(kind, TextSpan::new(start, end, self.input[start..end].to_string()));
+
+        if token.kind == TokenKind::Bad {
+            self.diagnostics_bag.borrow_mut().report_bad_token(&token);
+        }
+
         Some(token)
     }
 }

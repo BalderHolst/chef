@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 factorio-blueprint = "0.3.0"
 fnv = "1.0.7"
+termion = "2.0.1"
