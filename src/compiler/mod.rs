@@ -162,6 +162,7 @@ impl Compiler {
                                 Node::Output(_) => panic!("dont think there should be an ouput node here at this stage..."),
                             }
                         },
+                        StatementKind::Error => panic!("There should not be error statements when compilation has started."),
                     };
                 }
             self.exit_scope();

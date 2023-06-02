@@ -28,6 +28,7 @@ pub enum TokenKind {
     RightArrow,
     Whitespace,
     Bad,
+    End,
 }
 
 #[derive(Debug, Clone)]
@@ -38,8 +39,8 @@ pub struct TextSpan {
 }
 
 impl TextSpan {
-    fn new(start: usize, end: usize, text: String) -> Self {
-        Self { start, end, text }
+    fn new(start: usize, end: usize, text: &str) -> Self {
+        Self { start, end, text: text.to_string() }
     }
 }
 
@@ -59,15 +60,16 @@ pub struct Lexer<'a> {
     input: &'a str,
     cursor: usize,
     diagnostics_bag: DiagnosticsBagRef,
+    placed_end_token: bool,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(diagnostics_bag: DiagnosticsBagRef, input: &'a str) -> Self {
-        Lexer { diagnostics_bag, input, cursor: 0 }
+        Lexer { diagnostics_bag, input, cursor: 0, placed_end_token: false }
     }
 
     pub fn from_source(diagnostics_bag: DiagnosticsBagRef, text: &'a SourceText) -> Self {
-        Lexer { diagnostics_bag, input: &text.text.as_str(), cursor: 0 }
+        Lexer::new(diagnostics_bag, &text.text)
     }
 
     fn current(&self) -> Option<char> {
@@ -78,10 +80,6 @@ impl<'a> Lexer<'a> {
         let c = self.current();
         self.cursor += 1;
         c
-    }
-
-    fn is_number_start(&self) -> Option<bool> {
-        Some(self.current()?.is_digit(10))
     }
 
     fn consume_number(&mut self) -> Option<u32> {
@@ -98,12 +96,20 @@ impl<'a> Lexer<'a> {
         Some(n)
     }
 
-    fn is_whitespace(&self) -> Option<bool> {
-        Some(self.current()?.is_whitespace())
+    fn is_number_start(c: char) -> bool {
+        c.is_digit(10)
     }
 
-    fn is_punctuation_start(&self) -> Option<bool> {
-        Some(!self.is_word_char()? && !self.is_whitespace()? && !self.is_number_start()?)
+    fn is_word_char(c: char) -> bool {
+        c.is_alphabetic()
+    }
+
+    fn is_whitespace(c: char) -> bool {
+        c.is_whitespace()
+    }
+
+    fn is_punctuation_start(c: char) -> bool {
+        !Self::is_word_char(c) && !c.is_whitespace() && !Self::is_number_start(c)
     }
 
     fn consume_punctuation(&mut self) -> TokenKind {
@@ -143,40 +149,46 @@ impl<'a> Lexer<'a> {
             _ => TokenKind::Bad,
         }
     }
-
-    fn is_word_char(&self) -> Option<bool> {
-        Some(self.current()?.is_alphabetic())
-    }
 }
 
 impl<'a> Iterator for Lexer<'a> {
     type Item = Token;
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.cursor;
-        let kind: TokenKind;
-        if self.is_number_start()? {
-            let n = self.consume_number()?;
-            kind = TokenKind::Number(n);
+
+        let current_char = if let Some(c) = self.current() { c }
+        else if !self.placed_end_token {
+            self.placed_end_token = true;
+            let pos = self.input.len();
+            return Some(Token::new(TokenKind::End, TextSpan::new(pos, pos, "")));
         }
-        else if self.is_whitespace()? {
+        else {
+            return None;
+        };
+        
+        let kind = if Self::is_number_start(current_char) {
+            let n = self.consume_number()?;
+            TokenKind::Number(n)
+        }
+        else if Self::is_whitespace(current_char) {
             while let Some(c) = self.current() {
                 if !c.is_whitespace() { break; }
                 self.consume().unwrap();
             }
-            kind = TokenKind::Whitespace;
+            TokenKind::Whitespace
         }
-        else if self.is_word_char()? {
+        else if Self::is_word_char(current_char) {
             let mut word = "".to_string();
-            while Some(true) == self.is_word_char() {
+            while self.current().is_some() && true == Self::is_word_char(self.current().unwrap()) {
                 word += self.consume().unwrap().to_string().as_str();
             }
-            kind = TokenKind::Word(word);
+            TokenKind::Word(word)
         }
         else {
-            kind = self.consume_punctuation();
-        }
+            self.consume_punctuation()
+        };
         let end = self.cursor;
-        let token = Token::new(kind, TextSpan::new(start, end, self.input[start..end].to_string()));
+        let token = Token::new(kind, TextSpan::new(start, end, &self.input[start..end]));
 
         if token.kind == TokenKind::Bad {
             self.diagnostics_bag.borrow_mut().report_bad_token(&token);

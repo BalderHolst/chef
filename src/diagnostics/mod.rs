@@ -34,11 +34,13 @@ impl Display for TokenKind {
             TokenKind::RightArrow   => "->",
             TokenKind::Whitespace   => "whitespace",
             TokenKind::Bad          => "bad-token",
+            TokenKind::End          => "end-token",
         };
         write!(f, "{}", string_rep)
     }
 }
 
+#[derive(Debug)]
 pub struct Diagnostic {
     message: String,
     span: TextSpan,
@@ -60,13 +62,16 @@ impl DiagnosticsBag {
         Self { diagnostics: vec![] }
     }
 
-    pub fn report_unexpected_token_with_expected(&mut self, token: &Token, expected: TokenKind) {
-        let message = format!("Bad token, expected {} but found {}.", expected, token.kind);
-        self.diagnostics.push(Diagnostic::new(message, token.span.clone()))
+    pub fn has_errored(&self) -> bool {
+        self.diagnostics.len() > 0
     }
 
-    pub fn report_unexpected_token(&mut self, token: &Token, text: &str) {
-        let message = format!("Bad token {}, {}.", token.kind, text);
+    pub fn report_error(&mut self, token: &Token, message: &str) {
+        self.diagnostics.push(Diagnostic::new(message.to_string(), token.span.clone()))
+    }
+
+    pub fn report_unexpected_token(&mut self, token: &Token, expected: TokenKind) {
+        let message = format!("Expected `{}` but found `{}`.", expected, token.kind);
         self.diagnostics.push(Diagnostic::new(message, token.span.clone()))
     }
 

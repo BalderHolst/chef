@@ -4,7 +4,7 @@ use std::vec;
 
 use crate::ast::lexer::{Lexer, Token};
 use crate::ast::parser::Parser;
-use crate::ast::AST;
+use crate::ast::{AST, Statement};
 use crate::compiler::graph::IOType;
 use crate::compiler::graph::*;
 use crate::compiler::Compiler;
@@ -23,12 +23,9 @@ fn main() {
     let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new()));
 
     let lexer = Lexer::from_source(diagnostics_bag.clone(), &text);
-    // let lexer = Lexer::new("a = 5 + 8; 5 * (9 + 2);");
     let tokens: Vec<Token> = lexer.collect();
 
-    diagnostics_bag.borrow().print(&text);
-
-    let parser = Parser::new(tokens);
+    let parser = Parser::new(diagnostics_bag.clone(), tokens);
     let mut ast = AST::new();
 
     println!("\nBuilding AST...");
@@ -36,13 +33,18 @@ fn main() {
         ast.add_statement(statement);
     }
 
+    if diagnostics_bag.borrow().has_errored() {
+        diagnostics_bag.borrow().print(&text);
+        return;
+    }
+
     println!("\nPrinting AST:");
     ast.print();
 
-    println!("\n-------------------------------------------------------------------------------\n");
+//     println!("\n-------------------------------------------------------------------------------\n");
 
-    let mut compiler = Compiler::new(ast);
-    compiler.compile();
+//     let mut compiler = Compiler::new(ast);
+//     compiler.compile();
 
-    println!("DONE.");
+//     println!("DONE.");
 }

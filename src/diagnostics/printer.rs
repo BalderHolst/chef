@@ -25,28 +25,41 @@ impl<'a> DiagnosticsPrinter<'a> {
 
     /// [ERROR] (file:ll:cc) This is the code in question     - Error message
     fn stringify_diagnostic(&self, d: &Diagnostic) -> String {
-        let (line_nr, line_pos) = self.source_text.get_line_with_position(d.span.start);
+        let (line_nr, line_pos) = self.source_text.get_line_nr_and_position(d.span.start);
         let line = self.source_text.get_line(line_nr).unwrap();
+
         let code = {
             let code_prefix = {
-                let mut s = &line[0..line_pos-1];
-                s = &s[max(0, s.len() as isize - PREFIX_LEN as isize) as usize..];
-                let mut start_whitespace_len: usize = 0;
-                for c in s.chars() {
-                    if !c.is_whitespace() { break; }
-                    start_whitespace_len += 1;
+                if line_pos == 0 {
+                    "".to_string()
                 }
-                format!("{}{}{}{}", 
-                        Bg(color::White),
-                        &s[0..start_whitespace_len],
-                        Bg(color::Reset),
-                        &s[start_whitespace_len..],
-                        )
+                else {
+                    let mut s = &line[0..line_pos-1];
+                    s = &s[max(0, s.len() as isize - PREFIX_LEN as isize) as usize..];
+                    let mut start_whitespace_len: usize = 0;
+                    for c in s.chars() {
+                        if !c.is_whitespace() { break; }
+                        start_whitespace_len += 1;
+                    }
+                    format!("{}{}{}{}", 
+                            Bg(color::White),
+                            &s[0..start_whitespace_len],
+                            Bg(color::Reset),
+                            &s[start_whitespace_len..],
+                            )
+                }
             };
             let code_sufix = {
-                let s = &line[line_pos-1+d.span.text.len()..];
-                if SUFIX_LEN < s.len() { &s[..SUFIX_LEN] }
-                else { s }
+                let start = line_pos as isize +d.span.text.len() as isize;
+                let end = line.len() as isize -1;
+                if start >= end  {
+                    ""
+                }
+                else {
+                    let s = &line[start as usize..end as usize];
+                    if SUFIX_LEN < s.len() { &s[..SUFIX_LEN] }
+                    else { s }
+                }
             };
             format!(
                 "{}{}{}{}{}",

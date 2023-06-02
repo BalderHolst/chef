@@ -38,8 +38,40 @@ pub trait Visitor {
             StatementKind::Assignment(assignment) => {
                 self.visit_assignment(assignment);
             }
+            StatementKind::Error => {
+                self.visit_error();
+            }
         }
     }
+
+    fn visit_statement(&mut self, statement: &Statement) {
+        self.do_visit_statement(statement);
+    }
+
+    fn visit_expression(&mut self, expression: &Expression) {
+        self.do_visit_expression(expression);
+    }
+
+    fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression) {
+        self.visit_expression(&binary_expression.left);
+        self.visit_expression(&binary_expression.right);
+    }
+
+    fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression) {
+        self.visit_expression(&expr.expression);
+    }
+
+    fn visit_block(&mut self, block: &Block) {
+        self.do_visit_block(block);
+    }
+
+    fn visit_assignment(&mut self, assignment: &Assignment) {
+        self.do_visit_assignment(assignment);
+    }
+
+    fn visit_error(&mut self);
+    fn visit_number(&mut self, number: &NumberExpression);
+    fn visit_variable(&mut self, var: &Variable);
 
     fn do_visit_expression(&mut self, expression: &Expression) {
         match &expression.kind {
@@ -57,42 +89,17 @@ pub trait Visitor {
             }
         }
     }
+
     fn do_visit_block(&mut self, block: &Block) {
         for statement in &block.statements {
             self.visit_statement(&statement);
         }
     }
+
     fn do_visit_assignment(&mut self, assignment: &Assignment) {
         self.visit_expression(&assignment.expression)
     }
 
-    fn visit_statement(&mut self, statement: &Statement) {
-        self.do_visit_statement(statement);
-    }
-    fn visit_expression(&mut self, expression: &Expression) {
-        self.do_visit_expression(expression);
-    }
-
-
-    fn visit_block(&mut self, block: &Block) {
-        self.do_visit_block(block);
-    }
-
-    fn visit_assignment(&mut self, assignment: &Assignment) {
-        self.do_visit_assignment(assignment);
-    }
-
-    fn visit_number(&mut self, number: &NumberExpression);
-    fn visit_variable(&mut self, var: &Variable);
-
-    fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression) {
-        self.visit_expression(&expr.expression);
-    }
-
-    fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression) {
-        self.visit_expression(&binary_expression.left);
-        self.visit_expression(&binary_expression.right);
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -111,6 +118,7 @@ pub enum StatementKind {
     Expression(Expression),
     Assignment(Assignment),
     Block(Block),
+    Error,
 }
 
 
@@ -335,5 +343,9 @@ impl Visitor for Printer {
         self.indent();
         self.visit_expression(&expr.expression);
         self.unindent();
+    }
+
+    fn visit_error(&mut self) {
+        self.print("ErrorStatement:")
     }
 }
