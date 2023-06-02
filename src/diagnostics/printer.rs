@@ -28,14 +28,14 @@ impl<'a> DiagnosticsPrinter<'a> {
         let (line_nr, line_pos) = self.source_text.get_line_nr_and_position(d.span.start);
         let line = self.source_text.get_line(line_nr).unwrap();
 
-        let code = {
+        let code: String = {
             let code_prefix = {
                 if line_pos == 0 {
                     "".to_string()
                 }
                 else {
-                    let mut s = &line[0..line_pos-1];
-                    s = &s[max(0, s.len() as isize - PREFIX_LEN as isize) as usize..];
+                    let s = &line[0..line_pos];
+                    let s = &s[max(0, s.len() as isize - PREFIX_LEN as isize) as usize..];
                     let mut start_whitespace_len: usize = 0;
                     for c in s.chars() {
                         if !c.is_whitespace() { break; }
@@ -69,8 +69,11 @@ impl<'a> DiagnosticsPrinter<'a> {
                 Fg(color::Reset),
                 code_sufix,
             )
+                .chars()
+                .filter(|c| c != &'\n')
+                .collect()
         };
-        let location = format!("{}[E]{} {}:{}:{}\t", Fg(color::Red), Fg(color::Reset), "file", line_nr, line_pos);
+        let location = format!("{}[E]{} {}:{}:{}\t", Fg(color::Red), Fg(color::Reset), "file", line_nr+1, line_pos+1);
         let message = format!("{}{}{}", Fg(color::Blue), d.message, Fg(color::Reset));
         format!("{} {} \t-> {}", location, code, message)
     }

@@ -30,7 +30,6 @@ impl Compiler {
         if self.scopes.last_mut().unwrap().insert(variable_name.clone(), output_vid).is_some() {
             panic!("tried to override a variable in scope.")
         }
-        println!("Added {} to scope.", variable_name)
     }
 
     fn search_scope(&self, variable_name: String) -> Option<VId> {
@@ -66,7 +65,6 @@ impl Compiler {
                 if let Some(var_node_vid) = self.search_scope(var.name.clone()) {
                     let var_node = self.graph.get_vertex(&var_node_vid).unwrap();
                     if let Node::Output(var_output_node) = var_node {
-                        println!("Found {} in scope!", var.name);
                         let signal = var_output_node.output_type.clone(); // TODO add connection
                         let vid = self.graph.push_node(Node::Inner(InnerNode::new()));
 
@@ -83,7 +81,6 @@ impl Compiler {
                     match &var.variable_type {
                         VariableType::All => todo!(),
                         VariableType::Any => {
-                            println!("Could not find {} in scope.", var.name);
                             let signal = self.get_new_anysignal();
                             (self.graph.push_input_node(var.name.clone(), vec![signal.clone()]), signal)
                         },
@@ -91,6 +88,7 @@ impl Compiler {
                             let signal = IOType::Signal(s.clone());
                             (self.graph.push_input_node(var.name.clone(), vec![signal.clone()]), signal)
                         }
+                        VariableType::Error => panic!("there should not be any error variables if the compiling step is reached."),
                     }
                 }
             },
@@ -127,6 +125,7 @@ impl Compiler {
                 self.graph.push_connection(input, output, Connection::Arithmetic(arithmetic_connection));
                 (output, out_type)
             },
+            ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }
     }
 
@@ -134,7 +133,8 @@ impl Compiler {
         match variable_type {
             VariableType::Int(s) => IOType::Signal(s.clone()),
             VariableType::Any => self.get_new_anysignal(),
-            VariableType::All => todo!()
+            VariableType::All => todo!(),
+            VariableType::Error => panic!("there should not be any error variables if the compiling step is reached.")
         }
     }
 

@@ -34,7 +34,7 @@ impl Display for TokenKind {
             TokenKind::RightArrow   => "->",
             TokenKind::Whitespace   => "whitespace",
             TokenKind::Bad          => "bad-token",
-            TokenKind::End          => "end-token",
+            TokenKind::End          => "end-of-program",
         };
         write!(f, "{}", string_rep)
     }

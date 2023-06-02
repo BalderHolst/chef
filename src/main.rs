@@ -43,10 +43,10 @@ fn main() {
     }
 
 
-//     println!("\n-------------------------------------------------------------------------------\n");
+    println!("\n-------------------------------------------------------------------------------\n");
 
-//     let mut compiler = Compiler::new(ast);
-//     compiler.compile();
+    let mut compiler = Compiler::new(ast);
+    compiler.compile();
 
-//     println!("DONE.");
+    println!("DONE.");
 }

@@ -39,10 +39,41 @@ pub trait Visitor {
                 self.visit_assignment(assignment);
             }
             StatementKind::Error => {
-                self.visit_error();
+                self.visit_error_statement();
             }
         }
     }
+
+    fn do_visit_expression(&mut self, expression: &Expression) {
+        match &expression.kind {
+            ExpressionKind::Number(number) => {
+                self.visit_number(number);
+            }
+            ExpressionKind::Variable(variable) => {
+                self.visit_variable(variable);
+            }
+            ExpressionKind::Binary(expr) => {
+                self.visit_binary_expression(expr);
+            }
+            ExpressionKind::Parenthesized(expr) => {
+                self.visit_parenthesized_expression(expr);
+            }
+            ExpressionKind::Error => {
+                self.visit_error_expression();
+            }
+        }
+    }
+
+    fn do_visit_block(&mut self, block: &Block) {
+        for statement in &block.statements {
+            self.visit_statement(&statement);
+        }
+    }
+
+    fn do_visit_assignment(&mut self, assignment: &Assignment) {
+        self.visit_expression(&assignment.expression)
+    }
+
 
     fn visit_statement(&mut self, statement: &Statement) {
         self.do_visit_statement(statement);
@@ -69,36 +100,10 @@ pub trait Visitor {
         self.do_visit_assignment(assignment);
     }
 
-    fn visit_error(&mut self);
+    fn visit_error_statement(&mut self);
     fn visit_number(&mut self, number: &NumberExpression);
     fn visit_variable(&mut self, var: &Variable);
-
-    fn do_visit_expression(&mut self, expression: &Expression) {
-        match &expression.kind {
-            ExpressionKind::Number(number) => {
-                self.visit_number(number);
-            }
-            ExpressionKind::Variable(variable) => {
-                self.visit_variable(variable);
-            }
-            ExpressionKind::Binary(expr) => {
-                self.visit_binary_expression(expr);
-            }
-            ExpressionKind::Parenthesized(expr) => {
-                self.visit_parenthesized_expression(expr);
-            }
-        }
-    }
-
-    fn do_visit_block(&mut self, block: &Block) {
-        for statement in &block.statements {
-            self.visit_statement(&statement);
-        }
-    }
-
-    fn do_visit_assignment(&mut self, assignment: &Assignment) {
-        self.visit_expression(&assignment.expression)
-    }
+    fn visit_error_expression(&mut self);
 
 }
 
@@ -126,7 +131,8 @@ pub enum StatementKind {
 pub enum VariableType {
     Int(String),
     Any,
-    All
+    All,
+    Error,
 }
 
 #[derive(Debug, Clone)]
@@ -192,6 +198,7 @@ pub enum ExpressionKind {
     Binary(BinaryExpression),
     Parenthesized(ParenthesizedExpression),
     Variable(Rc<Variable>),
+    Error,
 }
 
 #[derive(Debug, Clone)]
@@ -345,7 +352,11 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_error(&mut self) {
+    fn visit_error_statement(&mut self) {
         self.print("ErrorStatement:")
+    }
+
+    fn visit_error_expression(&mut self) {
+        self.print("ErrorExpression:")
     }
 }

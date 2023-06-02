@@ -31,7 +31,8 @@ impl Parser {
         }
     }
 
-    fn peak(&self, offset: isize) -> &Token {
+    fn peak(&self, mut offset: isize) -> &Token {
+        if self.cursor as isize + offset < 0 { offset = 0; }
         self.tokens.get(
             min(
                 (self.cursor as isize + offset) as usize, 
@@ -56,6 +57,18 @@ impl Parser {
             self.diagnostics_bag.borrow_mut().report_unexpected_token(token, expected);
         }
         self.consume()
+    }
+
+    fn check_and_consume_if_is(&mut self, expected: TokenKind) -> bool {
+        let token = self.current();
+        let cond = token.kind == expected;
+        if cond {
+            self.consume();
+        }
+        else {
+            self.diagnostics_bag.borrow_mut().report_unexpected_token(token, expected);
+        }
+        cond
     }
 
     fn search_scope(&self, name: &str) -> Option<Rc<Variable>> {
@@ -84,11 +97,17 @@ impl Parser {
     }
 
     fn next_statement(&mut self) -> Option<Statement> {
-        println!("next statement!");
-        match &self.current().kind {
+        println!("New statement!");
+        let token = self.current();
+        match &token.kind {
             TokenKind::Word(word) => {
                 let kind = match word.as_str() {
                     "block" => StatementKind::Block(self.parse_block()?),
+                    "int" => {
+                        self.diagnostics_bag.borrow_mut().report_error(token, "A variable cannot be named \"int\"");
+                        self.consume();
+                        StatementKind::Error
+                    }
                     _ => StatementKind::Assignment(self.parse_assignment_statement()?),
                 };
                 Some(Statement::new(kind))
@@ -112,7 +131,7 @@ impl Parser {
         if let ExpressionKind::Variable(v) = self.parse_primary_expression()?.kind {
             variable = v;
         }
-        else { panic!("expected variable.") }
+        else { panic!("Expected variable. This is probably a bug in the parser.") }
 
         if self.current().kind != TokenKind::Equals {
             self.diagnostics_bag.borrow_mut().report_unexpected_token(self.current(), TokenKind::Equals);
@@ -120,30 +139,26 @@ impl Parser {
         self.consume();
 
         let expr = self.parse_expression()?;
-        let end_token = self.consume();
-        if end_token.kind != TokenKind::Semicolon {
-            panic!("Expected ; at the end of expression statement.")
-        }
+        self.check_and_consume_if_is(TokenKind::Semicolon);
         Some(Assignment::new(variable, expr))
     }
 
     fn parse_variable_type(&mut self) -> VariableType {
-        if let TokenKind::Word(word) = self.consume().kind.clone() {
+        let token = self.consume().clone();
+        if let TokenKind::Word(word) = &token.kind {
             match word.as_str() {
                 "int" => {
                     match self.current().kind {
                         TokenKind::LeftParen => {
                             self.consume();
                             let type_token = self.consume().clone();
-                                let end_token = self.consume();
-                                if end_token.kind != TokenKind::RightParen {
-                                    panic!("Expexted right paren after type.")
-                                }
+                            self.consume_and_check(TokenKind::RightParen);
                             if let TokenKind::Word(word) = type_token.kind.clone() {
                                 VariableType::Int(word)
                             }
                             else {
-                                panic!("Variable types should be words not {:?}", type_token);
+                                self.diagnostics_bag.borrow_mut().report_unexpected_token(&type_token, TokenKind::Word("".to_string()));
+                                VariableType::Error
                             }
                         }
                         _ => {
@@ -152,16 +167,17 @@ impl Parser {
                     }
                 }
                 _ => {
-                    panic!("Unknown type: {}", word);
+                    self.diagnostics_bag.borrow_mut().report_error(&token, "Unknown type `{}`.");
+                    VariableType::Error
                 }
             }
         }
         else {
-            panic!("Expected word as variable type.")
+            panic!("Expected word as variable type. This is probably a bug in the parser.")
         }
     }
 
-    fn parse_argument(&mut self) -> Option<Variable> {
+    fn parse_next_argument(&mut self) -> Option<Variable> {
         let current_token_kind  = self.current().kind.clone();
         let name = if let TokenKind::Word(s) = current_token_kind { 
             self.consume();
@@ -170,9 +186,9 @@ impl Parser {
         else if TokenKind::RightParen == current_token_kind {
             return None;
         }
-        else { panic!("Could not find variable name.") };
+        else { panic!("Could not find variable name token. This is probably a bug in the parser.") };
 
-        if self.consume().kind != TokenKind::Colon { panic!("Found no colon in argument definition.") };
+        self.consume_and_check(TokenKind::Colon);
         let t = self.parse_variable_type();
 
         if self.current().kind == TokenKind::Comma {
@@ -190,12 +206,15 @@ impl Parser {
         let mut outputs: Vec<Rc<Variable>> = vec![];
         let mut statements: Vec<Statement> = vec![];
 
-        name = if let TokenKind::Word(s) = &self.consume().kind { s.clone() } 
-        else { panic!("No name for block was given") };
+        name = if let TokenKind::Word(s) = &self.consume().kind { s.clone() }
+        else { 
+            self.diagnostics_bag.borrow_mut().report_error(&self.peak(-1), "No name for `block` was given.");
+            "".to_string()
+        };
 
         self.consume_and_check(TokenKind::LeftParen);
 
-        while let Some(variable) = self.parse_argument() {
+        while let Some(variable) = self.parse_next_argument() {
             let var_ref = Rc::new(variable);
             self.add_to_scope(var_ref.clone());
             inputs.push(var_ref);
@@ -208,7 +227,7 @@ impl Parser {
         self.consume_and_check(TokenKind::RightArrow);
         self.consume_and_check(TokenKind::LeftParen);
 
-        while let Some(variable) = self.parse_argument() {
+        while let Some(variable) = self.parse_next_argument() {
             let var_ref = Rc::new(variable);
             self.add_to_scope(var_ref.clone());
             outputs.push(var_ref);
@@ -282,10 +301,10 @@ impl Parser {
 
     fn parse_primary_expression(&mut self) -> Option<Expression> {
         let token = self.current().clone();
-        match token.kind {
+        match &token.kind {
             TokenKind::Number(number) => {
                 self.consume();
-                Some(Expression::new(ExpressionKind::Number(NumberExpression::new(number))))
+                Some(Expression::new(ExpressionKind::Number(NumberExpression::new(number.clone()))))
             },
             TokenKind::Word(word) => {
                 self.consume();
@@ -297,22 +316,23 @@ impl Parser {
                 else if current_token.kind == TokenKind::Colon {
                     self.consume();
                     let t = self.parse_variable_type();
-                    let var = Rc::new(Variable::new(word, t));
+                    let var = Rc::new(Variable::new(word.to_string(), t));
                     self.add_to_scope(var.clone());
                     return Some(Expression::new( ExpressionKind::Variable(var)))
                 }
                 else {
-                    panic!("No type for variable.")
+                    self.diagnostics_bag.borrow_mut().report_error(
+                        &token,
+                        &format!("No type for variable `{}`.", word)
+                        );
+                    return Some(Expression::new( ExpressionKind::Error));
                 };
             }
             TokenKind::LeftParen => {
                 self.consume();
                 let inner = self.parse_expression()?;
                 let expr = Some(Expression::new(ExpressionKind::Parenthesized(ParenthesizedExpression::new(Box::new(inner)))));
-                let end_token = self.consume();
-                if end_token.kind != TokenKind::RightParen {
-                    panic!("Could not find end paren.")
-                }
+                self.consume_and_check(TokenKind::RightParen);
                 expr
             }
             _ => {
