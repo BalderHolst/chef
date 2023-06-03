@@ -5,11 +5,12 @@ use crate::ast::{AST, Expression, ExpressionKind, BinaryExpression, BinaryOperat
 use crate::ast::{Statement, StatementKind, VariableType};
 
 pub mod graph;
+pub mod graph_visualizer;
 
 pub struct Compiler {
     ast: AST,
     next_anysignal: u64,
-    graph: Graph,
+    pub graph: Graph,
     scopes: Vec<HashMap<String, VId>>,
 }
 

@@ -1,8 +1,11 @@
 use fnv::FnvHashMap;
-use std::hash::Hash;
+use std::fmt::Display;
+use std::io;
 use std::rc::Rc;
 
-#[derive(Clone, Debug)]
+use super::graph_visualizer::GraphVisualizer;
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum ArithmeticOperation {
     ADD,
     SUBTRACT,
@@ -10,11 +13,34 @@ pub enum ArithmeticOperation {
     DIVIDE,
 }
 
-#[derive(Clone, Debug)]
+impl Display for ArithmeticOperation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            ArithmeticOperation::ADD => "ADD",
+            ArithmeticOperation::SUBTRACT => "SUBTRACT",
+            ArithmeticOperation::MULTIPLY => "MULTIPLY",
+            ArithmeticOperation::DIVIDE => "DIVIDE",
+        };
+        write!(f, "{s}")
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum IOType {
     Signal(String),
     AnySignal(u64),
     Constant(u32),
+}
+
+impl Display for IOType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            IOType::Signal(s) => format!("int({})", s),
+            IOType::AnySignal(n) => format!("Any({})", n),
+            IOType::Constant(n) => format!("({})", n),
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -57,6 +83,24 @@ impl Connection {
     }
 }
 
+impl Display for Connection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Connection::Arithmetic(connection) => {
+                if connection.right == IOType::Constant(0) &&
+                    connection.operation == ArithmeticOperation::ADD &&
+                        connection.output == connection.left {
+                            "PICK".to_string()
+                        }
+                else {
+                    format!("{}", connection.operation)
+                }
+            },
+        };
+        writeln!(f, "{s}")
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Node {
     Inner(InnerNode),
@@ -64,7 +108,17 @@ pub enum Node {
     Output(OutputNode),
 }
 
-trait NodeInputs {
+impl NodeInputs for Node {
+    fn get_inputs(&self) -> Vec<IOType> {
+        match self {
+            Node::Inner(n) => n.get_inputs(),
+            Node::Input(n) => n.get_inputs(),
+            Node::Output(n) => n.get_inputs(),
+        }
+    }
+}
+
+pub trait NodeInputs {
     fn get_inputs(&self) -> Vec<IOType>;
 }
 
@@ -140,8 +194,8 @@ pub type Edge = Rc<Connection>;
 pub type VId = u64;
 
 pub struct Graph {
-    vertices: FnvHashMap<VId, Node>,
-    adjacency: FnvHashMap<VId, Vec<(VId, Edge)>>,
+    pub vertices: FnvHashMap<VId, Node>,
+    pub adjacency: FnvHashMap<VId, Vec<(VId, Edge)>>,
     next_vid: VId,
 }
 
@@ -198,14 +252,6 @@ impl Graph {
         }
     }
 
-
-        // let input = self.get_mut_vertex(&input_vid).expect("output_vid is not valid");
-        // let new_input_node = if let Node::Output(input_node) = input {
-        //     Node::Inner(InnerNode::new())
-        // }
-        // else { panic!("Incorrect input VId supplied.") };
-    // }
-
     // pub fn push_undirected_edge(
     //     &mut self,
     //     from: VId,
@@ -215,6 +261,17 @@ impl Graph {
     //     self.push_connection(from.clone(), to.clone(), edge.clone());
     //     self.push_connection(from, to, edge);
     // }
+
+    pub fn get_input_nodes(&self) -> Vec<VId> {
+        let mut inputs: Vec<VId> = vec![];
+        for (vid, node) in &self.vertices {
+            if let Node::Input(_) = node {
+                inputs.push(vid.clone());
+            }
+        };
+        inputs
+    }
+
 
     pub fn print(&self) {
         println!("Graph:");
@@ -232,5 +289,9 @@ impl Graph {
                 println!("\t\t{} -> {} : {:?}", vid, k, v);
             }
         }
+    }
+
+    pub fn visualize(&self, output_path: &str) -> io::Result<()> {
+        GraphVisualizer::new(self).visualize(output_path)
     }
 }

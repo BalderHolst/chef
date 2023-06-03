@@ -48,5 +48,7 @@ fn main() {
     let mut compiler = Compiler::new(ast);
     compiler.compile();
 
+    compiler.graph.visualize("graph.svg").unwrap();
+
     println!("DONE.");
 }
