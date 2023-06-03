@@ -1,6 +1,7 @@
 use std::cell::RefCell;
+use std::process::exit;
 use std::rc::Rc;
-use std::vec;
+use std::{vec, io};
 
 use crate::ast::lexer::{Lexer, Token};
 use crate::ast::parser::Parser;
@@ -17,7 +18,7 @@ mod compiler;
 mod diagnostics;
 mod text;
 
-fn main() {
+fn main() -> Result<(), io::Error> {
 
     let text = SourceText::from_file("./examples/simple_block.rcp").unwrap();
     let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new()));
@@ -39,7 +40,7 @@ fn main() {
     if diagnostics_bag.borrow().has_errored() {
         println!("\n");
         diagnostics_bag.borrow().print(&text);
-        return;
+        exit(1);
     }
 
 
@@ -50,5 +51,6 @@ fn main() {
 
     compiler.graph.visualize("graph.svg").unwrap();
 
-    println!("DONE.");
+    println!("Enjoy!");
+    Ok(())
 }

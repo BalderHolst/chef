@@ -323,7 +323,7 @@ impl Parser {
                 else {
                     self.diagnostics_bag.borrow_mut().report_error(
                         &token,
-                        &format!("No type for variable `{}`.", word)
+                        &format!("Variable `{}` not defined.", word)
                         );
                     return Some(Expression::new( ExpressionKind::Error));
                 };
