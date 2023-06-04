@@ -19,3 +19,6 @@ Add combinators to preexisting blueprints.
 
 ## Mod Support
 The ability to import mods, and use the added items in blueprints
+
+## Fun
+Random greeting after successful compilation.
