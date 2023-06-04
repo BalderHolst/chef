@@ -1,9 +1,17 @@
-use std::path::Path;
-use std::fs;
-use std::io;
+use std::collections::HashSet;
+
+use lazy_static::lazy_static;
 
 use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::SourceText;
+
+lazy_static! {
+    static ref PUNCTUATION_CHARS: HashSet<char> = 
+        HashSet::from(
+            [ '+', '-', '>', '*', '/', '(', ')', '[', ']', '{', '}', '=', ',', '.', ':', ';', ]
+            );
+
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
@@ -69,6 +77,10 @@ impl<'a> Lexer<'a> {
         Lexer { diagnostics_bag, source, cursor: 0, placed_end_token: false }
     }
 
+    fn peak(&self, offset: isize) -> Option<char> {
+        self.source.text.chars().nth((self.cursor as isize + offset) as usize)
+    }
+
     fn current(&self) -> Option<char> {
         self.source.text.chars().nth(self.cursor)
     }
@@ -77,6 +89,10 @@ impl<'a> Lexer<'a> {
         let c = self.current();
         self.cursor += 1;
         c
+    }
+
+    fn backtrack(&mut self, n: usize) {
+        self.cursor -= n;
     }
 
     fn consume_number(&mut self) -> Option<u32> {
@@ -105,44 +121,43 @@ impl<'a> Lexer<'a> {
         c.is_whitespace()
     }
 
-    fn is_punctuation_start(c: char) -> bool {
-        !Self::is_word_char(c) && !c.is_whitespace() && !Self::is_number_start(c)
+    fn is_punctuation_char(c: &char) -> bool {
+        PUNCTUATION_CHARS.get(c).is_some()
     }
 
     fn consume_punctuation(&mut self) -> TokenKind {
-        let first = self.consume().unwrap();
-        match first {
-            '+' => TokenKind::Plus,
-            '-' => {
-                match self.current() {
-                    Some('>') => {
-                        self.consume().unwrap();
-                        TokenKind::RightArrow
-                    }
-                    _ => TokenKind::Minus
+        match self.consume() {
+            Some('+') => TokenKind::Plus,
+            Some('-') => {
+                match self.consume() {
+                    Some('>') => TokenKind::RightArrow,
+                    _ => {
+                        self.backtrack(1);
+                        TokenKind::Minus
+                    },
                 }
             },
-            '*' => TokenKind::Asterisk,
-            '/' => TokenKind::Slash,
-            '(' => TokenKind::LeftParen,
-            ')' => TokenKind::RightParen,
-            '[' => TokenKind::LeftSquare,
-            ']' => TokenKind::RightSquare,
-            '{' => TokenKind::LeftCurly,
-            '}' => TokenKind::RightCurly,
-            '=' => {
-                match self.current() {
-                    Some('=') => {
-                        self.consume().unwrap();
-                        TokenKind::DoubleEquals
-                    }
-                    _ => TokenKind::Equals,
+            Some('*') => TokenKind::Asterisk,
+            Some('/') => TokenKind::Slash,
+            Some('(') => TokenKind::LeftParen,
+            Some(')') => TokenKind::RightParen,
+            Some('[') => TokenKind::LeftSquare,
+            Some(']') => TokenKind::RightSquare,
+            Some('{') => TokenKind::LeftCurly,
+            Some('}') => TokenKind::RightCurly,
+            Some('=') => {
+                match self.consume() {
+                    Some('=') => TokenKind::DoubleEquals,
+                    _ => {
+                        self.backtrack(1);
+                        TokenKind::Equals
+                    },
                 }
             },
-            ',' => TokenKind::Comma,
-            '.' => TokenKind::Period,
-            ':' => TokenKind::Colon,
-            ';' => TokenKind::Semicolon,
+            Some(',') => TokenKind::Comma,
+            Some('.') => TokenKind::Period,
+            Some(':') => TokenKind::Colon,
+            Some(';') => TokenKind::Semicolon,
             _ => TokenKind::Bad,
         }
     }
