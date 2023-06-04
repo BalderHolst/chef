@@ -12,8 +12,6 @@ impl<'a> GraphOptimizer<'a> {
             self.integrate_constant_input(vid);
         }
         self.remove_redundant_picks();
-
-        dbg!(self.graph.get_vertex(&10));
     }
 
     fn remove_redundant_picks(&mut self) {
@@ -51,6 +49,7 @@ impl<'a> GraphOptimizer<'a> {
                 self.graph.remove_node(&vid);
                 // self.graph.remove_connection(vid, to_vid.clone(), &connection);
             }
+            self.integrate_constant_input(to_vid);
         }
     }
 }
