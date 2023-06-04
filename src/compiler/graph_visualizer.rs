@@ -7,7 +7,7 @@ use super::graph::{Graph, VId, Connection, Node, InnerNode, NodeInputs};
 const NODE_RADIUS: usize = 20;
 const NODE_PADDING: usize = 30;
 const NODE_SPACE: usize = NODE_RADIUS*2 + NODE_PADDING * 2;
-const NODE_HORIZONTAL_SPACE: usize = NODE_SPACE*2;
+const NODE_HORIZONTAL_SPACE: usize = NODE_SPACE*3;
 const ARROW_SPACE: usize = 9;
 
 
@@ -105,7 +105,7 @@ impl<'a> GraphVisualizer<'a> {
         self.width = std::cmp::max(self.width, (level)*NODE_HORIZONTAL_SPACE+NODE_SPACE);
         let x = level*NODE_HORIZONTAL_SPACE+NODE_SPACE/2;
 
-        let inputs = self.graph.vertices.get(&vid).unwrap().get_inputs();
+        let inputs = self.graph.vertices.get(&vid).unwrap().get_inputs(&self.graph);
 
         let types: String = inputs.iter().map(|input| format!("{} | ", input)).collect();
         let types = types.get(..types.len()-3).unwrap();

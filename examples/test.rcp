@@ -1,4 +1,3 @@
 block main(a: int(BLUE), b: int(GREEN)) -> (out: int(RED)) {
-    c: int = a * b + 100;
-    out = c / 2;
+    out = a / 2 + 5 * b;
 }

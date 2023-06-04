@@ -7,8 +7,7 @@ use crate::ast::lexer::{Lexer, Token};
 use crate::ast::parser::Parser;
 use crate::ast::{AST, Statement};
 use crate::compiler::graph::IOType;
-use crate::compiler::graph::*;
-use crate::compiler::Compiler;
+use crate::compiler::{graph::*, compile};
 use crate::diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
 use crate::text::SourceText;
 
@@ -46,10 +45,9 @@ fn main() -> Result<(), io::Error> {
 
     println!("\n-------------------------------------------------------------------------------\n");
 
-    let mut compiler = Compiler::new(ast);
-    compiler.compile();
+    let graph = compile(ast);
 
-    compiler.graph.visualize("graph.svg").unwrap();
+    graph.visualize("graph.svg").unwrap();
 
     println!("Enjoy!");
     Ok(())
