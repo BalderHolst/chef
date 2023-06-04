@@ -108,7 +108,7 @@ impl Parser {
                         self.consume();
                         StatementKind::Error
                     }
-                    _ => StatementKind::Assignment(self.parse_assignment_statement()?),
+                    _ => self.parse_assignment_statement()?,
                 };
                 Some(Statement::new(kind))
             },
@@ -126,7 +126,16 @@ impl Parser {
         }
     }
 
-    fn parse_assignment_statement(&mut self) -> Option<Assignment> {
+    fn consume_bad_statement(&mut self) {
+        loop {
+            let curr_kind = &self.current().kind;
+            if curr_kind == &TokenKind::Semicolon || curr_kind == &TokenKind::End { break; }
+            self.consume();
+        }
+        self.consume();
+    }
+
+    fn parse_assignment_statement(&mut self) -> Option<StatementKind> {
         let variable: Rc<Variable>;
         if let ExpressionKind::Variable(v) = self.parse_primary_expression()?.kind {
             variable = v;
@@ -135,12 +144,14 @@ impl Parser {
 
         if self.current().kind != TokenKind::Equals {
             self.diagnostics_bag.borrow_mut().report_unexpected_token(self.current(), TokenKind::Equals);
+            self.consume_bad_statement();
+            return Some(StatementKind::Error);
         }
         self.consume();
 
         let expr = self.parse_expression()?;
         self.check_and_consume_if_is(TokenKind::Semicolon);
-        Some(Assignment::new(variable, expr))
+        Some(StatementKind::Assignment(Assignment::new(variable, expr)))
     }
 
     fn parse_variable_type(&mut self) -> VariableType {
@@ -278,6 +289,8 @@ impl Parser {
     }
 
     fn parse_binary_expression_part(&mut self, primary_expr: Option<Expression>, precedence: u8) -> Option<Expression> {
+
+        println!("here");
 
         let mut left: Expression;
         if primary_expr.is_none() {
