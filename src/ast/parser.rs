@@ -51,12 +51,13 @@ impl Parser {
         self.peak(-1)
     }
 
-    fn consume_and_check(&mut self, expected: TokenKind) -> &Token {
+    fn consume_and_check(&mut self, expected: TokenKind) {
         let token = self.current();
-        if token.kind != expected {
+        let is_correct = token.kind == expected;
+        if !is_correct {
             self.diagnostics_bag.borrow_mut().report_unexpected_token(token, expected);
         }
-        self.consume()
+        self.consume();
     }
 
     fn check_and_consume_if_is(&mut self, expected: TokenKind) -> bool {
@@ -102,7 +103,7 @@ impl Parser {
         match &token.kind {
             TokenKind::Word(word) => {
                 let kind = match word.as_str() {
-                    "block" => StatementKind::Block(self.parse_block()?),
+                    "block" => StatementKind::Block(self.parse_block()),
                     "int" => {
                         self.diagnostics_bag.borrow_mut().report_error(token, "A variable cannot be named \"int\"");
                         self.consume();
@@ -188,33 +189,27 @@ impl Parser {
         }
     }
 
-    fn parse_next_argument(&mut self) -> Option<Variable> {
-        let current_token_kind  = self.current().kind.clone();
-        let name = if let TokenKind::Word(s) = current_token_kind { 
-            self.consume();
-            s.clone() 
-        } 
-        else if TokenKind::RightParen == current_token_kind {
-            return None;
+    fn parse_arguments(&mut self)  -> Vec<Rc<Variable>> {
+        let mut arguments: Vec<Rc<Variable>> = vec![];
+        loop {
+            let name = if let TokenKind::Word(s) = self.current().kind.clone() { 
+                self.consume();
+                s
+            }
+            else { return arguments; };
+            self.consume_and_check(TokenKind::Colon);
+            let t = self.parse_variable_type();
+            let var_ref = Rc::new(Variable::new(name, t));
+            self.add_to_scope(var_ref.clone());
+            arguments.push(var_ref);
         }
-        else { panic!("Could not find variable name token. This is probably a bug in the parser.") };
-
-        self.consume_and_check(TokenKind::Colon);
-        let t = self.parse_variable_type();
-
-        if self.current().kind == TokenKind::Comma {
-            self.consume();
-        }
-        Some(Variable::new(name, t))
     }
 
-    fn parse_block(&mut self) -> Option<Block> {
+    fn parse_block(&mut self) -> Block {
         self.consume();
         self.enter_scope();
 
         let name: String;
-        let mut inputs: Vec<Rc<Variable>> = vec![];
-        let mut outputs: Vec<Rc<Variable>> = vec![];
         let mut statements: Vec<Statement> = vec![];
 
         name = if let TokenKind::Word(s) = &self.consume().kind { s.clone() }
@@ -225,27 +220,13 @@ impl Parser {
 
         self.consume_and_check(TokenKind::LeftParen);
 
-        while let Some(variable) = self.parse_next_argument() {
-            let var_ref = Rc::new(variable);
-            self.add_to_scope(var_ref.clone());
-            inputs.push(var_ref);
-            if self.current().kind == TokenKind::Comma {
-                self.consume();
-            }
-        }
+        let inputs = self.parse_arguments();
 
         self.consume_and_check(TokenKind::RightParen);
         self.consume_and_check(TokenKind::RightArrow);
         self.consume_and_check(TokenKind::LeftParen);
 
-        while let Some(variable) = self.parse_next_argument() {
-            let var_ref = Rc::new(variable);
-            self.add_to_scope(var_ref.clone());
-            outputs.push(var_ref);
-            if self.current().kind == TokenKind::Comma {
-                self.consume();
-            }
-        }
+        let outputs = self.parse_arguments();
 
         self.consume_and_check(TokenKind::RightParen);
 
@@ -259,7 +240,7 @@ impl Parser {
 
         self.exit_scope();
 
-        Some(Block::new(name, inputs, outputs, statements))
+        Block::new(name, inputs, outputs, statements)
     }
 
     fn parse_expression(&mut self) -> Option<Expression> {
