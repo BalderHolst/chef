@@ -45,10 +45,10 @@ impl Display for IOType {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArithmeticConnection {
-    left: IOType,
-    right: IOType,
-    operation: ArithmeticOperation,
-    output: IOType,
+    pub left: IOType,
+    pub right: IOType,
+    pub operation: ArithmeticOperation,
+    pub output: IOType,
 }
 
 impl ArithmeticConnection {
@@ -66,9 +66,8 @@ impl ArithmeticConnection {
         }
     }
 
-    pub fn new_pick(signal: &str) -> Self {
-        let s = IOType::Signal(signal.to_string());
-        Self::new(s.clone(), IOType::Constant(0), ArithmeticOperation::ADD, s)
+    pub fn new_pick(signal: IOType) -> Self {
+        Self::new(signal.clone(), IOType::Constant(0), ArithmeticOperation::ADD, signal)
     }
 }
 
@@ -80,7 +79,7 @@ pub enum Connection {
 }
 
 impl Connection {
-    pub fn pick(signal: &str) -> Self {
+    pub fn pick(signal: IOType) -> Self {
         Self::Arithmetic(ArithmeticConnection::new_pick(signal))
     }
     
@@ -130,6 +129,10 @@ pub trait NodeInputs {
     fn get_inputs(&self, graph: &Graph) -> Vec<IOType>;
 }
 
+pub trait NodeInputConnections {
+    fn remove_to_connection(&mut self, conn: &Rc<Connection>);
+}
+
 #[derive(Clone, Debug)]
 pub struct OutputNode {
     pub inputs: Vec<Edge>,
@@ -144,6 +147,17 @@ impl OutputNode {
 
     fn add_input(&mut self, edge: Edge) {
         self.inputs.push(edge);
+    }
+}
+
+impl NodeInputConnections for OutputNode {
+    fn remove_to_connection(&mut self, conn: &Rc<Connection>) {
+        for (i, input_conn) in self.inputs.iter().enumerate() {
+            if input_conn == conn {
+                self.inputs.remove(i);
+                break;
+            }
+        }
     }
 }
 
@@ -172,7 +186,7 @@ impl InputNode {
 }
 
 impl NodeInputs for InputNode {
-    fn get_inputs(&self, graph: &Graph) -> Vec<IOType> {
+    fn get_inputs(&self, _: &Graph) -> Vec<IOType> {
         self.inputs.clone()
     }
 }
@@ -191,6 +205,18 @@ impl InnerNode {
         self.inputs.push(edge);
     }
 }
+
+impl NodeInputConnections for InnerNode {
+    fn remove_to_connection(&mut self, conn: &Rc<Connection>) {
+        for (i, input_conn) in self.inputs.iter().enumerate() {
+            if input_conn == conn {
+                self.inputs.remove(i);
+                break;
+            }
+        }
+    }
+}
+
 
 impl NodeInputs for InnerNode {
     fn get_inputs(&self, graph: &Graph) -> Vec<IOType> {
@@ -302,6 +328,13 @@ impl Graph {
     }
 
     pub fn remove_node(&mut self, vid: &VId) {
+        for (to_vid, conn) in &self.adjacency[vid] {
+            match self.vertices.get_mut(to_vid).unwrap() {
+                Node::Inner(to_node) => to_node.remove_to_connection(conn),
+                Node::Output(to_node) => to_node.remove_to_connection(conn),
+                Node::Input(_) => panic!("This should not be posible."),
+            }
+        }
         self.adjacency.remove(vid);
         self.vertices.remove(vid);
         for (_, to_vec) in self.adjacency.iter_mut() {

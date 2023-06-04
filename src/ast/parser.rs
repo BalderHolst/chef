@@ -289,8 +289,6 @@ impl Parser {
 
     fn parse_binary_expression_part(&mut self, primary_expr: Option<Expression>, precedence: u8) -> Option<Expression> {
 
-        println!("here");
-
         let mut left: Expression;
         if primary_expr.is_none() {
             left = self.parse_primary_expression().ok()?;
