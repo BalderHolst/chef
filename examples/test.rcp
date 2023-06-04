@@ -1,3 +1,4 @@
-block main(a: int(BLUE)) -> (out: int(RED)) {
-    out = a + a;
+block main(a: int(BLUE), b: int(GREEN)) -> (out: int(RED)) {
+    c: int = a * b + 100;
+    out = c / 2;
 }

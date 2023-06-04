@@ -107,12 +107,19 @@ impl<'a> GraphVisualizer<'a> {
 
         let inputs = self.graph.vertices.get(&vid).unwrap().get_inputs();
 
-        let types: String = inputs.iter().map(|input| format!("{} + ", input)).collect();
+        let types: String = inputs.iter().map(|input| format!("{} | ", input)).collect();
         let types = types.get(..types.len()-3).unwrap();
 
+        let fill = match self.graph.get_vertex(&vid) {
+            Some(Node::Inner(_)) => "none",
+            Some(Node::Input(_)) => "lightgreen",
+            Some(Node::Output(_)) => "orange",
+            None => "red",
+        };
+
         self.svg += "<g>\n";
-        self.svg += &format!("\t<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"none\" stroke=\"black\" />\n",
-                        x, y, NODE_RADIUS);
+        self.svg += &format!("\t<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{}\" stroke=\"black\" />\n",
+                        x, y, NODE_RADIUS, fill);
         self.svg += &format!("\t<text x=\"{}\" y=\"{}\" alignment-baseline=\"middle\" text-anchor=\"middle\" stroke=\"black\" stroke-width=\"1px\" dy=\".3em\" >{}</text>\n",
                              x, y, vid);
         self.svg += &format!("\t<text x=\"{}\" y=\"{}\" fill=\"blue\" alignment-baseline=\"middle\" text-anchor=\"middle\" stroke-width=\"1\" dy=\"-.5em\" >{}</text>\n",
