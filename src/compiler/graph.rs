@@ -133,6 +133,10 @@ impl OutputNode {
     pub fn new(variable_name: String, output_type: IOType) -> Self {
         Self { inputs: vec![], variable_name, output_type }
     } 
+
+    fn add_input(&mut self, edge: Edge) {
+        self.inputs.push(edge);
+    }
 }
 
 impl NodeInputs for OutputNode {
@@ -244,12 +248,14 @@ impl Graph {
         match to_node {
             Node::Inner(to_vertex) => {
                 to_vertex.add_input(Rc::new(connection.clone()));
-                let adjacent_to_from = self.adjacency.entry(from).or_default();
-                adjacent_to_from.push((to, Rc::new(connection)));
             }
-            Node::Output(_) => todo!(),
-            Node::Input(_) => panic!("A connection cannot point to an input node, as they simply hold input IOTypes"),
+            Node::Output(to_vertex) => {
+                to_vertex.add_input(Rc::new(connection.clone()));
+            },
+            Node::Input(_) => panic!("A connection cannot point to an input node, as they simply hold input IOTypes."),
         }
+        let adjacent_to_from = self.adjacency.entry(from).or_default();
+        adjacent_to_from.push((to, Rc::new(connection)));
     }
 
     // pub fn push_undirected_edge(

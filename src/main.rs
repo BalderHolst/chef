@@ -20,7 +20,7 @@ mod text;
 
 fn main() -> Result<(), io::Error> {
 
-    let text = SourceText::from_file("./examples/simple_block.rcp").unwrap();
+    let text = SourceText::from_file("./examples/test.rcp").unwrap();
     let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new()));
 
     let lexer = Lexer::from_source(diagnostics_bag.clone(), &text);

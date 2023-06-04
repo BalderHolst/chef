@@ -153,14 +153,19 @@ impl Compiler {
                             let output_node = self.graph.get_vertex(&output_vid).unwrap();
                             match output_node {
                                 Node::Inner(n) => { // Convert inner node to output node
-                                    let mut new_out_node = OutputNode::new(assignment.variable.name.clone(), out_type);
-                                    new_out_node.inputs = n.inputs.clone();
-                                    let new_node = Node::Output(new_out_node);
+                                    let mut var_out_node = OutputNode::new(assignment.variable.name.clone(), out_type);
+                                    var_out_node.inputs = n.inputs.clone();
+                                    let new_node = Node::Output(var_out_node);
                                     self.graph.override_node(output_vid, new_node);
                                     self.add_to_scope(assignment.variable.name.clone(), output_vid);
                                 },
-                                Node::Input(_) => todo!(),
-                                Node::Output(_) => panic!("dont think there should be an ouput node here at this stage..."),
+                                Node::Input(_) => {
+                                    let var_node = Node::Output(OutputNode::new(assignment.variable.name.clone(), out_type.clone()));
+                                    let var_node_vid = self.graph.push_node(var_node);
+                                    self.graph.push_connection(output_vid, var_node_vid, Connection::Arithmetic(ArithmeticConnection::new(out_type.clone(), IOType::Constant(0), ArithmeticOperation::ADD, out_type)));
+                                    self.add_to_scope(assignment.variable.name.clone(), output_vid);
+                                },
+                                Node::Output(_) => panic!("dont think there should be an output node here at this stage, as they are created here."),
                             }
                         },
                         StatementKind::Error => panic!("There should not be error statements when compilation has started."),
