@@ -73,7 +73,7 @@ impl<'a> DiagnosticsPrinter<'a> {
                 .filter(|c| c != &'\n')
                 .collect()
         };
-        let location = format!("{}[E]{} {}:{}:{}\t", Fg(color::Red), Fg(color::Reset), "file", line_nr+1, line_pos+1);
+        let location = format!("{}[E]{} {}:{}:{}\t", Fg(color::Red), Fg(color::Reset), d.span.file, line_nr+1, line_pos+1);
         let message = format!("{}{}{}", Fg(color::Blue), d.message, Fg(color::Reset));
         format!("{} {} \t-> {}", location, code, message)
     }

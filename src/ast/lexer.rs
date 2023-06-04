@@ -36,11 +36,12 @@ pub struct TextSpan {
     pub start: usize,
     pub end: usize,
     pub text: String,
+    pub file: String,
 }
 
 impl TextSpan {
-    fn new(start: usize, end: usize, text: &str) -> Self {
-        Self { start, end, text: text.to_string() }
+    fn new(start: usize, end: usize, text: &str, file: String) -> Self {
+        Self { start, end, text: text.to_string(), file }
     }
 }
 
@@ -57,23 +58,19 @@ impl Token {
 }
 
 pub struct Lexer<'a> {
-    input: &'a str,
+    source: &'a SourceText,
     cursor: usize,
     diagnostics_bag: DiagnosticsBagRef,
     placed_end_token: bool,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(diagnostics_bag: DiagnosticsBagRef, input: &'a str) -> Self {
-        Lexer { diagnostics_bag, input, cursor: 0, placed_end_token: false }
-    }
-
-    pub fn from_source(diagnostics_bag: DiagnosticsBagRef, text: &'a SourceText) -> Self {
-        Lexer::new(diagnostics_bag, &text.text)
+    pub fn from_source(diagnostics_bag: DiagnosticsBagRef, source: &'a SourceText) -> Self {
+        Lexer { diagnostics_bag, source, cursor: 0, placed_end_token: false }
     }
 
     fn current(&self) -> Option<char> {
-        self.input.chars().nth(self.cursor)
+        self.source.text.chars().nth(self.cursor)
     }
 
     fn consume(&mut self) -> Option<char> {
@@ -159,8 +156,8 @@ impl<'a> Iterator for Lexer<'a> {
         let current_char = if let Some(c) = self.current() { c }
         else if !self.placed_end_token {
             self.placed_end_token = true;
-            let pos = self.input.len();
-            return Some(Token::new(TokenKind::End, TextSpan::new(pos, pos, "")));
+            let pos = self.source.text.len();
+            return Some(Token::new(TokenKind::End, TextSpan::new(pos, pos, "", self.source.get_file_at(pos))));
         }
         else {
             return None;
@@ -188,7 +185,7 @@ impl<'a> Iterator for Lexer<'a> {
             self.consume_punctuation()
         };
         let end = self.cursor;
-        let token = Token::new(kind, TextSpan::new(start, end, &self.input[start..end]));
+        let token = Token::new(kind, TextSpan::new(start, end, &self.source.text[start..end], self.source.get_file_at(start)));
 
         if token.kind == TokenKind::Bad {
             self.diagnostics_bag.borrow_mut().report_bad_token(&token);

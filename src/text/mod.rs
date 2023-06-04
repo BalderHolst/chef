@@ -1,6 +1,7 @@
 use std::{fs, io, cmp::max};
 
 pub struct SourceText {
+    pub entry_file: String,
     pub text: String,
     lines: Vec<usize>,
 }
@@ -9,7 +10,7 @@ impl SourceText {
     pub fn from_file(path: &str) -> io::Result<Self> {
         let text = fs::read_to_string(path)?;
         let lines = Self::index_text(&text);
-        Ok(Self { text, lines })
+        Ok(Self { text, lines, entry_file: path.to_string() })
     }
 
     fn index_text(text: &str) -> Vec<usize> {
@@ -41,6 +42,10 @@ impl SourceText {
             self.text.len()
         };
         Some(&self.text[start..end])
+    }
+
+    pub fn get_file_at(&self, index: usize) -> String {
+        self.entry_file.clone()
     }
 
 }
