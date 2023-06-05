@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::compiler::graph::*;
-use crate::ast::{AST, Expression, ExpressionKind, BinaryExpression, BinaryOperator, Assignment, BinaryOperatorKind};
+use crate::ast::{AST, Expression, ExpressionKind, BinaryOperatorKind};
 use crate::ast::{Statement, StatementKind, VariableType};
 
 pub struct GraphCompiler {
@@ -152,7 +152,6 @@ impl GraphCompiler {
                             match output_node {
                                 Node::Inner(n) => { // Convert inner node to output node
                                     let mut var_out_node = OutputNode::new(assignment.variable.name.clone(), out_type);
-                                    var_out_node.inputs = n.inputs.clone();
                                     let new_node = Node::Output(var_out_node);
                                     self.graph.override_node(output_vid, new_node);
                                     self.add_to_scope(assignment.variable.name.clone(), output_vid);

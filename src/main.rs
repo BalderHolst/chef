@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::process::exit;
 use std::rc::Rc;
-use std::{vec, io};
+use std::{vec, io, env};
 
 use crate::ast::lexer::{Lexer, Token};
 use crate::ast::parser::Parser;
@@ -18,6 +18,7 @@ mod diagnostics;
 mod text;
 
 fn main() -> Result<(), io::Error> {
+    env::set_var("RUST_BACKTRACE", "1");
 
     let text = SourceText::from_file("./examples/test.rcp").unwrap();
     let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new()));

@@ -1,4 +1,4 @@
-use super::graph::{Graph, VId, IOType, NodeInputs};
+use super::graph::{Graph, VId, IOType};
 
 pub struct GraphOptimizer<'a> {
     graph: &'a mut Graph,
@@ -18,7 +18,7 @@ impl<'a> GraphOptimizer<'a> {
         while let Some((from_vid, middle_vid, to_vid, index)) = self.get_redundant_pick() {
             if let Some(to_vec) = self.graph.adjacency.get_mut(&from_vid) {
                 to_vec[index].0 = to_vid;
-                self.graph.vertices.remove(&middle_vid);
+                self.graph.remove_node_with_connections(&middle_vid);
             }
         }
     }
@@ -40,8 +40,7 @@ impl<'a> GraphOptimizer<'a> {
 
     fn integrate_constant_input(&mut self, vid: VId) {
         // TODO: This shit is ugly...
-        let input_node = self.graph.get_vertex(&vid).unwrap();
-        let inputs = input_node.get_inputs(self.graph);
+        let inputs = self.graph.get_inputs(&vid);
 
         if inputs.len() == 1 {
             if let IOType::Constant(_) = inputs.first().unwrap() { }

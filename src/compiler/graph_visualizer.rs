@@ -6,7 +6,7 @@ use std::{
 
 use fnv::FnvHashMap;
 
-use super::graph::{Connection, Graph, InnerNode, Node, NodeInputs, VId};
+use super::graph::{Connection, Graph, Node, VId};
 
 const NODE_RADIUS: usize = 20;
 const NODE_PADDING: usize = 30;
@@ -71,7 +71,7 @@ impl<'a> GraphVisualizer<'a> {
         if let Some(connection_pairs) = self.graph.adjacency.get(&vid) {
             for (to_vid, connection) in connection_pairs {
                 let to_pos = self.visualize_node_network(to_vid.clone(), level + 1, y);
-                self.draw_connection(connection.clone(), (x, y), to_pos);
+                self.draw_connection(connection, (x, y), to_pos);
             }
         }
 
@@ -80,7 +80,7 @@ impl<'a> GraphVisualizer<'a> {
 
     fn draw_connection(
         &mut self,
-        connection: Rc<Connection>,
+        connection: &Connection,
         from: (usize, usize),
         to: (usize, usize),
     ) {
@@ -120,10 +120,12 @@ impl<'a> GraphVisualizer<'a> {
         self.width = std::cmp::max(self.width, (level) * NODE_HORIZONTAL_SPACE + NODE_SPACE);
         let x = level * NODE_HORIZONTAL_SPACE + NODE_SPACE / 2;
 
-        let inputs = self.graph.vertices.get(&vid).unwrap().get_inputs(&self.graph);
+        let inputs = self.graph.get_inputs(&vid);
 
-        let types: String = inputs.iter().map(|input| format!("{} | ", input)).collect();
-        let types = types.get(..types.len() - 3).unwrap();
+        let mut types: String = inputs.iter().map(|input| format!("{} | ", input)).collect();
+        if types.len() >= 3 {
+            types = types.get(..types.len() - 3).unwrap().to_string();
+        }
 
         let fill = match self.graph.get_vertex(&vid) {
             Some(Node::Inner(_)) => "none",

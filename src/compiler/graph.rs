@@ -1,7 +1,6 @@
 use fnv::FnvHashMap;
 use std::fmt::Display;
 use std::io;
-use std::rc::Rc;
 
 use super::graph_visualizer::GraphVisualizer;
 
@@ -67,28 +66,40 @@ impl ArithmeticConnection {
     }
 
     pub fn new_pick(signal: IOType) -> Self {
-        Self::new(signal.clone(), IOType::Constant(0), ArithmeticOperation::ADD, signal)
+        Self::new(
+            signal.clone(),
+            IOType::Constant(0),
+            ArithmeticOperation::ADD,
+            signal,
+        )
     }
 }
-
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Connection {
     Arithmetic(ArithmeticConnection),
-    Wire(VId),
 }
 
 impl Connection {
     pub fn pick(signal: IOType) -> Self {
         Self::Arithmetic(ArithmeticConnection::new_pick(signal))
     }
-    
+
+    pub fn get_output(&self) -> Vec<IOType> {
+        match self {
+            Connection::Arithmetic(ac) => {
+                vec![ac.output.clone()]
+            },
+        }
+    }
+
     pub fn is_pick(&self) -> bool {
         if let Connection::Arithmetic(connection) = self {
-            if connection.right == IOType::Constant(0) &&
-                connection.operation == ArithmeticOperation::ADD &&
-                    connection.output == connection.left {
-                        return true;
+            if connection.right == IOType::Constant(0)
+                && connection.operation == ArithmeticOperation::ADD
+                && connection.output == connection.left
+            {
+                return true;
             }
         }
         false
@@ -99,10 +110,15 @@ impl Display for Connection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Connection::Arithmetic(connection) => {
-                if self.is_pick() { format!("PICK: {}", connection.output) }
-                else { format!("{}: {}, {}", connection.operation, connection.left, connection.right) }
-            },
-            Connection::Wire(_) => "WIRE".to_string(),
+                if self.is_pick() {
+                    format!("PICK: {}", connection.output)
+                } else {
+                    format!(
+                        "{}: {}, {}",
+                        connection.operation, connection.left, connection.right
+                    )
+                }
+            }
         };
         writeln!(f, "{s}")
     }
@@ -115,61 +131,18 @@ pub enum Node {
     Output(OutputNode),
 }
 
-impl NodeInputs for Node {
-    fn get_inputs(&self, graph: &Graph) -> Vec<IOType> {
-        match self {
-            Node::Inner(n) => n.get_inputs(graph),
-            Node::Input(n) => n.get_inputs(graph),
-            Node::Output(n) => n.get_inputs(graph),
-        }
-    }
-}
-
-pub trait NodeInputs {
-    fn get_inputs(&self, graph: &Graph) -> Vec<IOType>;
-}
-
-pub trait NodeInputConnections {
-    fn remove_to_connection(&mut self, conn: &Rc<Connection>);
-}
-
 #[derive(Clone, Debug)]
 pub struct OutputNode {
-    pub inputs: Vec<Edge>,
     pub variable_name: String,
     pub output_type: IOType,
 }
 
 impl OutputNode {
     pub fn new(variable_name: String, output_type: IOType) -> Self {
-        Self { inputs: vec![], variable_name, output_type }
-    } 
-
-    fn add_input(&mut self, edge: Edge) {
-        self.inputs.push(edge);
-    }
-}
-
-impl NodeInputConnections for OutputNode {
-    fn remove_to_connection(&mut self, conn: &Rc<Connection>) {
-        for (i, input_conn) in self.inputs.iter().enumerate() {
-            if input_conn == conn {
-                self.inputs.remove(i);
-                break;
-            }
+        Self {
+            variable_name,
+            output_type,
         }
-    }
-}
-
-impl NodeInputs for OutputNode {
-    fn get_inputs(&self, graph: &Graph) -> Vec<IOType> {
-        self.inputs
-            .iter()
-            .map(|c| match c.as_ref().clone() {
-                Connection::Arithmetic(ac) => vec![ac.output],
-                Connection::Wire(vid) => graph.get_vertex(&vid).unwrap().get_inputs(graph),
-            })
-            .flatten().collect()
     }
 }
 
@@ -181,62 +154,28 @@ pub struct InputNode {
 
 impl InputNode {
     pub fn new(variable_name: String, inputs: Vec<IOType>) -> Self {
-        Self { variable_name, inputs }
-    }
-}
-
-impl NodeInputs for InputNode {
-    fn get_inputs(&self, _: &Graph) -> Vec<IOType> {
-        self.inputs.clone()
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct InnerNode {
-    pub inputs: Vec<Edge>,
-}
-
-impl InnerNode {
-    pub fn new() -> Self {
-        Self { inputs: vec![] }
-    }
-
-    fn add_input(&mut self, edge: Edge) {
-        self.inputs.push(edge);
-    }
-}
-
-impl NodeInputConnections for InnerNode {
-    fn remove_to_connection(&mut self, conn: &Rc<Connection>) {
-        for (i, input_conn) in self.inputs.iter().enumerate() {
-            if input_conn == conn {
-                self.inputs.remove(i);
-                break;
-            }
+        Self {
+            variable_name,
+            inputs,
         }
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct InnerNode {}
 
-impl NodeInputs for InnerNode {
-    fn get_inputs(&self, graph: &Graph) -> Vec<IOType> {
-        self.inputs
-            .iter()
-            .map(|c| match c.as_ref().clone() {
-                Connection::Arithmetic(ac) => vec![ac.output],
-                Connection::Wire(vid) => graph.get_vertex(&vid).unwrap().get_inputs(graph),
-            })
-            .flatten().collect()
+impl InnerNode {
+    pub fn new() -> Self {
+        Self {}
     }
 }
 
-pub type Edge = Rc<Connection>;
 pub type VId = u64;
 
 #[derive(Clone)]
 pub struct Graph {
     pub vertices: FnvHashMap<VId, Node>,
-    pub adjacency: FnvHashMap<VId, Vec<(VId, Edge)>>,
+    pub adjacency: FnvHashMap<VId, Vec<(VId, Connection)>>,
     next_vid: VId,
 }
 
@@ -247,6 +186,32 @@ impl Graph {
             adjacency: FnvHashMap::default(),
             next_vid: 0,
         }
+    }
+
+    pub fn get_inputs(&self, vid: &VId) -> Vec<IOType> {
+        match self.vertices.get(&vid) {
+            Some(Node::Input(input_node)) => {
+                return input_node.inputs.clone();
+            }
+            None => {
+                return vec![];
+            }
+            Some(_) => {}, // Continue
+        };
+        println!("Getting inputs for {}.", vid);
+        let mut inputs: Vec<IOType> = vec![];
+
+        for (_from_vid, to_vec) in &self.adjacency {
+            for (to_vid, conn) in to_vec {
+                if to_vid == vid {
+                    for output in conn.get_output() {
+                        println!("found input from {} to {} : {:?}", _from_vid, to_vid, conn);
+                        inputs.push(output)
+                    }
+                }
+            }
+        }
+        inputs
     }
 
     pub fn get_vertex(&self, vid: &VId) -> Option<&Node> {
@@ -279,49 +244,14 @@ impl Graph {
     }
 
     pub fn push_connection(&mut self, from: VId, to: VId, connection: Connection) {
-        let to_node = self
-            .get_mut_vertex(&to)
-            .expect(&format!("Could not access vertex: {}", to));
-        match to_node {
-            Node::Inner(to_vertex) => {
-                to_vertex.add_input(Rc::new(connection.clone()));
-            }
-            Node::Output(to_vertex) => {
-                to_vertex.add_input(Rc::new(connection.clone()));
-            },
-            Node::Input(_) => panic!("A connection cannot point to an input node, as they simply hold input IOTypes."),
-        }
         let adjacent_to_from = self.adjacency.entry(from).or_default();
-        adjacent_to_from.push((to, Rc::new(connection)));
+        adjacent_to_from.push((to, connection));
     }
 
-    pub fn remove_connection(&mut self, from: VId, to: VId, connection: &Rc<Connection>) {
-        let to_node = self
-            .get_mut_vertex(&to)
-            .expect(&format!("Could not access vertex: {}", to));
-        match to_node {
-            Node::Inner(to_vertex) => {
-                for (i, input_conn) in to_vertex.inputs.iter().enumerate() {
-                    if input_conn == connection {
-                        to_vertex.inputs.remove(i);
-                        break;
-                    }
-                }
-            }
-            Node::Output(to_vertex) => {
-                for (i, input_conn) in to_vertex.inputs.iter().enumerate() {
-                    if input_conn == connection {
-                        to_vertex.inputs.remove(i);
-                        break;
-                    }
-                }
-            },
-            Node::Input(_) => panic!("A connection cannot point to an input node, as they simply hold input IOTypes."),
-        }
-
-        let from_vertex_connections = self.adjacency.get_mut(&from).unwrap();
-        for (i, (_, from_conn)) in from_vertex_connections.iter().enumerate() {
-            if from_conn == connection {
+    pub fn remove_connection(&mut self, from: &VId, to: &VId) {
+        let from_vertex_connections = self.adjacency.get_mut(from).unwrap();
+        for (i, (to_vid, _from_conn)) in from_vertex_connections.iter().enumerate() {
+            if to_vid == to {
                 from_vertex_connections.remove(i);
                 break;
             }
@@ -329,13 +259,6 @@ impl Graph {
     }
 
     pub fn remove_node_with_connections(&mut self, vid: &VId) {
-        for (to_vid, conn) in &self.adjacency[vid] {
-            match self.vertices.get_mut(to_vid).unwrap() {
-                Node::Inner(to_node) => to_node.remove_to_connection(conn),
-                Node::Output(to_node) => to_node.remove_to_connection(conn),
-                Node::Input(_) => panic!("This should not be posible."),
-            }
-        }
         self.adjacency.remove(vid);
         self.vertices.remove(vid);
         for (_, to_vec) in self.adjacency.iter_mut() {
@@ -363,19 +286,32 @@ impl Graph {
             if let Node::Input(_) = node {
                 inputs.push(vid.clone());
             }
-        };
+        }
         inputs
     }
-
 
     pub fn print(&self) {
         println!("Graph:");
         println!("\tVertecies:");
-        for (k, v) in &self.vertices {
-            match v {
-                Node::Inner(n) => println!("\t\t{} : INNER : {:?}", k, n.get_inputs(&self)),
-                Node::Input(n) => println!("\t\t{} : INPUT({}) : {:?}", k, n.variable_name, n.get_inputs(&self)),
-                Node::Output(n) => println!("\t\t{} : OUTPUT({}) : {:?}", k, n.variable_name, n.get_inputs(&self)),
+        for (vid, node) in &self.vertices {
+            if self.vertices.get(&vid).is_none() {
+                println!("Could not find vertex: {}", vid);
+                return;
+            }
+            match node {
+                Node::Inner(_) => println!("\t\t{} : INNER : {:?}", vid, self.get_inputs(vid)),
+                Node::Input(n) => println!(
+                    "\t\t{} : INPUT({}) : {:?}",
+                    vid,
+                    n.variable_name,
+                    self.get_inputs(vid)
+                ),
+                Node::Output(n) => println!(
+                    "\t\t{} : OUTPUT({}) : {:?}",
+                    vid,
+                    n.variable_name,
+                    self.get_inputs(vid)
+                ),
             }
         }
         println!("\n\tConnections:");
