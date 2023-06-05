@@ -1,4 +1,4 @@
-use super::graph::{Graph, VId, Node, IOType, NodeInputs, Connection, ArithmeticConnection};
+use super::graph::{Graph, VId, IOType, NodeInputs};
 
 pub struct GraphOptimizer<'a> {
     graph: &'a mut Graph,
@@ -15,22 +15,27 @@ impl<'a> GraphOptimizer<'a> {
     }
 
     fn remove_redundant_picks(&mut self) {
-        for (from_vid, middle_vec) in self.graph.adjacency.clone().iter() {
-            if middle_vec.len() != 1 { continue; }
-            let (middle_vid, conn1) = middle_vec.first().unwrap();
-            if !conn1.is_pick() { continue; }
-
-            let to_vec = self.graph.adjacency.get(middle_vid).unwrap().clone();
-            if to_vec.len() != 1 { continue; }
-            let (to_vid, conn2) = to_vec.first().unwrap();
-            if !conn2.is_pick() { continue; }
-
-            if let Connection::Arithmetic(c) = conn2.as_ref().clone() {
-                self.graph.remove_node(middle_vid);
-                self.graph.push_connection(*from_vid, *to_vid, Connection::Arithmetic(ArithmeticConnection::new_pick(c.output)))
+        while let Some((from_vid, middle_vid, to_vid, index)) = self.get_redundant_pick() {
+            if let Some(to_vec) = self.graph.adjacency.get_mut(&from_vid) {
+                to_vec[index].0 = to_vid;
+                self.graph.vertices.remove(&middle_vid);
             }
-
         }
+    }
+
+    fn get_redundant_pick(&mut self) -> Option<(VId, VId, VId, usize)> {
+        for (from_vid, middle_vec) in self.graph.adjacency.iter() {
+            for (i, (middle_vid, _conn1)) in middle_vec.clone().iter().enumerate() {
+                if let Some(to_vec) = self.graph.adjacency.get(middle_vid) {
+                    if to_vec.len() != 1 { continue; }
+                    let (to_vid, conn2) = to_vec.first().unwrap();
+                    if !conn2.is_pick() { continue; }
+                    println!("({}, {}, {}) -> ({}, {})", from_vid, middle_vid, to_vid, from_vid, to_vid);
+                    return Some((from_vid.clone(), middle_vid.clone(), to_vid.clone(), i))
+                }
+            }
+        }
+        None
     }
 
     fn integrate_constant_input(&mut self, vid: VId) {
@@ -46,7 +51,7 @@ impl<'a> GraphOptimizer<'a> {
 
         for (to_vid, connection) in self.graph.adjacency.get(&vid).unwrap().clone() {
             if connection.is_pick() {
-                self.graph.remove_node(&vid);
+                self.graph.remove_node_with_connections(&vid);
                 // self.graph.remove_connection(vid, to_vid.clone(), &connection);
             }
             self.integrate_constant_input(to_vid);

@@ -233,6 +233,7 @@ impl NodeInputs for InnerNode {
 pub type Edge = Rc<Connection>;
 pub type VId = u64;
 
+#[derive(Clone)]
 pub struct Graph {
     pub vertices: FnvHashMap<VId, Node>,
     pub adjacency: FnvHashMap<VId, Vec<(VId, Edge)>>,
@@ -327,7 +328,7 @@ impl Graph {
         }
     }
 
-    pub fn remove_node(&mut self, vid: &VId) {
+    pub fn remove_node_with_connections(&mut self, vid: &VId) {
         for (to_vid, conn) in &self.adjacency[vid] {
             match self.vertices.get_mut(to_vid).unwrap() {
                 Node::Inner(to_node) => to_node.remove_to_connection(conn),
