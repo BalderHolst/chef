@@ -30,7 +30,6 @@ impl<'a> GraphOptimizer<'a> {
                     if to_vec.len() != 1 { continue; }
                     let (to_vid, conn2) = to_vec.first().unwrap();
                     if !conn2.is_pick() { continue; }
-                    println!("({}, {}, {}) -> ({}, {})", from_vid, middle_vid, to_vid, from_vid, to_vid);
                     return Some((from_vid.clone(), middle_vid.clone(), to_vid.clone(), i))
                 }
             }

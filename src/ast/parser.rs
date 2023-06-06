@@ -333,10 +333,10 @@ impl Parser {
                 let current_token = self.current();
 
                 if let Some(var) = self.search_scope(&word) {
-                    if self.current().kind == TokenKind::LeftParen {
+                    if self.current().kind == TokenKind::LeftSquare {
                         self.consume();
                         if let TokenKind::Word(signal) = self.consume().kind.clone() {
-                            self.consume_and_check(TokenKind::RightParen)?;
+                            self.consume_and_check(TokenKind::RightSquare)?;
                             return Ok(Expression::new(ExpressionKind::Pick(
                                         PickExpression::new(signal.to_string(), var)
                                         )));
