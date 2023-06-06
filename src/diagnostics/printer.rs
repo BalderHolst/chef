@@ -5,6 +5,7 @@ use crate::text::SourceText;
 use crate::diagnostics::Diagnostic;
 
 const PREFIX_LEN: usize = 16;
+const MAX_CODE_LEN: usize = 20;
 const SUFIX_LEN: usize = 20;
 
 pub struct DiagnosticsPrinter<'a> {
@@ -28,6 +29,8 @@ impl<'a> DiagnosticsPrinter<'a> {
         let (line_nr, line_pos) = self.source_text.get_line_nr_and_position(d.span.start);
         let line = self.source_text.get_line(line_nr).unwrap();
 
+        // Im sorry...
+
         let code: String = {
             let code_prefix = {
                 if line_pos == 0 {
@@ -49,6 +52,10 @@ impl<'a> DiagnosticsPrinter<'a> {
                             )
                 }
             };
+            let mut actual_code = d.span.text();
+            if actual_code.len() > MAX_CODE_LEN {
+                actual_code = actual_code[0..MAX_CODE_LEN].to_string();
+            }
             let code_sufix = {
                 let start = line_pos as isize +d.span.text_len() as isize;
                 let end = line.len() as isize -1;
@@ -65,7 +72,7 @@ impl<'a> DiagnosticsPrinter<'a> {
                 "{}{}{}{}{}",
                 code_prefix,
                 Fg(color::Red),
-                d.span.text(),
+                actual_code,
                 Fg(color::Reset),
                 code_sufix,
             )

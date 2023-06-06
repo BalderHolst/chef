@@ -1,4 +1,6 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::process::exit;
 
 use crate::compiler::graph::*;
 use crate::ast::{AST, Expression, ExpressionKind, BinaryOperatorKind};
@@ -144,8 +146,8 @@ impl GraphCompiler {
                 self.enter_scope();
                 for statement in &block.statements {
                     match &statement.kind {
-                        StatementKind::Block(s) => {
-                            self.diagnostics_bag.borrow_mut().report_error(&statement.span, "A `block` cannot be defined within another block.")
+                        StatementKind::Block(_) => {
+                            self.diagnostics_bag.borrow_mut().report_error(&statement.span, "A `block` cannot be defined within another block.");
                         },
                         StatementKind::Expression(expr) => { self.compile_expression(expr, None); },
                         StatementKind::Assignment(assignment) => {
