@@ -214,7 +214,7 @@ impl NumberExpression {
 
 #[derive(Debug, Clone)]
 pub struct ParenthesizedExpression {
-    expression: Box<Expression>,
+    pub expression: Box<Expression>,
 }
 
 impl ParenthesizedExpression {

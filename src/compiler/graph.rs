@@ -73,6 +73,15 @@ impl ArithmeticConnection {
             signal,
         )
     }
+
+    pub fn new_convert(in_signal: IOType, out_signal: IOType) -> Self {
+        Self::new(
+            in_signal,
+            IOType::Constant(0),
+            ArithmeticOperation::ADD,
+            out_signal,
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -148,15 +157,15 @@ impl OutputNode {
 
 #[derive(Clone, Debug)]
 pub struct InputNode {
-    pub inputs: Vec<IOType>,
+    pub input: IOType,
     pub variable_name: String,
 }
 
 impl InputNode {
-    pub fn new(variable_name: String, inputs: Vec<IOType>) -> Self {
+    pub fn new(variable_name: String, input: IOType) -> Self {
         Self {
             variable_name,
-            inputs,
+            input,
         }
     }
 }
@@ -191,21 +200,19 @@ impl Graph {
     pub fn get_inputs(&self, vid: &VId) -> Vec<IOType> {
         match self.vertices.get(&vid) {
             Some(Node::Input(input_node)) => {
-                return input_node.inputs.clone();
+                return vec![input_node.input.clone()];
             }
             None => {
                 return vec![];
             }
             Some(_) => {}, // Continue
         };
-        println!("Getting inputs for {}.", vid);
         let mut inputs: Vec<IOType> = vec![];
 
         for (_from_vid, to_vec) in &self.adjacency {
             for (to_vid, conn) in to_vec {
                 if to_vid == vid {
                     for output in conn.get_output() {
-                        println!("found input from {} to {} : {:?}", _from_vid, to_vid, conn);
                         inputs.push(output)
                     }
                 }
@@ -235,8 +242,8 @@ impl Graph {
         self.vertices.insert(vid, node)
     }
 
-    pub fn push_input_node(&mut self, variable_name: String, inputs: Vec<IOType>) -> VId {
-        self.push_node(Node::Input(InputNode::new(variable_name, inputs)))
+    pub fn push_input_node(&mut self, variable_name: String, input: IOType) -> VId {
+        self.push_node(Node::Input(InputNode::new(variable_name, input)))
     }
 
     pub fn push_inner_node(&mut self) -> VId {

@@ -171,7 +171,6 @@ impl Parser {
     }
 
     fn parse_variable_type(&mut self) -> Result<VariableType, ()> {
-        dbg!(self.current());
         match &self.consume().kind {
             TokenKind::Word(start_word) => {
                 match start_word.as_str() {
