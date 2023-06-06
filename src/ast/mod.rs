@@ -59,6 +59,9 @@ pub trait Visitor {
             ExpressionKind::Parenthesized(expr) => {
                 self.visit_parenthesized_expression(expr);
             }
+            ExpressionKind::Pick(expr) => {
+                self.visit_pick_expression(expr);
+            }
             ExpressionKind::Error => {
                 self.visit_error_expression();
             }
@@ -93,6 +96,7 @@ pub trait Visitor {
         self.visit_expression(&expr.expression);
     }
 
+
     fn visit_block(&mut self, block: &Block) {
         self.do_visit_block(block);
     }
@@ -101,6 +105,7 @@ pub trait Visitor {
         self.do_visit_assignment(assignment);
     }
 
+    fn visit_pick_expression(&mut self, expr: &PickExpression);
     fn visit_error_statement(&mut self);
     fn visit_number(&mut self, number: &NumberExpression);
     fn visit_variable(&mut self, var: &Variable);
@@ -199,6 +204,7 @@ pub enum ExpressionKind {
     Number(NumberExpression),
     Binary(BinaryExpression),
     Parenthesized(ParenthesizedExpression),
+    Pick(PickExpression),
     Variable(Rc<Variable>),
     Error,
 }
@@ -223,6 +229,16 @@ impl ParenthesizedExpression {
     fn new(expression: Box<Expression>) -> Self {
         Self { expression }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct PickExpression {
+    pub pick_signal: String,
+    pub from: Rc<Variable>,
+}
+
+impl PickExpression {
+    fn new(pick_signal: String, from: Rc<Variable>) -> Self { Self { pick_signal, from } }
 }
 
 #[derive(Debug, Clone)]
@@ -360,5 +376,13 @@ impl Visitor for Printer {
 
     fn visit_error_expression(&mut self) {
         self.print("ErrorExpression:")
+    }
+
+    fn visit_pick_expression(&mut self, expr: &PickExpression) {
+        self.print("PickExpression:");
+        self.indent();
+        self.print(&format!("Pick Signal: {}", expr.pick_signal));
+        self.print(&format!("From Variable: {:?}", expr.from));
+        self.unindent();
     }
 }

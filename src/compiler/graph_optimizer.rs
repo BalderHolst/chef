@@ -76,7 +76,7 @@ impl<'a> GraphOptimizer<'a> {
                                     }
                                 }
                             }
-                            let new_input_vid = self.graph.push_input_node("internal (todo)".to_string(), new_out_type.clone());
+                            let new_input_vid = self.graph.push_input_node("internal to be removed".to_string(), new_out_type.clone());
                             self.graph.remove_node_with_connections(&vid);
                             self.graph.push_connection(new_input_vid, to_vid, Connection::Arithmetic(ArithmeticConnection::new_pick(new_out_type)));
                             self.integrate_constant_input(new_input_vid);

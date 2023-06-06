@@ -94,6 +94,7 @@ impl GraphCompiler {
                     }
                 }
             },
+            ExpressionKind::Pick(pick_expr) => todo!(),
             ExpressionKind::Parenthesized(pexpr) => self.compile_expression(&*pexpr.expression, out_type),
             ExpressionKind::Binary(bin_expr) => {
                 let (left_vid, left_type) = self.compile_expression(&*bin_expr.left, None);

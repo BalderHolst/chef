@@ -22,7 +22,6 @@ impl TextSpan {
     }
 
     pub fn text_len(&self) -> usize {
-        dbg!(self.end, self.start);
         self.end - self.start
     }
 }

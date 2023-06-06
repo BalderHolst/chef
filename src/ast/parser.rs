@@ -11,7 +11,7 @@ use crate::ast::{
 use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::TextSpan;
 
-use super::Assignment;
+use super::{Assignment, PickExpression};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -180,7 +180,7 @@ impl Parser {
     }
 
     fn parse_variable_type(&mut self) -> Result<VariableType, ()> {
-        match &self.consume().kind {
+        match self.consume().kind.clone() {
             TokenKind::Word(start_word) => {
                 match start_word.as_str() {
                     "int" => {
@@ -201,9 +201,10 @@ impl Parser {
                                 Ok(VariableType::Any)
                             }
                         }
-                    }
-                    _ => {
-                        self.diagnostics_bag.borrow_mut().report_error(&self.peak(-1).span, "Unknown type `{}`.");
+                    },
+                    "all" => Ok(VariableType::All),
+                    w => {
+                        self.diagnostics_bag.borrow_mut().report_error(&self.peak(-1).span, &format!("Unknown type `{}`.", w.clone()));
                         Ok(VariableType::Error)
                     }
                 }
@@ -311,7 +312,10 @@ impl Parser {
             if op_precedence >= precedence {
                 self.consume();
                 let right = self.parse_binary_expression_part(None, op_precedence)?;
-                left = Expression::new(ExpressionKind::Binary(BinaryExpression::new(Box::new(left.clone()), Box::new(right), operator)));
+                left = Expression::new(
+                    ExpressionKind::Binary(BinaryExpression::new(Box::new(left.clone()),
+                    Box::new(right), operator))
+                    );
             }
         }
         return Some(left);
@@ -329,6 +333,16 @@ impl Parser {
                 let current_token = self.current();
 
                 if let Some(var) = self.search_scope(&word) {
+                    if self.current().kind == TokenKind::LeftParen {
+                        self.consume();
+                        if let TokenKind::Word(signal) = self.consume().kind.clone() {
+                            self.consume_and_check(TokenKind::RightParen)?;
+                            return Ok(Expression::new(ExpressionKind::Pick(
+                                        PickExpression::new(signal.to_string(), var)
+                                        )));
+                        }
+                        return Ok(Expression::new(ExpressionKind::Error))
+                    }
                     return Ok(Expression::new(ExpressionKind::Variable(var)));
                 }
                 else if current_token.kind == TokenKind::Colon {
