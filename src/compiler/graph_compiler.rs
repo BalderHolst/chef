@@ -183,8 +183,6 @@ impl GraphCompiler {
             }
             _ => todo!("Only block statements inplemented for now."),
         }
-
-        self.graph.print();
     }
 
 }

@@ -54,6 +54,7 @@ fn main() -> Result<(), io::Error> {
         exit(1);
     }
 
+    graph.print();
     graph.visualize("graph.svg").unwrap();
 
     println!("Enjoy!");

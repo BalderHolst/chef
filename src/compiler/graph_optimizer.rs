@@ -1,4 +1,4 @@
-use super::graph::{Graph, VId, IOType};
+use super::graph::{Graph, VId, IOType, Connection, ArithmeticConnection, ArithmeticOperation};
 
 pub struct GraphOptimizer<'a> {
     graph: &'a mut Graph,
@@ -48,45 +48,38 @@ impl<'a> GraphOptimizer<'a> {
         }
         else if inputs.len() == 0 {
             for (to_vid, conn) in self.graph.adjacency[&vid].clone() {
-                if let Connection::Arithmetic(ac) = conn.as_ref() {
+                if let Connection::Arithmetic(ac) = conn {
                     if let IOType::Constant(left_value) = ac.left {
                         if let IOType::Constant(right_value) = ac.right {
                             let result = match ac.operation {
-                                super::graph::ArithmeticOperation::ADD => left_value + right_value,
-                                super::graph::ArithmeticOperation::SUBTRACT => left_value - right_value,
-                                super::graph::ArithmeticOperation::MULTIPLY => left_value * right_value,
-                                super::graph::ArithmeticOperation::DIVIDE => left_value / right_value,
+                                ArithmeticOperation::ADD => left_value + right_value,
+                                ArithmeticOperation::SUBTRACT => left_value - right_value,
+                                ArithmeticOperation::MULTIPLY => left_value * right_value,
+                                ArithmeticOperation::DIVIDE => left_value / right_value,
                             };
-                            let out_type = IOType::Constant(result);
-                            let new_input_vid = self.graph.push_input_node("internal (todo)".to_string(), vec![out_type.clone()]);
-                            self.graph.remove_node_with_connections(&vid);
-                            let new_conn = self.graph.push_connection(new_input_vid, to_vid, Connection::Arithmetic(ArithmeticConnection::new_pick(out_type)));
-
-                            // TODO: Virker ikke...
-                            // Remove reference to old connection 
-                            match self.graph.vertices.get_mut(&to_vid) {
-                                Some(Node::Inner(n)) => {
-                                    for (i, c) in n.inputs.iter().enumerate() {
-                                        if c == &conn {
-                                            n.inputs.remove(i);
-                                            break;
-                                        }
+                            let old_out_type = ac.output;
+                            let new_out_type = IOType::Constant(result);
+                            for (after_vid, _) in self.graph.adjacency.get(&to_vid).unwrap().clone() {
+                                for (_, out_conn) in self.graph.adjacency.get_mut(&after_vid).unwrap() {
+                                    match out_conn {
+                                        Connection::Arithmetic(out_ac) => {
+                                            if out_ac.right == old_out_type {
+                                                println!("Found on right!");
+                                                out_ac.right = new_out_type.clone()
+                                            }
+                                            else {
+                                                println!("Found on left!");
+                                                out_ac.left = out_ac.right.clone();
+                                                out_ac.right = new_out_type.clone();
+                                            }
+                                        },
                                     }
-                                    n.inputs.push(new_conn);
-                                },
-                                Some(Node::Output(n)) => {
-                                    for (i, c) in n.inputs.iter().enumerate() {
-                                        if c == &conn {
-                                            n.inputs.remove(i);
-                                            break;
-                                        }
-                                    }
-                                    n.inputs.push(new_conn);
-                                },
-                                Some(Node::Input(_n)) => panic!("This should not be possible."),
-                                None => {},
+                                }
                             }
-
+                            let new_input_vid = self.graph.push_input_node("internal (todo)".to_string(), new_out_type.clone());
+                            self.graph.remove_node_with_connections(&vid);
+                            self.graph.push_connection(new_input_vid, to_vid, Connection::Arithmetic(ArithmeticConnection::new_pick(new_out_type)));
+                            self.integrate_constant_input(new_input_vid);
                         }
                         return;
                     }
