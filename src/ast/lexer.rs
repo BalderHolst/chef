@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use lazy_static::lazy_static;
 
 use crate::diagnostics::DiagnosticsBagRef;
-use crate::text::SourceText;
+use crate::text::{SourceText, TextSpan};
 
 lazy_static! {
     static ref PUNCTUATION_CHARS: HashSet<char> = 
@@ -37,20 +37,6 @@ pub enum TokenKind {
     Whitespace,
     Bad,
     End,
-}
-
-#[derive(Debug, Clone)]
-pub struct TextSpan {
-    pub start: usize,
-    pub end: usize,
-    pub text: String,
-    pub file: String,
-}
-
-impl TextSpan {
-    fn new(start: usize, end: usize, text: &str, file: String) -> Self {
-        Self { start, end, text: text.to_string(), file }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -172,7 +158,7 @@ impl<'a> Iterator for Lexer<'a> {
         else if !self.placed_end_token {
             self.placed_end_token = true;
             let pos = self.source.text.len();
-            return Some(Token::new(TokenKind::End, TextSpan::new(pos, pos, "", self.source.get_file_at(pos))));
+            return Some(Token::new(TokenKind::End, TextSpan::new(pos, pos, self.source.get_file_at(pos))));
         }
         else {
             return None;
@@ -200,7 +186,7 @@ impl<'a> Iterator for Lexer<'a> {
             self.consume_punctuation()
         };
         let end = self.cursor;
-        let token = Token::new(kind, TextSpan::new(start, end, &self.source.text[start..end], self.source.get_file_at(start)));
+        let token = Token::new(kind, TextSpan::new(start, end, self.source.get_file_at(start)));
 
         if token.kind == TokenKind::Bad {
             self.diagnostics_bag.borrow_mut().report_bad_token(&token);

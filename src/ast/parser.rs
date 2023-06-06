@@ -9,6 +9,7 @@ use crate::ast::{
     VariableType,
 };
 use crate::diagnostics::DiagnosticsBagRef;
+use crate::text::TextSpan;
 
 use super::Assignment;
 
@@ -108,8 +109,8 @@ impl Parser {
 
     fn next_statement(&mut self) -> Option<Statement> {
         println!("New statement!");
-        let token = self.current();
-        match &token.kind {
+        let start_token = self.current().clone();
+        match &start_token.kind {
             TokenKind::Word(word) => {
                 let kind = match word.as_str() {
                     "block" => match self.parse_block() {
@@ -117,24 +118,32 @@ impl Parser {
                         Err(_) => { return None; },
                     },
                     "int" => {
-                        self.diagnostics_bag.borrow_mut().report_error(token, "A variable cannot be named \"int\"");
+                        self.diagnostics_bag.borrow_mut().report_error(&start_token.span, "A variable cannot be named \"int\"");
                         self.consume();
                         StatementKind::Error
                     }
                     _ => self.parse_assignment_statement().ok()?,
                 };
-                Some(Statement::new(kind))
+                Some(Statement::new(kind, TextSpan::new(
+                            start_token.span.start, 
+                            self.peak(-1).span.end,
+                            start_token.span.file
+                            )))
             },
             TokenKind::End => None,
             TokenKind::RightCurly => None,
             _ => {
                 let token = self.current();
                 self.diagnostics_bag.borrow_mut().report_error(
-                    token,
+                    &token.span,
                     &format!("A statement cannot begin with a `{}` token", token.kind)
                     );
                 self.consume();
-                Some(Statement::new(StatementKind::Error))
+                Some(Statement::new(StatementKind::Error, TextSpan::new(
+                        start_token.span.start,
+                        self.peak(-1).span.end,
+                        start_token.span.file
+                        )))
             }
         }
     }
@@ -194,7 +203,7 @@ impl Parser {
                         }
                     }
                     _ => {
-                        self.diagnostics_bag.borrow_mut().report_error(self.peak(-1), "Unknown type `{}`.");
+                        self.diagnostics_bag.borrow_mut().report_error(&self.peak(-1).span, "Unknown type `{}`.");
                         Ok(VariableType::Error)
                     }
                 }
@@ -231,7 +240,7 @@ impl Parser {
 
         name = if let TokenKind::Word(s) = &self.consume().kind { s.clone() }
         else { 
-            self.diagnostics_bag.borrow_mut().report_error(&self.peak(-1), "No name for `block` was given.");
+            self.diagnostics_bag.borrow_mut().report_error(&self.peak(-1).span, "No name for `block` was given.");
             "".to_string()
         };
 
@@ -331,7 +340,7 @@ impl Parser {
                 }
                 else {
                     self.diagnostics_bag.borrow_mut().report_error(
-                        &token,
+                        &token.span,
                         &format!("Variable `{}` not defined.", word)
                         );
                     return Ok(Expression::new( ExpressionKind::Error));

@@ -46,7 +46,7 @@ fn main() -> Result<(), io::Error> {
 
     println!("\n-------------------------------------------------------------------------------\n");
 
-    let graph = compile(ast);
+    let graph = compile(ast, diagnostics_bag);
 
     graph.visualize("graph.svg").unwrap();
 

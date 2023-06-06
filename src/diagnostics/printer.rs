@@ -50,7 +50,7 @@ impl<'a> DiagnosticsPrinter<'a> {
                 }
             };
             let code_sufix = {
-                let start = line_pos as isize +d.span.text.len() as isize;
+                let start = line_pos as isize +d.span.text_len() as isize;
                 let end = line.len() as isize -1;
                 if start >= end  {
                     ""
@@ -65,7 +65,7 @@ impl<'a> DiagnosticsPrinter<'a> {
                 "{}{}{}{}{}",
                 code_prefix,
                 Fg(color::Red),
-                d.span.text,
+                d.span.text(),
                 Fg(color::Reset),
                 code_sufix,
             )

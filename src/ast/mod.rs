@@ -1,6 +1,7 @@
-use std::{fmt::Display, fs::write};
+use std::fmt::Display;
 use std::rc::Rc;
-use lexer::Token;
+
+use crate::text::TextSpan;
 
 pub mod lexer;
 pub mod parser;
@@ -110,11 +111,12 @@ pub trait Visitor {
 #[derive(Debug, Clone)]
 pub struct Statement {
     pub kind: StatementKind,
+    pub span: TextSpan,
 }
 
 impl Statement {
-    fn new(kind: StatementKind) -> Self {
-        Statement { kind }
+    fn new(kind: StatementKind, span: TextSpan) -> Self {
+        Statement { kind, span }
     }
 }
 

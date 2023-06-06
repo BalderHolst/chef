@@ -3,17 +3,19 @@ use std::collections::HashMap;
 use crate::compiler::graph::*;
 use crate::ast::{AST, Expression, ExpressionKind, BinaryOperatorKind};
 use crate::ast::{Statement, StatementKind, VariableType};
+use crate::diagnostics::DiagnosticsBagRef;
 
 pub struct GraphCompiler {
     ast: AST,
     next_anysignal: u64,
     pub graph: Graph,
     scopes: Vec<HashMap<String, VId>>,
+    diagnostics_bag: DiagnosticsBagRef,
 }
 
 impl GraphCompiler {
-    pub fn new(ast: AST) -> Self {
-        Self { ast, next_anysignal: 0, graph: Graph::new(), scopes: vec![HashMap::new()] }
+    pub fn new(ast: AST, diagnostics_bag: DiagnosticsBagRef) -> Self {
+        Self { ast, diagnostics_bag, next_anysignal: 0, graph: Graph::new(), scopes: vec![HashMap::new()] }
     }
 
     fn enter_scope(&mut self) {
@@ -142,7 +144,9 @@ impl GraphCompiler {
                 self.enter_scope();
                 for statement in &block.statements {
                     match &statement.kind {
-                        StatementKind::Block(_) => todo!("Blocks within block are not implemented."),
+                        StatementKind::Block(s) => {
+                            self.diagnostics_bag.borrow_mut().report_error(&statement.span, "A `block` cannot be defined within another block.")
+                        },
                         StatementKind::Expression(expr) => { self.compile_expression(expr, None); },
                         StatementKind::Assignment(assignment) => {
                             let out_type = self.variable_type_to_iotype(&assignment.variable.variable_type);

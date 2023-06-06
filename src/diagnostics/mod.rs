@@ -1,8 +1,8 @@
 mod printer;
 
-use crate::ast::lexer::{TextSpan, TokenKind, Token};
+use crate::ast::lexer::{TokenKind, Token};
 use crate::diagnostics::printer::DiagnosticsPrinter;
-use crate::text::SourceText;
+use crate::text::{SourceText, TextSpan};
 
 use std::fmt::Display;
 use std::rc::Rc;
@@ -66,8 +66,8 @@ impl DiagnosticsBag {
         self.diagnostics.len() > 0
     }
 
-    pub fn report_error(&mut self, token: &Token, message: &str) {
-        self.diagnostics.push(Diagnostic::new(message.to_string(), token.span.clone()))
+    pub fn report_error(&mut self, span: &TextSpan, message: &str) {
+        self.diagnostics.push(Diagnostic::new(message.to_string(), span.clone()))
     }
 
     pub fn report_unexpected_token(&mut self, token: &Token, expected: TokenKind) {

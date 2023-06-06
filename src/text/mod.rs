@@ -1,5 +1,33 @@
 use std::{fs, io, cmp::max};
 
+#[derive(Debug, Clone)]
+pub struct TextSpan {
+    pub start: usize,
+    pub end: usize,
+    pub file: String,
+}
+
+impl TextSpan {
+    pub fn new(start: usize, end: usize, file: String) -> Self {
+        Self { start, end, file }
+    }
+
+    pub fn text(&self) -> String {
+        match fs::read_to_string(&self.file) {
+            Ok(s) => s[self.start..self.end].to_string(),
+            Err(e) => {
+                panic!("{e}");
+            },
+        }
+    }
+
+    pub fn text_len(&self) -> usize {
+        dbg!(self.end, self.start);
+        self.end - self.start
+    }
+}
+
+
 pub struct SourceText {
     pub entry_file: String,
     pub text: String,
