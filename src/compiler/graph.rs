@@ -2,6 +2,8 @@ use fnv::FnvHashMap;
 use std::fmt::Display;
 use std::io;
 
+use crate::ast::{Variable, VariableType};
+
 use super::graph_visualizer::GraphVisualizer;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -29,6 +31,7 @@ pub enum IOType {
     Signal(String),
     AnySignal(u64),
     Constant(u32),
+    All,
 }
 
 impl Display for IOType {
@@ -37,6 +40,7 @@ impl Display for IOType {
             IOType::Signal(s) => format!("int({})", s),
             IOType::AnySignal(n) => format!("Any({})", n),
             IOType::Constant(n) => format!("({})", n),
+            IOType::All => format!("ALL"),
         };
         write!(f, "{}", s)
     }

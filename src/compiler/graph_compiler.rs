@@ -58,6 +58,7 @@ impl GraphCompiler {
         signal
     }
 
+    /// Returns a typle:: (output_vid, output_type)
     fn compile_expression(&mut self, expr: &Expression, out_type: Option<IOType>) -> (VId, IOType) {
         match &expr.kind {
             ExpressionKind::Number(n) => {
@@ -68,7 +69,7 @@ impl GraphCompiler {
                 if let Some(var_node_vid) = self.search_scope(var.name.clone()) {
                     let var_node = self.graph.get_vertex(&var_node_vid).unwrap();
                     if let Node::Output(var_output_node) = var_node {
-                        let signal = var_output_node.output_type.clone(); // TODO add connection
+                        let signal = var_output_node.output_type.clone();
                         let vid = self.graph.push_node(Node::Inner(InnerNode::new()));
 
                         self.graph.push_connection(var_node_vid, vid, Connection::Arithmetic(ArithmeticConnection::new_pick(
@@ -94,7 +95,19 @@ impl GraphCompiler {
                     }
                 }
             },
-            ExpressionKind::Pick(pick_expr) => todo!(),
+            ExpressionKind::Pick(pick_expr) => {
+                if let Some(var_out_vid) = self.search_scope(pick_expr.from.name.clone()) {
+                    let out_type = IOType::Signal(pick_expr.pick_signal.clone());
+                    let picked_vid = self.graph.push_inner_node();
+                    self.graph.push_connection(var_out_vid, picked_vid, Connection::Arithmetic(
+                            ArithmeticConnection::new_pick(out_type.clone())
+                            ));
+                    (picked_vid, out_type)
+                }
+                else {
+                    panic!("pick from variable which not in scope: {:?}.", pick_expr);
+                }
+            },
             ExpressionKind::Parenthesized(pexpr) => self.compile_expression(&*pexpr.expression, out_type),
             ExpressionKind::Binary(bin_expr) => {
                 let (left_vid, left_type) = self.compile_expression(&*bin_expr.left, None);
@@ -136,7 +149,7 @@ impl GraphCompiler {
         match variable_type {
             VariableType::Int(s) => IOType::Signal(s.clone()),
             VariableType::Any => self.get_new_anysignal(),
-            VariableType::All => todo!(),
+            VariableType::All => IOType::All,
             VariableType::Error => panic!("there should not be any error variables if the compiling step is reached.")
         }
     }
@@ -145,6 +158,12 @@ impl GraphCompiler {
         match &statement.kind {
             StatementKind::Block(block) => {
                 self.enter_scope();
+                for input_var in block.inputs.clone() {
+                    let var_name = input_var.name.clone();
+                    let var_iotype = self.variable_type_to_iotype(&input_var.variable_type.clone());
+                    let input_vid = self.graph.push_input_node(var_name.clone(), var_iotype);
+                    self.add_to_scope(var_name, input_vid)
+                }
                 for statement in &block.statements {
                     match &statement.kind {
                         StatementKind::Block(_) => {
