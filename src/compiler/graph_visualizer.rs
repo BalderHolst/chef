@@ -17,9 +17,10 @@ const ARROW_SPACE: usize = 9;
 pub struct GraphVisualizer<'a> {
     graph: &'a Graph,
     svg: String,
+    drawn_nodes: FnvHashMap<u64, (usize, usize)>,
+    levels: Vec<usize>,
     width: usize,
     height: usize,
-    drawn_nodes: FnvHashMap<u64, (usize, usize)>,
 }
 
 impl<'a> GraphVisualizer<'a> {
@@ -27,9 +28,10 @@ impl<'a> GraphVisualizer<'a> {
         Self {
             graph,
             svg: "".to_string(),
+            drawn_nodes: FnvHashMap::default(),
+            levels: vec![],
             width: 0,
             height: 0,
-            drawn_nodes: FnvHashMap::default(),
         }
     }
 
@@ -37,12 +39,13 @@ impl<'a> GraphVisualizer<'a> {
         // Arrow heads
         self.svg += "<defs> <marker id=\"arrow-head\" viewBox=\"0 0 10 10\" refX=\"1\" refY=\"5\" markerUnits=\"strokeWidth\" markerWidth=\"8\" markerHeight=\"8\" orient=\"auto\"> <path d=\"M 0 0 L 10 5 L 0 10 z\" stroke=\"#000\" fill=\"none\" /> </marker> </defs>\n";
 
-        self.width += NODE_SPACE;
         for vid in self.graph.get_input_nodes() {
-            let pos_y = self.height + NODE_SPACE / 2;
-            self.height += NODE_SPACE;
-            self.visualize_node_network(vid, 0, pos_y);
+            self.visualize_node_network(vid, 0);
         }
+
+        self.width += NODE_SPACE / 2;
+        self.height += NODE_SPACE / 2;
+        dbg!(&self.width, &self.height);
 
         self.svg = format!(
             "<svg width=\"{}\" height=\"{}\">\n",
@@ -59,18 +62,17 @@ impl<'a> GraphVisualizer<'a> {
         Ok(())
     }
 
-    fn visualize_node_network(&mut self, vid: VId, level: usize, y: usize) -> (usize, usize) {
+    fn visualize_node_network(&mut self, vid: VId, level: usize) -> (usize, usize) {
         if let Some((x, y)) = self.drawn_nodes.get(&vid) {
-            // println!("{} already drawn", vid);
             return (x.clone(), y.clone());
         }
 
-        let (x, y) = self.draw_node(vid, level, y);
+        let (x, y) = self.draw_node(vid, level);
         self.drawn_nodes.insert(vid, (x, y));
 
         if let Some(connection_pairs) = self.graph.adjacency.get(&vid) {
             for (to_vid, connection) in connection_pairs {
-                let to_pos = self.visualize_node_network(to_vid.clone(), level + 1, y);
+                let to_pos = self.visualize_node_network(to_vid.clone(), level + 1);
                 self.draw_connection(connection, (x, y), to_pos);
             }
         }
@@ -115,10 +117,21 @@ impl<'a> GraphVisualizer<'a> {
         self.svg += "</g>\n";
     }
 
-    fn draw_node(&mut self, vid: VId, level: usize, y: usize) -> (usize, usize) {
-        // println!("Drawing {}.", vid);
-        self.width = std::cmp::max(self.width, (level) * NODE_HORIZONTAL_SPACE + NODE_SPACE);
-        let x = level * NODE_HORIZONTAL_SPACE + NODE_SPACE / 2;
+    fn draw_node(&mut self, vid: VId, x_level: usize) -> (usize, usize) {
+        let y_level = if x_level >= self.levels.len() {
+            self.levels.push(0);
+            0
+        }
+        else {
+            self.levels[x_level] += 1;
+            self.levels[x_level]
+        };
+
+        let y = y_level * (NODE_SPACE + NODE_PADDING) + NODE_SPACE / 2;
+        let x = x_level * NODE_HORIZONTAL_SPACE + NODE_SPACE / 2;
+
+        if y > self.height { self.height = y }
+        if x > self.width { self.width = x }
 
         let inputs = self.graph.get_inputs(&vid);
 

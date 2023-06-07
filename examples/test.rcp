@@ -1,3 +1,5 @@
 block main(any: all) -> (out: int(GREEN)) {
-    out = any[BLUE] * 11;
+    a: int(blue) = any[BLUE];
+    b: int(red) = any[RED] + 5 * 3;
+    out = a * b;
 }
