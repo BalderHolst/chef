@@ -45,7 +45,6 @@ impl<'a> GraphVisualizer<'a> {
 
         self.width += NODE_SPACE / 2;
         self.height += NODE_SPACE / 2;
-        dbg!(&self.width, &self.height);
 
         self.svg = format!(
             "<svg width=\"{}\" height=\"{}\">\n",

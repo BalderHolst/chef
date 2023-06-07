@@ -1,5 +1,8 @@
-block main(any: all) -> (out: int(GREEN)) {
-    a: int(blue) = any[BLUE];
-    b: int(red) = any[RED] + 5 * 3;
-    out = a * b;
+block add(a: int, b: int) -> (c: int) {
+    c = a + b;
+}
+
+block main(in: all) -> (out: int(GREEN)) {
+    a: int(RES) = add(in[RED], in[GREEN]);
+    out = a;
 }

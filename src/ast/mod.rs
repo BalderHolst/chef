@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Display, format};
 use std::rc::Rc;
 
 use crate::text::TextSpan;
@@ -62,6 +62,9 @@ pub trait Visitor {
             ExpressionKind::Pick(expr) => {
                 self.visit_pick_expression(expr);
             }
+            ExpressionKind::BlockLink(block) => {
+                self.visit_block_link(block);
+            }
             ExpressionKind::Error => {
                 self.visit_error_expression();
             }
@@ -105,6 +108,7 @@ pub trait Visitor {
         self.do_visit_assignment(assignment);
     }
 
+    fn visit_block_link(&mut self, block: &BlockLinkExpression);
     fn visit_pick_expression(&mut self, expr: &PickExpression);
     fn visit_error_statement(&mut self);
     fn visit_number(&mut self, number: &NumberExpression);
@@ -206,6 +210,7 @@ pub enum ExpressionKind {
     Parenthesized(ParenthesizedExpression),
     Pick(PickExpression),
     Variable(Rc<Variable>),
+    BlockLink(BlockLinkExpression),
     Error,
 }
 
@@ -237,8 +242,19 @@ pub struct PickExpression {
     pub from: Rc<Variable>,
 }
 
+
 impl PickExpression {
     fn new(pick_signal: String, from: Rc<Variable>) -> Self { Self { pick_signal, from } }
+}
+
+#[derive(Debug, Clone)]
+pub struct BlockLinkExpression {
+    block: Rc<Block>,
+    inputs: Vec<Expression>,
+}
+
+impl BlockLinkExpression {
+    pub fn new(block: Rc<Block>, inputs: Vec<Expression>) -> Self { Self { block, inputs } }
 }
 
 #[derive(Debug, Clone)]
@@ -383,6 +399,16 @@ impl Visitor for Printer {
         self.indent();
         self.print(&format!("Pick Signal: {}", expr.pick_signal));
         self.print(&format!("From Variable: {:?}", expr.from));
+        self.unindent();
+    }
+
+    fn visit_block_link(&mut self, block: &BlockLinkExpression) {
+        self.print(&format!("BlockLink: \"{}\"", block.block.name));
+        self.indent();
+        self.print(&format!("Args: ({})", block.inputs.len()));
+        self.indent();
+        for input in &block.inputs { self.visit_expression(input); }
+        self.unindent();
         self.unindent();
     }
 }

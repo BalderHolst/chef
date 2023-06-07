@@ -11,7 +11,7 @@ impl<'a> GraphOptimizer<'a> {
         for vid in self.graph.get_input_nodes() {
             self.integrate_constant_input(vid);
         }
-        // self.remove_redundant_picks();
+        self.remove_redundant_picks();
     }
 
     fn remove_redundant_picks(&mut self) {

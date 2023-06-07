@@ -11,12 +11,13 @@ use crate::ast::{
 use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::TextSpan;
 
-use super::{Assignment, PickExpression};
+use super::{Assignment, PickExpression, BlockLinkExpression};
 
 pub struct Parser {
     tokens: Vec<Token>,
     cursor: usize,
     scopes: Vec<Vec<Rc<Variable>>>,
+    blocks: Vec<Rc<Block>>,
     diagnostics_bag: DiagnosticsBagRef,
 }
 
@@ -28,6 +29,7 @@ impl Parser {
             ).map(|token| token.clone()).collect(),
             cursor: 0,
             scopes: vec![vec![]],
+            blocks: vec![],
             diagnostics_bag,
         }
     }
@@ -95,6 +97,15 @@ impl Parser {
         None
     }
 
+    fn search_blocks(&self, name: &str) -> Option<Rc<Block>> {
+        for block in &self.blocks {
+            if block.name.as_str() == name {
+                return Some(block.clone());
+            }
+        }
+        None
+    }
+
     fn enter_scope(&mut self) {
         self.scopes.push(vec![]);
     }
@@ -114,7 +125,10 @@ impl Parser {
             TokenKind::Word(word) => {
                 let kind = match word.as_str() {
                     "block" => match self.parse_block() {
-                        Ok(block) => StatementKind::Block(block),
+                        Ok(block) => {
+                            self.blocks.push(Rc::new(block.clone()));
+                            StatementKind::Block(block)
+                        },
                         Err(_) => { return None; },
                     },
                     "int" => {
@@ -232,6 +246,18 @@ impl Parser {
         }
     }
 
+    fn parse_block_link_arguments(&mut self) -> Result<Vec<Expression>, ()> {
+        let mut inputs: Vec<Expression> = vec![];
+        self.consume_and_check(TokenKind::LeftParen)?;
+        loop {
+            if self.current().kind == TokenKind::Comma { self.consume(); }
+            if self.current().kind == TokenKind::RightParen { break; }
+            inputs.push(self.parse_expression()?);
+        }
+        self.consume_and_check(TokenKind::RightParen)?;
+        Ok(inputs)
+    }
+
     fn parse_block(&mut self) -> Result<Block, ()> {
         self.consume();
         self.enter_scope();
@@ -332,7 +358,7 @@ impl Parser {
                 self.consume();
                 let current_token = self.current();
 
-                if let Some(var) = self.search_scope(&word) {
+                if let Some(var) = self.search_scope(&word) { // If is defined variable
                     if self.current().kind == TokenKind::LeftSquare {
                         self.consume();
                         if let TokenKind::Word(signal) = self.consume().kind.clone() {
@@ -345,12 +371,15 @@ impl Parser {
                     }
                     return Ok(Expression::new(ExpressionKind::Variable(var)));
                 }
-                else if current_token.kind == TokenKind::Colon {
+                else if current_token.kind == TokenKind::Colon { // If is variable definition
                     self.consume();
                     let t = self.parse_variable_type()?;
                     let var = Rc::new(Variable::new(word.to_string(), t));
                     self.add_to_scope(var.clone());
                     return Ok(Expression::new( ExpressionKind::Variable(var)))
+                }
+                else if let Some(block) = self.search_blocks(&word) {
+                    return self.parse_block_link(block);
                 }
                 else {
                     self.diagnostics_bag.borrow_mut().report_error(
@@ -371,6 +400,12 @@ impl Parser {
                 Err(())
             }
         }
+    }
+
+    fn parse_block_link(&mut self, block: Rc<Block>) -> Result<Expression, ()> {
+        let inputs = self.parse_block_link_arguments()?;
+        let block_expr = BlockLinkExpression::new(block, inputs);
+        Ok(Expression::new(ExpressionKind::BlockLink(block_expr)))
     }
 }
 

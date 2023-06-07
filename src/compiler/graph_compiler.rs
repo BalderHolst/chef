@@ -1,6 +1,6 @@
-use std::borrow::Borrow;
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::process::exit;
+use std::rc::Rc;
 
 use crate::compiler::graph::*;
 use crate::ast::{AST, Expression, ExpressionKind, BinaryOperatorKind};
@@ -10,14 +10,18 @@ use crate::diagnostics::DiagnosticsBagRef;
 pub struct GraphCompiler {
     ast: AST,
     next_anysignal: u64,
-    pub graph: Graph,
+    block_graphs: HashMap<String, Rc<RefCell<Graph>>>,
     scopes: Vec<HashMap<String, VId>>,
     diagnostics_bag: DiagnosticsBagRef,
 }
 
 impl GraphCompiler {
     pub fn new(ast: AST, diagnostics_bag: DiagnosticsBagRef) -> Self {
-        Self { ast, diagnostics_bag, next_anysignal: 0, graph: Graph::new(), scopes: vec![HashMap::new()] }
+        Self { ast, diagnostics_bag, next_anysignal: 0, block_graphs: HashMap::new(), scopes: vec![HashMap::new()] }
+    }
+
+    pub fn get_graph(&self) -> Graph {
+        self.block_graphs.get("main").unwrap().borrow_mut().clone()
     }
 
     fn enter_scope(&mut self) {
@@ -45,11 +49,11 @@ impl GraphCompiler {
         None
     }
 
-    pub fn compile(&mut self) -> &Graph {
+    pub fn compile(&mut self) -> Graph {
         for statement in self.ast.statements.clone() {
             self.compile_statement(statement);
         }
-        &self.graph
+        self.get_graph()
     }
 
     fn get_new_anysignal(&mut self) -> IOType {
@@ -59,37 +63,36 @@ impl GraphCompiler {
     }
 
     /// Returns a typle:: (output_vid, output_type)
-    fn compile_expression(&mut self, expr: &Expression, out_type: Option<IOType>) -> (VId, IOType) {
+    fn compile_expression(&mut self, mut graph: Rc<RefCell<Graph>>, expr: &Expression, out_type: Option<IOType>) -> (VId, IOType) {
         match &expr.kind {
             ExpressionKind::Number(n) => {
                 let t = IOType::Constant(n.number);
-                (self.graph.push_input_node("".to_string(), t.clone()), t) // TODO: It is ugly with "" being the variable name.
+                (graph.borrow_mut().push_input_node("".to_string(), t.clone()), t) // TODO: It is ugly with "" being the variable name.
             },
             ExpressionKind::Variable(var) => {
                 if let Some(var_node_vid) = self.search_scope(var.name.clone()) {
-                    let var_node = self.graph.get_vertex(&var_node_vid).unwrap();
-                    if let Node::Output(var_output_node) = var_node {
-                        let signal = var_output_node.output_type.clone();
-                        let vid = self.graph.push_node(Node::Inner(InnerNode::new()));
-
-                        self.graph.push_connection(var_node_vid, vid, Connection::Arithmetic(ArithmeticConnection::new_pick(
-                                    signal.clone()
-                                    )));
-
-                        (vid, signal)
-                    }
-                    else { panic!("Var nodes should be output nodes") }
+                    let var_node = graph.borrow_mut().get_vertex(&var_node_vid).unwrap().clone();
+                    let signal = match var_node {
+                        Node::Input(var_output_node) => var_output_node.input.clone(),
+                        Node::Output(var_output_node) => var_output_node.output_type.clone(),
+                        Node::Inner(_) => panic!("Var nodes should be output or input nodes"),
+                    };
+                    let vid = graph.borrow_mut().push_node(Node::Inner(InnerNode::new()));
+                    graph.borrow_mut().push_connection(var_node_vid, vid, Connection::Arithmetic(ArithmeticConnection::new_pick(
+                                signal.clone()
+                                )));
+                    (vid, signal)
                 }
                 else {
                     match &var.variable_type {
                         VariableType::All => todo!(),
                         VariableType::Any => {
                             let signal = self.get_new_anysignal();
-                            (self.graph.push_input_node(var.name.clone(), signal.clone()), signal)
+                            (graph.borrow_mut().push_input_node(var.name.clone(), signal.clone()), signal)
                         },
                         VariableType::Int(s) => {
                             let signal = IOType::Signal(s.clone());
-                            (self.graph.push_input_node(var.name.clone(), signal.clone()), signal)
+                            (graph.borrow_mut().push_input_node(var.name.clone(), signal.clone()), signal)
                         }
                         VariableType::Error => panic!("there should not be any error variables if the compiling step is reached."),
                     }
@@ -98,8 +101,8 @@ impl GraphCompiler {
             ExpressionKind::Pick(pick_expr) => {
                 if let Some(var_out_vid) = self.search_scope(pick_expr.from.name.clone()) {
                     let out_type = IOType::Signal(pick_expr.pick_signal.clone());
-                    let picked_vid = self.graph.push_inner_node();
-                    self.graph.push_connection(var_out_vid, picked_vid, Connection::Arithmetic(
+                    let picked_vid = graph.borrow_mut().push_inner_node();
+                    graph.borrow_mut().push_connection(var_out_vid, picked_vid, Connection::Arithmetic(
                             ArithmeticConnection::new_pick(out_type.clone())
                             ));
                     (picked_vid, out_type)
@@ -108,10 +111,10 @@ impl GraphCompiler {
                     panic!("pick from variable which not in scope: {:?}.", pick_expr);
                 }
             },
-            ExpressionKind::Parenthesized(pexpr) => self.compile_expression(&*pexpr.expression, out_type),
+            ExpressionKind::Parenthesized(pexpr) => self.compile_expression(graph.clone(), &*pexpr.expression, out_type),
             ExpressionKind::Binary(bin_expr) => {
-                let (left_vid, left_type) = self.compile_expression(&*bin_expr.left, None);
-                let (right_vid, right_type) = self.compile_expression(&*bin_expr.right, None);
+                let (left_vid, left_type) = self.compile_expression(graph.clone(), &*bin_expr.left, None);
+                let (right_vid, right_type) = self.compile_expression(graph.clone(), &*bin_expr.right, None);
 
                 let operation = match bin_expr.operator.kind {
                     BinaryOperatorKind::Plus => ArithmeticOperation::ADD,
@@ -120,16 +123,16 @@ impl GraphCompiler {
                     BinaryOperatorKind::Divide => ArithmeticOperation::DIVIDE,
                 };
 
-                let input = self.graph.push_inner_node();
-                let output = self.graph.push_inner_node();
+                let input = graph.borrow_mut().push_inner_node();
+                let output = graph.borrow_mut().push_inner_node();
 
                 // Pick
-                self.graph.push_connection(left_vid, input, Connection::Arithmetic(
+                graph.borrow_mut().push_connection(left_vid, input, Connection::Arithmetic(
                         ArithmeticConnection::new_pick(left_type.clone())
                 ));
 
                 // Pick
-                self.graph.push_connection(right_vid, input, Connection::Arithmetic(
+                graph.borrow_mut().push_connection(right_vid, input, Connection::Arithmetic(
                         ArithmeticConnection::new_pick(right_type.clone())
                 ));
 
@@ -138,9 +141,10 @@ impl GraphCompiler {
                 else { self.get_new_anysignal() };
 
                 let arithmetic_connection = ArithmeticConnection::new(left_type, right_type, operation, out_type.clone());
-                self.graph.push_connection(input, output, Connection::Arithmetic(arithmetic_connection));
+                graph.borrow_mut().push_connection(input, output, Connection::Arithmetic(arithmetic_connection));
                 (output, out_type)
             },
+            ExpressionKind::BlockLink(block) => todo!(),
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }
     }
@@ -154,14 +158,24 @@ impl GraphCompiler {
         }
     }
 
+    fn new_block_graph(&mut self, name: String) -> &Rc<RefCell<Graph>> {
+        self.block_graphs.insert(name.clone(), Rc::new(RefCell::new(Graph::new()))); 
+        self.get_block_graph(name)
+    }
+
+    fn get_block_graph(&mut self, name: String) -> &Rc<RefCell<Graph>> {
+        self.block_graphs.get(&name).expect(&format!("Tried to access invalid block graph: {}", name))
+    }
+
     fn compile_statement(&mut self, statement: Statement) {
         match &statement.kind {
             StatementKind::Block(block) => {
+                let graph = self.new_block_graph(block.name.clone()).clone();
                 self.enter_scope();
                 for input_var in block.inputs.clone() {
                     let var_name = input_var.name.clone();
                     let var_iotype = self.variable_type_to_iotype(&input_var.variable_type.clone());
-                    let input_vid = self.graph.push_input_node(var_name.clone(), var_iotype);
+                    let input_vid = graph.borrow_mut().push_input_node(var_name.clone(), var_iotype);
                     self.add_to_scope(var_name, input_vid)
                 }
                 for statement in &block.statements {
@@ -169,22 +183,22 @@ impl GraphCompiler {
                         StatementKind::Block(_) => {
                             self.diagnostics_bag.borrow_mut().report_error(&statement.span, "A `block` cannot be defined within another block.");
                         },
-                        StatementKind::Expression(expr) => { self.compile_expression(expr, None); },
+                        StatementKind::Expression(expr) => { self.compile_expression(graph.clone(), expr, None); },
                         StatementKind::Assignment(assignment) => {
                             let out_type = self.variable_type_to_iotype(&assignment.variable.variable_type);
-                            let (output_vid, _) = self.compile_expression(&assignment.expression, Some(out_type.clone()));
-                            let output_node = self.graph.get_vertex(&output_vid).unwrap().clone();
+                            let (output_vid, _) = self.compile_expression(graph.clone(), &assignment.expression, Some(out_type.clone()));
+                            let output_node = graph.borrow_mut().get_vertex(&output_vid).unwrap().clone();
                             match output_node {
                                 Node::Inner(_n) => { // Convert inner node to output node
                                     let var_out_node = OutputNode::new(assignment.variable.name.clone(), out_type);
                                     let new_node = Node::Output(var_out_node);
-                                    self.graph.override_node(output_vid, new_node);
+                                    graph.borrow_mut().override_node(output_vid, new_node);
                                     self.add_to_scope(assignment.variable.name.clone(), output_vid);
                                 },
                                 Node::Input(n) => {
                                     let var_node = Node::Output(OutputNode::new(assignment.variable.name.clone(), out_type.clone()));
-                                    let var_node_vid = self.graph.push_node(var_node);
-                                    self.graph.push_connection(output_vid, var_node_vid, 
+                                    let var_node_vid = graph.borrow_mut().push_node(var_node);
+                                    graph.borrow_mut().push_connection(output_vid, var_node_vid, 
                                                                Connection::Arithmetic(
                                                                    ArithmeticConnection::new_convert(
                                                                        n.input,
@@ -197,8 +211,7 @@ impl GraphCompiler {
                             }
                         },
                         StatementKind::Error => panic!("There should not be error statements when compilation has started."),
-                    };
-                }
+                    }; }
             self.exit_scope();
             }
             _ => todo!("Only block statements inplemented for now."),

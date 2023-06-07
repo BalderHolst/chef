@@ -1,0 +1,5 @@
+block main(in: all) -> (out: int(GREEN)) {
+    a: int(blue) = in[BLUE] / 13;
+    b: int(red) = in[RED] + 5 * 3 / 7;
+    out = a * b;
+}
