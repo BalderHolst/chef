@@ -69,6 +69,7 @@ impl GraphCompiler {
             },
             ExpressionKind::Variable(var) => {
                 if let Some(var_node_vid) = self.search_scope(var.name.clone()) {
+                    dbg!(&var_node_vid);
                     let var_node = graph.get_vertex(&var_node_vid).unwrap().clone();
                     let signal = match var_node {
                         Node::Input(var_output_node) => var_output_node.input.clone(),
@@ -134,7 +135,6 @@ impl GraphCompiler {
                         ArithmeticConnection::new_pick(right_type.clone())
                 ));
 
-
                 let out_type = if let Some(t) = out_type { t }
                 else { self.get_new_anysignal() };
 
@@ -142,7 +142,41 @@ impl GraphCompiler {
                 graph.push_connection(input, output, Connection::Arithmetic(arithmetic_connection));
                 (output, out_type)
             },
-            ExpressionKind::BlockLink(block) => todo!(),
+            ExpressionKind::BlockLink(block_expr) => {
+                let vars: Vec<(VId, IOType)> = block_expr.inputs.iter()
+                    .map(|i| 
+                         if let ExpressionKind::Variable(variable) = i.kind.clone() {
+                            if let Some(var_vid) = self.search_scope(variable.name.clone()) { 
+                                let t = self.variable_type_to_iotype(&variable.variable_type);
+                                (var_vid, t)
+                            }
+                            else { panic!("Block links requires defined variables."); }
+                        }
+                        else {
+                            panic!("Inputs to block links must be variables for now");
+                        }
+                    ).collect();
+
+                let outputs = match self.get_block_graph(&block_expr.block.name) {
+                    Some(name) => {
+                        graph.stitch_graph(name, vars).expect("Wrong number of arguments for function")
+                    },
+                    None => {
+                        panic!("Block not defined.");
+                    },
+                };
+                if outputs.len() != 1 { todo!("Blocks with multipule outputs are not implemented yet"); }
+
+                let typed_outputs: Vec<(VId, IOType)> = outputs.iter().map(|(vid, node)| {
+                    let t = match node {
+                        Node::Output(n) => n.output_type.clone(),
+                        _ => panic!("Compiler Error: Nodes should only be outputs here.")
+                    };
+                    (vid.clone(), t)
+                }).collect();
+
+                typed_outputs[0].clone()
+            },
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }
     }
@@ -158,6 +192,10 @@ impl GraphCompiler {
 
     fn add_block_graph(&mut self, name: String, graph: Graph) {
         self.block_graphs.insert(name, graph); 
+    }
+
+    fn get_block_graph(&mut self, name: &String) -> Option<&Graph> {
+        self.block_graphs.get(name)
     }
 
     fn compile_block(&mut self, block: &Block) -> Graph {
@@ -177,14 +215,18 @@ impl GraphCompiler {
                 StatementKind::Expression(expr) => { self.compile_expression(&mut graph, expr, None); },
                 StatementKind::Assignment(assignment) => {
                     let out_type = self.variable_type_to_iotype(&assignment.variable.variable_type);
-                    let (output_vid, _) = self.compile_expression(&mut graph, &assignment.expression, Some(out_type.clone()));
+                    let (mut output_vid, _) = self.compile_expression(&mut graph, &assignment.expression, Some(out_type.clone()));
                     let output_node = graph.get_vertex(&output_vid).unwrap().clone();
                     match output_node {
                         Node::Inner(_n) => { // Convert inner node to output node
-                            let var_out_node = OutputNode::new(assignment.variable.name.clone(), out_type);
-                            let new_node = Node::Output(var_out_node);
-                            graph.override_node(output_vid, new_node);
-                            self.add_to_scope(assignment.variable.name.clone(), output_vid);
+                            let input_type = graph.get_single_input(&output_vid).unwrap();
+                            let var_out_node = OutputNode::new(assignment.variable.name.clone(), out_type.clone());
+                            let middle_vid = output_vid.clone();
+                            output_vid = graph.push_node(Node::Inner(InnerNode::new()));
+                            graph.push_connection(middle_vid, output_vid, Connection::Arithmetic(
+                                    ArithmeticConnection::new_convert(input_type, out_type)
+                                    ));
+                            graph.override_node(output_vid, Node::Output(var_out_node));
                         },
                         Node::Input(n) => {
                             let var_node = Node::Output(OutputNode::new(assignment.variable.name.clone(), out_type.clone()));
@@ -196,10 +238,20 @@ impl GraphCompiler {
                                                                out_type
                                                            )
                                                        ));
-                            self.add_to_scope(assignment.variable.name.clone(), output_vid);
                         },
-                        Node::Output(_) => panic!("dont think there should be an output node here at this stage, as they are created here."),
+                        Node::Output(n) => {
+                            let var_node_vid = graph.push_node(Node::Output(n.clone()));
+                            graph.push_connection(output_vid, var_node_vid, 
+                                                       Connection::Arithmetic(
+                                                           ArithmeticConnection::new_convert(
+                                                               n.output_type,
+                                                               out_type
+                                                           )
+                                                       ));
+                            output_vid = var_node_vid;
+                        },
                     }
+                    self.add_to_scope(assignment.variable.name.clone(), output_vid);
                 },
                 StatementKind::Error => panic!("There should not be error statements when compilation has started."),
             }; 

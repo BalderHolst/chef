@@ -249,8 +249,8 @@ impl PickExpression {
 
 #[derive(Debug, Clone)]
 pub struct BlockLinkExpression {
-    block: Rc<Block>,
-    inputs: Vec<Expression>,
+    pub block: Rc<Block>,
+    pub inputs: Vec<Expression>,
 }
 
 impl BlockLinkExpression {
@@ -342,14 +342,14 @@ impl Visitor for Printer {
     }
 
     fn visit_block(&mut self, block: &Block) {
-        self.print(&format!("Block: {} {:?} -> {:?}", block.name, block.inputs, block.outputs));
+        self.print(&format!("Block: \"{}\" {:?} -> {:?}", block.name, block.inputs, block.outputs));
         self.indent();
         self.do_visit_block(&block);
         self.unindent();
     }
 
     fn visit_assignment(&mut self, assignment: &Assignment) {
-        self.print(&format!("Assignment: {:?}", assignment.variable));
+        self.print(&format!("Assignment: \"{:?}\"", assignment.variable));
         self.indent();
         self.do_visit_assignment(&assignment);
         self.unindent();
