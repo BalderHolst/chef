@@ -238,6 +238,7 @@ impl GraphCompiler {
                                                                out_type
                                                            )
                                                        ));
+                            output_vid = var_node_vid;
                         },
                         Node::Output(n) => {
                             let var_node_vid = graph.push_node(Node::Output(n.clone()));
