@@ -165,7 +165,7 @@ impl GraphCompiler {
                                 }
                                 else { panic!("Block links requires defined variables."); }
                             },
-                            ExpressionKind::BlockLink(_) => todo!("You cannot link to blocks when linking to another block."),
+                            ExpressionKind::BlockLink(_) => self.compile_expression(&mut graph, expr, None),
                             ExpressionKind::Error => panic!("Compilation should have stopped before this step if errors where encountered."),
                         }
                     ).collect();
