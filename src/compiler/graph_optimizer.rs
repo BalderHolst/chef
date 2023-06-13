@@ -51,8 +51,10 @@ impl<'a> GraphOptimizer<'a> {
                     if let IOType::Constant(left_value) = ac.left {
                         if let IOType::Constant(right_value) = ac.right {
                             let result = match ac.operation {
+                                // TODO: Left and right placements are random, and left and right
+                                // values can therefore not be trusted.
                                 ArithmeticOperation::ADD => left_value + right_value,
-                                ArithmeticOperation::SUBTRACT => left_value - right_value,
+                                ArithmeticOperation::SUBTRACT => left_value - right_value, 
                                 ArithmeticOperation::MULTIPLY => left_value * right_value,
                                 ArithmeticOperation::DIVIDE => left_value / right_value,
                             };

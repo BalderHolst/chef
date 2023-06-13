@@ -69,7 +69,6 @@ impl GraphCompiler {
             },
             ExpressionKind::Variable(var) => {
                 if let Some(var_node_vid) = self.search_scope(var.name.clone()) {
-                    dbg!(&var_node_vid);
                     let var_node = graph.get_vertex(&var_node_vid).unwrap().clone();
                     let signal = match var_node {
                         Node::Input(var_output_node) => var_output_node.input.clone(),
@@ -144,8 +143,8 @@ impl GraphCompiler {
             },
             ExpressionKind::BlockLink(block_expr) => {
                 let vars: Vec<(VId, IOType)> = block_expr.inputs.iter()
-                    .map(|i| 
-                         match i.kind.clone() {
+                    .map(|expr| 
+                         match expr.kind.clone() {
                             ExpressionKind::Variable(variable) => {
                                 if let Some(var_vid) = self.search_scope(variable.name.clone()) { 
                                     let t = self.variable_type_to_iotype(&variable.variable_type);
@@ -153,9 +152,9 @@ impl GraphCompiler {
                                 }
                                 else { panic!("Block links requires defined variables."); }
                             }
-                            ExpressionKind::Number(_) => todo!(),
-                            ExpressionKind::Binary(_) => todo!(),
-                            ExpressionKind::Parenthesized(_) => todo!(),
+                            ExpressionKind::Number(_) => self.compile_expression(&mut graph, expr, None),
+                            ExpressionKind::Binary(_) => self.compile_expression(&mut graph, expr, None),
+                            ExpressionKind::Parenthesized(_) => self.compile_expression(&mut graph, expr, None),
                             ExpressionKind::Pick(p) => {
                                 let all_var = p.from;
                                 let signal = p.pick_signal;
@@ -167,8 +166,8 @@ impl GraphCompiler {
                                 }
                                 else { panic!("Block links requires defined variables."); }
                             },
-                            ExpressionKind::BlockLink(_) => todo!(),
-                            ExpressionKind::Error => todo!(),
+                            ExpressionKind::BlockLink(_) => todo!("You cannot link to blocks when linking to another block."),
+                            ExpressionKind::Error => panic!("Compilation should have stopped before this step if errors where encountered."),
                         }
                     ).collect();
 
