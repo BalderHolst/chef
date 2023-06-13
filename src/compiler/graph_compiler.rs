@@ -145,15 +145,30 @@ impl GraphCompiler {
             ExpressionKind::BlockLink(block_expr) => {
                 let vars: Vec<(VId, IOType)> = block_expr.inputs.iter()
                     .map(|i| 
-                         if let ExpressionKind::Variable(variable) = i.kind.clone() {
-                            if let Some(var_vid) = self.search_scope(variable.name.clone()) { 
-                                let t = self.variable_type_to_iotype(&variable.variable_type);
-                                (var_vid, t)
+                         match i.kind.clone() {
+                            ExpressionKind::Variable(variable) => {
+                                if let Some(var_vid) = self.search_scope(variable.name.clone()) { 
+                                    let t = self.variable_type_to_iotype(&variable.variable_type);
+                                    (var_vid, t)
+                                }
+                                else { panic!("Block links requires defined variables."); }
                             }
-                            else { panic!("Block links requires defined variables."); }
-                        }
-                        else {
-                            panic!("Inputs to block links must be variables for now");
+                            ExpressionKind::Number(_) => todo!(),
+                            ExpressionKind::Binary(_) => todo!(),
+                            ExpressionKind::Parenthesized(_) => todo!(),
+                            ExpressionKind::Pick(p) => {
+                                let all_var = p.from;
+                                let signal = p.pick_signal;
+                                if let Some(var_vid) = self.search_scope(all_var.name.clone()) { 
+                                    let picked_vid = graph.push_inner_node();
+                                    let t = IOType::Signal(signal);
+                                    graph.push_connection(var_vid, picked_vid, Connection::Arithmetic(ArithmeticConnection::new_pick(t.clone())));
+                                    (picked_vid, t)
+                                }
+                                else { panic!("Block links requires defined variables."); }
+                            },
+                            ExpressionKind::BlockLink(_) => todo!(),
+                            ExpressionKind::Error => todo!(),
                         }
                     ).collect();
 

@@ -3,8 +3,6 @@ block add(a: int, b: int) -> (c: int(addout)) {
 }
 
 block main(in: all) -> (out: int(BLUE)) {
-    a: int = in[RED];
-    b: int = in[GREEN];
-    c: int(C) = add(a, b);
+    c: int(C) = add(in[RED], in[BLUE]);
     out = c;
 }
