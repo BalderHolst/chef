@@ -66,11 +66,9 @@ impl<'a> GraphOptimizer<'a> {
                                         match out_conn {
                                             Connection::Arithmetic(out_ac) => {
                                                 if out_ac.right == old_out_type {
-                                                    println!("Found on right!");
                                                     out_ac.right = new_out_type.clone()
                                                 }
                                                 else {
-                                                    println!("Found on left!");
                                                     out_ac.left = out_ac.right.clone();
                                                     out_ac.right = new_out_type.clone();
                                                 }

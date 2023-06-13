@@ -72,7 +72,7 @@ impl GraphCompiler {
                     let var_node = graph.get_vertex(&var_node_vid).unwrap().clone();
                     let signal = match var_node {
                         Node::Input(var_output_node) => var_output_node.input.clone(),
-                        Node::Output(var_output_node) => var_output_node.output_type.clone(),
+                        Node::Output(_) => self.variable_type_to_iotype(&var.variable_type),
                         Node::Inner(_) => panic!("Var nodes should be output or input nodes"),
                     };
                     let vid = graph.push_node(Node::Inner(InnerNode::new()));
@@ -113,7 +113,6 @@ impl GraphCompiler {
             ExpressionKind::Binary(bin_expr) => {
                 let (left_vid, left_type) = self.compile_expression(&mut graph, &*bin_expr.left, None);
                 let (right_vid, right_type) = self.compile_expression(&mut graph, &*bin_expr.right, None);
-
                 let operation = match bin_expr.operator.kind {
                     BinaryOperatorKind::Plus => ArithmeticOperation::ADD,
                     BinaryOperatorKind::Minus => ArithmeticOperation::SUBTRACT,
@@ -180,16 +179,8 @@ impl GraphCompiler {
                     },
                 };
                 if outputs.len() != 1 { todo!("Blocks with multipule outputs are not implemented yet"); }
-
-                let typed_outputs: Vec<(VId, IOType)> = outputs.iter().map(|(vid, node)| {
-                    let t = match node {
-                        Node::Output(n) => n.output_type.clone(),
-                        _ => panic!("Compiler Error: Nodes should only be outputs here.")
-                    };
-                    (vid.clone(), t)
-                }).collect();
-
-                typed_outputs[0].clone()
+                let output = outputs[0].clone();
+                output
             },
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }

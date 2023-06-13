@@ -2,8 +2,6 @@ use fnv::FnvHashMap;
 use std::fmt::Display;
 use std::io;
 
-use crate::ast::{Variable, VariableType};
-
 use super::graph_visualizer::GraphVisualizer;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -324,17 +322,14 @@ impl Graph {
     }
 
     /// TODO: Order of inputs vec matter
-    pub fn stitch_graph(&mut self, other: &Graph, inputs: Vec<(VId, IOType)>) -> Result<Vec<(VId, Node)>, ()> { // TODO return vec of outputs
+    pub fn stitch_graph(&mut self, other: &Graph, inputs: Vec<(VId, IOType)>) -> Result<Vec<(VId, IOType)>, ()> { // TODO return vec of outputs
         let mut vid_converter: fnv::FnvHashMap<VId, VId> = fnv::FnvHashMap::default();
 
-        let mut output_vids: Vec<VId> = vec![];
+        let mut outputs: FnvHashMap<VId, IOType> = FnvHashMap::default();
 
         // copy nodes
         for (old_vid, node) in other.vertices.clone() {
             let new_vid = self.push_node(node);
-            if self.is_output(new_vid) {
-                output_vids.push(new_vid)
-            }
             vid_converter.insert(old_vid, new_vid);
         }
 
@@ -343,7 +338,11 @@ impl Graph {
             for (old_to_vid, conn) in to_vec {
                 let new_from_vid = vid_converter[&old_from_vid];
                 let new_to_vid = vid_converter[&old_to_vid];
-                self.push_connection(new_from_vid, new_to_vid, conn);
+                self.push_connection(new_from_vid, new_to_vid, conn.clone());
+                if self.is_output(new_to_vid) {
+                    outputs.insert(new_to_vid, conn.get_output().first().unwrap().clone());
+                }
+
             }
         }
 
@@ -397,8 +396,8 @@ impl Graph {
             }
         }
 
-        Ok(output_vids.iter().map(|vid| {
-            (vid.clone(), self.get_vertex(&vid).unwrap().clone())
+        Ok(outputs.iter().map(|(vid, type_o)| {
+            (vid.clone(), type_o.clone())
         }).collect())
     }
 
