@@ -22,3 +22,5 @@ The ability to import mods, and use the added items in blueprints
 
 ## Fun
 Random greeting after successful compilation.
+
+Tells you useful cooking tips when compilation fails.
