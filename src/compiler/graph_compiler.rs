@@ -172,8 +172,8 @@ impl GraphCompiler {
                     ).collect();
 
                 let outputs = match self.get_block_graph(&block_expr.block.name) {
-                    Some(name) => {
-                        graph.stitch_graph(name, vars).expect("Wrong number of arguments for function")
+                    Some(block_graph) => {
+                        graph.stitch_graph(block_graph, vars).expect("Wrong number of arguments for function")
                     },
                     None => {
                         panic!("Block not defined.");

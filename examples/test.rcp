@@ -3,6 +3,7 @@ block add(a: int, b: int) -> (c: int(addout)) {
 }
 
 block main(in: all) -> (out: int(BLUE)) {
-    c: int(C) = add(in[RED], (1 + 5) / 3 );
-    out = c;
+    c: int(C) = add(in[RED], (1 + 5) );
+    d: int(D) = add(in[RED], in[GREEN]);
+    out = c - d;
 }

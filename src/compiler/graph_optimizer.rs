@@ -47,43 +47,46 @@ impl<'a> GraphOptimizer<'a> {
         }
         else if inputs.len() == 0 {
             for (to_vid, conn) in self.graph.adjacency[&vid].clone() {
-                if let Connection::Arithmetic(ac) = conn {
-                    if let IOType::Constant(left_value) = ac.left {
-                        if let IOType::Constant(right_value) = ac.right {
-                            let result = match ac.operation {
-                                // TODO: Left and right placements are random, and left and right
-                                // values can therefore not be trusted.
-                                ArithmeticOperation::ADD => left_value + right_value,
-                                ArithmeticOperation::SUBTRACT => left_value - right_value, 
-                                ArithmeticOperation::MULTIPLY => left_value * right_value,
-                                ArithmeticOperation::DIVIDE => left_value / right_value,
-                            };
-                            let old_out_type = ac.output;
-                            let new_out_type = IOType::Constant(result);
-                            for (after_vid, _) in self.graph.adjacency.get(&to_vid).unwrap().clone() {
-                                for (_, out_conn) in self.graph.adjacency.get_mut(&after_vid).unwrap() {
-                                    match out_conn {
-                                        Connection::Arithmetic(out_ac) => {
-                                            if out_ac.right == old_out_type {
-                                                println!("Found on right!");
-                                                out_ac.right = new_out_type.clone()
-                                            }
-                                            else {
-                                                println!("Found on left!");
-                                                out_ac.left = out_ac.right.clone();
-                                                out_ac.right = new_out_type.clone();
-                                            }
-                                        },
+                match conn {
+                    Connection::Arithmetic(ac) => {
+                        if let IOType::Constant(left_value) = ac.left {
+                            if let IOType::Constant(right_value) = ac.right {
+                                let result = match ac.operation {
+                                    // TODO: Left and right placements are random, and left and right
+                                    // values can therefore not be trusted.
+                                    ArithmeticOperation::ADD => left_value + right_value,
+                                    ArithmeticOperation::SUBTRACT => left_value - right_value, 
+                                    ArithmeticOperation::MULTIPLY => left_value * right_value,
+                                    ArithmeticOperation::DIVIDE => left_value / right_value,
+                                };
+                                let old_out_type = ac.output;
+                                let new_out_type = IOType::Constant(result);
+                                for (after_vid, _) in self.graph.adjacency.get(&to_vid).unwrap().clone() {
+                                    for (_, out_conn) in self.graph.adjacency.get_mut(&after_vid).unwrap() {
+                                        match out_conn {
+                                            Connection::Arithmetic(out_ac) => {
+                                                if out_ac.right == old_out_type {
+                                                    println!("Found on right!");
+                                                    out_ac.right = new_out_type.clone()
+                                                }
+                                                else {
+                                                    println!("Found on left!");
+                                                    out_ac.left = out_ac.right.clone();
+                                                    out_ac.right = new_out_type.clone();
+                                                }
+                                            },
+                                        }
                                     }
                                 }
+                                let new_input_vid = self.graph.push_input_node("internal to be removed".to_string(), new_out_type.clone());
+                                self.graph.remove_node_with_connections(&vid);
+                                self.graph.push_connection(new_input_vid, to_vid, Connection::Arithmetic(ArithmeticConnection::new_pick(new_out_type)));
+                                self.integrate_constant_input(new_input_vid);
                             }
-                            let new_input_vid = self.graph.push_input_node("internal to be removed".to_string(), new_out_type.clone());
-                            self.graph.remove_node_with_connections(&vid);
-                            self.graph.push_connection(new_input_vid, to_vid, Connection::Arithmetic(ArithmeticConnection::new_pick(new_out_type)));
-                            self.integrate_constant_input(new_input_vid);
+                            return;
                         }
-                        return;
                     }
+                    _ => (),
                 }
             }
         }

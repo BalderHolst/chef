@@ -316,13 +316,25 @@ impl Graph {
         inputs
     }
 
+    fn is_output(&self, vid: VId) -> bool {
+        if let Some(Node::Output(_)) = self.get_vertex(&vid) {
+            return true;
+        }
+        false
+    }
+
     /// TODO: Order of inputs vec matter
     pub fn stitch_graph(&mut self, other: &Graph, inputs: Vec<(VId, IOType)>) -> Result<Vec<(VId, Node)>, ()> { // TODO return vec of outputs
         let mut vid_converter: fnv::FnvHashMap<VId, VId> = fnv::FnvHashMap::default();
 
+        let mut output_vids: Vec<VId> = vec![];
+
         // copy nodes
         for (old_vid, node) in other.vertices.clone() {
             let new_vid = self.push_node(node);
+            if self.is_output(new_vid) {
+                output_vids.push(new_vid)
+            }
             vid_converter.insert(old_vid, new_vid);
         }
 
@@ -385,7 +397,9 @@ impl Graph {
             }
         }
 
-        Ok(self.get_final_outputs())
+        Ok(output_vids.iter().map(|vid| {
+            (vid.clone(), self.get_vertex(&vid).unwrap().clone())
+        }).collect())
     }
 
     pub fn get_single_input(&self, vid: &VId) -> Result<IOType, ()> {
