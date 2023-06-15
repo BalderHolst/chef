@@ -8,5 +8,6 @@ edition = "2021"
 [dependencies]
 factorio-blueprint = "0.3.0"
 fnv = "1.0.7"
+gumdrop = "0.8.1"
 lazy_static = "1.4.0"
 termion = "2.0.1"
