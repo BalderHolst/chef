@@ -260,6 +260,7 @@ impl GraphCompiler {
                     self.add_to_scope(assignment.variable.name.clone(), output_vid);
                 },
                 StatementKind::Error => panic!("There should not be error statements when compilation has started."),
+                StatementKind::Out(_) => todo!("Out statements not implementet YET..."),
             }; 
         }
         self.exit_scope();

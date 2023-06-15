@@ -131,6 +131,13 @@ impl Parser {
                         },
                         Err(_) => { return None; },
                     },
+                    "out" => {
+                        self.consume();
+                        let expr = self.parse_expression().unwrap(); // TODO handle error
+                        self.consume_and_check(TokenKind::Semicolon)
+                            .expect("Could not find semicolon"); // TODO handle error
+                        StatementKind::Out(expr)
+                    }
                     "int" => {
                         self.diagnostics_bag.borrow_mut().report_error(&start_token.span, "A variable cannot be named \"int\"");
                         self.consume();
@@ -227,7 +234,7 @@ impl Parser {
         }
     }
 
-    fn parse_arguments(&mut self)  -> Result<Vec<Rc<Variable>>, ()> {
+    fn parse_arguments(&mut self) -> Result<Vec<Rc<Variable>>, ()> {
         let mut arguments: Vec<Rc<Variable>> = vec![];
         loop {
             let name = if let TokenKind::Word(s) = self.current().kind.clone() { 
@@ -244,6 +251,18 @@ impl Parser {
             arguments.push(var_ref);
             self.consume_if(TokenKind::Comma);
         }
+    }
+
+    fn parse_outputs(&mut self) -> Result<Vec<VariableType>, ()> {
+        let mut outputs: Vec<VariableType> = vec![];
+        loop {
+            if self.current().kind == TokenKind::RightParen {
+                break;
+            }
+            self.consume_if(TokenKind::Comma);
+            outputs.push(self.parse_variable_type()?);
+        }
+        Ok(outputs)
     }
 
     fn parse_block_link_arguments(&mut self) -> Result<Vec<Expression>, ()> {
@@ -279,7 +298,7 @@ impl Parser {
         self.consume_and_check(TokenKind::RightArrow)?;
         self.consume_and_check(TokenKind::LeftParen)?;
 
-        let outputs = self.parse_arguments()?;
+        let outputs = self.parse_outputs()?;
 
         self.consume_and_check(TokenKind::RightParen)?;
 

@@ -36,6 +36,9 @@ pub trait Visitor {
             StatementKind::Block(block) => {
                 self.visit_block(block);
             }
+            StatementKind::Out(expr) => {
+                self.visit_out(expr);
+            }
             StatementKind::Assignment(assignment) => {
                 self.visit_assignment(assignment);
             }
@@ -104,6 +107,10 @@ pub trait Visitor {
         self.do_visit_block(block);
     }
 
+    fn visit_out(&mut self, expr: &Expression) {
+        self.do_visit_expression(expr);
+    }
+
     fn visit_assignment(&mut self, assignment: &Assignment) {
         self.do_visit_assignment(assignment);
     }
@@ -134,6 +141,7 @@ pub enum StatementKind {
     Expression(Expression),
     Assignment(Assignment),
     Block(Block),
+    Out(Expression),
     Error,
 }
 
@@ -174,12 +182,12 @@ impl Assignment {
 pub struct Block {
     pub name: String,
     pub inputs: Vec<Rc<Variable>>,
-    pub outputs: Vec<Rc<Variable>>,
+    pub outputs: Vec<VariableType>,
     pub statements: Vec<Statement>
 }
 
 impl Block {
-    fn new(name: String, inputs: Vec<Rc<Variable>>, outputs: Vec<Rc<Variable>>, statements: Vec<Statement>) -> Self {
+    fn new(name: String, inputs: Vec<Rc<Variable>>, outputs: Vec<VariableType>, statements: Vec<Statement>) -> Self {
         Self { name, inputs, outputs, statements }
     }
 }
@@ -409,6 +417,13 @@ impl Visitor for Printer {
         self.indent();
         for input in &block.inputs { self.visit_expression(input); }
         self.unindent();
+        self.unindent();
+    }
+
+    fn visit_out(&mut self, expr: &Expression) {
+        self.print("Out:");
+        self.indent();
+        self.visit_expression(expr);
         self.unindent();
     }
 }

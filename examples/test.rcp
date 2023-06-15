@@ -1,8 +1,3 @@
-block add(a: int, b: int) -> (c: int(addout)) {
-    c = a + b;
-}
-
-block main(in: all) -> (out: int(BLUE)) {
-    d: int(D) = add(in[RED], add(in[RED], (1 + 5)));
-    out = d;
+block main(in: all) -> (int(BLUE)) {
+    out in[TEST] / 5;
 }
