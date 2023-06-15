@@ -225,7 +225,7 @@ impl GraphCompiler {
                     match output_node {
                         Node::Inner(_n) => { // Convert inner node to output node
                             let input_type = graph.get_single_input(&output_vid).unwrap();
-                            let var_out_node = OutputNode::new(assignment.variable.name.clone(), out_type.clone());
+                            let var_out_node = OutputNode::new(out_type.clone());
                             let middle_vid = output_vid.clone();
                             output_vid = graph.push_node(Node::Inner(InnerNode::new()));
                             graph.push_connection(middle_vid, output_vid, Connection::Arithmetic(
@@ -234,7 +234,7 @@ impl GraphCompiler {
                             graph.override_node(output_vid, Node::Output(var_out_node));
                         },
                         Node::Input(n) => {
-                            let var_node = Node::Output(OutputNode::new(assignment.variable.name.clone(), out_type.clone()));
+                            let var_node = Node::Output(OutputNode::new(out_type.clone()));
                             let var_node_vid = graph.push_node(var_node);
                             graph.push_connection(output_vid, var_node_vid, 
                                                        Connection::Arithmetic(
@@ -260,7 +260,12 @@ impl GraphCompiler {
                     self.add_to_scope(assignment.variable.name.clone(), output_vid);
                 },
                 StatementKind::Error => panic!("There should not be error statements when compilation has started."),
-                StatementKind::Out(_) => todo!("Out statements not implementet YET..."),
+                StatementKind::Out(expr) => {
+                    let out_variable_type = block.outputs.get(0).expect("Blocks can only have exactly ONE output for now.");
+                    let out_iotype = self.variable_type_to_iotype(out_variable_type);
+                    let (out_vid, _out_node) = self.compile_expression(&mut graph, expr, Some(out_iotype.clone()));
+                    graph.vertices.insert(out_vid, Node::Output(OutputNode::new(out_iotype)));
+                },
             }; 
         }
         self.exit_scope();

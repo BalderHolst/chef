@@ -159,14 +159,12 @@ pub enum Node {
 
 #[derive(Clone, Debug)]
 pub struct OutputNode {
-    pub variable_name: String,
     pub output_type: IOType,
 }
 
 impl OutputNode {
-    pub fn new(variable_name: String, output_type: IOType) -> Self {
+    pub fn new(output_type: IOType) -> Self {
         Self {
-            variable_name,
             output_type,
         }
     }
@@ -464,9 +462,8 @@ impl Graph {
                     self.get_inputs(vid)
                 ),
                 Node::Output(n) => println!(
-                    "\t\t{} : OUTPUT({}) : {:?}",
+                    "\t\t{} : OUTPUT : {:?}",
                     vid,
-                    n.variable_name,
                     self.get_inputs(vid)
                 ),
             }
