@@ -18,6 +18,7 @@ mod ast;
 mod compiler;
 mod diagnostics;
 mod text;
+mod the_chef;
 
 #[derive(Debug, Options)]
 struct Opts {
@@ -80,6 +81,8 @@ fn main() -> Result<(), io::Error> {
             if diagnostics_bag.borrow().has_errored() {
                 println!("\n");
                 diagnostics_bag.borrow().print(&text);
+                println!();
+                the_chef::give_advice();
                 exit(1);
             }
 
@@ -91,6 +94,8 @@ fn main() -> Result<(), io::Error> {
             if diagnostics_bag.borrow().has_errored() {
                 println!("\n");
                 diagnostics_bag.borrow().print(&text);
+                println!();
+                the_chef::give_advice();
                 exit(1);
             }
 

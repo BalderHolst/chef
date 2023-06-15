@@ -133,10 +133,20 @@ impl Parser {
                     },
                     "out" => {
                         self.consume();
-                        let expr = self.parse_expression().unwrap(); // TODO handle error
-                        self.consume_and_check(TokenKind::Semicolon)
-                            .expect("Could not find semicolon"); // TODO handle error
-                        StatementKind::Out(expr)
+                        let statement_start = self.current().span.start;
+                        if let Ok(expr) = self.parse_expression() { // TODO handle error
+                            self.consume_and_check(TokenKind::Semicolon)
+                                .expect("Could not find semicolon"); // TODO handle error
+                            StatementKind::Out(expr)
+                        }
+                        else {
+                            self.consume_bad_statement();
+                            let statement_end = self.peak(-1).span.end;
+                            let file = self.peak(-1).span.file.clone();
+                            self.diagnostics_bag.borrow_mut().report_error(
+                                &TextSpan::new(statement_start, statement_end, file), "Bad output expression"); // TODO use error message here
+                            StatementKind::Error
+                        }
                     }
                     "int" => {
                         self.diagnostics_bag.borrow_mut().report_error(&start_token.span, "A variable cannot be named \"int\"");
