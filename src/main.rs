@@ -125,7 +125,9 @@ fn main() -> Result<(), io::Error> {
                 diagnostics_bag.borrow().exit_with_errors(&text);
             }
 
-            graph.print();
+            if opts.verbose {
+                graph.print();
+            }
             graph.visualize("graph.svg").unwrap();
 
             println!("Enjoy!");
