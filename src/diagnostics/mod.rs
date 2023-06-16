@@ -3,6 +3,7 @@ mod printer;
 use crate::ast::lexer::{TokenKind, Token};
 use crate::diagnostics::printer::DiagnosticsPrinter;
 use crate::text::{SourceText, TextSpan};
+use crate::{the_chef, Opts};
 
 use std::fmt::Display;
 use std::rc::Rc;
@@ -55,11 +56,12 @@ impl Diagnostic {
 
 pub struct DiagnosticsBag {
     diagnostics: Vec<Diagnostic>,
+    options: Rc<Opts>,
 }
 
 impl DiagnosticsBag {
-    pub fn new() -> Self {
-        Self { diagnostics: vec![] }
+    pub fn new(options: Rc<Opts>) -> Self {
+        Self { diagnostics: vec![], options }
     }
 
     pub fn has_errored(&self) -> bool {
@@ -81,5 +83,15 @@ impl DiagnosticsBag {
 
     pub fn print(&self, source_text: &SourceText) {
         DiagnosticsPrinter::new(source_text, &self.diagnostics).print();
+    }
+
+    pub fn exit_with_errors(&self, source_text: &SourceText) {
+        println!("\n");
+        self.print(&source_text);
+        if !self.options.no_advice {
+            println!();
+            the_chef::give_advice();
+        }
+        std::process::exit(1);
     }
 }

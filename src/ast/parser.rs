@@ -1,6 +1,7 @@
 use std::cmp::min;
 use std::rc::Rc;
 
+use crate::Opts;
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
     Expression, ExpressionKind, NumberExpression, ParenthesizedExpression, Variable,
@@ -19,10 +20,11 @@ pub struct Parser {
     scopes: Vec<Vec<Rc<Variable>>>,
     blocks: Vec<Rc<Block>>,
     diagnostics_bag: DiagnosticsBagRef,
+    options: Rc<Opts>,
 }
 
 impl Parser {
-    pub fn new(diagnostics_bag: DiagnosticsBagRef, tokens: Vec<Token>) -> Self { 
+    pub fn new(tokens: Vec<Token>, diagnostics_bag: DiagnosticsBagRef, options: Rc<Opts>) -> Self { 
         Self {
             tokens: tokens.iter().filter(
                 |token| token.kind != TokenKind::Whitespace
@@ -31,6 +33,7 @@ impl Parser {
             scopes: vec![vec![]],
             blocks: vec![],
             diagnostics_bag,
+            options,
         }
     }
 
@@ -49,7 +52,9 @@ impl Parser {
     }
 
     fn consume(&mut self) -> &Token {
-        println!("{} : {:?}", self.cursor.clone(), self.current().clone());
+        if self.options.verbose {
+            println!("{} : {:?}", self.cursor.clone(), self.current().clone());
+        }
         self.cursor += 1;
         self.peak(-1)
     }
@@ -119,7 +124,9 @@ impl Parser {
     }
 
     fn next_statement(&mut self) -> Option<Statement> {
-        println!("New statement!");
+        if self.options.verbose {
+            println!("New statement!");
+        }
         let start_token = self.current().clone();
         match &start_token.kind {
             TokenKind::Word(word) => {
