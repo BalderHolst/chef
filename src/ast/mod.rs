@@ -341,6 +341,24 @@ impl Printer {
     }
 }
 
+impl Display for VariableType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            VariableType::Int(n) => format!("Int({n})"),
+            VariableType::Any => "Any".to_string(),
+            VariableType::All => "All".to_string(),
+            VariableType::Error => "Error".to_string(),
+        };
+        write!(f, "{s}")
+    }
+}
+
+impl Display for Variable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} : {}", self.name, self.variable_type)
+    }
+}
+
 impl Visitor for Printer {
     fn visit_statement(&mut self, statement: &Statement) {
         self.print("Statement:");
