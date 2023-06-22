@@ -110,6 +110,8 @@ fn main() -> Result<(), io::Error> {
                 ast.add_statement(statement);
             }
 
+            ast.evaluate_constants();
+
             if opts.verbose {
                 print_label("AST");
                 ast.print();

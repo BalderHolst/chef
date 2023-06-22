@@ -1,10 +1,13 @@
-use std::fmt::{Display, format};
+use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::text::TextSpan;
+use crate::ast::visitors::Visitor;
 
 pub mod lexer;
 pub mod parser;
+mod constant_evaluator;
+mod visitors;
 
 pub struct AST {
     pub statements: Vec<Statement>,
@@ -25,103 +28,10 @@ impl AST {
             printer.visit_statement(&statement);
         }
     }
-}
 
-pub trait Visitor {
-    fn do_visit_statement(&mut self, statement: &Statement) {
-        match &statement.kind {
-            StatementKind::Expression(expr) => {
-                self.visit_expression(expr);
-            }
-            StatementKind::Block(block) => {
-                self.visit_block(block);
-            }
-            StatementKind::Out(expr) => {
-                self.visit_out(expr);
-            }
-            StatementKind::Assignment(assignment) => {
-                self.visit_assignment(assignment);
-            }
-            StatementKind::Error => {
-                self.visit_error_statement();
-            }
-        }
+    pub fn evaluate_constants(&mut self) {
+        constant_evaluator::evaluate_constants(self)
     }
-
-    fn do_visit_expression(&mut self, expression: &Expression) {
-        match &expression.kind {
-            ExpressionKind::Number(number) => {
-                self.visit_number(number);
-            }
-            ExpressionKind::Variable(variable) => {
-                self.visit_variable(variable);
-            }
-            ExpressionKind::Binary(expr) => {
-                self.visit_binary_expression(expr);
-            }
-            ExpressionKind::Parenthesized(expr) => {
-                self.visit_parenthesized_expression(expr);
-            }
-            ExpressionKind::Pick(expr) => {
-                self.visit_pick_expression(expr);
-            }
-            ExpressionKind::BlockLink(block) => {
-                self.visit_block_link(block);
-            }
-            ExpressionKind::Error => {
-                self.visit_error_expression();
-            }
-        }
-    }
-
-    fn do_visit_block(&mut self, block: &Block) {
-        for statement in &block.statements {
-            self.visit_statement(&statement);
-        }
-    }
-
-    fn do_visit_assignment(&mut self, assignment: &Assignment) {
-        self.visit_expression(&assignment.expression)
-    }
-
-
-    fn visit_statement(&mut self, statement: &Statement) {
-        self.do_visit_statement(statement);
-    }
-
-    fn visit_expression(&mut self, expression: &Expression) {
-        self.do_visit_expression(expression);
-    }
-
-    fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression) {
-        self.visit_expression(&binary_expression.left);
-        self.visit_expression(&binary_expression.right);
-    }
-
-    fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression) {
-        self.visit_expression(&expr.expression);
-    }
-
-
-    fn visit_block(&mut self, block: &Block) {
-        self.do_visit_block(block);
-    }
-
-    fn visit_out(&mut self, expr: &Expression) {
-        self.do_visit_expression(expr);
-    }
-
-    fn visit_assignment(&mut self, assignment: &Assignment) {
-        self.do_visit_assignment(assignment);
-    }
-
-    fn visit_block_link(&mut self, block: &BlockLinkExpression);
-    fn visit_pick_expression(&mut self, expr: &PickExpression);
-    fn visit_error_statement(&mut self);
-    fn visit_number(&mut self, number: &NumberExpression);
-    fn visit_variable(&mut self, var: &Variable);
-    fn visit_error_expression(&mut self);
-
 }
 
 #[derive(Debug, Clone)]
@@ -202,7 +112,7 @@ impl Expression {
         Self { kind }
     }
 
-    fn number(n: u32) -> Self {
+    fn number(n: i64) -> Self {
         Self { kind: ExpressionKind::Number(NumberExpression::new(n)) }
     }
 
@@ -224,11 +134,11 @@ pub enum ExpressionKind {
 
 #[derive(Debug, Clone)]
 pub struct NumberExpression {
-    pub number: u32,
+    pub number: i64,
 }
 
 impl NumberExpression {
-    fn new(number: u32) -> Self {
+    fn new(number: i64) -> Self {
         Self { number }
     }
 }

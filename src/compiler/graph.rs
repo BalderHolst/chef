@@ -28,7 +28,7 @@ impl Display for ArithmeticOperation {
 pub enum IOType {
     Signal(String),
     AnySignal(u64),
-    Constant(u32),
+    Constant(i64),
     All,
 }
 

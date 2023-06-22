@@ -388,7 +388,7 @@ impl Parser {
         match &token.kind {
             TokenKind::Number(number) => {
                 self.consume();
-                Ok(Expression::new(ExpressionKind::Number(NumberExpression::new(number.clone()))))
+                Ok(Expression::new(ExpressionKind::Number(NumberExpression::new(number.clone() as i64))))
             },
             TokenKind::Word(word) => {
                 self.consume();
