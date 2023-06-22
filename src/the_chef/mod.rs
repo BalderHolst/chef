@@ -18,6 +18,8 @@ const ADVICE: &'static [&'static str] = &[
     "If you mix cream too long, it'll turn into butter!",
     "A good cook knows their spices!",
     "That is... unique.",
+    "Did you read the entire recipe?",
+    "Its good to clean as you go.",
 ];
 
 /// Prints a random line of cooking advice to the terminal
