@@ -1,0 +1,7 @@
+block add(a: int, b: int) -> (int) {
+    out a + b;
+}
+
+block main(in: all) -> (int(BLUE)) {
+    out add(in[A], in[B]) + add(in[C], in[D]) + add(in[E], in[F]);
+}

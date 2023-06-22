@@ -122,7 +122,19 @@ impl GraphCompiler {
             ExpressionKind::Parenthesized(pexpr) => self.compile_expression(&mut graph, &*pexpr.expression, out_type),
             ExpressionKind::Binary(bin_expr) => {
                 let (left_vid, left_type) = self.compile_expression(&mut graph, &*bin_expr.left, None);
-                let (right_vid, right_type) = self.compile_expression(&mut graph, &*bin_expr.right, None);
+                let (mut right_vid, mut right_type) = self.compile_expression(&mut graph, &*bin_expr.right, None);
+
+                // If the two inputs are of the same type, on mut be altered
+                if left_type == right_type {
+                    let new_right_vid = graph.push_inner_node();
+                    let new_right_type = self.get_new_anysignal();
+                    graph.push_connection(right_vid, new_right_vid, Connection::Arithmetic(
+                            ArithmeticConnection::new_convert(right_type.clone(), new_right_type.clone())
+                            ));
+                    right_vid = new_right_vid;
+                    right_type = new_right_type;
+                }
+
                 let operation = match bin_expr.operator.kind {
                     BinaryOperatorKind::Plus => ArithmeticOperation::ADD,
                     BinaryOperatorKind::Minus => ArithmeticOperation::SUBTRACT,
