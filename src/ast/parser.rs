@@ -332,11 +332,8 @@ impl Parser {
         Ok(Block::new(name, inputs, outputs, statements))
     }
 
-    fn parse_expression(&mut self) -> Result<Expression, ()> {
-        self.parse_binary_expression()
-    }
-
-    fn parse_binary_operator(&mut self) -> Option<BinaryOperator> {
+    /// Returns the operator if the current token is an operator
+    fn get_binary_operator(&mut self) -> Option<BinaryOperator> {
         let token = self.current();
         match token.kind {
             TokenKind::Plus => Some(BinaryOperator::new(BinaryOperatorKind::Plus)),
@@ -347,41 +344,66 @@ impl Parser {
         }
     }
 
-    fn parse_binary_expression(&mut self) -> Result<Expression, ()> {
-        let mut expr = self.parse_binary_expression_part(None, 0).ok_or(())?;
+    fn parse_expression(&mut self) -> Result<Expression, ()> {
+        self.parse_binary_expression(0)
+    }
+
+    fn parse_binary_expression(&mut self, min_precedence: u8) -> Result<Expression, ()> {
+        let mut lhs = self.parse_primary_expression()?;
+
         loop {
-            match self.parse_binary_expression_part(Some(expr.clone()), 0) {
-                Some(e) => { expr = e; },
-                None => { break; }
+            if self.current().kind == TokenKind::Semicolon || self.current().kind == TokenKind::End {
+                break;
             }
-        };
-        Ok(expr)
-    }
 
-    fn parse_binary_expression_part(&mut self, primary_expr: Option<Expression>, precedence: u8) -> Option<Expression> {
-
-        let mut left: Expression;
-        if primary_expr.is_none() {
-            left = self.parse_primary_expression().ok()?;
-        }
-        else { // TODO prettify
-            self.parse_binary_operator()?; // Return None if next token is not an operator
-            left = primary_expr.unwrap();
-        }
-
-        if let Some(operator) = self.parse_binary_operator() {
-            let op_precedence = operator.precedence();
-            if op_precedence >= precedence {
-                self.consume();
-                let right = self.parse_binary_expression_part(None, op_precedence)?;
-                left = Expression::new(
-                    ExpressionKind::Binary(BinaryExpression::new(Box::new(left.clone()),
-                    Box::new(right), operator))
+            let operator = match self.get_binary_operator() {
+                Some(o) => o,
+                None => {
+                    let t = self.current();
+                    self.diagnostics_bag.borrow_mut().report_error(
+                        &t.span,
+                        &format!("Expected operator, found `{}`.", t.kind)
                     );
+                    return Err(());
+                },
+            };
+
+            let operator_precedence = operator.precedence();
+
+            if operator_precedence < min_precedence {
+                break;
             }
+
+            self.consume();
+
+            let mut rhs = self.parse_binary_expression(operator_precedence + 1)?;
+
+            // Parse right-associative operators
+            match self.get_binary_operator() {
+                Some(mut right_operator) if right_operator.precedence() >= operator_precedence => {
+                    while right_operator.precedence() >= operator_precedence {
+                        self.consume();
+                        rhs = self.parse_binary_expression(operator_precedence)?;
+                        if self.current().kind == TokenKind::Semicolon || self.current().kind == TokenKind::End {
+                            break;
+                        }
+                        right_operator = self.get_binary_operator().unwrap();
+                    }
+                },
+                _ => {},
+            }
+
+            lhs = Expression::new(ExpressionKind::Binary(BinaryExpression {
+                operator,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+            }));
+
         }
-        return Some(left);
+
+        Ok(lhs)
     }
+
 
     fn parse_primary_expression(&mut self) -> Result<Expression, ()> {
         let token = self.current().clone();
