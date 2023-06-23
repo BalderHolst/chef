@@ -1,3 +1,3 @@
 block main(in: all) -> (int(BLUE)) {
-    out in[GREEN] + 6 * 100 / 8 / 7;
+    out in[GREEN] + 6 * 100 / 8 / 7 + 4;
 }

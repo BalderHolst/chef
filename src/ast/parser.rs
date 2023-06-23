@@ -332,6 +332,10 @@ impl Parser {
         Ok(Block::new(name, inputs, outputs, statements))
     }
 
+    fn parse_expression(&mut self) -> Result<Expression, ()> {
+        self.parse_binary_expression()
+    }
+
     /// Returns the operator if the current token is an operator
     fn get_binary_operator(&mut self) -> Option<BinaryOperator> {
         let token = self.current();
@@ -344,66 +348,90 @@ impl Parser {
         }
     }
 
-    fn parse_expression(&mut self) -> Result<Expression, ()> {
-        self.parse_binary_expression(0)
-    }
+    fn parse_binary_expression(&mut self) -> Result<Expression, ()> {
+        let mut operands: Vec<Expression> = vec![];
+        let mut operators: Vec<BinaryOperator> = vec![];
 
-    fn parse_binary_expression(&mut self, min_precedence: u8) -> Result<Expression, ()> {
-        let mut lhs = self.parse_primary_expression()?;
-
+        let start_token = self.current().clone();
+        
         loop {
-            if self.current().kind == TokenKind::Semicolon || self.current().kind == TokenKind::End {
-                break;
+            let curr_token = self.current().clone();
+            if curr_token.kind == TokenKind::Semicolon { break }
+            if curr_token.kind == TokenKind::End { 
+                self.diagnostics_bag.borrow_mut().report_unexpected_token(&curr_token, TokenKind::Semicolon);
+                return Err(())
             }
-
-            let operator = match self.get_binary_operator() {
-                Some(o) => o,
+            operands.push(match self.parse_primary_expression() {
+                Ok(e) => e,
+                Err(_) => {
+                    self.diagnostics_bag.borrow_mut().report_error(
+                        &curr_token.span,
+                        &format!("Expected primary expression, found `{}`.", curr_token.kind)
+                        );
+                    return Err(())
+                },
+            });
+            match self.get_binary_operator() {
+                Some(e) => {
+                    operators.push(e);
+                    self.consume();
+                },
                 None => {
                     let t = self.current();
-                    self.diagnostics_bag.borrow_mut().report_error(
-                        &t.span,
-                        &format!("Expected operator, found `{}`.", t.kind)
-                    );
-                    return Err(());
-                },
-            };
-
-            let operator_precedence = operator.precedence();
-
-            if operator_precedence < min_precedence {
-                break;
-            }
-
-            self.consume();
-
-            let mut rhs = self.parse_binary_expression(operator_precedence + 1)?;
-
-            // Parse right-associative operators
-            match self.get_binary_operator() {
-                Some(mut right_operator) if right_operator.precedence() >= operator_precedence => {
-                    while right_operator.precedence() >= operator_precedence {
-                        self.consume();
-                        rhs = self.parse_binary_expression(operator_precedence)?;
-                        if self.current().kind == TokenKind::Semicolon || self.current().kind == TokenKind::End {
-                            break;
-                        }
-                        right_operator = self.get_binary_operator().unwrap();
+                    if t.kind != TokenKind::Semicolon {
+                        self.diagnostics_bag.borrow_mut().report_error(
+                        &curr_token.span,
+                        &format!("Expected operator or `{}` at the end of expression, found `{}`.", TokenKind::Semicolon, curr_token.kind)
+                        );
+                    return Err(())
                     }
                 },
-                _ => {},
             }
-
-            lhs = Expression::new(ExpressionKind::Binary(BinaryExpression {
-                operator,
-                left: Box::new(lhs),
-                right: Box::new(rhs),
-            }));
-
         }
 
-        Ok(lhs)
+        if operands.len() == 0 {
+            self.diagnostics_bag.borrow_mut().report_error(
+                &TextSpan::new(
+                    start_token.span.start,
+                    self.peak(-1).span.end,
+                    start_token.span.file
+                    ),
+                "Empty expressions are not allowed."
+                )
+        }
+        
+        dbg!(&operands, &operators);
+
+        assert_eq!(operands.len(), operators.len()+1);
+
+        let tree = Self::create_binary_expression_tree(operands, operators, 0);
+
+        Ok(tree)
     }
 
+    fn create_binary_expression_tree(
+        operands: Vec<Expression>,
+        operators: Vec<BinaryOperator>,
+        precedence: usize,
+    ) -> Expression {
+
+        assert_eq!(operands.len(), operators.len()+1);
+        
+        let mut left = operands.get(0).unwrap().clone();
+        for (i, right) in operands[1..].iter().enumerate() {
+            let operator = operators.get(i).unwrap();
+            let expr = Expression::new(ExpressionKind::Binary(
+                    BinaryExpression::new(
+                        Box::new(left),
+                        Box::new(right.clone()),
+                        operator.clone()
+                        )
+                    ));
+            left = expr;
+        };
+
+        left
+    }
 
     fn parse_primary_expression(&mut self) -> Result<Expression, ()> {
         let token = self.current().clone();
