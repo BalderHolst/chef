@@ -1,16 +1,27 @@
 use super::{AST, visitors::MutVisitor, Expression, ExpressionKind, NumberExpression};
 
 pub fn evaluate_constants(ast: &mut AST) {
-    ConstantEvaluator{}.evaluate(ast)
+    ConstantEvaluator::new().evaluate(ast)
 }
 
 
-struct ConstantEvaluator;
+struct ConstantEvaluator {
+    did_work: bool
+}
 
 impl ConstantEvaluator {
+    fn new() -> Self { Self { did_work: false } }
+
     fn evaluate(&mut self, ast: &mut AST) {
-        for statement in &mut ast.statements.iter_mut() {
-            self.visit_statement(statement);
+        // Run the evaluator through the tree until is cannot evaluate any more.
+        loop {
+            self.did_work = false;
+            for statement in &mut ast.statements.iter_mut() {
+                self.visit_statement(statement);
+            }
+            if self.did_work == false {
+                break;
+            }
         }
     }
 }
@@ -38,6 +49,7 @@ impl MutVisitor for ConstantEvaluator {
                         return
                     }
                 };
+                self.did_work = true;
                 match binary_expression.operator.kind {
                     super::BinaryOperatorKind::Plus => left + right,
                     super::BinaryOperatorKind::Minus => left - right,
@@ -50,7 +62,6 @@ impl MutVisitor for ConstantEvaluator {
                 return
             }
         };
-        dbg!(&result);
         *expression = Expression::new(ExpressionKind::Number(NumberExpression::new(result)))
     }
 
