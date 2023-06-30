@@ -1,0 +1,8 @@
+{
+	"name": "chef", 
+	"version": "0.0.1",
+	"title": "chef-signal-exporter",
+	"author": "BalderHolst",
+	"factorio_version": "1.1", 
+	"description": "A mod for exporting all items and signals to be used in the chef programming language."
+}
