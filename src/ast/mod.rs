@@ -112,7 +112,7 @@ impl Expression {
         Self { kind }
     }
 
-    fn number(n: i64) -> Self {
+    fn number(n: i32) -> Self {
         Self { kind: ExpressionKind::Number(NumberExpression::new(n)) }
     }
 
@@ -134,11 +134,11 @@ pub enum ExpressionKind {
 
 #[derive(Debug, Clone)]
 pub struct NumberExpression {
-    pub number: i64,
+    pub number: i32,
 }
 
 impl NumberExpression {
-    fn new(number: i64) -> Self {
+    fn new(number: i32) -> Self {
         Self { number }
     }
 }

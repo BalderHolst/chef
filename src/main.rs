@@ -9,16 +9,17 @@ use std::io;
 use crate::ast::lexer::{Lexer, Token};
 use crate::ast::parser::Parser;
 use crate::ast::AST;
+use crate::blueprint_converter::BlueprintConverter;
 use crate::compiler::compile;
 use crate::diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
 use crate::text::SourceText;
-
 
 mod ast;
 mod compiler;
 mod diagnostics;
 mod text;
 mod the_chef;
+mod blueprint_converter;
 
 #[derive(Debug, Options)]
 pub struct Opts {
@@ -131,6 +132,9 @@ fn main() -> Result<(), io::Error> {
                 graph.print();
             }
             graph.visualize("graph.svg").unwrap();
+
+            let blueprint = BlueprintConverter::new(graph).convert_to_blueprint();
+            dbg!(blueprint);
 
             println!("Enjoy!");
             Ok(())
