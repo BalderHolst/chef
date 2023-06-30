@@ -4,7 +4,7 @@ use terminal_size::Width;
 use std::cell::RefCell;
 use std::process::exit;
 use std::rc::Rc;
-use std::io;
+use std::{io, env};
 
 use crate::ast::lexer::{Lexer, Token};
 use crate::ast::parser::Parser;
@@ -20,6 +20,7 @@ mod diagnostics;
 mod text;
 mod the_chef;
 mod blueprint_converter;
+mod utils;
 
 #[derive(Debug, Options)]
 pub struct Opts {
@@ -40,6 +41,8 @@ pub struct Opts {
 pub enum Command {
     #[options(help = "compile source code")]
     Cook(CookOpts),
+    #[options(help = "add signals to your project")]
+    Add(AddOpts),
 }
 
 #[derive(Debug, Options)]
@@ -50,6 +53,22 @@ pub struct CookOpts {
     #[options(free)]
     files: Vec<String>
 }
+
+#[derive(Debug, Options)]
+pub struct AddOpts {
+    #[options(command)]
+    command: Option<AddCommand>
+}
+
+#[derive(Debug, Options)]
+pub enum AddCommand {
+    #[options(help = "add signals exported from game with the factorio mod")]
+    Signals(AddSignalOpts),
+}
+
+#[derive(Debug, Options)]
+pub struct AddSignalOpts { }
+
 
 fn get_term_width() -> Option<usize> {
     if let Some((Width(w), _)) = terminal_size::terminal_size() {
@@ -139,6 +158,19 @@ fn main() -> Result<(), io::Error> {
             println!("Enjoy!");
             Ok(())
         },
+        Some(Command::Add(c)) =>  {
+            match c.command {
+                Some(AddCommand::Signals(_)) => {
+                    let cwd = env::current_dir().expect("Could not find current dir");
+                    utils::import_signals::import_signal_file(cwd);
+                    Ok(())
+                },
+                None => {
+                    eprintln!("Only `signals` subcommand works for now"); // TODO
+                    exit(1);
+                },
+            }
+        }
         None => {
             eprintln!("{}", opts.self_usage());
             if let Some(command_list) = opts.self_command_list() {
