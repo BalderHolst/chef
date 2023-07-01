@@ -8,6 +8,7 @@ pub mod lexer;
 pub mod parser;
 mod constant_evaluator;
 mod visitors;
+mod type_checker;
 
 pub struct AST {
     pub statements: Vec<Statement>,
@@ -31,6 +32,10 @@ impl AST {
 
     pub fn evaluate_constants(&mut self) {
         constant_evaluator::evaluate_constants(self)
+    }
+
+    pub fn check_types(&self) {
+        type_checker::check(self);
     }
 }
 

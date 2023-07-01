@@ -131,6 +131,11 @@ fn main() -> Result<(), io::Error> {
             }
 
             ast.evaluate_constants();
+            ast.check_types();
+
+            if diagnostics_bag.borrow().has_errored() {
+                diagnostics_bag.borrow().exit_with_errors(&text);
+            }
 
             if opts.verbose {
                 print_label("AST");
@@ -152,8 +157,8 @@ fn main() -> Result<(), io::Error> {
             }
             graph.visualize("graph.svg").unwrap();
 
-            let blueprint = BlueprintConverter::new(graph).convert_to_blueprint();
-            dbg!(blueprint);
+            // let blueprint = BlueprintConverter::new(graph).convert_to_blueprint();
+            // dbg!(blueprint);
 
             println!("Enjoy!");
             Ok(())
