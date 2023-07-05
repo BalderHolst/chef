@@ -1,4 +1,4 @@
-use super::graph::{Graph, VId, IOType, Connection, ArithmeticConnection, ArithmeticOperation};
+use super::graph::{Graph, NId, IOType, Connection, ArithmeticConnection, ArithmeticOperation};
 
 pub struct GraphOptimizer<'a> {
     graph: &'a mut Graph,
@@ -23,7 +23,7 @@ impl<'a> GraphOptimizer<'a> {
         }
     }
 
-    fn get_redundant_pick(&mut self) -> Option<(VId, VId, VId, usize)> {
+    fn get_redundant_pick(&mut self) -> Option<(NId, NId, NId, usize)> {
         for (from_vid, middle_vec) in self.graph.adjacency.iter() {
             for (i, (middle_vid, _conn1)) in middle_vec.clone().iter().enumerate() {
                 if let Some(to_vec) = self.graph.adjacency.get(middle_vid) {
@@ -37,7 +37,7 @@ impl<'a> GraphOptimizer<'a> {
         None
     }
 
-    fn integrate_constant_input(&mut self, vid: VId) {
+    fn integrate_constant_input(&mut self, vid: NId) {
         // TODO: This shit is ugly...
         let inputs = self.graph.get_inputs(&vid);
 

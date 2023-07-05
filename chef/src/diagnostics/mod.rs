@@ -9,6 +9,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+/// Reference to the [DiagnosticsBag] allowing interior mutability.
 pub type DiagnosticsBagRef = Rc<RefCell<DiagnosticsBag>>;
 
 impl Display for TokenKind {

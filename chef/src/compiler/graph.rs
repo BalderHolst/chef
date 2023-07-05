@@ -1,3 +1,5 @@
+//! Implementation of [Graph]. A graph for representing a network of factorio combinators.
+
 use fnv::FnvHashMap;
 use std::fmt::Display;
 use std::io;
@@ -194,16 +196,20 @@ impl InnerNode {
     }
 }
 
-pub type VId = u64;
+/// Index of a vertex in a [Graph].
+pub type NId = u64;
 
+/// A graph for storing connection and nodes representing factorio combinators.
 #[derive(Clone)]
 pub struct Graph {
-    pub vertices: FnvHashMap<VId, Node>,
-    pub adjacency: FnvHashMap<VId, Vec<(VId, Connection)>>,
-    pub next_vid: VId,
+    pub vertices: FnvHashMap<NId, Node>,
+    pub adjacency: FnvHashMap<NId, Vec<(NId, Connection)>>,
+    pub next_vid: NId,
 }
 
 impl Graph {
+
+    /// Instantiate a new [Graph].
     pub fn new() -> Graph {
         Graph {
             vertices: FnvHashMap::default(),
@@ -212,7 +218,8 @@ impl Graph {
         }
     }
 
-    pub fn get_inputs(&self, vid: &VId) -> Vec<IOType> {
+    /// TODO
+    pub fn get_inputs(&self, vid: &NId) -> Vec<IOType> { // TODO: Return a single type
         match self.vertices.get(&vid) {
             Some(Node::Input(input_node)) => {
                 return vec![input_node.input.clone()];
@@ -236,15 +243,18 @@ impl Graph {
         inputs
     }
 
-    pub fn get_vertex(&self, vid: &VId) -> Option<&Node> {
+    /// Get a graph node by id.
+    pub fn get_node(&self, vid: &NId) -> Option<&Node> {
         self.vertices.get(vid)
     }
 
-    pub fn get_mut_vertex(&mut self, vid: &VId) -> Option<&mut Node> {
+    /// Get a mutable graph node by id.
+    pub fn get_mut_node(&mut self, vid: &NId) -> Option<&mut Node> {
         self.vertices.get_mut(vid)
     }
 
-    pub fn push_node(&mut self, node: Node) -> VId {
+    /// Add a node to the graph. Returns the new node's given id.
+    pub fn push_node(&mut self, node: Node) -> NId {
         let vid = self.next_vid;
         if self.vertices.insert(vid, node).is_some() {
             panic!("Could not insert node into graph")
@@ -253,24 +263,29 @@ impl Graph {
         vid
     }
 
-    pub fn override_node(&mut self, vid: VId, node: Node) -> Option<Node> {
+    /// Override a node at a given id.
+    pub fn override_node(&mut self, vid: NId, node: Node) -> Option<Node> {
         self.vertices.insert(vid, node)
     }
 
-    pub fn push_input_node(&mut self, variable_name: String, input: IOType) -> VId {
+    /// Push a node of type [InputNode].
+    pub fn push_input_node(&mut self, variable_name: String, input: IOType) -> NId {
         self.push_node(Node::Input(InputNode::new(variable_name, input)))
     }
 
-    pub fn push_inner_node(&mut self) -> VId {
+    /// Push a node of type [InnerNode].
+    pub fn push_inner_node(&mut self) -> NId {
         self.push_node(Node::Inner(InnerNode::new()))
     }
 
-    pub fn push_connection(&mut self, from: VId, to: VId, connection: Connection) {
+    /// Push a connection between two nodes. Connections represent combinator operations.
+    pub fn push_connection(&mut self, from: NId, to: NId, connection: Connection) {
         let adjacent_to_from = self.adjacency.entry(from).or_default();
         adjacent_to_from.push((to, connection));
     }
 
-    pub fn remove_connection(&mut self, from: &VId, to: &VId) {
+    /// Remove a connection between two nodes.
+    pub fn _remove_connection(&mut self, from: &NId, to: &NId) {
         let from_vertex_connections = self.adjacency.get_mut(from).unwrap();
         for (i, (to_vid, _from_conn)) in from_vertex_connections.iter().enumerate() {
             if to_vid == to {
@@ -280,7 +295,8 @@ impl Graph {
         }
     }
 
-    pub fn remove_node_with_connections(&mut self, vid: &VId) {
+    /// Remove a node and all of its connections.
+    pub fn remove_node_with_connections(&mut self, vid: &NId) {
         self.adjacency.remove(vid);
         self.vertices.remove(vid);
         for (_, to_vec) in self.adjacency.iter_mut() {
@@ -292,18 +308,9 @@ impl Graph {
         }
     }
 
-    // pub fn push_undirected_edge(
-    //     &mut self,
-    //     from: VId,
-    //     to: VId,
-    //     edge: Edge,
-    //     ) {
-    //     self.push_connection(from.clone(), to.clone(), edge.clone());
-    //     self.push_connection(from, to, edge);
-    // }
-
-    pub fn get_input_nodes(&self) -> Vec<VId> {
-        let mut inputs: Vec<VId> = vec![];
+    /// Get all nodes of type [InputNode].
+    pub fn get_input_nodes(&self) -> Vec<NId> {
+        let mut inputs: Vec<NId> = vec![];
         for (vid, node) in &self.vertices {
             if let Node::Input(_) = node {
                 inputs.push(vid.clone());
@@ -312,18 +319,20 @@ impl Graph {
         inputs
     }
 
-    fn is_output(&self, vid: VId) -> bool {
-        if let Some(Node::Output(_)) = self.get_vertex(&vid) {
+    /// Check if a node is of type [Node::Output].
+    fn is_output(&self, vid: NId) -> bool {
+        if let Some(Node::Output(_)) = self.get_node(&vid) {
             return true;
         }
         false
     }
 
+    /// Compine two graphs by stitching them togeather.
     /// TODO: Order of inputs vec matter
-    pub fn stitch_graph(&mut self, other: &Graph, inputs: Vec<(VId, IOType)>) -> Result<Vec<(VId, IOType)>, ()> { // TODO return vec of outputs
-        let mut vid_converter: fnv::FnvHashMap<VId, VId> = fnv::FnvHashMap::default();
+    pub fn stitch_graph(&mut self, other: &Graph, inputs: Vec<(NId, IOType)>) -> Result<Vec<(NId, IOType)>, ()> {
+        let mut vid_converter: fnv::FnvHashMap<NId, NId> = fnv::FnvHashMap::default();
 
-        let mut outputs: FnvHashMap<VId, IOType> = FnvHashMap::default();
+        let mut outputs: FnvHashMap<NId, IOType> = FnvHashMap::default();
 
         // copy nodes
         for (old_vid, node) in other.vertices.clone() {
@@ -399,15 +408,17 @@ impl Graph {
         }).collect())
     }
 
-    pub fn get_single_input(&self, vid: &VId) -> Result<IOType, ()> {
+    /// TODO: Remove
+    pub fn get_single_input(&self, vid: &NId) -> Result<IOType, ()> {
         let inputs = self.get_inputs(vid);
         if inputs.len() != 1 {
             return Err(());
-            // panic!("{}", &format!("Node {} has {} inputs instead of one.", vid, vid));
         }
         Ok(inputs[0].clone())
     }
 
+    /// Replace an [IOType] with another throughout the whole graph. This is usefull when assigning
+    /// [IOType::Any] actual factorio signals.
     fn replace_iotype(&mut self, old_type: IOType, new_type: &IOType) {
         for (_from_vid, to_vec) in self.adjacency.iter_mut() {
             for (_to_vid, conn) in to_vec {
@@ -422,7 +433,7 @@ impl Graph {
         }
     }
 
-    fn get_final_outputs(&self) -> Vec<(VId, Node)> {
+    fn _get_final_outputs(&self) -> Vec<(NId, Node)> {
         self.vertices.iter().filter(|(vid, node)| {
              if let Node::Output(_) = node {
                  match self.adjacency.get(vid) {
@@ -435,7 +446,8 @@ impl Graph {
         ).map(|(vid, node)| (vid.clone(), node.clone())).collect()
     }
 
-    fn get_non_constant_inputs(&self) -> Vec<(VId, Node)> {
+    /// Get all input nodes that are not constants.
+    fn get_non_constant_inputs(&self) -> Vec<(NId, Node)> {
         self.vertices.iter().filter(|(_vid, node)| {
             if let Node::Input(n) = node {
                 if let IOType::Constant(_) = n.input { false }
@@ -446,6 +458,7 @@ impl Graph {
         .map(|(vid, node)| (vid.clone(), node.clone())).collect()
     }
 
+    /// Print the graph to stout.
     pub fn print(&self) {
         println!("Graph:");
         println!("\tVertecies:");
@@ -476,6 +489,7 @@ impl Graph {
         }
     }
 
+    /// Visualize the graph in an svg.
     pub fn visualize(&self, output_path: &str) -> io::Result<()> {
         GraphVisualizer::new(self).visualize(output_path)
     }

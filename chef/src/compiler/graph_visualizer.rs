@@ -6,7 +6,7 @@ use std::{
 
 use fnv::FnvHashMap;
 
-use super::graph::{Connection, Graph, Node, VId};
+use super::graph::{Connection, Graph, Node, NId};
 
 const NODE_RADIUS: usize = 20;
 const NODE_PADDING: usize = 30;
@@ -61,7 +61,7 @@ impl<'a> GraphVisualizer<'a> {
         Ok(())
     }
 
-    fn visualize_node_network(&mut self, vid: VId, level: usize) -> (usize, usize) {
+    fn visualize_node_network(&mut self, vid: NId, level: usize) -> (usize, usize) {
         if let Some((x, y)) = self.drawn_nodes.get(&vid) {
             return (x.clone(), y.clone());
         }
@@ -116,7 +116,7 @@ impl<'a> GraphVisualizer<'a> {
         self.svg += "</g>\n";
     }
 
-    fn draw_node(&mut self, vid: VId, x_level: usize) -> (usize, usize) {
+    fn draw_node(&mut self, vid: NId, x_level: usize) -> (usize, usize) {
         let y_level = if x_level >= self.levels.len() {
             self.levels.push(0);
             0
@@ -139,7 +139,7 @@ impl<'a> GraphVisualizer<'a> {
             types = types.get(..types.len() - 3).unwrap().to_string();
         }
 
-        let fill = match self.graph.get_vertex(&vid) {
+        let fill = match self.graph.get_node(&vid) {
             Some(Node::Inner(_)) => "none",
             Some(Node::Input(_)) => "lightgreen",
             Some(Node::Output(_)) => "orange",

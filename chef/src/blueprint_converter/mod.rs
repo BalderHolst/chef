@@ -7,16 +7,16 @@ use fb::objects::{Blueprint, Entity, EntityNumber, Position, ControlBehavior, Co
 
 use fnv::FnvHashMap;
 
-use crate::compiler::graph::{self, Graph, VId, ArithmeticOperation};
+use crate::compiler::graph::{self, Graph, NId, ArithmeticOperation};
 
 pub struct BlueprintConverter {
-    vid_to_entity_number: FnvHashMap<VId, EntityNumber>,
+    vid_to_entity_number: FnvHashMap<NId, EntityNumber>,
     graph: Graph,
 }
 
 impl BlueprintConverter {
     pub fn new(graph: Graph) -> Self { 
-        let mut m: FnvHashMap<VId, EntityNumber> = FnvHashMap::default();
+        let mut m: FnvHashMap<NId, EntityNumber> = FnvHashMap::default();
 
         // Create translation between vid and entity_number
         for (i, (vid, _node)) in graph.vertices.iter().enumerate() {

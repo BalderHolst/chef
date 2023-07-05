@@ -1,5 +1,5 @@
 use termion::color::{self, Fg, Bg};
-use std::cmp::{min, max};
+use std::cmp::max;
 
 use crate::text::SourceText;
 use crate::diagnostics::Diagnostic;
@@ -8,23 +8,29 @@ const PREFIX_LEN: usize = 16;
 const MAX_CODE_LEN: usize = 20;
 const SUFIX_LEN: usize = 20;
 
+/// Struct for printing diagnostics
 pub struct DiagnosticsPrinter<'a> {
     source_text: &'a SourceText,
     diagnostics: &'a Vec<Diagnostic>
 }
 
 impl<'a> DiagnosticsPrinter<'a> {
+    /// Instantiate a new [DiagnosticsPrinter].
     pub fn new(source_text: &'a SourceText, diagnostics: &'a Vec<Diagnostic>) -> Self {
         Self { source_text, diagnostics }
     }
 
+    /// Print all the stored diagnostics.
     pub fn print(&self) {
         for diagnostic in self.diagnostics {
             println!("{}", self.stringify_diagnostic(diagnostic));
         }
     }
 
-    /// [ERROR] (file:ll:cc) This is the code in question     - Error message
+    /// Turn a diagnostic into a printable message with the following format:
+    /// ```text
+    /// \[ERROR\] (file:ll:cc) This is the code in question     - Error message
+    /// ```
     fn stringify_diagnostic(&self, d: &Diagnostic) -> String {
         let (line_nr, line_pos) = self.source_text.get_line_nr_and_position(d.span.start);
         let line = self.source_text.get_line(line_nr).unwrap();

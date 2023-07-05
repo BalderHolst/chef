@@ -9,7 +9,7 @@ pub struct GraphCompiler {
     ast: AST,
     next_anysignal: u64,
     block_graphs: HashMap<String, Graph>,
-    scopes: Vec<HashMap<String, VId>>,
+    scopes: Vec<HashMap<String, NId>>,
     diagnostics_bag: DiagnosticsBagRef,
 }
 
@@ -30,13 +30,13 @@ impl GraphCompiler {
         self.scopes.pop().unwrap();
     }
 
-    fn add_to_scope(&mut self, variable_name: String, output_vid: VId) {
+    fn add_to_scope(&mut self, variable_name: String, output_vid: NId) {
         if self.scopes.last_mut().unwrap().insert(variable_name.clone(), output_vid).is_some() {
             panic!("tried to override a variable in scope.")
         }
     }
 
-    fn search_scope(&self, variable_name: String) -> Option<VId> {
+    fn search_scope(&self, variable_name: String) -> Option<NId> {
         let scopes_len = self.scopes.len();
         for i in 0..scopes_len {
             let p = scopes_len - i - 1;
@@ -61,7 +61,7 @@ impl GraphCompiler {
     }
 
     /// Returns a typle:: (output_vid, output_type)
-    fn compile_expression(&mut self, mut graph: &mut Graph, expr: &Expression, out_type: Option<IOType>) -> (VId, IOType) {
+    fn compile_expression(&mut self, mut graph: &mut Graph, expr: &Expression, out_type: Option<IOType>) -> (NId, IOType) {
         match &expr.kind {
             ExpressionKind::Number(n) => {
                 let t = IOType::Constant(n.number);
@@ -69,7 +69,7 @@ impl GraphCompiler {
             },
             ExpressionKind::Variable(var) => {
                 if let Some(var_node_vid) = self.search_scope(var.name.clone()) {
-                    let var_node = graph.get_vertex(&var_node_vid).unwrap().clone();
+                    let var_node = graph.get_node(&var_node_vid).unwrap().clone();
                     let var_signal = self.variable_type_to_iotype(&var.variable_type);
                     let input_signal = match var_node {
                         Node::Input(var_output_node) => var_output_node.input.clone(),
@@ -163,7 +163,7 @@ impl GraphCompiler {
                 (output, out_type)
             },
             ExpressionKind::BlockLink(block_expr) => {
-                let vars: Vec<(VId, IOType)> = block_expr.inputs.iter()
+                let vars: Vec<(NId, IOType)> = block_expr.inputs.iter()
                     .map(|expr| 
                          match expr.kind.clone() {
                             ExpressionKind::Variable(variable) => {
@@ -243,7 +243,7 @@ impl GraphCompiler {
                 StatementKind::Assignment(assignment) => {
                     let out_type = self.variable_type_to_iotype(&assignment.variable.variable_type);
                     let (mut output_vid, _) = self.compile_expression(&mut graph, &assignment.expression, Some(out_type.clone()));
-                    let output_node = graph.get_vertex(&output_vid).unwrap().clone();
+                    let output_node = graph.get_node(&output_vid).unwrap().clone();
                     match output_node {
                         Node::Inner(_n) => { // Convert inner node to output node
                             let input_type = graph.get_single_input(&output_vid).unwrap();

@@ -1,3 +1,5 @@
+//! The lexer module converts the raw text into tokens for further parsing.
+
 use std::collections::HashSet;
 
 use lazy_static::lazy_static;
@@ -13,6 +15,7 @@ lazy_static! {
 
 }
 
+/// Kinds of lexer tokens.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     Number(u32),
@@ -39,6 +42,7 @@ pub enum TokenKind {
     End,
 }
 
+/// A lexer token.
 #[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
@@ -51,6 +55,12 @@ impl Token {
     }
 }
 
+/// The lexer. Tokens can be extracting by iterating over it.
+/// ```ignore
+/// for token in lexer {
+///     do_something();
+/// }
+/// ```
 pub struct Lexer<'a> {
     source: &'a SourceText,
     cursor: usize,
@@ -59,6 +69,9 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
+
+    /// Instantiate a [Lexer] with a [SourceText] for parsing and a [DiagnosticsBagRef] for
+    /// reporting errors.
     pub fn from_source(diagnostics_bag: DiagnosticsBagRef, source: &'a SourceText) -> Self {
         Lexer { diagnostics_bag, source, cursor: 0, placed_end_token: false }
     }

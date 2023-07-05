@@ -1,28 +1,34 @@
+//! Module for lexing and parsing chef source code into an abstract syntax tree and checking for errors.
+
 use std::fmt::Display;
 use std::rc::Rc;
 
-use crate::text::TextSpan;
 use crate::ast::visitors::Visitor;
+use crate::text::TextSpan;
 
+mod constant_evaluator;
 pub mod lexer;
 pub mod parser;
-mod constant_evaluator;
-mod visitors;
 mod type_checker;
+mod visitors;
 
+/// The abstract syntax tree.
 pub struct AST {
     pub statements: Vec<Statement>,
 }
 
 impl AST {
+    /// Instantiate a new [AST].
     pub fn new() -> Self {
         Self { statements: vec![] }
     }
 
+    /// Add a statement to the [AST].
     pub fn add_statement(&mut self, statement: Statement) {
         self.statements.push(statement);
     }
 
+    /// Print the [AST] to stout.
     pub fn print(&self) -> () {
         let mut printer = Printer::new();
         for statement in &self.statements {
@@ -30,15 +36,26 @@ impl AST {
         }
     }
 
+    /// Evaluate constant expressions in the [AST] to simplify it.
     pub fn evaluate_constants(&mut self) {
         constant_evaluator::evaluate_constants(self)
     }
 
+    /// Check that types are valid.
     pub fn check_types(&self) {
+        // TODO: Pass diagnostics bag
         type_checker::check(self);
     }
 }
 
+/// A parsed statement. Statements in chef are separated by semicolon:
+/// ```text
+/// block main(in: all) -> (int(inserter)) {
+///     a: int = in[pipe] * 5;          <-- Statement 0
+///     b: int = in[inserter] / 3 + 8;  <-- Statement 1
+///     out a + b;                      <-- Statement 2
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct Statement {
     pub kind: StatementKind,
@@ -46,11 +63,13 @@ pub struct Statement {
 }
 
 impl Statement {
+    /// Instantiate a new [Statement].
     fn new(kind: StatementKind, span: TextSpan) -> Self {
         Statement { kind, span }
     }
 }
 
+/// Kinds of statement.
 #[derive(Debug, Clone)]
 pub enum StatementKind {
     Expression(Expression),
@@ -60,7 +79,7 @@ pub enum StatementKind {
     Error,
 }
 
-
+/// Chef variable types.
 #[derive(Debug, Clone)]
 pub enum VariableType {
     Int(String),
@@ -69,18 +88,25 @@ pub enum VariableType {
     Error,
 }
 
+/// A chef variable.
 #[derive(Debug, Clone)]
 pub struct Variable {
+    // TODO: Add textspan
     pub name: String,
     pub variable_type: VariableType,
 }
 
 impl Variable {
+    /// Instantiate a new [Variable].
     pub fn new(name: String, variable_type: VariableType) -> Self {
-        Self { name, variable_type }
+        Self {
+            name,
+            variable_type,
+        }
     }
 }
 
+/// [AST] representation of chef variable assignment.
 #[derive(Debug, Clone)]
 pub struct Assignment {
     pub variable: Rc<Variable>,
@@ -88,27 +114,45 @@ pub struct Assignment {
 }
 
 impl Assignment {
+    /// Instantiate a new [Assignment].
     pub fn new(variable: Rc<Variable>, expression: Expression) -> Self {
-        Self { variable, expression }
+        Self {
+            variable,
+            expression,
+        }
     }
 }
 
+/// [AST] representation of chef `block`.
 #[derive(Debug, Clone)]
 pub struct Block {
     pub name: String,
     pub inputs: Vec<Rc<Variable>>,
     pub outputs: Vec<VariableType>,
-    pub statements: Vec<Statement>
+    pub statements: Vec<Statement>,
 }
 
 impl Block {
-    fn new(name: String, inputs: Vec<Rc<Variable>>, outputs: Vec<VariableType>, statements: Vec<Statement>) -> Self {
-        Self { name, inputs, outputs, statements }
+    /// Instantiate a new [Block].
+    fn new(
+        name: String,
+        inputs: Vec<Rc<Variable>>,
+        outputs: Vec<VariableType>,
+        statements: Vec<Statement>,
+    ) -> Self {
+        Self {
+            name,
+            inputs,
+            outputs,
+            statements,
+        }
     }
 }
 
+/// A chef expression.
 #[derive(Debug, Clone)]
 pub struct Expression {
+    // TODO: Add span
     pub kind: ExpressionKind,
 }
 
@@ -118,14 +162,23 @@ impl Expression {
     }
 
     fn number(n: i32) -> Self {
-        Self { kind: ExpressionKind::Number(NumberExpression::new(n)) }
+        Self {
+            kind: ExpressionKind::Number(NumberExpression::new(n)),
+        }
     }
 
     fn binary(left: Expression, right: Expression, operator: BinaryOperator) -> Self {
-        Self { kind: ExpressionKind::Binary(BinaryExpression::new(Box::new(left), Box::new(right), operator)) }
+        Self {
+            kind: ExpressionKind::Binary(BinaryExpression::new(
+                Box::new(left),
+                Box::new(right),
+                operator,
+            )),
+        }
     }
 }
 
+/// Kinds of expression.
 #[derive(Debug, Clone)]
 pub enum ExpressionKind {
     Number(NumberExpression),
@@ -137,6 +190,7 @@ pub enum ExpressionKind {
     Error,
 }
 
+/// An expression containing only a single number.
 #[derive(Debug, Clone)]
 pub struct NumberExpression {
     pub number: i32,
@@ -148,6 +202,7 @@ impl NumberExpression {
     }
 }
 
+/// An expression within parenthesis.
 #[derive(Debug, Clone)]
 pub struct ParenthesizedExpression {
     pub expression: Box<Expression>,
@@ -159,17 +214,24 @@ impl ParenthesizedExpression {
     }
 }
 
+/// [AST] representation of a chef pick expression.
+/// ### Example of a chef pick expression:
+/// ```text
+/// picked_signal: int = all_signals[some_signal];
+/// ```
 #[derive(Debug, Clone)]
 pub struct PickExpression {
     pub pick_signal: String,
     pub from: Rc<Variable>,
 }
 
-
 impl PickExpression {
-    fn new(pick_signal: String, from: Rc<Variable>) -> Self { Self { pick_signal, from } }
+    fn new(pick_signal: String, from: Rc<Variable>) -> Self {
+        Self { pick_signal, from }
+    }
 }
 
+/// [AST] representation of chef block link. This is like a function call in other languages.
 #[derive(Debug, Clone)]
 pub struct BlockLinkExpression {
     pub block: Rc<Block>,
@@ -177,9 +239,12 @@ pub struct BlockLinkExpression {
 }
 
 impl BlockLinkExpression {
-    pub fn new(block: Rc<Block>, inputs: Vec<Expression>) -> Self { Self { block, inputs } }
+    pub fn new(block: Rc<Block>, inputs: Vec<Expression>) -> Self {
+        Self { block, inputs }
+    }
 }
 
+/// [AST] representation of an expression containing two operands and one operator.
 #[derive(Debug, Clone)]
 pub struct BinaryExpression {
     pub left: Box<Expression>,
@@ -189,10 +254,15 @@ pub struct BinaryExpression {
 
 impl BinaryExpression {
     fn new(left: Box<Expression>, right: Box<Expression>, operator: BinaryOperator) -> Self {
-        Self { left, right, operator }
+        Self {
+            left,
+            right,
+            operator,
+        }
     }
 }
 
+/// Operator used by a [BinaryExpression].
 #[derive(Debug, Clone)]
 pub struct BinaryOperator {
     pub kind: BinaryOperatorKind,
@@ -203,6 +273,7 @@ impl BinaryOperator {
         Self { kind }
     }
 
+    /// Get the operator's precedence.
     fn precedence(&self) -> u8 {
         match self.kind {
             BinaryOperatorKind::Plus => 2,
@@ -224,6 +295,7 @@ impl Display for BinaryOperator {
     }
 }
 
+/// Kinds of [BinaryOperator].
 #[derive(Debug, Clone)]
 pub enum BinaryOperatorKind {
     Plus,
@@ -232,25 +304,31 @@ pub enum BinaryOperatorKind {
     Divide,
 }
 
+/// The indentation depth when printing the [AST].
 const INDENTATON: usize = 4;
 
+/// A struct for printing [AST]s.
 struct Printer {
-    current_intent: usize
+    current_intent: usize,
 }
 
 impl Printer {
+    /// Instantiate a new printer.
     fn new() -> Self {
         Self { current_intent: 0 }
     }
 
+    /// Print a string at the current indentation.
     fn print(&self, text: &str) {
         println!("{}{}", " ".repeat(self.current_intent), text);
     }
 
+    /// Add one indentation level.
     fn indent(&mut self) {
         self.current_intent += INDENTATON;
     }
 
+    /// Remove one indentation level.
     fn unindent(&mut self) {
         self.current_intent -= INDENTATON;
     }
@@ -283,7 +361,10 @@ impl Visitor for Printer {
     }
 
     fn visit_block(&mut self, block: &Block) {
-        self.print(&format!("Block: \"{}\" {:?} -> {:?}", block.name, block.inputs, block.outputs));
+        self.print(&format!(
+            "Block: \"{}\" {:?} -> {:?}",
+            block.name, block.inputs, block.outputs
+        ));
         self.indent();
         self.do_visit_block(&block);
         self.unindent();
@@ -308,7 +389,10 @@ impl Visitor for Printer {
     }
 
     fn visit_variable(&mut self, var: &Variable) {
-        self.print(&format!("Variable: {} (type: {:?})", var.name, var.variable_type))
+        self.print(&format!(
+            "Variable: {} (type: {:?})",
+            var.name, var.variable_type
+        ))
     }
 
     fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression) {
@@ -348,7 +432,9 @@ impl Visitor for Printer {
         self.indent();
         self.print(&format!("Args: ({})", block.inputs.len()));
         self.indent();
-        for input in &block.inputs { self.visit_expression(input); }
+        for input in &block.inputs {
+            self.visit_expression(input);
+        }
         self.unindent();
         self.unindent();
     }
