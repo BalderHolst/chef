@@ -23,7 +23,7 @@ pub struct AST {
 }
 
 impl AST {
-    /// Instantiate a new empty [AST].
+    /// Instantiate a new [AST].
     pub fn new() -> Self {
         Self { statements: vec![] }
     }

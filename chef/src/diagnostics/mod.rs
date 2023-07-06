@@ -1,3 +1,5 @@
+//! Diagnostics reporting and printing
+
 mod printer;
 
 use crate::ast::lexer::{TokenKind, Token};
@@ -42,6 +44,7 @@ impl Display for TokenKind {
     }
 }
 
+/// A chef diagnostic
 #[derive(Debug)]
 pub struct Diagnostic {
     message: String,
@@ -54,11 +57,12 @@ impl Diagnostic {
     }
 }
 
-
+/// A bag holding all the diagnostics with utility functions for reporting and printing errors.
 pub struct DiagnosticsBag {
     diagnostics: Vec<Diagnostic>,
     options: Rc<Opts>,
-    source: Rc<SourceText>,
+    source: Rc<SourceText>, // TODO: textspans should hold this pointer, not the bag itself, to
+                            // allow for multipule files.
 }
 
 impl DiagnosticsBag {
@@ -66,27 +70,33 @@ impl DiagnosticsBag {
         Self { diagnostics: vec![], options, source}
     }
 
+    /// Checks whether any errors have been reported.
     pub fn has_errored(&self) -> bool {
         self.diagnostics.len() > 0
     }
 
+    /// Report an error.
     pub fn report_error(&mut self, span: &TextSpan, message: &str) {
         self.diagnostics.push(Diagnostic::new(message.to_string(), span.clone()))
     }
 
+    /// Report unexpected token error.
     pub fn report_unexpected_token(&mut self, token: &Token, expected: TokenKind) {
         let message = format!("Expected `{}` but found `{}`.", expected, token.kind);
         self.diagnostics.push(Diagnostic::new(message, token.span.clone()))
     }
 
+    /// Report bad token error.
     pub fn report_bad_token(&mut self, token: &Token) {
         self.diagnostics.push(Diagnostic::new("Bad token.".to_string(), token.span.clone()))
     }
 
+    /// Print the accumulated diagnostics.
     pub fn print(&self) {
         DiagnosticsPrinter::new(&self.source, &self.diagnostics).print();
     }
 
+    /// Print the errors and exit.
     pub fn exit_with_errors(&self) {
         println!("\n");
         self.print();
@@ -97,6 +107,7 @@ impl DiagnosticsBag {
         std::process::exit(1);
     }
 
+    /// If the diagnostics bag hold any errors: print the errors and exit.
     pub fn exit_if_errored(&self) {
         if self.has_errored() {
             self.exit_with_errors();

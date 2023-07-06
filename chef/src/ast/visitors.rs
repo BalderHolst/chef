@@ -1,8 +1,11 @@
+//!  Traits for traversing the abstract syntax tree.
+
 // This file constains the traits Visitor and MutVisitor, both of these traits allow a struct to
 // traverse the AST. Both clases have almost identical code, the only difference being the `mut`
 // keyword. This is less than optimal, but i have no ideas how to write macros, or if they could
 // even solve this. Suggestions very welcome!
 
+use crate::ast::AST;
 use super::{
     Statement,
 	StatementKind,
@@ -18,6 +21,7 @@ use super::{
 	PickExpression
 };
 
+/// Trait allowing for traversal of an immutable [AST].
 pub trait Visitor {
     fn do_visit_statement(&mut self, statement: &Statement) {
         match &statement.kind {
@@ -114,7 +118,7 @@ pub trait Visitor {
 
 }
 
-
+/// Trait allowing for traversal of a mutable [AST].
 pub trait MutVisitor {
     fn do_visit_statement(&mut self, statement: &mut Statement) {
         match &mut statement.kind {

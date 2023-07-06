@@ -196,7 +196,7 @@ impl InnerNode {
     }
 }
 
-/// Index of a vertex in a [Graph].
+/// Index of a node in a [Graph].
 pub type NId = u64;
 
 /// A graph for storing connection and nodes representing factorio combinators.
@@ -418,7 +418,7 @@ impl Graph {
     }
 
     /// Replace an [IOType] with another throughout the whole graph. This is usefull when assigning
-    /// [IOType::Any] actual factorio signals.
+    /// `IOType::Any` actual factorio signals.
     fn replace_iotype(&mut self, old_type: IOType, new_type: &IOType) {
         for (_from_vid, to_vec) in self.adjacency.iter_mut() {
             for (_to_vid, conn) in to_vec {

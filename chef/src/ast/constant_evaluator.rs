@@ -1,10 +1,14 @@
+//! Evaluates constant expressions in the [AST]. Use the public [evaluate_constants] function.
+
 use super::{AST, visitors::MutVisitor, Expression, ExpressionKind, NumberExpression};
 
+/// Evaluate constant expressions in the [AST] and substitutes them for their results.
 pub fn evaluate_constants(ast: &mut AST) {
     ConstantEvaluator::new().evaluate(ast)
 }
 
 
+/// The evaluator.
 struct ConstantEvaluator {
     did_work: bool
 }
@@ -12,6 +16,7 @@ struct ConstantEvaluator {
 impl ConstantEvaluator {
     fn new() -> Self { Self { did_work: false } }
 
+    /// Evaluate constant expressions.
     fn evaluate(&mut self, ast: &mut AST) {
         // Run the evaluator through the tree until is cannot evaluate any more.
         loop {

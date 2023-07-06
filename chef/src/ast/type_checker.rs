@@ -1,7 +1,10 @@
+//! Chef type checker.
+
 use super::{visitors::Visitor, AST};
 
 const BASE_SIGNALS: &str = include_str!("base.signals");
 
+/// Type check an [AST].
 pub fn check(ast: &AST) {
     let mut checker = TypeChecker{};
     for statement in &ast.statements {
@@ -9,9 +12,12 @@ pub fn check(ast: &AST) {
     }
 }
 
-struct TypeChecker { }
+/// The type checker.
+struct TypeChecker;
 
 impl TypeChecker {
+
+    /// Checks if a signal is a valid factorio signal.
     fn is_valid_signal(s: &str) -> bool {
         for signal_line in BASE_SIGNALS.lines() {
             let signal = signal_line.split(":").last().unwrap();
@@ -20,6 +26,7 @@ impl TypeChecker {
         false
     }
 
+    /// Report error if the signal is invalid.
     fn report_if_invalid(signal: &str) {
         if !Self::is_valid_signal(signal) {
             println!("Invalid signal: {}", signal); // TODO Real reporting

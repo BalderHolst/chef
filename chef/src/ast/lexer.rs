@@ -1,4 +1,4 @@
-//! The lexer module converts the raw text into tokens for further parsing.
+//! The lexer module converts the raw text into tokens.
 
 use std::collections::HashSet;
 use std::rc::Rc;

@@ -1,3 +1,5 @@
+//! Struct for managing references to the source code.
+
 use std::{fs, io, cmp::max};
 
 #[derive(Debug, Clone)]

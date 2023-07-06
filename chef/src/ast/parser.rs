@@ -1,3 +1,5 @@
+//! Module for parsing a tokenstream into an abstract syntax tree.
+
 use std::cmp::min;
 use std::rc::Rc;
 
@@ -14,6 +16,7 @@ use crate::text::TextSpan;
 
 use super::{Assignment, PickExpression, BlockLinkExpression};
 
+/// The parser. The parser can be used as an iterator to get statements one at a time.
 pub struct Parser {
     tokens: Vec<Token>,
     cursor: usize,
@@ -24,6 +27,8 @@ pub struct Parser {
 }
 
 impl Parser {
+
+    /// Create a new [Parser].
     pub fn new(tokens: Vec<Token>, diagnostics_bag: DiagnosticsBagRef, options: Rc<Opts>) -> Self { 
         Self {
             tokens: tokens.iter().filter(
@@ -37,6 +42,7 @@ impl Parser {
         }
     }
 
+    /// Peak at a token around the current cursor position with an offset.
     fn peak(&self, mut offset: isize) -> &Token {
         if self.cursor as isize + offset < 0 { offset = 0; }
         self.tokens.get(
@@ -47,14 +53,17 @@ impl Parser {
             ).unwrap()
     }
 
+    /// Get the current token.
     fn current(&self) -> &Token {
         self.peak(0)
     }
 
+    /// Set the cursor position.
     fn rewind_to(&mut self, cursor_position: usize) {
         self.cursor = cursor_position;
     }
 
+    /// Return the current token and move to the next token.
     fn consume(&mut self) -> &Token {
         if self.options.verbose {
             println!("{} : {:?}", self.cursor.clone(), self.current().clone());
@@ -63,12 +72,14 @@ impl Parser {
         self.peak(-1)
     }
 
+    /// Consume only if the token is of a certain kind.
     fn consume_if(&mut self, token_kind: TokenKind) {
         if self.current().kind == token_kind {
             self.consume();
         }
     }
 
+    /// Consume and error if the token is not what was expected.
     fn consume_and_check(&mut self, expected: TokenKind) -> Result<TokenKind, ()> {
         let token = self.consume().clone();
         let is_correct = token.kind == expected;
@@ -81,18 +92,7 @@ impl Parser {
         }
     }
 
-    fn check_and_consume_if_is(&mut self, expected: TokenKind) -> bool {
-        let token = self.current();
-        let cond = token.kind == expected;
-        if cond {
-            self.consume();
-        }
-        else {
-            self.diagnostics_bag.borrow_mut().report_unexpected_token(token, expected);
-        }
-        cond
-    }
-
+    /// Search the current scope for a variable.
     fn search_scope(&self, name: &str) -> Option<Rc<Variable>> {
         let mut rev_scopes = self.scopes.clone();
         rev_scopes.reverse();
@@ -106,6 +106,7 @@ impl Parser {
         None
     }
 
+    /// Search for a block by name.
     fn search_blocks(&self, name: &str) -> Option<Rc<Block>> {
         for block in &self.blocks {
             if block.name.as_str() == name {
@@ -115,18 +116,24 @@ impl Parser {
         None
     }
 
+    /// Enter a new scope.
     fn enter_scope(&mut self) {
         self.scopes.push(vec![]);
     }
 
+    /// Exit the current scope.
     fn exit_scope(&mut self) {
-        self.scopes.pop().unwrap();
+        if self.scopes.len() > 1 {
+            self.scopes.pop().unwrap();
+        }
     }
 
+    /// Add a variable to the current scope.
     fn add_to_scope(&mut self, var: Rc<Variable>) {
         self.scopes.last_mut().unwrap().push(var);
     }
 
+    /// Parse next statement. Return `None` of none are left.
     fn next_statement(&mut self) -> Option<Statement> {
         if self.options.verbose {
             println!("New statement!");
@@ -190,6 +197,7 @@ impl Parser {
         }
     }
 
+    /// Consume token until a the end of the current statement.
     fn consume_bad_statement(&mut self) {
         loop {
             let curr_kind = &self.current().kind;
@@ -199,6 +207,7 @@ impl Parser {
         self.consume();
     }
 
+    /// Parse variable assignment statement.
     fn parse_assignment_statement(&mut self) -> Result<StatementKind, ()> {
         let variable: Rc<Variable>;
         if let ExpressionKind::Variable(v) = self.parse_primary_expression()?.kind {
@@ -217,10 +226,11 @@ impl Parser {
         self.consume();
 
         let expr = self.parse_expression()?;
-        self.check_and_consume_if_is(TokenKind::Semicolon);
+        self.consume_and_check(TokenKind::Semicolon)?;
         Ok(StatementKind::Assignment(Assignment::new(variable, expr)))
     }
 
+    /// Parse variable type.
     fn parse_variable_type(&mut self) -> Result<VariableType, ()> {
         match self.consume().kind.clone() {
             TokenKind::Word(start_word) => {
@@ -255,7 +265,8 @@ impl Parser {
         }
     }
 
-    fn parse_arguments(&mut self) -> Result<Vec<Rc<Variable>>, ()> {
+    /// Parse arguments for `block` definition.
+    fn parse_block_arguments(&mut self) -> Result<Vec<Rc<Variable>>, ()> {
         let mut arguments: Vec<Rc<Variable>> = vec![];
         loop {
             let name = if let TokenKind::Word(s) = self.current().kind.clone() { 
@@ -274,7 +285,8 @@ impl Parser {
         }
     }
 
-    fn parse_outputs(&mut self) -> Result<Vec<VariableType>, ()> {
+    /// Parse outputs for `block` definition.
+    fn parse_block_outputs(&mut self) -> Result<Vec<VariableType>, ()> {
         let mut outputs: Vec<VariableType> = vec![];
         loop {
             if self.current().kind == TokenKind::RightParen {
@@ -286,6 +298,7 @@ impl Parser {
         Ok(outputs)
     }
 
+    /// Parse arguments for `block` links.
     fn parse_block_link_arguments(&mut self) -> Result<Vec<Expression>, ()> {
         let mut inputs: Vec<Expression> = vec![];
         self.consume_and_check(TokenKind::LeftParen)?;
@@ -298,6 +311,7 @@ impl Parser {
         Ok(inputs)
     }
 
+    /// Parse chef `block`.
     fn parse_block(&mut self) -> Result<Block, ()> {
         self.consume();
         self.enter_scope();
@@ -313,13 +327,13 @@ impl Parser {
 
         self.consume_and_check(TokenKind::LeftParen)?;
 
-        let inputs = self.parse_arguments()?;
+        let inputs = self.parse_block_arguments()?;
 
         self.consume_and_check(TokenKind::RightParen)?;
         self.consume_and_check(TokenKind::RightArrow)?;
         self.consume_and_check(TokenKind::LeftParen)?;
 
-        let outputs = self.parse_outputs()?;
+        let outputs = self.parse_block_outputs()?;
 
         self.consume_and_check(TokenKind::RightParen)?;
 
@@ -336,6 +350,7 @@ impl Parser {
         Ok(Block::new(name, inputs, outputs, statements))
     }
 
+    /// Parse chef expression.
     fn parse_expression(&mut self) -> Result<Expression, ()> {
         self.parse_binary_expression(None)
     }
@@ -352,6 +367,7 @@ impl Parser {
         }
     }
 
+    /// Parse a binary expression.
     fn parse_binary_expression(&mut self, mut left: Option<Expression>) -> Result<Expression, ()> {
         if left.is_none() {
             let left = self.parse_primary_expression()?;
@@ -395,6 +411,7 @@ impl Parser {
         }
     }
 
+    /// Parse a primary expression.
     fn parse_primary_expression(&mut self) -> Result<Expression, ()> {
         let token = self.current().clone();
         match &token.kind {
@@ -450,6 +467,7 @@ impl Parser {
         }
     }
 
+    /// Parse a chef block link.
     fn parse_block_link(&mut self, block: Rc<Block>) -> Result<Expression, ()> {
         let inputs = self.parse_block_link_arguments()?;
         let block_expr = BlockLinkExpression::new(block, inputs);

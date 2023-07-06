@@ -1,3 +1,5 @@
+//! Converted combinator graphs to factorio blueprints.
+
 use std::collections::HashMap;
 
 use factorio_blueprint as fb;
