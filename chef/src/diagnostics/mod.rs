@@ -96,4 +96,10 @@ impl DiagnosticsBag {
         }
         std::process::exit(1);
     }
+
+    pub fn exit_if_errored(&self) {
+        if self.has_errored() {
+            self.exit_with_errors();
+        }
+    }
 }

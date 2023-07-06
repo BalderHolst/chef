@@ -1,15 +1,14 @@
-use gumdrop::Options;
-use terminal_size::Width;
-
 use std::cell::RefCell;
 use std::process::exit;
 use std::rc::Rc;
 use std::{io, env};
 
-use crate::ast::AST;
-use crate::compiler::compile;
-use crate::diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
-use crate::text::SourceText;
+use cli::{Opts, Command, AddCommand};
+use ast::AST;
+use compiler::compile;
+use diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
+use gumdrop::Options;
+use text::SourceText;
 
 mod ast;
 mod compiler;
@@ -18,84 +17,8 @@ mod text;
 mod the_chef;
 mod blueprint_converter;
 mod utils;
+mod cli;
 
-#[derive(Debug, Options)]
-pub struct Opts {
-    #[options(help = "print help message")]
-    help: bool,
-
-    #[options(short = "q", help = "do not give cooking advice")]
-    no_advice: bool,
-
-    #[options(short = "v", help = "be verbose")]
-    verbose: bool,
-
-    #[options(command)]
-    command: Option<Command>,
-}
-
-#[derive(Debug, Options)]
-pub enum Command {
-    #[options(help = "compile source code")]
-    Cook(CookOpts),
-    #[options(help = "add signals to your project")]
-    Add(AddOpts),
-}
-
-#[derive(Debug, Options)]
-pub struct CookOpts {
-    #[options(help = "print help message")]
-    help: bool,
-
-    #[options(free)]
-    files: Vec<String>
-}
-
-#[derive(Debug, Options)]
-pub struct AddOpts {
-    #[options(command)]
-    command: Option<AddCommand>
-}
-
-#[derive(Debug, Options)]
-pub enum AddCommand {
-    #[options(help = "add signals exported from game with the factorio mod")]
-    Signals(AddSignalOpts),
-}
-
-#[derive(Debug, Options)]
-pub struct AddSignalOpts { }
-
-
-fn get_term_width() -> Option<usize> {
-    if let Some((Width(w), _)) = terminal_size::terminal_size() {
-        Some(w as usize)
-    }
-    else {
-        None
-    }
-}
-
-fn print_label(label: &'static str) {
-    match get_term_width() {
-        Some(width) => {
-            let mut padding = width / 2 - 1 - label.len()/2;
-            let mut odd = (width % 2) == 1;
-            if (label.len() % 2) == 1 {
-                padding -= 1;
-                odd = !odd;
-            }
-            println!("\n{} {} {}", 
-                     "=".repeat(padding),
-                     label,
-                     "=".repeat(padding + odd as usize),
-                     )
-        },
-        None => {
-            println!("\n{}:", label)
-        },
-    }
-}
 
 fn main() -> Result<(), io::Error> {
     let opts = Rc::new(Opts::parse_args_default_or_exit());
@@ -110,34 +33,29 @@ fn main() -> Result<(), io::Error> {
                 eprintln!("`chef cook` only accepts one file as an entry point. Found {}.", cook_opts.files.len());
                 exit(1); // TODO: use results
             }
+
             let path = cook_opts.files.get(0).unwrap();
             let text = Rc::new(SourceText::from_file(path).unwrap());
             let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new(opts.clone(), text.clone())));
-
-            if diagnostics_bag.borrow().has_errored() {
-                diagnostics_bag.borrow().exit_with_errors();
-            }
-            
             let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
+            
+            diagnostics_bag.borrow().exit_if_errored();
 
             if opts.verbose {
-                print_label("AST");
+                cli::print_label("AST");
                 ast.print();
             }
 
-            if diagnostics_bag.borrow().has_errored() {
-                diagnostics_bag.borrow().exit_with_errors();
-            }
+            diagnostics_bag.borrow().exit_if_errored();
 
             let graph = compile(ast, diagnostics_bag.clone());
 
-            if diagnostics_bag.borrow().has_errored() {
-                diagnostics_bag.borrow().exit_with_errors();
-            }
+            diagnostics_bag.borrow().exit_if_errored();
 
             if opts.verbose {
                 graph.print();
             }
+
             graph.visualize("graph.svg").unwrap();
 
             // let blueprint = BlueprintConverter::new(graph).convert_to_blueprint();
