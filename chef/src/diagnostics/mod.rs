@@ -58,11 +58,12 @@ impl Diagnostic {
 pub struct DiagnosticsBag {
     diagnostics: Vec<Diagnostic>,
     options: Rc<Opts>,
+    source: Rc<SourceText>,
 }
 
 impl DiagnosticsBag {
-    pub fn new(options: Rc<Opts>) -> Self {
-        Self { diagnostics: vec![], options }
+    pub fn new(options: Rc<Opts>, source: Rc<SourceText>) -> Self {
+        Self { diagnostics: vec![], options, source}
     }
 
     pub fn has_errored(&self) -> bool {
@@ -82,13 +83,13 @@ impl DiagnosticsBag {
         self.diagnostics.push(Diagnostic::new("Bad token.".to_string(), token.span.clone()))
     }
 
-    pub fn print(&self, source_text: &SourceText) {
-        DiagnosticsPrinter::new(source_text, &self.diagnostics).print();
+    pub fn print(&self) {
+        DiagnosticsPrinter::new(&self.source, &self.diagnostics).print();
     }
 
-    pub fn exit_with_errors(&self, source_text: &SourceText) {
+    pub fn exit_with_errors(&self) {
         println!("\n");
-        self.print(&source_text);
+        self.print();
         if !self.options.no_advice {
             println!();
             the_chef::give_advice();

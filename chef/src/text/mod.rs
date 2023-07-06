@@ -28,8 +28,8 @@ impl TextSpan {
 
 
 pub struct SourceText {
-    pub entry_file: String,
-    pub text: String,
+    file: String,
+    text: String,
     lines: Vec<usize>,
 }
 
@@ -37,7 +37,7 @@ impl SourceText {
     pub fn from_file(path: &str) -> io::Result<Self> {
         let text = fs::read_to_string(path)?;
         let lines = Self::index_text(&text);
-        Ok(Self { text, lines, entry_file: path.to_string() })
+        Ok(Self { text, lines, file: path.to_string() })
     }
 
     fn index_text(text: &str) -> Vec<usize> {
@@ -72,7 +72,15 @@ impl SourceText {
     }
 
     pub fn get_file_at(&self, index: usize) -> String {
-        self.entry_file.clone()
+        self.file.clone()
     }
 
+
+    pub fn text(&self) -> &str {
+        self.text.as_ref()
+    }
+
+    pub fn file(&self) -> &str {
+        self.file.as_ref()
+    }
 }

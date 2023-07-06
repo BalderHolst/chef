@@ -6,10 +6,7 @@ use std::process::exit;
 use std::rc::Rc;
 use std::{io, env};
 
-use crate::ast::lexer::{Lexer, Token};
-use crate::ast::parser::Parser;
 use crate::ast::AST;
-use crate::blueprint_converter::BlueprintConverter;
 use crate::compiler::compile;
 use crate::diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
 use crate::text::SourceText;
@@ -114,28 +111,14 @@ fn main() -> Result<(), io::Error> {
                 exit(1); // TODO: use results
             }
             let path = cook_opts.files.get(0).unwrap();
-            let text = SourceText::from_file(path).unwrap();
-            let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new(opts.clone())));
-
-            let lexer = Lexer::from_source(diagnostics_bag.clone(), &text);
-            let tokens: Vec<Token> = lexer.collect();
-
-            let parser = Parser::new(tokens, diagnostics_bag.clone(), opts.clone());
-            let mut ast = AST::new();
-
-            if opts.verbose {
-                print_label("Building AST");
-            } 
-            for statement in parser {
-                ast.add_statement(statement);
-            }
-
-            ast.evaluate_constants();
-            ast.check_types();
+            let text = Rc::new(SourceText::from_file(path).unwrap());
+            let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new(opts.clone(), text.clone())));
 
             if diagnostics_bag.borrow().has_errored() {
-                diagnostics_bag.borrow().exit_with_errors(&text);
+                diagnostics_bag.borrow().exit_with_errors();
             }
+            
+            let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
 
             if opts.verbose {
                 print_label("AST");
@@ -143,13 +126,13 @@ fn main() -> Result<(), io::Error> {
             }
 
             if diagnostics_bag.borrow().has_errored() {
-                diagnostics_bag.borrow().exit_with_errors(&text);
+                diagnostics_bag.borrow().exit_with_errors();
             }
 
             let graph = compile(ast, diagnostics_bag.clone());
 
             if diagnostics_bag.borrow().has_errored() {
-                diagnostics_bag.borrow().exit_with_errors(&text);
+                diagnostics_bag.borrow().exit_with_errors();
             }
 
             if opts.verbose {

@@ -1,6 +1,7 @@
 //! The lexer module converts the raw text into tokens for further parsing.
 
 use std::collections::HashSet;
+use std::rc::Rc;
 
 use lazy_static::lazy_static;
 
@@ -61,27 +62,27 @@ impl Token {
 ///     do_something();
 /// }
 /// ```
-pub struct Lexer<'a> {
-    source: &'a SourceText,
+pub struct Lexer {
+    source: Rc<SourceText>,
     cursor: usize,
     diagnostics_bag: DiagnosticsBagRef,
     placed_end_token: bool,
 }
 
-impl<'a> Lexer<'a> {
+impl Lexer {
 
     /// Instantiate a [Lexer] with a [SourceText] for parsing and a [DiagnosticsBagRef] for
     /// reporting errors.
-    pub fn from_source(diagnostics_bag: DiagnosticsBagRef, source: &'a SourceText) -> Self {
+    pub fn from_source(diagnostics_bag: DiagnosticsBagRef, source: Rc<SourceText>) -> Self {
         Lexer { diagnostics_bag, source, cursor: 0, placed_end_token: false }
     }
 
-    fn peak(&self, offset: isize) -> Option<char> {
-        self.source.text.chars().nth((self.cursor as isize + offset) as usize)
+    fn _peak(&self, offset: isize) -> Option<char> {
+        self.source.text().chars().nth((self.cursor as isize + offset) as usize)
     }
 
     fn current(&self) -> Option<char> {
-        self.source.text.chars().nth(self.cursor)
+        self.source.text().chars().nth(self.cursor)
     }
 
     fn consume(&mut self) -> Option<char> {
@@ -120,7 +121,7 @@ impl<'a> Lexer<'a> {
         c.is_whitespace()
     }
 
-    fn is_punctuation_char(c: &char) -> bool {
+    fn _is_punctuation_char(c: &char) -> bool {
         PUNCTUATION_CHARS.get(c).is_some()
     }
 
@@ -162,7 +163,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
-impl<'a> Iterator for Lexer<'a> {
+impl Iterator for Lexer {
     type Item = Token;
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.cursor;
@@ -170,7 +171,7 @@ impl<'a> Iterator for Lexer<'a> {
         let current_char = if let Some(c) = self.current() { c }
         else if !self.placed_end_token {
             self.placed_end_token = true;
-            let pos = self.source.text.len();
+            let pos = self.source.text().len();
             return Some(Token::new(TokenKind::End, TextSpan::new(pos, pos, self.source.get_file_at(pos))));
         }
         else {

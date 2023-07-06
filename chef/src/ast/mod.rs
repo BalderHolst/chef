@@ -3,8 +3,13 @@
 use std::fmt::Display;
 use std::rc::Rc;
 
+use crate::Opts;
 use crate::ast::visitors::Visitor;
-use crate::text::TextSpan;
+use crate::diagnostics::DiagnosticsBagRef;
+use crate::text::{TextSpan, SourceText};
+
+use self::lexer::{Lexer, Token};
+use self::parser::Parser;
 
 mod constant_evaluator;
 pub mod lexer;
@@ -18,9 +23,24 @@ pub struct AST {
 }
 
 impl AST {
-    /// Instantiate a new [AST].
+    /// Instantiate a new empty [AST].
     pub fn new() -> Self {
         Self { statements: vec![] }
+    }
+
+    /// Build an [AST] from a [SourceText] instance. This also evaluates constants and does type
+    /// checking.
+    pub fn from_source(text: Rc<SourceText>, diagnostics_bag: DiagnosticsBagRef, opts: Rc<Opts>) -> Self {
+        let lexer = Lexer::from_source(diagnostics_bag.clone(), text.clone());
+        let tokens: Vec<Token> = lexer.collect();
+        let parser = Parser::new(tokens, diagnostics_bag.clone(), opts.clone());
+        let mut ast = AST::new();
+        for statement in parser {
+            ast.add_statement(statement);
+        }
+        ast.evaluate_constants();
+        ast.check_types();
+        ast
     }
 
     /// Add a statement to the [AST].
