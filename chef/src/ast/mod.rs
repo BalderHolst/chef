@@ -68,15 +68,24 @@ impl AST {
     }
 }
 
+// TODO: The code example is not run correctly
 /// A parsed statement.
 ///
 /// Statements in chef are separated by semicolon:
-/// ```chef
+/// ```rust
+/// # let code = "
 /// block main(in: all) -> (int(inserter)) {
-///     a: int = in[pipe] * 5;          <-- Statement 0
-///     b: int = in[inserter] / 3 + 8;  <-- Statement 1
-///     out a + b;                      <-- Statement 2
+///     a: int = in[pipe] * 5;          // <-- Statement 0
+///     b: int = in[inserter] / 3 + 8;  // <-- Statement 1
+///     out a + b;                      // <-- Statement 2
 /// }
+/// # "
+/// # let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new(opts.clone(), text.clone())));
+/// # let opts = Rc::new(Opts::parse_args_default_or_exit());
+/// # let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
+/// # assert_eq!(diagnostics_bag.borrow().diagnostics.len(), 0);
+/// # compiler::compile(ast, diagnostics_bag.clone(), opts.clone())
+/// # assert_eq!(diagnostics_bag.borrow().diagnostics.len(), 0);
 /// ```
 #[derive(Debug, Clone)]
 pub struct Statement {

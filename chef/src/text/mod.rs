@@ -38,6 +38,14 @@ impl SourceText {
         Ok(Self { text, lines, file: Some(path.to_string()) })
     }
 
+    pub fn from_str(string: &str) -> Self {
+        Self {
+            file: None,
+            text: string.to_string(),
+            lines: Self::index_text(string),
+        }
+    }
+
     fn index_text(text: &str) -> Vec<usize> {
         let mut lines: Vec<usize> = vec![0];
         for (i, _) in text.chars().enumerate() {
