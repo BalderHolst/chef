@@ -68,8 +68,10 @@ impl AST {
     }
 }
 
-/// A parsed statement. Statements in chef are separated by semicolon:
-/// ```text
+/// A parsed statement.
+///
+/// Statements in chef are separated by semicolon:
+/// ```chef
 /// block main(in: all) -> (int(inserter)) {
 ///     a: int = in[pipe] * 5;          <-- Statement 0
 ///     b: int = in[inserter] / 3 + 8;  <-- Statement 1
@@ -236,7 +238,7 @@ impl ParenthesizedExpression {
 
 /// [AST] representation of a chef pick expression.
 /// ### Example of a chef pick expression:
-/// ```text
+/// ```chef
 /// picked_signal: int = all_signals[some_signal];
 /// ```
 #[derive(Debug, Clone)]

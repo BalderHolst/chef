@@ -160,9 +160,9 @@ impl Parser {
                         else {
                             self.consume_bad_statement();
                             let statement_end = self.peak(-1).span.end;
-                            let file = self.peak(-1).span.file.clone();
+                            let text = self.peak(-1).span.text.clone();
                             self.diagnostics_bag.borrow_mut().report_error(
-                                &TextSpan::new(statement_start, statement_end, file), "Bad output expression"); // TODO use error message here
+                                &TextSpan::new(statement_start, statement_end, text), "Bad output expression"); // TODO use error message here
                             StatementKind::Error
                         }
                     }
@@ -176,7 +176,7 @@ impl Parser {
                 Some(Statement::new(kind, TextSpan::new(
                             start_token.span.start, 
                             self.peak(-1).span.end,
-                            start_token.span.file
+                            start_token.span.text.clone()
                             )))
             },
             TokenKind::End => None,
@@ -191,7 +191,7 @@ impl Parser {
                 Some(Statement::new(StatementKind::Error, TextSpan::new(
                         start_token.span.start,
                         self.peak(-1).span.end,
-                        start_token.span.file
+                        start_token.span.text.clone()
                         )))
             }
         }

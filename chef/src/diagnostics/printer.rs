@@ -60,7 +60,7 @@ impl<'a> DiagnosticsPrinter<'a> {
             };
             let mut actual_code = d.span.text();
             if actual_code.len() > MAX_CODE_LEN {
-                actual_code = actual_code[0..MAX_CODE_LEN].to_string();
+                actual_code = &actual_code[0..MAX_CODE_LEN];
             }
             let code_sufix = {
                 let start = line_pos as isize +d.span.text_len() as isize;
@@ -86,7 +86,12 @@ impl<'a> DiagnosticsPrinter<'a> {
                 .filter(|c| c != &'\n')
                 .collect()
         };
-        let location = format!("{}[E]{} {}:{}:{}\t", Fg(color::Red), Fg(color::Reset), d.span.file, line_nr+1, line_pos+1);
+
+        let location = match d.span.text.file() {
+            Some(file) => format!("{}[E]{} {}:{}:{}\t", Fg(color::Red), Fg(color::Reset), file, line_nr+1, line_pos+1),
+            None => format!("{}[E]{} {}:{}\t", Fg(color::Red), Fg(color::Reset), line_nr+1, line_pos+1),
+        };
+
         let message = format!("{}{}{}", Fg(color::Blue), d.message, Fg(color::Reset));
         format!("{} {} \t-> {}", location, code, message)
     }

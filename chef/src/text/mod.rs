@@ -1,26 +1,22 @@
 //! Struct for managing references to the source code.
 
-use std::{fs, io, cmp::max};
+use std::{fs, io, cmp::max, rc::Rc};
 
 #[derive(Debug, Clone)]
 pub struct TextSpan {
-    pub start: usize,
-    pub end: usize,
-    pub file: String,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) text: Rc<SourceText>,
 }
 
 impl TextSpan {
-    pub fn new(start: usize, end: usize, file: String) -> Self {
-        Self { start, end, file }
+    pub fn new(start: usize, end: usize, text: Rc<SourceText>) -> Self {
+        Self { start, end, text }
     }
 
-    pub fn text(&self) -> String {
-        match fs::read_to_string(&self.file) {
-            Ok(s) => s[self.start..self.end].to_string(),
-            Err(e) => {
-                panic!("{e}");
-            },
-        }
+    /// Get the text inside the textspan.
+    pub fn text(&self) -> &str {
+        &self.text.text[self.start..self.end]
     }
 
     pub fn text_len(&self) -> usize {
@@ -28,9 +24,9 @@ impl TextSpan {
     }
 }
 
-
+#[derive(Debug, Clone)]
 pub struct SourceText {
-    file: String,
+    file: Option<String>,
     text: String,
     lines: Vec<usize>,
 }
@@ -39,7 +35,7 @@ impl SourceText {
     pub fn from_file(path: &str) -> io::Result<Self> {
         let text = fs::read_to_string(path)?;
         let lines = Self::index_text(&text);
-        Ok(Self { text, lines, file: path.to_string() })
+        Ok(Self { text, lines, file: Some(path.to_string()) })
     }
 
     fn index_text(text: &str) -> Vec<usize> {
@@ -73,16 +69,11 @@ impl SourceText {
         Some(&self.text[start..end])
     }
 
-    pub fn get_file_at(&self, index: usize) -> String {
-        self.file.clone()
-    }
-
-
     pub fn text(&self) -> &str {
         self.text.as_ref()
     }
 
-    pub fn file(&self) -> &str {
-        self.file.as_ref()
+    pub fn file(&self) -> Option<&str> {
+        self.file.as_deref()
     }
 }

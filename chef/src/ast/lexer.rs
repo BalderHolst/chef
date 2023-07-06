@@ -172,7 +172,7 @@ impl Iterator for Lexer {
         else if !self.placed_end_token {
             self.placed_end_token = true;
             let pos = self.source.text().len();
-            return Some(Token::new(TokenKind::End, TextSpan::new(pos, pos, self.source.get_file_at(pos))));
+            return Some(Token::new(TokenKind::End, TextSpan::new(pos, pos, self.source.clone())));
         }
         else {
             return None;
@@ -200,7 +200,8 @@ impl Iterator for Lexer {
             self.consume_punctuation()
         };
         let end = self.cursor;
-        let token = Token::new(kind, TextSpan::new(start, end, self.source.get_file_at(start)));
+        let token = Token::new(kind, TextSpan::new(start, end, self.source.clone()));
+
 
         if token.kind == TokenKind::Bad {
             self.diagnostics_bag.borrow_mut().report_bad_token(&token);
