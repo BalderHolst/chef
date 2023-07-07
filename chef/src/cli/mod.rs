@@ -19,6 +19,17 @@ pub struct Opts {
     pub(crate) command: Option<Command>,
 }
 
+impl Default for Opts {
+    fn default() -> Self {
+        Self {
+            help: false,
+            no_advice: false,
+            verbose: false,
+            command: None,
+        }
+    }
+}
+
 /// Chef cli subcommands
 #[derive(Debug, Options)]
 pub enum Command {

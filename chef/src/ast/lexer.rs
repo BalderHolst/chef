@@ -57,9 +57,10 @@ impl Token {
 }
 
 /// The lexer. Tokens can be extracting by iterating over it.
-/// ```ignore
+/// ```rust, run
+/// # let lexer = Lexer::new_dummy();
 /// for token in lexer {
-///     do_something();
+///     /* do something */ 
 /// }
 /// ```
 pub struct Lexer {
@@ -209,4 +210,95 @@ impl Iterator for Lexer {
 
         Some(token)
     }
+}
+
+#[cfg(test)]
+impl Lexer {
+    fn new_bundle(s: &str) -> (Rc<SourceText>, DiagnosticsBagRef, Self) {
+        let text = Rc::new(SourceText::from_str(s));
+        let diagnostics_bag = Rc::new(std::cell::RefCell::new(crate::DiagnosticsBag::new(Rc::new(crate::cli::Opts::default()), text.clone())));
+        let lexer = Self::from_source(diagnostics_bag.clone(), text.clone());
+        (text, diagnostics_bag, lexer)
+    }
+
+    fn new_dummy() -> Self {
+        let (_source, _diagnostics_bag, lexer) = Lexer::new_bundle("");
+        lexer
+    }
+}
+
+#[test]
+fn lex_string() {
+    let code = "1 +3       -> 10;\n (5 / 4);";
+    let expected_tokens = vec![
+        TokenKind::Number(1),
+        TokenKind::Whitespace,
+        TokenKind::Plus,
+        TokenKind::Number(3),
+        TokenKind::Whitespace,
+        TokenKind::RightArrow,
+        TokenKind::Whitespace,
+        TokenKind::Number(10),
+        TokenKind::Semicolon,
+        TokenKind::Whitespace,
+        TokenKind::LeftParen,
+        TokenKind::Number(5),
+        TokenKind::Whitespace,
+        TokenKind::Slash,
+        TokenKind::Whitespace,
+        TokenKind::Number(4),
+        TokenKind::RightParen,
+        TokenKind::Semicolon,
+        TokenKind::End,
+    ];
+    let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
+    let lexed_tokens: Vec<TokenKind> = lexer.map(|t| t.kind).collect();
+    assert_eq!(lexed_tokens, expected_tokens);
+}
+
+#[test]
+fn lex_2_char_operators() {
+    let code = "==->-=";
+    let expected_tokens = vec![
+        TokenKind::DoubleEquals,
+        TokenKind::RightArrow,
+        TokenKind::Minus,
+        TokenKind::Equals,
+        TokenKind::End
+    ];
+    let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
+    let lexed_tokens: Vec<TokenKind> = lexer.map(|t| t.kind).collect();
+    assert_eq!(lexed_tokens, expected_tokens);
+}
+
+#[test]
+fn lex_all_tokens() {
+    let code = "10hello+-*/()[]{}=,.:;==->  @";
+    let expected_tokens = vec![
+        TokenKind::Number(10),
+        TokenKind::Word("hello".to_string()),
+        TokenKind::Plus,
+        TokenKind::Minus,
+        TokenKind::Asterisk,
+        TokenKind::Slash,
+        TokenKind::LeftParen,
+        TokenKind::RightParen,
+        TokenKind::LeftSquare,
+        TokenKind::RightSquare,
+        TokenKind::LeftCurly,
+        TokenKind::RightCurly,
+        TokenKind::Equals,
+        TokenKind::Comma,
+        TokenKind::Period,
+        TokenKind::Colon,
+        TokenKind::Semicolon,
+        TokenKind::DoubleEquals,
+        TokenKind::RightArrow,
+        TokenKind::Whitespace,
+        TokenKind::Bad,
+        TokenKind::End,
+    ];
+    let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
+    let lexed_tokens: Vec<TokenKind> = lexer.map(|t| t.kind).collect();
+    assert_eq!(lexed_tokens, expected_tokens);
 }
