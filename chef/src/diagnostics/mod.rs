@@ -3,9 +3,10 @@
 mod printer;
 
 use crate::ast::lexer::{TokenKind, Token};
+use crate::cli::Opts;
 use crate::diagnostics::printer::DiagnosticsPrinter;
 use crate::text::{SourceText, TextSpan};
-use crate::{the_chef, Opts};
+use crate::the_chef;
 
 use std::fmt::Display;
 use std::rc::Rc;
@@ -104,6 +105,7 @@ impl DiagnosticsBag {
             println!();
             the_chef::give_advice();
         }
+        if cfg!(test) { panic!("Compilation failed.") } // Make tests fail
         std::process::exit(1);
     }
 

@@ -2,7 +2,7 @@
 
 use std::{fs, io, cmp::max, rc::Rc};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TextSpan {
     pub(crate) start: usize,
     pub(crate) end: usize,
@@ -24,7 +24,7 @@ impl TextSpan {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SourceText {
     file: Option<String>,
     text: String,

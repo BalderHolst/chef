@@ -45,7 +45,8 @@ impl<'a> GraphOptimizer<'a> {
             if let IOType::Constant(_) = inputs.first().unwrap() { }
             else { return; }
         }
-        else if inputs.len() == 0 {
+        else if inputs.len() == 0 { // TODO: Remove this, as it is already taken care of in the AST
+                                    // evaluation.
             for (to_vid, conn) in self.graph.adjacency[&vid].clone() {
                 match conn {
                     Connection::Arithmetic(ac) => {

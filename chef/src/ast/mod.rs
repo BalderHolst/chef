@@ -87,7 +87,7 @@ impl AST {
 /// # compiler::compile(ast, diagnostics_bag.clone(), opts.clone())
 /// # assert_eq!(diagnostics_bag.borrow().diagnostics.len(), 0);
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Statement {
     pub kind: StatementKind,
     pub span: TextSpan,
@@ -101,7 +101,7 @@ impl Statement {
 }
 
 /// Kinds of statement.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
     Expression(Expression),
     Assignment(Assignment),
@@ -111,7 +111,7 @@ pub enum StatementKind {
 }
 
 /// Chef variable types.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum VariableType {
     Int(String),
     Any,
@@ -120,7 +120,7 @@ pub enum VariableType {
 }
 
 /// A chef variable.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Variable {
     // TODO: Add textspan
     pub name: String,
@@ -138,7 +138,7 @@ impl Variable {
 }
 
 /// [AST] representation of chef variable assignment.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Assignment {
     pub variable: Rc<Variable>,
     pub expression: Expression,
@@ -155,7 +155,7 @@ impl Assignment {
 }
 
 /// [AST] representation of chef `block`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Block {
     pub name: String,
     pub inputs: Vec<Rc<Variable>>,
@@ -181,7 +181,7 @@ impl Block {
 }
 
 /// A chef expression.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Expression {
     // TODO: Add span
     pub kind: ExpressionKind,
@@ -210,7 +210,7 @@ impl Expression {
 }
 
 /// Kinds of expression.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExpressionKind {
     Number(NumberExpression),
     Binary(BinaryExpression),
@@ -222,7 +222,7 @@ pub enum ExpressionKind {
 }
 
 /// An expression containing only a single number.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NumberExpression {
     pub number: i32,
 }
@@ -234,7 +234,7 @@ impl NumberExpression {
 }
 
 /// An expression within parenthesis.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ParenthesizedExpression {
     pub expression: Box<Expression>,
 }
@@ -250,7 +250,7 @@ impl ParenthesizedExpression {
 /// ```chef
 /// picked_signal: int = all_signals[some_signal];
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PickExpression {
     pub pick_signal: String,
     pub from: Rc<Variable>,
@@ -263,7 +263,7 @@ impl PickExpression {
 }
 
 /// [AST] representation of chef block link. This is like a function call in other languages.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BlockLinkExpression {
     pub block: Rc<Block>,
     pub inputs: Vec<Expression>,
@@ -276,7 +276,7 @@ impl BlockLinkExpression {
 }
 
 /// [AST] representation of an expression containing two operands and one operator.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BinaryExpression {
     pub left: Box<Expression>,
     pub right: Box<Expression>,
@@ -294,7 +294,7 @@ impl BinaryExpression {
 }
 
 /// Operator used by a [BinaryExpression].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BinaryOperator {
     pub kind: BinaryOperatorKind,
 }
@@ -327,7 +327,7 @@ impl Display for BinaryOperator {
 }
 
 /// Kinds of [BinaryOperator].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOperatorKind {
     Plus,
     Minus,

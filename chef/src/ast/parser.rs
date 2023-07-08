@@ -3,7 +3,7 @@
 use std::cmp::min;
 use std::rc::Rc;
 
-use crate::Opts;
+use crate::cli::Opts;
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
     Expression, ExpressionKind, NumberExpression, ParenthesizedExpression, Variable,
@@ -14,6 +14,7 @@ use crate::ast::{
 use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::TextSpan;
 
+use super::lexer::Lexer;
 use super::{Assignment, PickExpression, BlockLinkExpression};
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
@@ -32,6 +33,19 @@ impl Parser {
     pub fn new(tokens: Vec<Token>, diagnostics_bag: DiagnosticsBagRef, options: Rc<Opts>) -> Self { 
         Self {
             tokens: tokens.iter().filter(
+                |token| token.kind != TokenKind::Whitespace
+            ).map(|token| token.clone()).collect(),
+            cursor: 0,
+            scopes: vec![vec![]],
+            blocks: vec![],
+            diagnostics_bag,
+            options,
+        }
+    }
+
+    pub fn from_lexer(lexer: Lexer, diagnostics_bag: DiagnosticsBagRef, options: Rc<Opts>) -> Self { 
+        Self {
+            tokens: lexer.filter(
                 |token| token.kind != TokenKind::Whitespace
             ).map(|token| token.clone()).collect(),
             cursor: 0,
@@ -480,4 +494,43 @@ impl Iterator for Parser {
     fn next(&mut self) -> Option<Self::Item> {
         self.next_statement()
     }
+}
+
+#[test]
+fn parse_binary_expression() {
+    use super::*;
+
+    let code = "1+2*3-4";
+
+    let expected_expr = Expression {
+        kind: ExpressionKind::Binary(BinaryExpression {
+            left: Box::new(Expression {
+                kind: ExpressionKind::Number(NumberExpression { number: 1 })
+            }),
+            right: Box::new(Expression {
+                kind: ExpressionKind::Binary(BinaryExpression {
+                    left: Box::new(Expression {
+                        kind: ExpressionKind::Binary(BinaryExpression {
+                            left: Box::new(Expression { kind: ExpressionKind::Number(NumberExpression { number: 2 }) }), 
+                            right: Box::new(Expression { kind: ExpressionKind::Number(NumberExpression { number: 3 }) }),
+                            operator: BinaryOperator { kind: BinaryOperatorKind::Multiply }
+                        })}),
+                        right: Box::new(Expression {
+                            kind: ExpressionKind::Number(NumberExpression { number: 4 })
+                        }),
+                        operator: BinaryOperator {
+                            kind: BinaryOperatorKind::Minus
+                        }
+                })
+            }),
+            operator: BinaryOperator { kind: BinaryOperatorKind::Plus }
+        })
+    };
+
+    let (_text, bag, lexer) = Lexer::new_bundle(code);
+    let mut parser = Parser::from_lexer(lexer, bag, Rc::new(crate::cli::Opts::default()));
+    let parsed_expr = parser.parse_binary_expression(None).unwrap();
+
+
+    assert_eq!(parsed_expr, expected_expr);
 }

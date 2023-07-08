@@ -13,7 +13,6 @@ lazy_static! {
         HashSet::from(
             [ '+', '-', '>', '*', '/', '(', ')', '[', ']', '{', '}', '=', ',', '.', ':', ';', ]
             );
-
 }
 
 /// Kinds of lexer tokens.
@@ -214,14 +213,14 @@ impl Iterator for Lexer {
 
 #[cfg(test)]
 impl Lexer {
-    fn new_bundle(s: &str) -> (Rc<SourceText>, DiagnosticsBagRef, Self) {
+    pub fn new_bundle(s: &str) -> (Rc<SourceText>, DiagnosticsBagRef, Self) {
         let text = Rc::new(SourceText::from_str(s));
-        let diagnostics_bag = Rc::new(std::cell::RefCell::new(crate::DiagnosticsBag::new(Rc::new(crate::cli::Opts::default()), text.clone())));
+        let diagnostics_bag = Rc::new(std::cell::RefCell::new(crate::diagnostics::DiagnosticsBag::new(Rc::new(crate::cli::Opts::default()), text.clone())));
         let lexer = Self::from_source(diagnostics_bag.clone(), text.clone());
         (text, diagnostics_bag, lexer)
     }
 
-    fn new_dummy() -> Self {
+    pub fn new_dummy() -> Self {
         let (_source, _diagnostics_bag, lexer) = Lexer::new_bundle("");
         lexer
     }
