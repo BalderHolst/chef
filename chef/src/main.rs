@@ -3,9 +3,8 @@ use std::process::exit;
 use std::rc::Rc;
 use std::{io, env};
 
-use cli::{Opts, Command, AddCommand};
+use cli::{Opts, Command, AddCommand, CookOpts};
 use ast::AST;
-use compiler::compile;
 use diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
 use gumdrop::Options;
 use text::SourceText;
@@ -19,6 +18,35 @@ mod blueprint_converter;
 mod utils;
 mod cli;
 
+pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
+    let path = cook_opts.files.get(0).unwrap();
+    let text = Rc::new(SourceText::from_file(path).unwrap());
+    let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new(opts.clone(), text.clone())));
+    let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
+    panic!("test");
+    
+    diagnostics_bag.borrow().exit_if_errored();
+
+    if opts.verbose {
+        cli::print_label("AST");
+        ast.print();
+    }
+
+    diagnostics_bag.borrow().exit_if_errored();
+
+    let graph = compiler::compile(ast, diagnostics_bag.clone());
+
+    diagnostics_bag.borrow().exit_if_errored();
+
+    if opts.verbose {
+        graph.print();
+    }
+
+    graph.visualize("graph.svg").unwrap();
+
+    // let blueprint = BlueprintConverter::new(graph).convert_to_blueprint();
+    // dbg!(blueprint);
+}
 
 fn main() -> Result<(), io::Error> {
     let opts = Rc::new(Opts::parse_args_default_or_exit());
@@ -34,32 +62,7 @@ fn main() -> Result<(), io::Error> {
                 exit(1); // TODO: use results
             }
 
-            let path = cook_opts.files.get(0).unwrap();
-            let text = Rc::new(SourceText::from_file(path).unwrap());
-            let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new(opts.clone(), text.clone())));
-            let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
-            
-            diagnostics_bag.borrow().exit_if_errored();
-
-            if opts.verbose {
-                cli::print_label("AST");
-                ast.print();
-            }
-
-            diagnostics_bag.borrow().exit_if_errored();
-
-            let graph = compile(ast, diagnostics_bag.clone());
-
-            diagnostics_bag.borrow().exit_if_errored();
-
-            if opts.verbose {
-                graph.print();
-            }
-
-            graph.visualize("graph.svg").unwrap();
-
-            // let blueprint = BlueprintConverter::new(graph).convert_to_blueprint();
-            // dbg!(blueprint);
+            compile(opts.clone(), cook_opts);
 
             println!("Enjoy!");
             Ok(())
@@ -84,5 +87,23 @@ fn main() -> Result<(), io::Error> {
             }
             exit(1); // TODO use results
         },
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn compile_examples() {
+        let example_dir = "examples";
+        for file in fs::read_dir(example_dir).unwrap() {
+            let file = file.unwrap().path().to_str().unwrap().to_owned();
+            compile(Rc::new(Opts::default()), 
+                            &CookOpts::from_files(vec![ file ])
+                            );
+        }
     }
 }

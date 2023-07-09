@@ -14,6 +14,14 @@ impl TextSpan {
         Self { start, end, text }
     }
 
+    pub fn from_spans(start: TextSpan, end: TextSpan) -> Self {
+        Self {
+            start: start.start,
+            end: end.end,
+            text: start.text,
+        }
+    }
+
     /// Get the text inside the textspan.
     pub fn text(&self) -> &str {
         &self.text.text[self.start..self.end]

@@ -20,12 +20,16 @@ mod visitors;
 /// The abstract syntax tree.
 pub struct AST {
     pub statements: Vec<Statement>,
+    diagnostics_bag: DiagnosticsBagRef,
 }
 
 impl AST {
     /// Instantiate a new [AST].
-    pub fn new() -> Self {
-        Self { statements: vec![] }
+    pub fn new(diagnostics_bag: DiagnosticsBagRef) -> Self {
+        Self { 
+            statements: vec![],
+            diagnostics_bag,
+        }
     }
 
     /// Build an [AST] from a [SourceText] instance. This also evaluates constants and does type
@@ -34,7 +38,7 @@ impl AST {
         let lexer = Lexer::from_source(diagnostics_bag.clone(), text.clone());
         let tokens: Vec<Token> = lexer.collect();
         let parser = Parser::new(tokens, diagnostics_bag.clone(), opts.clone());
-        let mut ast = AST::new();
+        let mut ast = AST::new(diagnostics_bag);
         for statement in parser {
             ast.add_statement(statement);
         }
@@ -63,8 +67,7 @@ impl AST {
 
     /// Check that types are valid.
     pub fn check_types(&self) {
-        // TODO: Pass diagnostics bag
-        type_checker::check(self);
+        type_checker::check(self, self.diagnostics_bag.clone());
     }
 }
 
@@ -74,9 +77,9 @@ impl AST {
 /// Statements in chef are separated by semicolon:
 /// ```rust
 /// # let code = "
-/// block main(in: all) -> (int(inserter)) {
-///     a: int = in[pipe] * 5;          // <-- Statement 0
-///     b: int = in[inserter] / 3 + 8;  // <-- Statement 1
+/// block main(input: all) -> (int(inserter)) {
+///     a: int = input[pipe] * 5;          // <-- Statement 0
+///     b: int = input[inserter] / 3 + 8;  // <-- Statement 1
 ///     out a + b;                      // <-- Statement 2
 /// }
 /// # "
@@ -124,15 +127,17 @@ pub enum VariableType {
 pub struct Variable {
     // TODO: Add textspan
     pub name: String,
-    pub variable_type: VariableType,
+    pub type_: VariableType,
+    pub definition: TextSpan,
 }
 
 impl Variable {
     /// Instantiate a new [Variable].
-    pub fn new(name: String, variable_type: VariableType) -> Self {
+    pub fn new(name: String, variable_type: VariableType, definition: TextSpan) -> Self {
         Self {
             name,
-            variable_type,
+            type_: variable_type,
+            definition,
         }
     }
 }
@@ -161,6 +166,7 @@ pub struct Block {
     pub inputs: Vec<Rc<Variable>>,
     pub outputs: Vec<VariableType>,
     pub statements: Vec<Statement>,
+    pub span: TextSpan,
 }
 
 impl Block {
@@ -170,12 +176,14 @@ impl Block {
         inputs: Vec<Rc<Variable>>,
         outputs: Vec<VariableType>,
         statements: Vec<Statement>,
+        span: TextSpan,
     ) -> Self {
         Self {
             name,
             inputs,
             outputs,
             statements,
+            span,
         }
     }
 }
@@ -185,26 +193,29 @@ impl Block {
 pub struct Expression {
     // TODO: Add span
     pub kind: ExpressionKind,
+    pub span: TextSpan,
 }
 
 impl Expression {
-    fn new(kind: ExpressionKind) -> Self {
-        Self { kind }
+    fn new(kind: ExpressionKind, span: TextSpan) -> Self {
+        Self { kind, span }
     }
 
-    fn number(n: i32) -> Self {
+    fn number(n: i32, span: TextSpan) -> Self {
         Self {
             kind: ExpressionKind::Number(NumberExpression::new(n)),
+            span,
         }
     }
 
-    fn binary(left: Expression, right: Expression, operator: BinaryOperator) -> Self {
+    fn binary(left: Expression, right: Expression, operator: BinaryOperator, span: TextSpan) -> Self {
         Self {
             kind: ExpressionKind::Binary(BinaryExpression::new(
                 Box::new(left),
                 Box::new(right),
                 operator,
             )),
+            span,
         }
     }
 }
@@ -379,7 +390,7 @@ impl Display for VariableType {
 
 impl Display for Variable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} : {}", self.name, self.variable_type)
+        write!(f, "{} : {}", self.name, self.type_)
     }
 }
 
@@ -422,7 +433,7 @@ impl Visitor for Printer {
     fn visit_variable(&mut self, var: &Variable) {
         self.print(&format!(
             "Variable: {} (type: {:?})",
-            var.name, var.variable_type
+            var.name, var.type_
         ))
     }
 

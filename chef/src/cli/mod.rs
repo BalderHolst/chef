@@ -46,14 +46,23 @@ pub struct CookOpts {
     pub(crate) help: bool,
 
     #[options(free)]
-    pub(crate) files: Vec<String>
+    pub(crate) files: Vec<String>,
+}
+
+impl CookOpts {
+    pub fn from_files(files: Vec<String>) -> Self {
+        Self {
+            help: false,
+            files,
+        }
+    }
 }
 
 /// Options for the cli `add` subcommand.
 #[derive(Debug, Options)]
 pub struct AddOpts {
     #[options(command)]
-    pub(crate) command: Option<AddCommand>
+    pub(crate) command: Option<AddCommand>,
 }
 
 /// The cli `add` subcommand, used for adding signal files to the project.
@@ -65,15 +74,13 @@ pub enum AddCommand {
 
 /// TODO
 #[derive(Debug, Options)]
-pub struct AddSignalOpts { }
-
+pub struct AddSignalOpts {}
 
 /// Get the size of the current terminal that chef is running in.
 fn get_term_width() -> Option<usize> {
     if let Some((Width(w), _)) = terminal_size::terminal_size() {
         Some(w as usize)
-    }
-    else {
+    } else {
         None
     }
 }
@@ -82,20 +89,21 @@ fn get_term_width() -> Option<usize> {
 pub(crate) fn print_label(label: &'static str) {
     match get_term_width() {
         Some(width) => {
-            let mut padding = width / 2 - 1 - label.len()/2;
+            let mut padding = width / 2 - 1 - label.len() / 2;
             let mut odd = (width % 2) == 1;
             if (label.len() % 2) == 1 {
                 padding -= 1;
                 odd = !odd;
             }
-            println!("\n{} {} {}", 
-                     "=".repeat(padding),
-                     label,
-                     "=".repeat(padding + odd as usize),
-                     )
-        },
+            println!(
+                "\n{} {} {}",
+                "=".repeat(padding),
+                label,
+                "=".repeat(padding + odd as usize),
+            )
+        }
         None => {
             println!("\n{}:", label)
-        },
+        }
     }
 }

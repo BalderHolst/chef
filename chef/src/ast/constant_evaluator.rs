@@ -67,7 +67,7 @@ impl MutVisitor for ConstantEvaluator {
                 return
             }
         };
-        *expression = Expression::new(ExpressionKind::Number(NumberExpression::new(result)))
+        expression.kind = ExpressionKind::Number(NumberExpression::new(result))
     }
 
 }

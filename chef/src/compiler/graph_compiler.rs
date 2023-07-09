@@ -70,7 +70,7 @@ impl GraphCompiler {
             ExpressionKind::Variable(var) => {
                 if let Some(var_node_vid) = self.search_scope(var.name.clone()) {
                     let var_node = graph.get_node(&var_node_vid).unwrap().clone();
-                    let var_signal = self.variable_type_to_iotype(&var.variable_type);
+                    let var_signal = self.variable_type_to_iotype(&var.type_);
                     let input_signal = match var_node {
                         Node::Input(var_output_node) => var_output_node.input.clone(),
                         Node::Output(_) => {
@@ -92,7 +92,7 @@ impl GraphCompiler {
                     (vid, var_signal)
                 }
                 else {
-                    match &var.variable_type {
+                    match &var.type_ {
                         VariableType::All => todo!(),
                         VariableType::Any => {
                             let signal = self.get_new_anysignal();
@@ -168,7 +168,7 @@ impl GraphCompiler {
                          match expr.kind.clone() {
                             ExpressionKind::Variable(variable) => {
                                 if let Some(var_vid) = self.search_scope(variable.name.clone()) { 
-                                    let t = self.variable_type_to_iotype(&variable.variable_type);
+                                    let t = self.variable_type_to_iotype(&variable.type_);
                                     (var_vid, t)
                                 }
                                 else { panic!("Block links requires defined variables."); }
@@ -230,7 +230,7 @@ impl GraphCompiler {
         self.enter_scope();
         for input_var in block.inputs.clone() {
             let var_name = input_var.name.clone();
-            let var_iotype = self.variable_type_to_iotype(&input_var.variable_type.clone());
+            let var_iotype = self.variable_type_to_iotype(&input_var.type_.clone());
             let input_vid = graph.push_input_node(var_name.clone(), var_iotype);
             self.add_to_scope(var_name, input_vid)
         }
@@ -241,7 +241,7 @@ impl GraphCompiler {
                 },
                 StatementKind::Expression(expr) => { self.compile_expression(&mut graph, expr, None); },
                 StatementKind::Assignment(assignment) => {
-                    let out_type = self.variable_type_to_iotype(&assignment.variable.variable_type);
+                    let out_type = self.variable_type_to_iotype(&assignment.variable.type_);
                     let (mut output_vid, _) = self.compile_expression(&mut graph, &assignment.expression, Some(out_type.clone()));
                     let output_node = graph.get_node(&output_vid).unwrap().clone();
                     match output_node {

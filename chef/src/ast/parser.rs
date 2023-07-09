@@ -291,8 +291,10 @@ impl Parser {
                 return Ok(arguments);
             };
             self.consume_and_check(TokenKind::Colon)?;
+            let var_start = self.current().span.clone();
             let t = self.parse_variable_type()?;
-            let var_ref = Rc::new(Variable::new(name, t));
+            let var_ref = Rc::new(Variable::new(name, t,
+                    TextSpan::from_spans( var_start, self.peak(-1).span.clone())));
             self.add_to_scope(var_ref.clone());
             arguments.push(var_ref);
             self.consume_if(TokenKind::Comma);
@@ -327,7 +329,9 @@ impl Parser {
 
     /// Parse chef `block`.
     fn parse_block(&mut self) -> Result<Block, ()> {
-        self.consume();
+        let start_token = self.consume().clone(); // Consume "block" word
+        debug_assert_eq!(start_token.kind, TokenKind::Word("block".to_string()));
+
         self.enter_scope();
 
         let name: String;
@@ -361,7 +365,11 @@ impl Parser {
 
         self.exit_scope();
 
-        Ok(Block::new(name, inputs, outputs, statements))
+        Ok(Block::new(name, inputs, outputs, statements, TextSpan {
+            start: start_token.span.start,
+            end: self.peak(-1).span.end,
+            text: start_token.span.text 
+        }))
     }
 
     /// Parse chef expression.
@@ -411,11 +419,13 @@ impl Parser {
 
         left = Some(Expression::new(ExpressionKind::Binary(
                 BinaryExpression {
-                    left: Box::new(left.unwrap()),
-                    right: Box::new(right),
+                    left: Box::new(left.clone().unwrap()),
+                    right: Box::new(right.clone()),
                     operator: left_operator
                 }
-                )));
+                ),
+                TextSpan { start: left.clone().unwrap().span.start, end: right.span.end, text: left.unwrap().span.text }
+                ));
 
         if self.get_binary_operator().is_some() {
             self.parse_binary_expression(left)
@@ -427,11 +437,13 @@ impl Parser {
 
     /// Parse a primary expression.
     fn parse_primary_expression(&mut self) -> Result<Expression, ()> {
-        let token = self.current().clone();
-        match &token.kind {
+        let start_token = self.current().clone();
+        match &start_token.kind {
             TokenKind::Number(number) => {
                 self.consume();
-                Ok(Expression::new(ExpressionKind::Number(NumberExpression::new(number.clone() as i32))))
+                Ok(Expression::new(ExpressionKind::Number(NumberExpression::new(number.clone() as i32)),
+                                   TextSpan::from_spans(start_token.span, self.peak(-1).span.clone())
+                                   ))
             },
             TokenKind::Word(word) => {
                 self.consume();
@@ -442,36 +454,65 @@ impl Parser {
                         self.consume();
                         if let TokenKind::Word(signal) = self.consume().kind.clone() {
                             self.consume_and_check(TokenKind::RightSquare)?;
-                            return Ok(Expression::new(ExpressionKind::Pick(
-                                        PickExpression::new(signal.to_string(), var)
-                                        )));
+                            return Ok({
+                                let kind = ExpressionKind::Pick(PickExpression::new(signal.to_string(), var));
+                                let span = TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                                Expression { kind, span }
+                            });
                         }
-                        return Ok(Expression::new(ExpressionKind::Error))
+                        return Ok({
+                            let kind = ExpressionKind::Error;
+                            let span = TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                            Expression { kind, span }
+                        })
                     }
-                    return Ok(Expression::new(ExpressionKind::Variable(var)));
+                    return Ok({
+                        let kind = ExpressionKind::Variable(var);
+                        let span = TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                        Expression { kind, span }
+                    });
                 }
                 else if current_token.kind == TokenKind::Colon { // If is variable definition
                     self.consume();
                     let t = self.parse_variable_type()?;
-                    let var = Rc::new(Variable::new(word.to_string(), t));
+                    let var = Rc::new(Variable::new(word.to_string(), t, TextSpan {
+                        start: start_token.span.start, end: self.peak(-1).span.end, text: start_token.span.text.clone()
+                    }));
                     self.add_to_scope(var.clone());
-                    return Ok(Expression::new( ExpressionKind::Variable(var)))
+                    return Ok({
+                        let kind = ExpressionKind::Variable(var);
+                        let span = TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                        Expression { kind, span }
+                    })
                 }
                 else if let Some(block) = self.search_blocks(&word) {
-                    return self.parse_block_link(block);
+                    let block_link_expr = self.parse_block_link(block)?;
+                    return Ok({
+                        let kind = ExpressionKind::BlockLink(block_link_expr);
+                        let span = TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                        Expression { kind, span }
+                    });
                 }
                 else {
                     self.diagnostics_bag.borrow_mut().report_error(
-                        &token.span,
+                        &start_token.span,
                         &format!("Variable `{}` not defined.", word)
                         );
-                    return Ok(Expression::new( ExpressionKind::Error));
+                    return Ok({
+                        let kind = ExpressionKind::Error;
+                        let span = TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                        Expression { kind, span }
+                    });
                 };
             }
             TokenKind::LeftParen => {
                 self.consume();
                 let inner = self.parse_expression()?;
-                let expr = Expression::new(ExpressionKind::Parenthesized(ParenthesizedExpression::new(Box::new(inner))));
+                let expr = {
+                    let kind = ExpressionKind::Parenthesized(ParenthesizedExpression::new(Box::new(inner)));
+                    let span = TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                    Expression { kind, span }
+                };
                 self.consume_and_check(TokenKind::RightParen)?;
                 Ok(expr)
             }
@@ -482,10 +523,9 @@ impl Parser {
     }
 
     /// Parse a chef block link.
-    fn parse_block_link(&mut self, block: Rc<Block>) -> Result<Expression, ()> {
+    fn parse_block_link(&mut self, block: Rc<Block>) -> Result<BlockLinkExpression, ()> {
         let inputs = self.parse_block_link_arguments()?;
-        let block_expr = BlockLinkExpression::new(block, inputs);
-        Ok(Expression::new(ExpressionKind::BlockLink(block_expr)))
+        Ok(BlockLinkExpression::new(block, inputs))
     }
 }
 
@@ -501,33 +541,45 @@ fn parse_binary_expression() {
     use super::*;
 
     let code = "1+2*3-4";
+    let (text, bag, lexer) = Lexer::new_bundle(code);
 
     let expected_expr = Expression {
         kind: ExpressionKind::Binary(BinaryExpression {
             left: Box::new(Expression {
-                kind: ExpressionKind::Number(NumberExpression { number: 1 })
+                kind: ExpressionKind::Number(NumberExpression { number: 1 }),
+                span: TextSpan::new(0, 1, text.clone())
             }),
             right: Box::new(Expression {
                 kind: ExpressionKind::Binary(BinaryExpression {
                     left: Box::new(Expression {
                         kind: ExpressionKind::Binary(BinaryExpression {
-                            left: Box::new(Expression { kind: ExpressionKind::Number(NumberExpression { number: 2 }) }), 
-                            right: Box::new(Expression { kind: ExpressionKind::Number(NumberExpression { number: 3 }) }),
+                            left: Box::new(Expression {
+                                kind: ExpressionKind::Number(NumberExpression { number: 2 }),
+                                span: TextSpan { start: 2, end: 3, text: text.clone() }
+                            }), 
+                            right: Box::new(Expression {
+                                kind: ExpressionKind::Number(NumberExpression { number: 3 }),
+                                span: TextSpan { start: 4, end: 5, text: text.clone() }
+                            }),
                             operator: BinaryOperator { kind: BinaryOperatorKind::Multiply }
-                        })}),
-                        right: Box::new(Expression {
-                            kind: ExpressionKind::Number(NumberExpression { number: 4 })
                         }),
-                        operator: BinaryOperator {
-                            kind: BinaryOperatorKind::Minus
-                        }
-                })
+                        span: TextSpan { start: 2, end: 5, text: text.clone() }
+                    }),
+                    right: Box::new(Expression {
+                        kind: ExpressionKind::Number(NumberExpression { number: 4 }),
+                        span: TextSpan { start: 6, end: 7, text: text.clone() }
+                    }),
+                    operator: BinaryOperator {
+                        kind: BinaryOperatorKind::Minus
+                    }
+                }),
+                span: TextSpan { start: 2, end: 7, text: text.clone() }
             }),
             operator: BinaryOperator { kind: BinaryOperatorKind::Plus }
-        })
+        }),
+        span: TextSpan::new(0, 7, text.clone())
     };
 
-    let (_text, bag, lexer) = Lexer::new_bundle(code);
     let mut parser = Parser::from_lexer(lexer, bag, Rc::new(crate::cli::Opts::default()));
     let parsed_expr = parser.parse_binary_expression(None).unwrap();
 
