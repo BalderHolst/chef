@@ -38,6 +38,7 @@ impl Display for TokenKind {
             TokenKind::DoubleEquals => "==",
             TokenKind::RightArrow   => "->",
             TokenKind::Whitespace   => "whitespace",
+            TokenKind::Newline      => "newline",
             TokenKind::Bad          => "bad-token",
             TokenKind::End          => "end-of-program",
         };

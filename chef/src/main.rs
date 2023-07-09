@@ -23,7 +23,6 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
     let text = Rc::new(SourceText::from_file(path).unwrap());
     let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new(opts.clone(), text.clone())));
     let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
-    panic!("test");
     
     diagnostics_bag.borrow().exit_if_errored();
 

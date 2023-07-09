@@ -38,6 +38,7 @@ pub enum TokenKind {
     DoubleEquals,
     RightArrow,
     Whitespace,
+    Newline,
     Bad,
     End,
 }
@@ -117,8 +118,8 @@ impl Lexer {
         c.is_alphabetic()
     }
 
-    fn is_whitespace(c: char) -> bool {
-        c.is_whitespace()
+    fn is_ignored(c: char) -> bool {
+        c.is_whitespace() && (c != '\n')
     }
 
     fn _is_punctuation_char(c: &char) -> bool {
@@ -168,7 +169,9 @@ impl Iterator for Lexer {
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.cursor;
 
-        let current_char = if let Some(c) = self.current() { c }
+        let current_char = if let Some(c) = self.current() {
+            c
+        }
         else if !self.placed_end_token {
             self.placed_end_token = true;
             let pos = self.source.text().len();
@@ -182,9 +185,13 @@ impl Iterator for Lexer {
             let n = self.consume_number()?;
             TokenKind::Number(n)
         }
-        else if Self::is_whitespace(current_char) {
+        else if current_char == '\n' {
+            self.consume();
+            TokenKind::Newline
+        }
+        else if Self::is_ignored(current_char) {
             while let Some(c) = self.current() {
-                if !c.is_whitespace() { break; }
+                if !Self::is_ignored(c) { break; }
                 self.consume().unwrap();
             }
             TokenKind::Whitespace
@@ -239,6 +246,7 @@ fn lex_string() {
         TokenKind::Whitespace,
         TokenKind::Number(10),
         TokenKind::Semicolon,
+        TokenKind::Newline,
         TokenKind::Whitespace,
         TokenKind::LeftParen,
         TokenKind::Number(5),
@@ -272,7 +280,7 @@ fn lex_2_char_operators() {
 
 #[test]
 fn lex_all_tokens() {
-    let code = "10hello+-*/()[]{}=,.:;==->  @";
+    let code = "10hello+-*/()[]{}=,.:;==->  \n@";
     let expected_tokens = vec![
         TokenKind::Number(10),
         TokenKind::Word("hello".to_string()),
@@ -294,6 +302,7 @@ fn lex_all_tokens() {
         TokenKind::DoubleEquals,
         TokenKind::RightArrow,
         TokenKind::Whitespace,
+        TokenKind::Newline,
         TokenKind::Bad,
         TokenKind::End,
     ];

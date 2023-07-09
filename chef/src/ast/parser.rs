@@ -82,7 +82,11 @@ impl Parser {
         if self.options.verbose {
             println!("{} : {:?}", self.cursor.clone(), self.current().clone());
         }
-        self.cursor += 1;
+
+        loop {
+            self.cursor += 1;
+            if self.current().kind != TokenKind::Newline { break }
+        }
         self.peak(-1)
     }
 
@@ -580,7 +584,9 @@ fn parse_binary_expression() {
         span: TextSpan::new(0, 7, text.clone())
     };
 
-    let mut parser = Parser::from_lexer(lexer, bag, Rc::new(crate::cli::Opts::default()));
+    let mut opts = crate::cli::Opts::default();
+    opts.verbose = true;
+    let mut parser = Parser::from_lexer(lexer, bag, Rc::new(opts));
     let parsed_expr = parser.parse_binary_expression(None).unwrap();
 
 
