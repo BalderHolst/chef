@@ -405,8 +405,7 @@ impl Parser {
             op
         }
         else { 
-            self.diagnostics_bag.borrow_mut().report_error(&self.current().span, "Expected operator.");
-            return Err(());
+            return Ok(left.unwrap());
         };
 
         // Store the current cursor position in case we need to jump back and parse the right
