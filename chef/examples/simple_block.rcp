@@ -1,5 +1,5 @@
-block main(a: int(RED), b: int(BLUE)) -> (output: int(WHITE)) {
+block main(a: int(inserter), b: int(pipe)) -> (int(sulfur)) {
     c: int = a / 4;
-    d: int(DTYPE)= b + 3;
-    output = c + d;
+    d: int(battery)= b + 3;
+    out c + d;
 }

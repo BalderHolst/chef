@@ -24,6 +24,7 @@ impl Display for TokenKind {
             TokenKind::Minus        => "-",
             TokenKind::Asterisk     => "*",
             TokenKind::Slash        => "/",
+            TokenKind::DoubleSlash  => "//",
             TokenKind::LeftParen    => "(",
             TokenKind::RightParen   => ")",
             TokenKind::LeftSquare   => "[",

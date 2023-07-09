@@ -83,11 +83,12 @@ impl Parser {
             println!("{} : {:?}", self.cursor.clone(), self.current().clone());
         }
 
-        loop {
-            self.cursor += 1;
-            if self.current().kind != TokenKind::Newline { break }
+        let mut i = 1;
+        while self.peak(i).kind == TokenKind::Newline { 
+            i += 1;
         }
-        self.peak(-1)
+        self.cursor += i as usize;
+        self.peak(-i)
     }
 
     /// Consume only if the token is of a certain kind.
@@ -583,8 +584,7 @@ fn parse_binary_expression() {
         span: TextSpan::new(0, 7, text.clone())
     };
 
-    let mut opts = crate::cli::Opts::default();
-    opts.verbose = true;
+    let opts = crate::cli::Opts::new_test();
     let mut parser = Parser::from_lexer(lexer, bag, Rc::new(opts));
     let parsed_expr = parser.parse_binary_expression(None).unwrap();
 

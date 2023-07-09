@@ -24,6 +24,7 @@ pub enum TokenKind {
     Minus,
     Asterisk,
     Slash,
+    DoubleSlash,
     LeftParen,
     RightParen,
     LeftSquare,
@@ -78,8 +79,9 @@ impl Lexer {
         Lexer { diagnostics_bag, source, cursor: 0, placed_end_token: false }
     }
 
-    fn _peak(&self, offset: isize) -> Option<char> {
-        self.source.text().chars().nth((self.cursor as isize + offset) as usize)
+    fn peak(&self, offset: isize) -> Option<char> {
+        let index = self.cursor as isize + offset;
+        self.source.text().chars().nth((index) as usize)
     }
 
     fn current(&self) -> Option<char> {
@@ -130,16 +132,24 @@ impl Lexer {
         match self.consume() {
             Some('+') => TokenKind::Plus,
             Some('-') => {
-                match self.consume() {
-                    Some('>') => TokenKind::RightArrow,
-                    _ => {
-                        self.backtrack(1);
-                        TokenKind::Minus
+                match self.current() {
+                    Some('>') => {
+                        self.consume();
+                        TokenKind::RightArrow
                     },
+                    _ => TokenKind::Minus
                 }
             },
             Some('*') => TokenKind::Asterisk,
-            Some('/') => TokenKind::Slash,
+            Some('/') => {
+                match self.current() {
+                    Some('/') => {
+                        self.consume();
+                        TokenKind::DoubleSlash
+                    },
+                    _ => TokenKind::Slash
+                }
+            },
             Some('(') => TokenKind::LeftParen,
             Some(')') => TokenKind::RightParen,
             Some('[') => TokenKind::LeftSquare,
@@ -265,12 +275,13 @@ fn lex_string() {
 
 #[test]
 fn lex_2_char_operators() {
-    let code = "==->-=";
+    let code = "==->-=//";
     let expected_tokens = vec![
         TokenKind::DoubleEquals,
         TokenKind::RightArrow,
         TokenKind::Minus,
         TokenKind::Equals,
+        TokenKind::DoubleSlash,
         TokenKind::End
     ];
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
@@ -280,13 +291,14 @@ fn lex_2_char_operators() {
 
 #[test]
 fn lex_all_tokens() {
-    let code = "10hello+-*/()[]{}=,.:;==->  \n@";
+    let code = "10hello+-*///()[]{}=,.:;==->  \n@";
     let expected_tokens = vec![
         TokenKind::Number(10),
         TokenKind::Word("hello".to_string()),
         TokenKind::Plus,
         TokenKind::Minus,
         TokenKind::Asterisk,
+        TokenKind::DoubleSlash,
         TokenKind::Slash,
         TokenKind::LeftParen,
         TokenKind::RightParen,

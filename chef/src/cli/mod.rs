@@ -30,6 +30,18 @@ impl Default for Opts {
     }
 }
 
+#[cfg(test)]
+impl Opts {
+    pub fn new_test() -> Self {
+        Self {
+            help: false,
+            no_advice: true,
+            verbose: true,
+            command: None,
+        }
+    }
+}
+
 /// Chef cli subcommands
 #[derive(Debug, Options)]
 pub enum Command {
