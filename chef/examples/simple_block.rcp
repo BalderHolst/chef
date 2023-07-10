@@ -1,5 +1,5 @@
-block main(a: int(inserter), b: int(pipe)) -> (int(sulfur)) {
+block main(a: int(logistic_chest_active_provider), b: int(pipe)) -> (int(sulfur)) {
     c: int = a / 4;
-    d: int(battery)= b + 3;
+    d: int(signal_Z)= b + 3;
     out c + d;
 }

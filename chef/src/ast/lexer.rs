@@ -115,7 +115,7 @@ impl Lexer {
     }
 
     fn is_word_char(c: char) -> bool {
-        c.is_alphabetic()
+        c.is_alphabetic() || c == '_'
     }
 
     fn is_whitespace(c: char) -> bool {
