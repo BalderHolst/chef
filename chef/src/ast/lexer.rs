@@ -24,7 +24,6 @@ pub enum TokenKind {
     Minus,
     Asterisk,
     Slash,
-    DoubleSlash,
     LeftParen,
     RightParen,
     LeftSquare,
@@ -39,7 +38,6 @@ pub enum TokenKind {
     DoubleEquals,
     RightArrow,
     Whitespace,
-    Newline,
     Bad,
     End,
 }
@@ -120,16 +118,29 @@ impl Lexer {
         c.is_alphabetic()
     }
 
-    fn is_ignored(c: char) -> bool {
-        c.is_whitespace() && (c != '\n')
+    fn is_whitespace(c: char) -> bool {
+        c.is_whitespace()
     }
 
     fn _is_punctuation_char(c: &char) -> bool {
         PUNCTUATION_CHARS.get(c).is_some()
     }
 
-    fn consume_punctuation(&mut self) -> TokenKind {
-        match self.consume() {
+    fn consume_comment(&mut self) {
+        loop {
+            match self.consume() {
+                Some('\n') => {
+                    break;
+                },
+                Some(_) => {},
+                None => break,
+            }
+        }
+    }
+
+    // Lexes punktuation. Returns `None` if the punktuation is a commend.
+    fn consume_punctuation(&mut self) -> Option<TokenKind> {
+        let kind = match self.consume() {
             Some('+') => TokenKind::Plus,
             Some('-') => {
                 match self.current() {
@@ -144,8 +155,8 @@ impl Lexer {
             Some('/') => {
                 match self.current() {
                     Some('/') => {
-                        self.consume();
-                        TokenKind::DoubleSlash
+                        self.consume_comment();
+                        return None
                     },
                     _ => TokenKind::Slash
                 }
@@ -170,7 +181,8 @@ impl Lexer {
             Some(':') => TokenKind::Colon,
             Some(';') => TokenKind::Semicolon,
             _ => TokenKind::Bad,
-        }
+        };
+        Some(kind)
     }
 }
 
@@ -195,13 +207,9 @@ impl Iterator for Lexer {
             let n = self.consume_number()?;
             TokenKind::Number(n)
         }
-        else if current_char == '\n' {
-            self.consume();
-            TokenKind::Newline
-        }
-        else if Self::is_ignored(current_char) {
+        else if Self::is_whitespace(current_char) {
             while let Some(c) = self.current() {
-                if !Self::is_ignored(c) { break; }
+                if !Self::is_whitespace(c) { break; }
                 self.consume().unwrap();
             }
             TokenKind::Whitespace
@@ -214,7 +222,10 @@ impl Iterator for Lexer {
             TokenKind::Word(word)
         }
         else {
-            self.consume_punctuation()
+            match self.consume_punctuation() {
+                Some(kind) => kind,
+                None => return self.next(), // Ignore and get next if punktuation was a comment
+            }
         };
         let end = self.cursor;
         let token = Token::new(kind, TextSpan::new(start, end, self.source.clone()));
@@ -256,7 +267,6 @@ fn lex_string() {
         TokenKind::Whitespace,
         TokenKind::Number(10),
         TokenKind::Semicolon,
-        TokenKind::Newline,
         TokenKind::Whitespace,
         TokenKind::LeftParen,
         TokenKind::Number(5),
@@ -275,13 +285,12 @@ fn lex_string() {
 
 #[test]
 fn lex_2_char_operators() {
-    let code = "==->-=//";
+    let code = "==->-=";
     let expected_tokens = vec![
         TokenKind::DoubleEquals,
         TokenKind::RightArrow,
         TokenKind::Minus,
         TokenKind::Equals,
-        TokenKind::DoubleSlash,
         TokenKind::End
     ];
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
@@ -291,14 +300,13 @@ fn lex_2_char_operators() {
 
 #[test]
 fn lex_all_tokens() {
-    let code = "10hello+-*///()[]{}=,.:;==->  \n@";
+    let code = "10hello+-*/()[]{}=,.:;==->  @";
     let expected_tokens = vec![
         TokenKind::Number(10),
         TokenKind::Word("hello".to_string()),
         TokenKind::Plus,
         TokenKind::Minus,
         TokenKind::Asterisk,
-        TokenKind::DoubleSlash,
         TokenKind::Slash,
         TokenKind::LeftParen,
         TokenKind::RightParen,
@@ -314,7 +322,6 @@ fn lex_all_tokens() {
         TokenKind::DoubleEquals,
         TokenKind::RightArrow,
         TokenKind::Whitespace,
-        TokenKind::Newline,
         TokenKind::Bad,
         TokenKind::End,
     ];

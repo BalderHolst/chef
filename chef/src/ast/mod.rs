@@ -80,7 +80,7 @@ impl AST {
 /// block main(input: all) -> (int(inserter)) {
 ///     a: int = input[pipe] * 5;          // <-- Statement 0
 ///     b: int = input[inserter] / 3 + 8;  // <-- Statement 1
-///     out a + b;                      // <-- Statement 2
+///     out a + b;                         // <-- Statement 2
 /// }
 /// # "
 /// # let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new(opts.clone(), text.clone())));

@@ -83,12 +83,8 @@ impl Parser {
             println!("{} : {:?}", self.cursor.clone(), self.current().clone());
         }
 
-        let mut i = 1;
-        while self.peak(i).kind == TokenKind::Newline { 
-            i += 1;
-        }
-        self.cursor += i as usize;
-        self.peak(-i)
+        self.cursor += 1;
+        self.peak(-1)
     }
 
     /// Consume only if the token is of a certain kind.

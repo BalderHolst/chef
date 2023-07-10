@@ -24,7 +24,6 @@ impl Display for TokenKind {
             TokenKind::Minus        => "-",
             TokenKind::Asterisk     => "*",
             TokenKind::Slash        => "/",
-            TokenKind::DoubleSlash  => "//",
             TokenKind::LeftParen    => "(",
             TokenKind::RightParen   => ")",
             TokenKind::LeftSquare   => "[",
@@ -39,7 +38,6 @@ impl Display for TokenKind {
             TokenKind::DoubleEquals => "==",
             TokenKind::RightArrow   => "->",
             TokenKind::Whitespace   => "whitespace",
-            TokenKind::Newline      => "newline",
             TokenKind::Bad          => "bad-token",
             TokenKind::End          => "end-of-program",
         };

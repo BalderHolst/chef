@@ -1,0 +1,6 @@
+block main(input: all) -> (int(water)) {
+    a: int = input[inserter] // Pick inserter from input
+        + 7 // Add 7
+        * input[pump]; // add pumps;
+    out a;
+}
