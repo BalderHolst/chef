@@ -58,7 +58,7 @@ impl Token {
 }
 
 /// The lexer. Tokens can be extracting by iterating over it.
-/// ```rust, run
+/// ```
 /// # let lexer = Lexer::new_dummy();
 /// for token in lexer {
 ///     /* do something */ 

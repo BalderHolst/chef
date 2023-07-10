@@ -75,7 +75,7 @@ impl AST {
 /// A parsed statement.
 ///
 /// Statements in chef are separated by semicolon:
-/// ```rust
+/// ```
 /// # let code = "
 /// block main(input: all) -> (int(inserter)) {
 ///     a: int = input[pipe] * 5;          // <-- Statement 0
