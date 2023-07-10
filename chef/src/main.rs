@@ -104,6 +104,7 @@ mod tests {
         let example_dir = "examples";
         for file in fs::read_dir(example_dir).unwrap() {
             let file = file.unwrap().path().to_str().unwrap().to_owned();
+            println!("Compiling: \'{}\'... ", file);
             compile(Rc::new(Opts::default()), &CookOpts::from_files(vec![file]));
         }
     }

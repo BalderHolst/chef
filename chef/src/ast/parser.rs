@@ -1,4 +1,4 @@
-//! Module for parsing a tokenstream into an abstract syntax tree.
+//! Module for parsing a token stream into an abstract syntax tree.
 
 use std::cmp::min;
 use std::rc::Rc;
@@ -9,7 +9,7 @@ use crate::ast::{
     NumberExpression, ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
 };
 use crate::cli::Opts;
-use crate::diagnostics::DiagnosticsBagRef;
+use crate::diagnostics::{DiagnosticsBagRef, CompilationError};
 use crate::text::TextSpan;
 
 use super::lexer::Lexer;
@@ -85,7 +85,7 @@ impl Parser {
     /// Return the current token and move to the next token.
     fn consume(&mut self) -> &Token {
         if self.options.verbose {
-            println!("{} : {:?}", self.cursor.clone(), self.current().clone());
+            println!("{} : {:?}", self.cursor.clone(), &self.current().kind);
         }
 
         self.cursor += 1;
@@ -100,14 +100,11 @@ impl Parser {
     }
 
     /// Consume and error if the token is not what was expected.
-    fn consume_and_check(&mut self, expected: TokenKind) -> Result<TokenKind, ()> {
+    fn consume_and_check(&mut self, expected: TokenKind) -> Result<TokenKind, CompilationError> {
         let token = self.consume().clone();
         let is_correct = token.kind == expected;
         if !is_correct {
-            self.diagnostics_bag
-                .borrow_mut()
-                .report_unexpected_token(&token, expected);
-            Err(())
+            Err(CompilationError::new_unexpected_token(token, expected))
         } else {
             Ok(token.kind)
         }
@@ -168,7 +165,8 @@ impl Parser {
                             self.blocks.push(Rc::new(block.clone()));
                             StatementKind::Block(block)
                         }
-                        Err(_) => {
+                        Err(e) => {
+                            self.diagnostics_bag.borrow_mut().report_compilation_error(e);
                             return None;
                         }
                     },
@@ -243,7 +241,7 @@ impl Parser {
     }
 
     /// Parse variable assignment statement.
-    fn parse_assignment_statement(&mut self) -> Result<StatementKind, ()> {
+    fn parse_assignment_statement(&mut self) -> Result<StatementKind, CompilationError> {
         let variable: Rc<Variable>;
         if let ExpressionKind::Variable(v) = self.parse_primary_expression()?.kind {
             variable = v;
@@ -267,40 +265,23 @@ impl Parser {
     }
 
     /// Parse variable type.
-    fn parse_variable_type(&mut self) -> Result<VariableType, ()> {
-        match self.consume().kind.clone() {
+    fn parse_variable_type(&mut self) -> Result<VariableType, CompilationError> {
+        let token = self.consume();
+        match token.kind.clone() {
             TokenKind::Word(start_word) => match start_word.as_str() {
-                "int" => match self.current().kind {
-                    TokenKind::LeftParen => {
-                        self.consume();
-                        let type_token = self.consume().clone();
-                        self.consume_and_check(TokenKind::RightParen)?;
-                        if let TokenKind::Word(word) = type_token.kind.clone() {
-                            Ok(VariableType::Int(word))
-                        } else {
-                            self.diagnostics_bag.borrow_mut().report_unexpected_token(
-                                &type_token,
-                                TokenKind::Word("".to_string()),
-                            );
-                            Ok(VariableType::Error)
-                        }
-                    }
-                    _ => Ok(VariableType::Any),
-                },
+                "any" => Ok(VariableType::Any),
                 "all" => Ok(VariableType::All),
                 w => {
-                    self.diagnostics_bag
-                        .borrow_mut()
-                        .report_error(&self.peak(-1).span, &format!("Unknown type `{}`.", w));
-                    Ok(VariableType::Error)
+                    dbg!(&w);
+                    Ok(VariableType::Int(w.to_string()))
                 }
             },
-            _ => Err(()),
+            _ => Err(CompilationError::new(format!("Expected variable type to be word, not `{}`", token.kind), token.span.clone())),
         }
     }
 
     /// Parse arguments for `block` definition.
-    fn parse_block_arguments(&mut self) -> Result<Vec<Rc<Variable>>, ()> {
+    fn parse_block_arguments(&mut self) -> Result<Vec<Rc<Variable>>, CompilationError> {
         let mut arguments: Vec<Rc<Variable>> = vec![];
         loop {
             let name = if let TokenKind::Word(s) = self.current().kind.clone() {
@@ -311,10 +292,10 @@ impl Parser {
             };
             self.consume_and_check(TokenKind::Colon)?;
             let var_start = self.current().span.clone();
-            let t = self.parse_variable_type()?;
+            let type_ = self.parse_variable_type()?;
             let var_ref = Rc::new(Variable::new(
                 name,
-                t,
+                type_,
                 TextSpan::from_spans(var_start, self.peak(-1).span.clone()),
             ));
             self.add_to_scope(var_ref.clone());
@@ -324,7 +305,7 @@ impl Parser {
     }
 
     /// Parse outputs for `block` definition.
-    fn parse_block_outputs(&mut self) -> Result<Vec<VariableType>, ()> {
+    fn parse_block_outputs(&mut self) -> Result<Vec<VariableType>, CompilationError> {
         let mut outputs: Vec<VariableType> = vec![];
         loop {
             if self.current().kind == TokenKind::RightParen {
@@ -337,7 +318,7 @@ impl Parser {
     }
 
     /// Parse arguments for `block` links.
-    fn parse_block_link_arguments(&mut self) -> Result<Vec<Expression>, ()> {
+    fn parse_block_link_arguments(&mut self) -> Result<Vec<Expression>, CompilationError> {
         let mut inputs: Vec<Expression> = vec![];
         self.consume_and_check(TokenKind::LeftParen)?;
         loop {
@@ -354,7 +335,7 @@ impl Parser {
     }
 
     /// Parse chef `block`.
-    fn parse_block(&mut self) -> Result<Block, ()> {
+    fn parse_block(&mut self) -> Result<Block, CompilationError> {
         let start_token = self.consume().clone(); // Consume "block" word
         debug_assert_eq!(start_token.kind, TokenKind::Word("block".to_string()));
 
@@ -407,7 +388,7 @@ impl Parser {
     }
 
     /// Parse chef expression.
-    fn parse_expression(&mut self) -> Result<Expression, ()> {
+    fn parse_expression(&mut self) -> Result<Expression, CompilationError> {
         self.parse_binary_expression(None)
     }
 
@@ -424,7 +405,7 @@ impl Parser {
     }
 
     /// Parse a binary expression.
-    fn parse_binary_expression(&mut self, mut left: Option<Expression>) -> Result<Expression, ()> {
+    fn parse_binary_expression(&mut self, mut left: Option<Expression>) -> Result<Expression, CompilationError> {
         if left.is_none() {
             let left = self.parse_primary_expression()?;
             return self.parse_binary_expression(Some(left));
@@ -470,7 +451,7 @@ impl Parser {
     }
 
     /// Parse a primary expression.
-    fn parse_primary_expression(&mut self) -> Result<Expression, ()> {
+    fn parse_primary_expression(&mut self) -> Result<Expression, CompilationError> {
         let start_token = self.current().clone();
         match &start_token.kind {
             TokenKind::Number(number) => {
@@ -566,12 +547,12 @@ impl Parser {
                 self.consume_and_check(TokenKind::RightParen)?;
                 Ok(expr)
             }
-            _ => Err(()),
+            _ => Err(CompilationError::new(format!("Primary expressions can not start with `{}`.", start_token.kind), start_token.span)),
         }
     }
 
     /// Parse a chef block link.
-    fn parse_block_link(&mut self, block: Rc<Block>) -> Result<BlockLinkExpression, ()> {
+    fn parse_block_link(&mut self, block: Rc<Block>) -> Result<BlockLinkExpression, CompilationError> {
         let inputs = self.parse_block_link_arguments()?;
         Ok(BlockLinkExpression::new(block, inputs))
     }
