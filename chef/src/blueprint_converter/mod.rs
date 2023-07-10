@@ -45,7 +45,7 @@ impl BlueprintConverter {
     }
 
     /// Returns (first_constant, first_signal)
-    fn IOType_to_signal_pair(t: graph::IOType) -> (Option<i32>, Option<SignalID>) {
+    fn iotype_to_signal_pair(t: graph::IOType) -> (Option<i32>, Option<SignalID>) {
         match t {
             graph::IOType::Signal(s) => (None, Some(SignalID {
                 name: s,
@@ -69,9 +69,9 @@ impl BlueprintConverter {
     fn connection_to_control_behavior(conn: graph::Connection) -> ControlBehavior {
         match conn {
             graph::Connection::Arithmetic(ac) => {
-                let (first_constant, first_signal) = Self::IOType_to_signal_pair(ac.left);
-                let (second_constant, second_signal) = Self::IOType_to_signal_pair(ac.right);
-                let (_, output_signal) = Self::IOType_to_signal_pair(ac.output);
+                let (first_constant, first_signal) = Self::iotype_to_signal_pair(ac.left);
+                let (second_constant, second_signal) = Self::iotype_to_signal_pair(ac.right);
+                let (_, output_signal) = Self::iotype_to_signal_pair(ac.output);
                 let operation = Self::operation_to_operation_string(ac.operation);
 
                 ControlBehavior { 

@@ -77,7 +77,7 @@ impl Lexer {
         Lexer { diagnostics_bag, source, cursor: 0, placed_end_token: false }
     }
 
-    fn peak(&self, offset: isize) -> Option<char> {
+    fn _peak(&self, offset: isize) -> Option<char> {
         let index = self.cursor as isize + offset;
         self.source.text().chars().nth((index) as usize)
     }
@@ -248,7 +248,7 @@ impl Lexer {
         (text, diagnostics_bag, lexer)
     }
 
-    pub fn new_dummy() -> Self {
+    pub fn _new_dummy() -> Self {
         let (_source, _diagnostics_bag, lexer) = Lexer::new_bundle("");
         lexer
     }

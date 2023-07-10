@@ -201,20 +201,22 @@ impl Expression {
         Self { kind, span }
     }
 
-    fn number(n: i32, span: TextSpan) -> Self {
+    fn _number(n: i32, span: TextSpan) -> Self {
         Self {
             kind: ExpressionKind::Number(NumberExpression::new(n)),
             span,
         }
     }
 
-    fn binary(left: Expression, right: Expression, operator: BinaryOperator, span: TextSpan) -> Self {
+    fn _binary(left: Expression, right: Expression, operator: BinaryOperator, span: TextSpan) -> Self {
         Self {
-            kind: ExpressionKind::Binary(BinaryExpression::new(
-                Box::new(left),
-                Box::new(right),
-                operator,
-            )),
+            kind: ExpressionKind::Binary({
+                BinaryExpression {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    operator,
+                }
+            }),
             span,
         }
     }
@@ -295,7 +297,7 @@ pub struct BinaryExpression {
 }
 
 impl BinaryExpression {
-    fn new(left: Box<Expression>, right: Box<Expression>, operator: BinaryOperator) -> Self {
+    fn _new(left: Box<Expression>, right: Box<Expression>, operator: BinaryOperator) -> Self {
         Self {
             left,
             right,

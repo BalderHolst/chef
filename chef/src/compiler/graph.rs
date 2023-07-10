@@ -94,7 +94,7 @@ pub enum Connection {
 }
 
 impl Connection {
-    pub fn pick(signal: IOType) -> Self {
+    pub fn _new_pick(signal: IOType) -> Self {
         Self::Arithmetic(ArithmeticConnection::new_pick(signal))
     }
 
@@ -249,7 +249,7 @@ impl Graph {
     }
 
     /// Get a mutable graph node by id.
-    pub fn get_mut_node(&mut self, vid: &NId) -> Option<&mut Node> {
+    pub fn _get_mut_node(&mut self, vid: &NId) -> Option<&mut Node> {
         self.vertices.get_mut(vid)
     }
 
