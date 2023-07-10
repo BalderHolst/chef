@@ -2,9 +2,8 @@
 
 use fnv::FnvHashMap;
 use std::fmt::Display;
-use std::io;
 
-use super::graph_visualizer::GraphVisualizer;
+use super::graph_visualizer;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArithmeticOperation {
@@ -519,7 +518,7 @@ impl Graph {
     }
 
     /// Visualize the graph in an svg.
-    pub fn visualize(&self, output_path: &str) -> io::Result<()> {
-        GraphVisualizer::new(self).visualize(output_path)
+    pub fn visualize(&self, output_path: &str) -> graph_visualizer::VisualizerResult {
+        graph_visualizer::visualize(self, output_path)
     }
 }
