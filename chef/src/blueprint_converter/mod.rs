@@ -3,13 +3,13 @@
 use std::collections::HashMap;
 
 use factorio_blueprint as fb;
-use fb::BlueprintCodec;
 use fb::objects::{self as fbo, ArithmeticConditions, EntityConnections, SignalID};
-use fb::objects::{Blueprint, Entity, EntityNumber, Position, ControlBehavior, OneBasedIndex};
+use fb::objects::{Blueprint, ControlBehavior, Entity, EntityNumber, OneBasedIndex, Position};
+use fb::BlueprintCodec;
 
 use fnv::FnvHashMap;
 
-use crate::compiler::graph::{self, Graph, NId, ArithmeticOperation};
+use crate::compiler::graph::{self, ArithmeticOperation, Graph, NId};
 
 pub struct _BlueprintConverter {
     vid_to_entity_number: FnvHashMap<NId, EntityNumber>,
@@ -17,7 +17,7 @@ pub struct _BlueprintConverter {
 }
 
 impl _BlueprintConverter {
-    pub fn _new(graph: Graph) -> Self { 
+    pub fn _new(graph: Graph) -> Self {
         let mut m: FnvHashMap<NId, EntityNumber> = FnvHashMap::default();
 
         // Create translation between vid and entity_number
@@ -25,9 +25,9 @@ impl _BlueprintConverter {
             m.insert(*vid, EntityNumber::new(i + 1).unwrap());
         }
 
-        Self { 
+        Self {
             vid_to_entity_number: m,
-            graph
+            graph,
         }
     }
 
@@ -47,10 +47,13 @@ impl _BlueprintConverter {
     /// Returns (first_constant, first_signal)
     fn _iotype_to_signal_pair(t: graph::IOType) -> (Option<i32>, Option<SignalID>) {
         match t {
-            graph::IOType::Signal(s) => (None, Some(SignalID {
-                name: s,
-                type_: fbo::SignalIDType::Virtual, // TODO
-            })),
+            graph::IOType::Signal(s) => (
+                None,
+                Some(SignalID {
+                    name: s,
+                    type_: fbo::SignalIDType::Virtual, // TODO
+                }),
+            ),
             graph::IOType::Constant(n) => (Some(n), None),
             graph::IOType::All => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
@@ -74,7 +77,7 @@ impl _BlueprintConverter {
                 let (_, output_signal) = Self::_iotype_to_signal_pair(ac.output);
                 let operation = Self::_operation_to_operation_string(ac.operation);
 
-                ControlBehavior { 
+                ControlBehavior {
                     arithmetic_conditions: Some(ArithmeticConditions {
                         first_constant,
                         first_signal,
@@ -87,7 +90,7 @@ impl _BlueprintConverter {
                     filters: None,
                     is_on: None,
                 }
-            },
+            }
         }
     }
 
@@ -96,21 +99,23 @@ impl _BlueprintConverter {
         position: Position,
         connections: Vec<EntityNumber>,
         operation: graph::Connection,
-        ) -> Entity {
-
+    ) -> Entity {
         let mut blueprint_connections: HashMap<EntityNumber, fbo::Connection> = HashMap::new();
 
         let connection_point_from = OneBasedIndex::new(1).unwrap();
         let connection_point_to = 2;
 
         for connected_entity in connections {
-            blueprint_connections.insert(connection_point_from, fbo::Connection {
-                red: None,
-                green: Some(vec![fbo::ConnectionData {
-                    entity_id: connected_entity,
-                    circuit_id: Some(connection_point_to),
-                }]),
-            });
+            blueprint_connections.insert(
+                connection_point_from,
+                fbo::Connection {
+                    red: None,
+                    green: Some(vec![fbo::ConnectionData {
+                        entity_id: connected_entity,
+                        circuit_id: Some(connection_point_to),
+                    }]),
+                },
+            );
         }
 
         let control_behavior = Some(Self::_connection_to_control_behavior(operation));

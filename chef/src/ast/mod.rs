@@ -3,10 +3,10 @@
 use std::fmt::Display;
 use std::rc::Rc;
 
-use crate::Opts;
 use crate::ast::visitors::Visitor;
 use crate::diagnostics::DiagnosticsBagRef;
-use crate::text::{TextSpan, SourceText};
+use crate::text::{SourceText, TextSpan};
+use crate::Opts;
 
 use self::lexer::{Lexer, Token};
 use self::parser::Parser;
@@ -27,7 +27,7 @@ pub struct AST {
 impl AST {
     /// Instantiate a new [AST].
     pub fn new(diagnostics_bag: DiagnosticsBagRef) -> Self {
-        Self { 
+        Self {
             statements: vec![],
             diagnostics_bag,
         }
@@ -35,7 +35,11 @@ impl AST {
 
     /// Build an [AST] from a [SourceText] instance. This also evaluates constants and does type
     /// checking.
-    pub fn from_source(text: Rc<SourceText>, diagnostics_bag: DiagnosticsBagRef, opts: Rc<Opts>) -> Self {
+    pub fn from_source(
+        text: Rc<SourceText>,
+        diagnostics_bag: DiagnosticsBagRef,
+        opts: Rc<Opts>,
+    ) -> Self {
         let lexer = Lexer::from_source(diagnostics_bag.clone(), text);
         let tokens: Vec<Token> = lexer.collect();
         let parser = Parser::new(tokens, diagnostics_bag.clone(), opts);
@@ -208,7 +212,12 @@ impl Expression {
         }
     }
 
-    fn _binary(left: Expression, right: Expression, operator: BinaryOperator, span: TextSpan) -> Self {
+    fn _binary(
+        left: Expression,
+        right: Expression,
+        operator: BinaryOperator,
+        span: TextSpan,
+    ) -> Self {
         Self {
             kind: ExpressionKind::Binary({
                 BinaryExpression {
@@ -433,10 +442,7 @@ impl Visitor for Printer {
     }
 
     fn visit_variable(&mut self, var: &Variable) {
-        self.print(&format!(
-            "Variable: {} (type: {:?})",
-            var.name, var.type_
-        ))
+        self.print(&format!("Variable: {} (type: {:?})", var.name, var.type_))
     }
 
     fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression) {

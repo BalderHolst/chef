@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::compiler::graph::*;
-use crate::ast::{AST, Expression, ExpressionKind, BinaryOperatorKind, Block};
+use crate::ast::{BinaryOperatorKind, Block, Expression, ExpressionKind, AST};
 use crate::ast::{Statement, StatementKind, VariableType};
+use crate::compiler::graph::*;
 use crate::diagnostics::DiagnosticsBagRef;
 
 pub struct GraphCompiler {
@@ -15,7 +15,13 @@ pub struct GraphCompiler {
 
 impl GraphCompiler {
     pub fn new(ast: AST, diagnostics_bag: DiagnosticsBagRef) -> Self {
-        Self { ast, diagnostics_bag, next_anysignal: 0, block_graphs: HashMap::new(), scopes: vec![HashMap::new()] }
+        Self {
+            ast,
+            diagnostics_bag,
+            next_anysignal: 0,
+            block_graphs: HashMap::new(),
+            scopes: vec![HashMap::new()],
+        }
     }
 
     pub fn get_graph(&self) -> Graph {
@@ -31,7 +37,13 @@ impl GraphCompiler {
     }
 
     fn add_to_scope(&mut self, variable_name: String, output_vid: NId) {
-        if self.scopes.last_mut().unwrap().insert(variable_name, output_vid).is_some() {
+        if self
+            .scopes
+            .last_mut()
+            .unwrap()
+            .insert(variable_name, output_vid)
+            .is_some()
+        {
             panic!("tried to override a variable in scope.")
         }
     }
@@ -61,7 +73,12 @@ impl GraphCompiler {
     }
 
     /// Returns a typle:: (output_vid, output_type)
-    fn compile_expression(&mut self, graph: &mut Graph, expr: &Expression, out_type: Option<IOType>) -> (NId, IOType) {
+    fn compile_expression(
+        &mut self,
+        graph: &mut Graph,
+        expr: &Expression,
+        out_type: Option<IOType>,
+    ) -> (NId, IOType) {
         match &expr.kind {
             ExpressionKind::Number(n) => {
                 let t = IOType::Constant(n.number);
@@ -83,7 +100,6 @@ impl GraphCompiler {
                         Node::Inner(_) => panic!("Var nodes should be output or input nodes"),
                     };
                     let vid = graph.push_node(Node::Inner(InnerNode::new()));
-                    
                     graph.push_connection(var_node_vid, vid, Connection::Arithmetic(
                             ArithmeticConnection::new_convert(
                                 input_signal,
@@ -164,10 +180,10 @@ impl GraphCompiler {
             },
             ExpressionKind::BlockLink(block_expr) => {
                 let vars: Vec<(NId, IOType)> = block_expr.inputs.iter()
-                    .map(|expr| 
+                    .map(|expr|
                          match expr.kind.clone() {
                             ExpressionKind::Variable(variable) => {
-                                if let Some(var_vid) = self.search_scope(variable.name.clone()) { 
+                                if let Some(var_vid) = self.search_scope(variable.name.clone()) {
                                     let t = self.variable_type_to_iotype(&variable.type_);
                                     (var_vid, t)
                                 }
@@ -179,7 +195,7 @@ impl GraphCompiler {
                             ExpressionKind::Pick(p) => {
                                 let all_var = p.from;
                                 let signal = p.pick_signal;
-                                if let Some(var_vid) = self.search_scope(all_var.name.clone()) { 
+                                if let Some(var_vid) = self.search_scope(all_var.name.clone()) {
                                     let picked_vid = graph.push_inner_node();
                                     let t = IOType::Signal(signal);
                                     graph.push_connection(var_vid, picked_vid, Connection::Arithmetic(ArithmeticConnection::new_pick(t.clone())));
@@ -212,12 +228,14 @@ impl GraphCompiler {
             VariableType::Int(s) => IOType::Signal(s.clone()),
             VariableType::Any => self.get_new_anysignal(),
             VariableType::All => IOType::All,
-            VariableType::Error => panic!("there should not be any error variables if the compiling step is reached.")
+            VariableType::Error => {
+                panic!("there should not be any error variables if the compiling step is reached.")
+            }
         }
     }
 
     fn add_block_graph(&mut self, name: String, graph: Graph) {
-        self.block_graphs.insert(name, graph); 
+        self.block_graphs.insert(name, graph);
     }
 
     fn get_block_graph(&mut self, name: &String) -> Option<&Graph> {
@@ -236,57 +254,78 @@ impl GraphCompiler {
         for statement in &block.statements {
             match &statement.kind {
                 StatementKind::Block(_) => {
-                    self.diagnostics_bag.borrow_mut().report_error(&statement.span, "A `block` cannot be defined within another block.");
-                },
+                    self.diagnostics_bag.borrow_mut().report_error(
+                        &statement.span,
+                        "A `block` cannot be defined within another block.",
+                    );
+                }
                 StatementKind::Assignment(assignment) => {
                     let out_type = self.variable_type_to_iotype(&assignment.variable.type_);
-                    let (mut output_vid, _) = self.compile_expression(&mut graph, &assignment.expression, Some(out_type.clone()));
+                    let (mut output_vid, _) = self.compile_expression(
+                        &mut graph,
+                        &assignment.expression,
+                        Some(out_type.clone()),
+                    );
                     let output_node = graph.get_node(&output_vid).unwrap().clone();
                     match output_node {
-                        Node::Inner(_n) => { // Convert inner node to output node
+                        Node::Inner(_n) => {
+                            // Convert inner node to output node
                             let input_type = graph.get_single_input(&output_vid).unwrap();
                             let var_out_node = OutputNode::new(out_type.clone());
                             let middle_vid = output_vid;
                             output_vid = graph.push_node(Node::Inner(InnerNode::new()));
-                            graph.push_connection(middle_vid, output_vid, Connection::Arithmetic(
-                                    ArithmeticConnection::new_convert(input_type, out_type)
-                                    ));
+                            graph.push_connection(
+                                middle_vid,
+                                output_vid,
+                                Connection::Arithmetic(ArithmeticConnection::new_convert(
+                                    input_type, out_type,
+                                )),
+                            );
                             graph.override_node(output_vid, Node::Output(var_out_node));
-                        },
+                        }
                         Node::Input(n) => {
                             let var_node = Node::Output(OutputNode::new(out_type.clone()));
                             let var_node_vid = graph.push_node(var_node);
-                            graph.push_connection(output_vid, var_node_vid, 
-                                                       Connection::Arithmetic(
-                                                           ArithmeticConnection::new_convert(
-                                                               n.input,
-                                                               out_type
-                                                           )
-                                                       ));
+                            graph.push_connection(
+                                output_vid,
+                                var_node_vid,
+                                Connection::Arithmetic(ArithmeticConnection::new_convert(
+                                    n.input, out_type,
+                                )),
+                            );
                             output_vid = var_node_vid;
-                        },
+                        }
                         Node::Output(n) => {
                             let var_node_vid = graph.push_node(Node::Output(n.clone()));
-                            graph.push_connection(output_vid, var_node_vid, 
-                                                       Connection::Arithmetic(
-                                                           ArithmeticConnection::new_convert(
-                                                               n.output_type,
-                                                               out_type
-                                                           )
-                                                       ));
+                            graph.push_connection(
+                                output_vid,
+                                var_node_vid,
+                                Connection::Arithmetic(ArithmeticConnection::new_convert(
+                                    n.output_type,
+                                    out_type,
+                                )),
+                            );
                             output_vid = var_node_vid;
-                        },
+                        }
                     }
                     self.add_to_scope(assignment.variable.name.clone(), output_vid);
-                },
-                StatementKind::Error => panic!("There should not be error statements when compilation has started."),
+                }
+                StatementKind::Error => {
+                    panic!("There should not be error statements when compilation has started.")
+                }
                 StatementKind::Out(expr) => {
-                    let out_variable_type = block.outputs.get(0).expect("Blocks can only have exactly ONE output for now.");
+                    let out_variable_type = block
+                        .outputs
+                        .get(0)
+                        .expect("Blocks can only have exactly ONE output for now.");
                     let out_iotype = self.variable_type_to_iotype(out_variable_type);
-                    let (out_vid, _out_node) = self.compile_expression(&mut graph, expr, Some(out_iotype.clone()));
-                    graph.vertices.insert(out_vid, Node::Output(OutputNode::new(out_iotype)));
-                },
-            }; 
+                    let (out_vid, _out_node) =
+                        self.compile_expression(&mut graph, expr, Some(out_iotype.clone()));
+                    graph
+                        .vertices
+                        .insert(out_vid, Node::Output(OutputNode::new(out_iotype)));
+                }
+            };
         }
         self.exit_scope();
         graph
@@ -301,5 +340,4 @@ impl GraphCompiler {
             _ => todo!("Only block statements implemented for now."),
         }
     }
-
 }
