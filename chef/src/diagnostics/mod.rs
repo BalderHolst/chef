@@ -19,7 +19,9 @@ pub struct CompilationError {
 }
 
 impl CompilationError {
-    pub fn new(desctiption: String, span: TextSpan) -> Self { Self { desctiption, span } }
+    pub fn new(desctiption: String, span: TextSpan) -> Self {
+        Self { desctiption, span }
+    }
 
     pub fn new_unexpected_token(token: Token, expected: TokenKind) -> Self {
         let desctiption = format!("Expected `{}` but found `{}`.", expected, token.kind);
@@ -29,8 +31,6 @@ impl CompilationError {
         }
     }
 }
-
-
 
 /// Reference to the [DiagnosticsBag] allowing interior mutability.
 pub type DiagnosticsBagRef = Rc<RefCell<DiagnosticsBag>>;
@@ -122,7 +122,8 @@ impl DiagnosticsBag {
     }
 
     pub fn report_compilation_error(&mut self, error: CompilationError) {
-        self.diagnostics.push(Diagnostic::new(error.desctiption, error.span))
+        self.diagnostics
+            .push(Diagnostic::new(error.desctiption, error.span))
     }
 
     /// Print the accumulated diagnostics.

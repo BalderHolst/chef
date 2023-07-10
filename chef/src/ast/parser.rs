@@ -9,7 +9,7 @@ use crate::ast::{
     NumberExpression, ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
 };
 use crate::cli::Opts;
-use crate::diagnostics::{DiagnosticsBagRef, CompilationError};
+use crate::diagnostics::{CompilationError, DiagnosticsBagRef};
 use crate::text::TextSpan;
 
 use super::lexer::Lexer;
@@ -166,7 +166,9 @@ impl Parser {
                             StatementKind::Block(block)
                         }
                         Err(e) => {
-                            self.diagnostics_bag.borrow_mut().report_compilation_error(e);
+                            self.diagnostics_bag
+                                .borrow_mut()
+                                .report_compilation_error(e);
                             return None;
                         }
                     },
@@ -276,7 +278,10 @@ impl Parser {
                     Ok(VariableType::Int(w.to_string()))
                 }
             },
-            _ => Err(CompilationError::new(format!("Expected variable type to be word, not `{}`", token.kind), token.span.clone())),
+            _ => Err(CompilationError::new(
+                format!("Expected variable type to be word, not `{}`", token.kind),
+                token.span.clone(),
+            )),
         }
     }
 
@@ -405,7 +410,10 @@ impl Parser {
     }
 
     /// Parse a binary expression.
-    fn parse_binary_expression(&mut self, mut left: Option<Expression>) -> Result<Expression, CompilationError> {
+    fn parse_binary_expression(
+        &mut self,
+        mut left: Option<Expression>,
+    ) -> Result<Expression, CompilationError> {
         if left.is_none() {
             let left = self.parse_primary_expression()?;
             return self.parse_binary_expression(Some(left));
@@ -547,12 +555,21 @@ impl Parser {
                 self.consume_and_check(TokenKind::RightParen)?;
                 Ok(expr)
             }
-            _ => Err(CompilationError::new(format!("Primary expressions can not start with `{}`.", start_token.kind), start_token.span)),
+            _ => Err(CompilationError::new(
+                format!(
+                    "Primary expressions can not start with `{}`.",
+                    start_token.kind
+                ),
+                start_token.span,
+            )),
         }
     }
 
     /// Parse a chef block link.
-    fn parse_block_link(&mut self, block: Rc<Block>) -> Result<BlockLinkExpression, CompilationError> {
+    fn parse_block_link(
+        &mut self,
+        block: Rc<Block>,
+    ) -> Result<BlockLinkExpression, CompilationError> {
         let inputs = self.parse_block_link_arguments()?;
         Ok(BlockLinkExpression::new(block, inputs))
     }

@@ -1,8 +1,8 @@
-block add(a: int, b: int) -> (int(steam)) {
+block add(a: any, b: any) -> (steam) {
     out a + b;
 }
 
-block main(in: all) -> (int(rail)) {
-    d: int  = add(in[pipe], add(in[splitter], 1 + 5));
+block main(in: all) -> (rail) {
+    d: any  = add(in[pipe], add(in[splitter], 1 + 5));
     out d / 5;
 }
