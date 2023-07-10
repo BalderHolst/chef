@@ -9,10 +9,9 @@ use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::{SourceText, TextSpan};
 
 lazy_static! {
-    static ref PUNCTUATION_CHARS: HashSet<char> = 
-        HashSet::from(
-            [ '+', '-', '>', '*', '/', '(', ')', '[', ']', '{', '}', '=', ',', '.', ':', ';', ]
-            );
+    static ref PUNCTUATION_CHARS: HashSet<char> = HashSet::from([
+        '+', '-', '>', '*', '/', '(', ')', '[', ']', '{', '}', '=', ',', '.', ':', ';',
+    ]);
 }
 
 /// Kinds of lexer tokens.
@@ -59,7 +58,7 @@ impl Token {
 /// ```
 /// # let lexer = Lexer::new_dummy();
 /// for token in lexer {
-///     /* do something */ 
+///     /* do something */
 /// }
 /// ```
 pub struct Lexer {
@@ -70,11 +69,15 @@ pub struct Lexer {
 }
 
 impl Lexer {
-
     /// Instantiate a [Lexer] with a [SourceText] for parsing and a [DiagnosticsBagRef] for
     /// reporting errors.
     pub fn from_source(diagnostics_bag: DiagnosticsBagRef, source: Rc<SourceText>) -> Self {
-        Lexer { diagnostics_bag, source, cursor: 0, placed_end_token: false }
+        Lexer {
+            diagnostics_bag,
+            source,
+            cursor: 0,
+            placed_end_token: false,
+        }
     }
 
     fn _peak(&self, offset: isize) -> Option<char> {
@@ -102,8 +105,7 @@ impl Lexer {
             if c.is_ascii_digit() {
                 self.consume().unwrap();
                 n = n * 10 + c.to_digit(10).unwrap();
-            }
-            else {
+            } else {
                 break;
             }
         }
@@ -131,8 +133,8 @@ impl Lexer {
             match self.consume() {
                 Some('\n') => {
                     break;
-                },
-                Some(_) => {},
+                }
+                Some(_) => {}
                 None => break,
             }
         }
@@ -142,24 +144,20 @@ impl Lexer {
     fn consume_punctuation(&mut self) -> Option<TokenKind> {
         let kind = match self.consume() {
             Some('+') => TokenKind::Plus,
-            Some('-') => {
-                match self.current() {
-                    Some('>') => {
-                        self.consume();
-                        TokenKind::RightArrow
-                    },
-                    _ => TokenKind::Minus
+            Some('-') => match self.current() {
+                Some('>') => {
+                    self.consume();
+                    TokenKind::RightArrow
                 }
+                _ => TokenKind::Minus,
             },
             Some('*') => TokenKind::Asterisk,
-            Some('/') => {
-                match self.current() {
-                    Some('/') => {
-                        self.consume_comment();
-                        return None
-                    },
-                    _ => TokenKind::Slash
+            Some('/') => match self.current() {
+                Some('/') => {
+                    self.consume_comment();
+                    return None;
                 }
+                _ => TokenKind::Slash,
             },
             Some('(') => TokenKind::LeftParen,
             Some(')') => TokenKind::RightParen,
@@ -167,13 +165,11 @@ impl Lexer {
             Some(']') => TokenKind::RightSquare,
             Some('{') => TokenKind::LeftCurly,
             Some('}') => TokenKind::RightCurly,
-            Some('=') => {
-                match self.consume() {
-                    Some('=') => TokenKind::DoubleEquals,
-                    _ => {
-                        self.backtrack(1);
-                        TokenKind::Equals
-                    },
+            Some('=') => match self.consume() {
+                Some('=') => TokenKind::DoubleEquals,
+                _ => {
+                    self.backtrack(1);
+                    TokenKind::Equals
                 }
             },
             Some(',') => TokenKind::Comma,
@@ -193,35 +189,35 @@ impl Iterator for Lexer {
 
         let current_char = if let Some(c) = self.current() {
             c
-        }
-        else if !self.placed_end_token {
+        } else if !self.placed_end_token {
             self.placed_end_token = true;
             let pos = self.source.text().len();
-            return Some(Token::new(TokenKind::End, TextSpan::new(pos, pos, self.source.clone())));
-        }
-        else {
+            return Some(Token::new(
+                TokenKind::End,
+                TextSpan::new(pos, pos, self.source.clone()),
+            ));
+        } else {
             return None;
         };
-        
+
         let kind = if Self::is_number_start(current_char) {
             let n = self.consume_number()?;
             TokenKind::Number(n)
-        }
-        else if Self::is_whitespace(current_char) {
+        } else if Self::is_whitespace(current_char) {
             while let Some(c) = self.current() {
-                if !Self::is_whitespace(c) { break; }
+                if !Self::is_whitespace(c) {
+                    break;
+                }
                 self.consume().unwrap();
             }
             TokenKind::Whitespace
-        }
-        else if Self::is_word_char(current_char) {
+        } else if Self::is_word_char(current_char) {
             let mut word = "".to_string();
             while self.current().is_some() && Self::is_word_char(self.current().unwrap()) {
                 word += self.consume().unwrap().to_string().as_str();
             }
             TokenKind::Word(word)
-        }
-        else {
+        } else {
             match self.consume_punctuation() {
                 Some(kind) => kind,
                 None => return self.next(), // Ignore and get next if punktuation was a comment
@@ -229,7 +225,6 @@ impl Iterator for Lexer {
         };
         let end = self.cursor;
         let token = Token::new(kind, TextSpan::new(start, end, self.source.clone()));
-
 
         if token.kind == TokenKind::Bad {
             self.diagnostics_bag.borrow_mut().report_bad_token(&token);
@@ -243,7 +238,12 @@ impl Iterator for Lexer {
 impl Lexer {
     pub fn new_bundle(s: &str) -> (Rc<SourceText>, DiagnosticsBagRef, Self) {
         let text = Rc::new(SourceText::from_str(s));
-        let diagnostics_bag = Rc::new(std::cell::RefCell::new(crate::diagnostics::DiagnosticsBag::new(Rc::new(crate::cli::Opts::default()), text.clone())));
+        let diagnostics_bag = Rc::new(std::cell::RefCell::new(
+            crate::diagnostics::DiagnosticsBag::new(
+                Rc::new(crate::cli::Opts::default()),
+                text.clone(),
+            ),
+        ));
         let lexer = Self::from_source(diagnostics_bag.clone(), text.clone());
         (text, diagnostics_bag, lexer)
     }
@@ -291,7 +291,7 @@ fn lex_2_char_operators() {
         TokenKind::RightArrow,
         TokenKind::Minus,
         TokenKind::Equals,
-        TokenKind::End
+        TokenKind::End,
     ];
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
     let lexed_tokens: Vec<TokenKind> = lexer.map(|t| t.kind).collect();

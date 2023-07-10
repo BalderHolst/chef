@@ -6,18 +6,8 @@
 // even solve this. Suggestions very welcome!
 
 use super::{
-    Statement,
-	StatementKind,
-	Expression,
-	ExpressionKind,
-	Block,
-	Assignment,
-	BinaryExpression,
-	ParenthesizedExpression,
-	BlockLinkExpression,
-	NumberExpression,
-	Variable,
-	PickExpression
+    Assignment, BinaryExpression, Block, BlockLinkExpression, Expression, ExpressionKind,
+    NumberExpression, ParenthesizedExpression, PickExpression, Statement, StatementKind, Variable,
 };
 
 /// Trait allowing for traversal of an immutable [AST].
@@ -75,7 +65,6 @@ pub trait Visitor {
         self.visit_expression(&assignment.expression)
     }
 
-
     fn visit_statement(&mut self, statement: &Statement) {
         self.do_visit_statement(statement);
     }
@@ -111,7 +100,6 @@ pub trait Visitor {
     fn visit_number(&mut self, number: &NumberExpression);
     fn visit_variable(&mut self, var: &Variable);
     fn visit_error_expression(&mut self);
-
 }
 
 /// Trait allowing for traversal of a mutable [AST].
@@ -169,7 +157,6 @@ pub trait MutVisitor {
         self.visit_expression(&mut assignment.expression)
     }
 
-
     fn visit_statement(&mut self, statement: &mut Statement) {
         self.do_visit_statement(statement);
     }
@@ -186,7 +173,6 @@ pub trait MutVisitor {
     fn visit_parenthesized_expression(&mut self, expr: &mut ParenthesizedExpression) {
         self.visit_expression(&mut expr.expression);
     }
-
 
     fn visit_block(&mut self, block: &mut Block) {
         self.do_visit_block(block);
@@ -206,5 +192,4 @@ pub trait MutVisitor {
     fn visit_number(&mut self, number: &mut NumberExpression);
     fn visit_variable(&mut self, var: &Variable);
     fn visit_error_expression(&mut self);
-
 }

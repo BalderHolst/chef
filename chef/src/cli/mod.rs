@@ -52,10 +52,7 @@ pub struct CookOpts {
 
 impl CookOpts {
     pub fn from_files(files: Vec<String>) -> Self {
-        Self {
-            help: false,
-            files,
-        }
+        Self { help: false, files }
     }
 }
 

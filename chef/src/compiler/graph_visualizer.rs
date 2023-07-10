@@ -5,7 +5,7 @@ use std::{
 
 use fnv::FnvHashMap;
 
-use super::graph::{Connection, Graph, Node, NId};
+use super::graph::{Connection, Graph, NId, Node};
 
 const NODE_RADIUS: usize = 20;
 const NODE_PADDING: usize = 30;
@@ -119,8 +119,7 @@ impl<'a> GraphVisualizer<'a> {
         let y_level = if x_level >= self.levels.len() {
             self.levels.push(0);
             0
-        }
-        else {
+        } else {
             self.levels[x_level] += 1;
             self.levels[x_level]
         };
@@ -128,8 +127,12 @@ impl<'a> GraphVisualizer<'a> {
         let y = y_level * (NODE_SPACE + NODE_PADDING) + NODE_SPACE / 2;
         let x = x_level * NODE_HORIZONTAL_SPACE + NODE_SPACE / 2;
 
-        if y > self.height { self.height = y }
-        if x > self.width { self.width = x }
+        if y > self.height {
+            self.height = y
+        }
+        if x > self.width {
+            self.width = x
+        }
 
         let inputs = self.graph.get_inputs(&vid);
 

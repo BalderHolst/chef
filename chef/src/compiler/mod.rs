@@ -3,12 +3,12 @@
 
 use crate::{ast::AST, diagnostics::DiagnosticsBagRef};
 
-use self::{graph_compiler::GraphCompiler, graph::Graph, graph_optimizer::GraphOptimizer};
+use self::{graph::Graph, graph_compiler::GraphCompiler, graph_optimizer::GraphOptimizer};
 
 pub mod graph;
-mod graph_visualizer;
 mod graph_compiler;
 mod graph_optimizer;
+mod graph_visualizer;
 
 /// Compile and abstract syntax tree in to a graph and report errors.
 pub fn compile(ast: AST, diagnostics_bag: DiagnosticsBagRef) -> Graph {
