@@ -99,7 +99,7 @@ impl Lexer {
     fn consume_number(&mut self) -> Option<u32> {
         let mut n: u32 = 0;
         while let Some(c) = self.current() {
-            if c.is_digit(10) {
+            if c.is_ascii_digit() {
                 self.consume().unwrap();
                 n = n * 10 + c.to_digit(10).unwrap();
             }
@@ -111,7 +111,7 @@ impl Lexer {
     }
 
     fn is_number_start(c: char) -> bool {
-        c.is_digit(10)
+        c.is_ascii_digit()
     }
 
     fn is_word_char(c: char) -> bool {
@@ -216,7 +216,7 @@ impl Iterator for Lexer {
         }
         else if Self::is_word_char(current_char) {
             let mut word = "".to_string();
-            while self.current().is_some() && true == Self::is_word_char(self.current().unwrap()) {
+            while self.current().is_some() && Self::is_word_char(self.current().unwrap()) {
                 word += self.consume().unwrap().to_string().as_str();
             }
             TokenKind::Word(word)

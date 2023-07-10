@@ -26,7 +26,7 @@ impl TypeChecker {
     /// Checks if a signal is a valid factorio signal.
     fn is_valid_signal(s: &str) -> bool {
         for signal_line in BASE_SIGNALS.lines() {
-            let signal = signal_line.split(":").last().unwrap();
+            let signal = signal_line.split(':').last().unwrap();
             if s == signal { return true }
         }
         false
@@ -48,7 +48,8 @@ impl Visitor for TypeChecker {
     fn visit_error_expression(&mut self) { }
 
 
-    fn visit_pick_expression(&mut self, expr: &super::PickExpression) {
+    // TODO: report correctly
+    fn visit_pick_expression(&mut self, _expr: &super::PickExpression) {
         // self.report_if_invalid(expr.pick_signal.as_str());
     }
 

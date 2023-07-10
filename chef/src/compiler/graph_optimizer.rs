@@ -1,4 +1,4 @@
-use super::graph::{Graph, NId, IOType, Connection, ArithmeticConnection, ArithmeticOperation};
+use super::graph::{Graph, NId, IOType};
 
 pub struct GraphOptimizer<'a> {
     graph: &'a mut Graph,
@@ -30,7 +30,7 @@ impl<'a> GraphOptimizer<'a> {
                     if to_vec.len() != 1 { continue; }
                     let (to_vid, conn2) = to_vec.first().unwrap();
                     if !conn2.is_pick() { continue; }
-                    return Some((from_vid.clone(), middle_vid.clone(), to_vid.clone(), i))
+                    return Some((*from_vid, *middle_vid, *to_vid, i))
                 }
             }
         }

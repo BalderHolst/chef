@@ -39,6 +39,7 @@ pub struct SourceText {
     lines: Vec<usize>,
 }
 
+#[allow(dead_code)]
 impl SourceText {
     pub fn from_file(path: &str) -> io::Result<Self> {
         let text = fs::read_to_string(path)?;
@@ -75,9 +76,9 @@ impl SourceText {
     }
 
     pub fn get_line(&self, line_nr: usize) -> Option<&str> {
-        let start = self.lines.get(line_nr)?.clone();
+        let start = *self.lines.get(line_nr)?;
         let end = if let Some(e) = self.lines.get(line_nr+1) {
-            e.clone()
+            *e
         }
         else {
             self.text.len()

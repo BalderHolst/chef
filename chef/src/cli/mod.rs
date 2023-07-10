@@ -4,7 +4,7 @@ use gumdrop::Options;
 use terminal_size::Width;
 
 /// Command line options for chef
-#[derive(Debug, Options)]
+#[derive(Debug, Options, Default)]
 pub struct Opts {
     #[options(help = "print help message")]
     pub(crate) help: bool,
@@ -17,17 +17,6 @@ pub struct Opts {
 
     #[options(command)]
     pub(crate) command: Option<Command>,
-}
-
-impl Default for Opts {
-    fn default() -> Self {
-        Self {
-            help: false,
-            no_advice: false,
-            verbose: false,
-            command: None,
-        }
-    }
 }
 
 #[cfg(test)]

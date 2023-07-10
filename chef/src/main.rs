@@ -52,7 +52,7 @@ fn main() -> Result<(), io::Error> {
 
     match &opts.command {
         Some(Command::Cook(cook_opts)) => {
-            if cook_opts.files.len() == 0 {
+            if cook_opts.files.is_empty() {
                 eprintln!("{}", cook_opts.self_usage());
                 exit(1); // TODO: use results
             }

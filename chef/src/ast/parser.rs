@@ -34,7 +34,7 @@ impl Parser {
         Self {
             tokens: tokens.iter().filter(
                 |token| token.kind != TokenKind::Whitespace
-            ).map(|token| token.clone()).collect(),
+            ).cloned().collect(),
             cursor: 0,
             scopes: vec![vec![]],
             blocks: vec![],
@@ -43,11 +43,11 @@ impl Parser {
         }
     }
 
-    pub fn from_lexer(lexer: Lexer, diagnostics_bag: DiagnosticsBagRef, options: Rc<Opts>) -> Self { 
+    pub fn _from_lexer(lexer: Lexer, diagnostics_bag: DiagnosticsBagRef, options: Rc<Opts>) -> Self { 
         Self {
             tokens: lexer.filter(
                 |token| token.kind != TokenKind::Whitespace
-            ).map(|token| token.clone()).collect(),
+            ).collect(),
             cursor: 0,
             scopes: vec![vec![]],
             blocks: vec![],
@@ -271,7 +271,7 @@ impl Parser {
                     },
                     "all" => Ok(VariableType::All),
                     w => {
-                        self.diagnostics_bag.borrow_mut().report_error(&self.peak(-1).span, &format!("Unknown type `{}`.", w.clone()));
+                        self.diagnostics_bag.borrow_mut().report_error(&self.peak(-1).span, &format!("Unknown type `{}`.", w));
                         Ok(VariableType::Error)
                     }
                 }
@@ -335,10 +335,9 @@ impl Parser {
 
         self.enter_scope();
 
-        let name: String;
         let mut statements: Vec<Statement> = vec![];
 
-        name = if let TokenKind::Word(s) = &self.consume().kind { s.clone() }
+        let name: String = if let TokenKind::Word(s) = &self.consume().kind { s.clone() }
         else { 
             self.diagnostics_bag.borrow_mut().report_error(&self.peak(-1).span, "No name for `block` was given.");
             "".to_string()
@@ -441,7 +440,7 @@ impl Parser {
         match &start_token.kind {
             TokenKind::Number(number) => {
                 self.consume();
-                Ok(Expression::new(ExpressionKind::Number(NumberExpression::new(number.clone() as i32)),
+                Ok(Expression::new(ExpressionKind::Number(NumberExpression::new(*number as i32)),
                                    TextSpan::from_spans(start_token.span, self.peak(-1).span.clone())
                                    ))
             },
@@ -449,13 +448,13 @@ impl Parser {
                 self.consume();
                 let current_token = self.current();
 
-                if let Some(var) = self.search_scope(&word) { // If is defined variable
+                if let Some(var) = self.search_scope(word) { // If is defined variable
                     if self.current().kind == TokenKind::LeftSquare {
                         self.consume();
                         if let TokenKind::Word(signal) = self.consume().kind.clone() {
                             self.consume_and_check(TokenKind::RightSquare)?;
                             return Ok({
-                                let kind = ExpressionKind::Pick(PickExpression::new(signal.to_string(), var));
+                                let kind = ExpressionKind::Pick(PickExpression::new(signal, var));
                                 let span = TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
                                 Expression { kind, span }
                             });
@@ -485,7 +484,7 @@ impl Parser {
                         Expression { kind, span }
                     })
                 }
-                else if let Some(block) = self.search_blocks(&word) {
+                else if let Some(block) = self.search_blocks(word) {
                     let block_link_expr = self.parse_block_link(block)?;
                     return Ok({
                         let kind = ExpressionKind::BlockLink(block_link_expr);
@@ -581,7 +580,7 @@ fn parse_binary_expression() {
     };
 
     let opts = crate::cli::Opts::new_test();
-    let mut parser = Parser::from_lexer(lexer, bag, Rc::new(opts));
+    let mut parser = Parser::_from_lexer(lexer, bag, Rc::new(opts));
     let parsed_expr = parser.parse_binary_expression(None).unwrap();
 
 

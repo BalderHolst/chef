@@ -24,7 +24,7 @@ impl ConstantEvaluator {
             for statement in &mut ast.statements.iter_mut() {
                 self.visit_statement(statement);
             }
-            if self.did_work == false {
+            if !self.did_work {
                 break;
             }
         }

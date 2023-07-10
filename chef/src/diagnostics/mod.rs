@@ -73,7 +73,7 @@ impl DiagnosticsBag {
 
     /// Checks whether any errors have been reported.
     pub fn has_errored(&self) -> bool {
-        self.diagnostics.len() > 0
+        !self.diagnostics.is_empty()
     }
 
     /// Report an error.

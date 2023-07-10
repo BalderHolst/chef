@@ -5,7 +5,6 @@
 // keyword. This is less than optimal, but i have no ideas how to write macros, or if they could
 // even solve this. Suggestions very welcome!
 
-use crate::ast::AST;
 use super::{
     Statement,
 	StatementKind,
@@ -25,9 +24,6 @@ use super::{
 pub trait Visitor {
     fn do_visit_statement(&mut self, statement: &Statement) {
         match &statement.kind {
-            StatementKind::Expression(expr) => {
-                self.visit_expression(expr);
-            }
             StatementKind::Block(block) => {
                 self.visit_block(block);
             }
@@ -71,7 +67,7 @@ pub trait Visitor {
 
     fn do_visit_block(&mut self, block: &Block) {
         for statement in &block.statements {
-            self.visit_statement(&statement);
+            self.visit_statement(statement);
         }
     }
 
@@ -122,9 +118,6 @@ pub trait Visitor {
 pub trait MutVisitor {
     fn do_visit_statement(&mut self, statement: &mut Statement) {
         match &mut statement.kind {
-            StatementKind::Expression(expr) => {
-                self.visit_expression(expr);
-            }
             StatementKind::Block(block) => {
                 self.visit_block(block);
             }

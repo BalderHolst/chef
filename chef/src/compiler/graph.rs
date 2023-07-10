@@ -8,19 +8,19 @@ use super::graph_visualizer::GraphVisualizer;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArithmeticOperation {
-    ADD,
-    SUBTRACT,
-    MULTIPLY,
-    DIVIDE,
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
 }
 
 impl Display for ArithmeticOperation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            ArithmeticOperation::ADD => "ADD",
-            ArithmeticOperation::SUBTRACT => "SUBTRACT",
-            ArithmeticOperation::MULTIPLY => "MULTIPLY",
-            ArithmeticOperation::DIVIDE => "DIVIDE",
+            ArithmeticOperation::Add => "ADD",
+            ArithmeticOperation::Subtract => "SUBTRACT",
+            ArithmeticOperation::Multiply => "MULTIPLY",
+            ArithmeticOperation::Divide => "DIVIDE",
         };
         write!(f, "{s}")
     }
@@ -40,7 +40,7 @@ impl Display for IOType {
             IOType::Signal(s) => format!("int({})", s),
             IOType::AnySignal(n) => format!("Any({})", n),
             IOType::Constant(n) => format!("({})", n),
-            IOType::All => format!("ALL"),
+            IOType::All => "ALL".to_string(),
         };
         write!(f, "{}", s)
     }
@@ -73,7 +73,7 @@ impl ArithmeticConnection {
         Self::new(
             signal.clone(),
             IOType::Constant(0),
-            ArithmeticOperation::ADD,
+            ArithmeticOperation::Add,
             signal,
         )
     }
@@ -82,7 +82,7 @@ impl ArithmeticConnection {
         Self::new(
             in_signal,
             IOType::Constant(0),
-            ArithmeticOperation::ADD,
+            ArithmeticOperation::Add,
             out_signal,
         )
     }
@@ -106,10 +106,11 @@ impl Connection {
         }
     }
 
+    #[allow(irrefutable_let_patterns)]
     pub fn is_pick(&self) -> bool {
         if let Connection::Arithmetic(connection) = self {
             if connection.right == IOType::Constant(0)
-                && connection.operation == ArithmeticOperation::ADD
+                && connection.operation == ArithmeticOperation::Add
                 && connection.output == connection.left
             {
                 return true;
@@ -118,16 +119,16 @@ impl Connection {
         false
     }
 
+    #[allow(irrefutable_let_patterns)]
     pub fn is_convert(&self) -> bool {
         if let Connection::Arithmetic(connection) = self {
-            if connection.right == IOType::Constant(0)
-                && connection.operation == ArithmeticOperation::ADD
+            connection.right == IOType::Constant(0)
+                && connection.operation == ArithmeticOperation::Add
                 && connection.output != connection.left
-            {
-                return true;
-            }
         }
-        false
+        else {
+            false
+        }
     }
 }
 
@@ -220,7 +221,7 @@ impl Graph {
 
     /// TODO
     pub fn get_inputs(&self, vid: &NId) -> Vec<IOType> { // TODO: Return a single type
-        match self.vertices.get(&vid) {
+        match self.vertices.get(vid) {
             Some(Node::Input(input_node)) => {
                 return vec![input_node.input.clone()];
             }
@@ -231,7 +232,7 @@ impl Graph {
         };
         let mut inputs: Vec<IOType> = vec![];
 
-        for (_from_vid, to_vec) in &self.adjacency {
+        for to_vec in self.adjacency.values() {
             for (to_vid, conn) in to_vec {
                 if to_vid == vid {
                     for output in conn.get_output() {
@@ -313,7 +314,7 @@ impl Graph {
         let mut inputs: Vec<NId> = vec![];
         for (vid, node) in &self.vertices {
             if let Node::Input(_) = node {
-                inputs.push(vid.clone());
+                inputs.push(*vid);
             }
         }
         inputs
@@ -329,6 +330,7 @@ impl Graph {
 
     /// Compine two graphs by stitching them togeather.
     /// TODO: Order of inputs vec matter
+    #[allow(clippy::single_match)]
     pub fn stitch_graph(&mut self, other: &Graph, inputs: Vec<(NId, IOType)>) -> Result<Vec<(NId, IOType)>, ()> {
         let mut vid_converter: fnv::FnvHashMap<NId, NId> = fnv::FnvHashMap::default();
 
@@ -376,7 +378,7 @@ impl Graph {
                     let input_types = self.get_inputs(block_input_vid); // TODO
                     let input_type = input_types[0].clone();
 
-                    self.push_connection(block_input_vid.clone(), middle_node, Connection::Arithmetic(
+                    self.push_connection(*block_input_vid, middle_node, Connection::Arithmetic(
                                          ArithmeticConnection::new_convert(input_type, block_input_type.clone()))
                                          );
 
@@ -387,7 +389,7 @@ impl Graph {
                 IOType::AnySignal(_) => { // TODO : Something is wrong here
                     let new_type = self.get_single_input(block_input_vid)?;
                     self.replace_iotype(signal, &new_type);
-                    self.push_connection(block_input_vid.clone(), to_vid, Connection::Arithmetic(
+                    self.push_connection(*block_input_vid, to_vid, Connection::Arithmetic(
                             ArithmeticConnection::new_pick(new_type)
                             ));
                 },
@@ -395,16 +397,16 @@ impl Graph {
                 IOType::All => todo!(),
             }
 
-            match self.vertices.get_mut(&block_input_vid) {
+            match self.vertices.get_mut(block_input_vid) {
                 Some(Node::Output(_)) => {
-                    self.override_node(block_input_vid.clone(), Node::Inner(InnerNode::new()));
+                    self.override_node(*block_input_vid, Node::Inner(InnerNode::new()));
                 }
                 _ => {}
             }
         }
 
         Ok(outputs.iter().map(|(vid, type_o)| {
-            (vid.clone(), type_o.clone())
+            (*vid, type_o.clone())
         }).collect())
     }
 
@@ -437,25 +439,24 @@ impl Graph {
         self.vertices.iter().filter(|(vid, node)| {
              if let Node::Output(_) = node {
                  match self.adjacency.get(vid) {
-                    Some(v) => v.len() == 0,
+                    Some(v) => v.is_empty(),
                     None => true,
                 }
              }
              else { false }
         }
-        ).map(|(vid, node)| (vid.clone(), node.clone())).collect()
+        ).map(|(vid, node)| (*vid, node.clone())).collect()
     }
 
     /// Get all input nodes that are not constants.
     fn get_non_constant_inputs(&self) -> Vec<(NId, Node)> {
         self.vertices.iter().filter(|(_vid, node)| {
             if let Node::Input(n) = node {
-                if let IOType::Constant(_) = n.input { false }
-                else { true }
+                !matches!(n.input, IOType::Constant(_))
             }
             else { false }
         })
-        .map(|(vid, node)| (vid.clone(), node.clone())).collect()
+        .map(|(vid, node)| (*vid, node.clone())).collect()
     }
 
     /// Print the graph to stout.
@@ -463,7 +464,7 @@ impl Graph {
         println!("Graph:");
         println!("\tVertecies:");
         for (vid, node) in &self.vertices {
-            if self.vertices.get(&vid).is_none() {
+            if self.vertices.get(vid).is_none() {
                 println!("Could not find vertex: {}", vid);
                 return;
             }
@@ -474,7 +475,7 @@ impl Graph {
                     n.variable_name,
                     self.get_inputs(vid)
                 ),
-                Node::Output(n) => println!(
+                Node::Output(_n) => println!(
                     "\t\t{} : OUTPUT : {:?}",
                     vid,
                     self.get_inputs(vid)

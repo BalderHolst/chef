@@ -1,7 +1,6 @@
 use std::{
     fs::OpenOptions,
     io::{self, Write},
-    rc::Rc,
 };
 
 use fnv::FnvHashMap;
@@ -63,7 +62,7 @@ impl<'a> GraphVisualizer<'a> {
 
     fn visualize_node_network(&mut self, vid: NId, level: usize) -> (usize, usize) {
         if let Some((x, y)) = self.drawn_nodes.get(&vid) {
-            return (x.clone(), y.clone());
+            return (*x, *y);
         }
 
         let (x, y) = self.draw_node(vid, level);
@@ -71,7 +70,7 @@ impl<'a> GraphVisualizer<'a> {
 
         if let Some(connection_pairs) = self.graph.adjacency.get(&vid) {
             for (to_vid, connection) in connection_pairs {
-                let to_pos = self.visualize_node_network(to_vid.clone(), level + 1);
+                let to_pos = self.visualize_node_network(*to_vid, level + 1);
                 self.draw_connection(connection, (x, y), to_pos);
             }
         }

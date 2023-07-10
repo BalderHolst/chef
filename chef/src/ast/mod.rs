@@ -18,6 +18,7 @@ mod type_checker;
 mod visitors;
 
 /// The abstract syntax tree.
+#[allow(clippy::upper_case_acronyms)]
 pub struct AST {
     pub statements: Vec<Statement>,
     diagnostics_bag: DiagnosticsBagRef,
@@ -35,9 +36,9 @@ impl AST {
     /// Build an [AST] from a [SourceText] instance. This also evaluates constants and does type
     /// checking.
     pub fn from_source(text: Rc<SourceText>, diagnostics_bag: DiagnosticsBagRef, opts: Rc<Opts>) -> Self {
-        let lexer = Lexer::from_source(diagnostics_bag.clone(), text.clone());
+        let lexer = Lexer::from_source(diagnostics_bag.clone(), text);
         let tokens: Vec<Token> = lexer.collect();
-        let parser = Parser::new(tokens, diagnostics_bag.clone(), opts.clone());
+        let parser = Parser::new(tokens, diagnostics_bag.clone(), opts);
         let mut ast = AST::new(diagnostics_bag);
         for statement in parser {
             ast.add_statement(statement);
@@ -53,10 +54,10 @@ impl AST {
     }
 
     /// Print the [AST] to stout.
-    pub fn print(&self) -> () {
+    pub fn print(&self) {
         let mut printer = Printer::new();
         for statement in &self.statements {
-            printer.visit_statement(&statement);
+            printer.visit_statement(statement);
         }
     }
 
@@ -106,7 +107,6 @@ impl Statement {
 /// Kinds of statement.
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
-    Expression(Expression),
     Assignment(Assignment),
     Block(Block),
     Out(Expression),
@@ -410,14 +410,14 @@ impl Visitor for Printer {
             block.name, block.inputs, block.outputs
         ));
         self.indent();
-        self.do_visit_block(&block);
+        self.do_visit_block(block);
         self.unindent();
     }
 
     fn visit_assignment(&mut self, assignment: &Assignment) {
         self.print(&format!("Assignment: \"{:?}\"", assignment.variable));
         self.indent();
-        self.do_visit_assignment(&assignment);
+        self.do_visit_assignment(assignment);
         self.unindent();
     }
 
