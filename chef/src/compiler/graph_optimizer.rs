@@ -44,7 +44,6 @@ impl<'a> GraphOptimizer<'a> {
     }
 
     fn integrate_constant_input(&mut self, vid: NId) {
-        // TODO: This shit is ugly...
         let inputs = self.graph.get_inputs(&vid);
 
         if inputs.len() == 1 {

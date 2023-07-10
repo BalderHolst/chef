@@ -57,13 +57,13 @@ fn main() -> Result<(), io::Error> {
         Some(Command::Cook(cook_opts)) => {
             if cook_opts.files.is_empty() {
                 eprintln!("{}", cook_opts.self_usage());
-                exit(1); // TODO: use results
+                exit(1);
             } else if cook_opts.files.len() != 1 {
                 eprintln!(
                     "`chef cook` only accepts one file as an entry point. Found {}.",
                     cook_opts.files.len()
                 );
-                exit(1); // TODO: use results
+                exit(1);
             }
 
             compile(opts.clone(), cook_opts);
@@ -89,7 +89,7 @@ fn main() -> Result<(), io::Error> {
             if let Some(command_list) = opts.self_command_list() {
                 eprintln!("\nSubcommands:\n{}", command_list);
             }
-            exit(1); // TODO use results
+            exit(1);
         }
     }
 }
