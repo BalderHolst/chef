@@ -1,4 +1,4 @@
-name: Test
+name: Build and Test
 
 on:
   push:
@@ -18,3 +18,13 @@ jobs:
       run: cargo build -v --manifest-path chef/Cargo.toml
     - name: Run tests
       run: cargo test -v --manifest-path chef/Cargo.toml
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+        - uses: actions/checkout@v3
+        - uses: dtolnay/rust-toolchain@stable
+          with:
+              components: clippy
+        - name: run clippy
+          run: cargo clippy --manifest-path chef/Cargo.toml
