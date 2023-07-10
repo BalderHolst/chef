@@ -123,7 +123,6 @@ pub enum VariableType {
     Int(String),
     Any,
     All,
-    Error,
 }
 
 /// A chef variable.
@@ -393,7 +392,6 @@ impl Display for VariableType {
             VariableType::Int(n) => format!("Int({n})"),
             VariableType::Any => "Any".to_string(),
             VariableType::All => "All".to_string(),
-            VariableType::Error => "Error".to_string(),
         };
         write!(f, "{s}")
     }

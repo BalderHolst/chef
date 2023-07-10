@@ -118,7 +118,6 @@ impl GraphCompiler {
                             let signal = IOType::Signal(s.clone());
                             (graph.push_input_node(var.name.clone(), signal.clone()), signal)
                         }
-                        VariableType::Error => panic!("there should not be any error variables if the compiling step is reached."),
                     }
                 }
             },
@@ -228,9 +227,6 @@ impl GraphCompiler {
             VariableType::Int(s) => IOType::Signal(s.clone()),
             VariableType::Any => self.get_new_anysignal(),
             VariableType::All => IOType::All,
-            VariableType::Error => {
-                panic!("there should not be any error variables if the compiling step is reached.")
-            }
         }
     }
 
