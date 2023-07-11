@@ -264,6 +264,7 @@ impl Expression {
 pub enum ExpressionReturnType {
     Bool,
     Int,
+    All,
 }
 
 impl Display for ExpressionReturnType {
@@ -271,6 +272,7 @@ impl Display for ExpressionReturnType {
         let s = match self {
             ExpressionReturnType::Bool => "bool",
             ExpressionReturnType::Int => "int",
+            ExpressionReturnType::All => "all",
         };
         write!(f, "{s}")
     }
@@ -351,7 +353,7 @@ impl BlockLinkExpression {
         match self.block.outputs[0] {
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Bool(_) => ExpressionReturnType::Bool,
-            VariableType::All => ExpressionReturnType::Int,
+            VariableType::All => ExpressionReturnType::All,
         }
     }
 }
