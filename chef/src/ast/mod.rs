@@ -134,7 +134,6 @@ pub enum VariableSignalType {
 /// A chef variable.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Variable {
-    // TODO: Add textspan
     pub name: String,
     pub type_: VariableType,
     pub definition: TextSpan,
@@ -200,7 +199,6 @@ impl Block {
 /// A chef expression.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expression {
-    // TODO: Add span
     pub kind: ExpressionKind,
     pub span: TextSpan,
 }
