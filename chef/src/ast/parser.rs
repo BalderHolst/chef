@@ -198,7 +198,15 @@ impl Parser {
                         self.consume();
                         StatementKind::Error
                     }
-                    _ => self.parse_assignment_statement().ok()?,
+                    _ => match self.parse_assignment_statement() {
+                        Ok(s) => s,
+                        Err(e) => {
+                            self.diagnostics_bag
+                                .borrow_mut()
+                                .report_compilation_error(e);
+                            return None;
+                        }
+                    },
                 };
                 Some(Statement::new(
                     kind,
@@ -279,7 +287,10 @@ impl Parser {
                         if let TokenKind::Word(word) = type_token.kind.clone() {
                             Ok(VariableType::Int(VariableSignalType::Signal(word)))
                         } else {
-                            Err(CompilationError::new_unexpected_token(type_token, TokenKind::Word("".to_string())))
+                            Err(CompilationError::new_unexpected_token(
+                                type_token,
+                                TokenKind::Word("".to_string()),
+                            ))
                         }
                     }
                     _ => Ok(VariableType::Int(VariableSignalType::Any)),
@@ -291,9 +302,9 @@ impl Parser {
                 )),
             },
             _ => Err(CompilationError::new(
-                    format!("Expected variable type to be word, not `{}`", token.kind),
-                    token.span.clone(),
-                    )),
+                format!("Expected variable type to be word, not `{}`", token.kind),
+                token.span.clone(),
+            )),
         }
     }
 
