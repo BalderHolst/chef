@@ -119,6 +119,16 @@ impl GraphCompiler {
                                 let signal = IOType::Signal(s.clone());
                                 (graph.push_input_node(var.name.clone(), signal.clone()), signal)
                             }
+                        },
+                        VariableType::Bool(bool_type) => match bool_type {
+                            VariableSignalType::Any => {
+                                let signal = self.get_new_anysignal();
+                                (graph.push_input_node(var.name.clone(), signal.clone()), signal)
+                            },
+                            VariableSignalType::Signal(s) => {
+                                let signal = IOType::Signal(s.clone());
+                                (graph.push_input_node(var.name.clone(), signal.clone()), signal)
+                            }
                         }
                     }
                 }
@@ -227,6 +237,10 @@ impl GraphCompiler {
     fn variable_type_to_iotype(&mut self, variable_type: &VariableType) -> IOType {
         match variable_type {
             VariableType::Int(int_type) => match int_type {
+                VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
+                VariableSignalType::Any => self.get_new_anysignal(),
+            },
+            VariableType::Bool(bool_type) => match bool_type {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },

@@ -121,6 +121,7 @@ pub enum StatementKind {
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariableType {
     Int(VariableSignalType),
+    Bool(VariableSignalType),
     All,
 }
 
@@ -397,6 +398,10 @@ impl Display for VariableType {
             VariableType::Int(int_type) => match int_type {
                 VariableSignalType::Signal(n) => format!("Int({n})"),
                 VariableSignalType::Any => "Int(Any)".to_string(),
+            },
+            VariableType::Bool(bool_type) => match bool_type {
+                VariableSignalType::Signal(n) => format!("Bool({n})"),
+                VariableSignalType::Any => "Bool(Any)".to_string(),
             },
             VariableType::All => "All".to_string(),
         };
