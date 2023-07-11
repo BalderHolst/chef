@@ -24,7 +24,12 @@ fn create_dot(graph: &Graph) -> String {
             super::graph::Node::Input(_n) => "lightgreen",
             super::graph::Node::Output(_n) => "orange",
         };
-        let input = &graph.get_inputs(vid)[0];
+        let inputs = &graph.get_inputs(vid);
+        let input = if inputs.is_empty() {
+            "CONST".to_string()
+        } else {
+            Vec::from_iter(inputs.iter().map(|i| i.to_string())).join(" | ")
+        };
         dot += &format!(
             "\t{} [style=filled fillcolor={} label=\"{}\"]\n",
             vid, color, input
