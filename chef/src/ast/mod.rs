@@ -350,7 +350,6 @@ impl BinaryOperator {
             BinaryOperatorKind::LessThanOrEqual => 1,
             BinaryOperatorKind::Equals => 1,
             BinaryOperatorKind::NotEquals => 1,
-
         }
     }
 }
@@ -368,7 +367,6 @@ impl Display for BinaryOperator {
             BinaryOperatorKind::LessThanOrEqual => write!(f, "<="),
             BinaryOperatorKind::Equals => write!(f, "=="),
             BinaryOperatorKind::NotEquals => write!(f, "!="),
-
         }
     }
 }

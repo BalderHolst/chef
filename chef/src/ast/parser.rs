@@ -441,9 +441,13 @@ impl Parser {
             TokenKind::Asterisk => Some(BinaryOperator::new(BinaryOperatorKind::Multiply)),
             TokenKind::Slash => Some(BinaryOperator::new(BinaryOperatorKind::Divide)),
             TokenKind::LargerThan => Some(BinaryOperator::new(BinaryOperatorKind::LargerThan)),
-            TokenKind::LargerThanEquals => Some(BinaryOperator::new(BinaryOperatorKind::LargerThanOrEqual)),
+            TokenKind::LargerThanEquals => {
+                Some(BinaryOperator::new(BinaryOperatorKind::LargerThanOrEqual))
+            }
             TokenKind::LessThan => Some(BinaryOperator::new(BinaryOperatorKind::LessThan)),
-            TokenKind::LessThanEquals => Some(BinaryOperator::new(BinaryOperatorKind::LessThanOrEqual)),
+            TokenKind::LessThanEquals => {
+                Some(BinaryOperator::new(BinaryOperatorKind::LessThanOrEqual))
+            }
             TokenKind::DoubleEquals => Some(BinaryOperator::new(BinaryOperatorKind::Equals)),
             TokenKind::BangEquals => Some(BinaryOperator::new(BinaryOperatorKind::NotEquals)),
             _ => None,
@@ -510,15 +514,15 @@ impl Parser {
                     TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
                 ))
             }
-            TokenKind::Word(word) => { // TODO remove all the `return statements`
+            TokenKind::Word(word) => {
+                // TODO remove all the `return statements`
                 self.consume();
                 let current_token = self.current();
 
                 if word == "true" {
-                    return Ok(Expression::bool(true, self.peak(-1).span.clone()))
-                }
-                else if word == "false" {
-                    return Ok(Expression::bool(false, self.peak(-1).span.clone()))
+                    return Ok(Expression::bool(true, self.peak(-1).span.clone()));
+                } else if word == "false" {
+                    return Ok(Expression::bool(false, self.peak(-1).span.clone()));
                 }
                 // If is defined variable
                 else if let Some(var) = self.search_scope(word) {

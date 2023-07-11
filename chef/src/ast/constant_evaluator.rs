@@ -51,9 +51,7 @@ impl MutVisitor for ConstantEvaluator {
             ExpressionKind::Binary(binary_expression) => {
                 let (left, right) =
                     match (&binary_expression.left.kind, &binary_expression.right.kind) {
-                        (ExpressionKind::Int(l), ExpressionKind::Int(r)) => {
-                            (l.number, r.number)
-                        }
+                        (ExpressionKind::Int(l), ExpressionKind::Int(r)) => (l.number, r.number),
                         _ => {
                             self.visit_binary_expression(binary_expression);
                             return;
@@ -66,12 +64,15 @@ impl MutVisitor for ConstantEvaluator {
                     super::BinaryOperatorKind::Multiply => EvaluatorResult::Int(left * right),
                     super::BinaryOperatorKind::Divide => EvaluatorResult::Int(left / right),
                     super::BinaryOperatorKind::LargerThan => EvaluatorResult::Bool(left > right),
-                    super::BinaryOperatorKind::LargerThanOrEqual => EvaluatorResult::Bool(left >= right),
+                    super::BinaryOperatorKind::LargerThanOrEqual => {
+                        EvaluatorResult::Bool(left >= right)
+                    }
                     super::BinaryOperatorKind::LessThan => EvaluatorResult::Bool(left < right),
-                    super::BinaryOperatorKind::LessThanOrEqual => EvaluatorResult::Bool(left <= right),
+                    super::BinaryOperatorKind::LessThanOrEqual => {
+                        EvaluatorResult::Bool(left <= right)
+                    }
                     super::BinaryOperatorKind::Equals => EvaluatorResult::Bool(left == right),
                     super::BinaryOperatorKind::NotEquals => EvaluatorResult::Bool(left != right),
-
                 }
             }
             _ => {
@@ -81,8 +82,8 @@ impl MutVisitor for ConstantEvaluator {
         };
 
         expression.kind = match result {
-                EvaluatorResult::Int(val) => ExpressionKind::Int(IntExpression::new(val)),
-                EvaluatorResult::Bool(val) => ExpressionKind::Bool(val),
-            }
+            EvaluatorResult::Int(val) => ExpressionKind::Int(IntExpression::new(val)),
+            EvaluatorResult::Bool(val) => ExpressionKind::Bool(val),
+        }
     }
 }

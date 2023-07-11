@@ -5,7 +5,6 @@ use std::fmt::Display;
 
 use super::graph_visualizer;
 
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum DeciderOperation {
     LargerThan,
@@ -39,12 +38,7 @@ pub struct DeciderConnection {
 }
 
 impl DeciderConnection {
-    pub fn new(
-        left: IOType,
-        right: IOType,
-        operation: DeciderOperation,
-        output: IOType,
-    ) -> Self {
+    pub fn new(left: IOType, right: IOType, operation: DeciderOperation, output: IOType) -> Self {
         Self {
             left,
             right,
@@ -198,11 +192,11 @@ impl Display for Connection {
                         connection.operation, connection.left, connection.right
                     )
                 }
-            },
+            }
             Connection::Decider(connection) => format!(
-                        "{}: {}, {}",
-                        connection.operation, connection.left, connection.right
-                    )
+                "{}: {}, {}",
+                connection.operation, connection.left, connection.right
+            ),
         };
         writeln!(f, "{s}")
     }
@@ -509,7 +503,7 @@ impl Graph {
                         if ac.output == old_type {
                             ac.output = new_type.clone()
                         }
-                    },
+                    }
                     Connection::Decider(dc) => {
                         if dc.left == old_type {
                             dc.left = new_type.clone()
@@ -520,7 +514,7 @@ impl Graph {
                         if dc.output == old_type {
                             dc.output = new_type.clone()
                         }
-                    },
+                    }
                 }
             }
         }
