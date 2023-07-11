@@ -25,6 +25,7 @@ impl Display for ArithmeticOperation {
     }
 }
 
+/// Type if inputs/outputs of combinators
 #[derive(Clone, Debug, PartialEq)]
 pub enum IOType {
     Signal(String),

@@ -120,9 +120,14 @@ pub enum StatementKind {
 /// Chef variable types.
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariableType {
-    Int(String),
-    Any,
+    Int(VariableSignalType),
     All,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum VariableSignalType {
+    Signal(String),
+    Any,
 }
 
 /// A chef variable.
@@ -389,8 +394,10 @@ impl Printer {
 impl Display for VariableType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            VariableType::Int(n) => format!("Int({n})"),
-            VariableType::Any => "Any".to_string(),
+            VariableType::Int(int_type) => match int_type {
+                VariableSignalType::Signal(n) => format!("Int({n})"),
+                VariableSignalType::Any => "Int(Any)".to_string(),
+            },
             VariableType::All => "All".to_string(),
         };
         write!(f, "{s}")

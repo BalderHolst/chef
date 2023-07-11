@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::{BinaryOperatorKind, Block, Expression, ExpressionKind, AST};
+use crate::ast::{BinaryOperatorKind, Block, Expression, ExpressionKind, VariableSignalType, AST};
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
 use crate::diagnostics::DiagnosticsBagRef;
@@ -110,13 +110,15 @@ impl GraphCompiler {
                 else {
                     match &var.type_ {
                         VariableType::All => todo!(),
-                        VariableType::Any => {
-                            let signal = self.get_new_anysignal();
-                            (graph.push_input_node(var.name.clone(), signal.clone()), signal)
-                        },
-                        VariableType::Int(s) => {
-                            let signal = IOType::Signal(s.clone());
-                            (graph.push_input_node(var.name.clone(), signal.clone()), signal)
+                        VariableType::Int(int_type) => match int_type {
+                            VariableSignalType::Any => {
+                                let signal = self.get_new_anysignal();
+                                (graph.push_input_node(var.name.clone(), signal.clone()), signal)
+                            },
+                            VariableSignalType::Signal(s) => {
+                                let signal = IOType::Signal(s.clone());
+                                (graph.push_input_node(var.name.clone(), signal.clone()), signal)
+                            }
                         }
                     }
                 }
@@ -224,8 +226,10 @@ impl GraphCompiler {
 
     fn variable_type_to_iotype(&mut self, variable_type: &VariableType) -> IOType {
         match variable_type {
-            VariableType::Int(s) => IOType::Signal(s.clone()),
-            VariableType::Any => self.get_new_anysignal(),
+            VariableType::Int(int_type) => match int_type {
+                VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
+                VariableSignalType::Any => self.get_new_anysignal(),
+            },
             VariableType::All => IOType::All,
         }
     }

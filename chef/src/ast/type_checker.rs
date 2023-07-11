@@ -2,7 +2,7 @@
 
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan};
 
-use super::{visitors::Visitor, AST};
+use super::{visitors::Visitor, VariableSignalType, AST};
 
 const BASE_SIGNALS: &str = include_str!("base.signals");
 
@@ -37,7 +37,6 @@ impl TypeChecker {
             self.diagnostics_bag
                 .borrow_mut()
                 .report_error(span, &format!("Invalid factorio signal: `{}`", signal))
-            // TODO
         }
     }
 }
@@ -56,12 +55,12 @@ impl Visitor for TypeChecker {
 
     fn visit_block(&mut self, block: &super::Block) {
         for var in &block.inputs {
-            if let super::VariableType::Int(signal) = &var.type_ {
+            if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &var.type_ {
                 self.report_if_invalid(signal, &var.definition);
             }
         }
         for var_type in &block.outputs {
-            if let super::VariableType::Int(signal) = var_type {
+            if let super::VariableType::Int(VariableSignalType::Signal(signal)) = var_type {
                 self.report_if_invalid(signal, &block.span);
             }
         }
@@ -69,7 +68,7 @@ impl Visitor for TypeChecker {
     }
 
     fn visit_variable(&mut self, var: &super::Variable) {
-        if let super::VariableType::Int(signal) = &var.type_ {
+        if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &var.type_ {
             self.report_if_invalid(signal, &var.definition);
         }
     }

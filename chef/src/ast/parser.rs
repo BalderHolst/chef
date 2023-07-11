@@ -13,7 +13,7 @@ use crate::diagnostics::{CompilationError, DiagnosticsBagRef};
 use crate::text::TextSpan;
 
 use super::lexer::Lexer;
-use super::{Assignment, BlockLinkExpression, PickExpression};
+use super::{Assignment, BlockLinkExpression, PickExpression, VariableSignalType};
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
 pub struct Parser {
@@ -271,9 +271,9 @@ impl Parser {
         let token = self.consume();
         match token.kind.clone() {
             TokenKind::Word(start_word) => match start_word.as_str() {
-                "any" => Ok(VariableType::Any),
                 "all" => Ok(VariableType::All),
-                w => Ok(VariableType::Int(w.to_string())),
+                "any" => Ok(VariableType::Int(VariableSignalType::Any)),
+                w => Ok(VariableType::Int(VariableSignalType::Signal(w.to_string()))),
             },
             _ => Err(CompilationError::new(
                 format!("Expected variable type to be word, not `{}`", token.kind),
