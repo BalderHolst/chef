@@ -533,7 +533,10 @@ impl Visitor for Printer {
     }
 
     fn visit_assignment(&mut self, assignment: &Assignment) {
-        self.print(&format!("Assignment: \"{:?}\"", assignment.variable));
+        self.print(&format!(
+            "Assignment: \"{} ({})\"",
+            assignment.variable.name, assignment.variable.type_
+        ));
         self.indent();
         self.do_visit_assignment(assignment);
         self.unindent();
@@ -586,7 +589,7 @@ impl Visitor for Printer {
         self.print("PickExpression:");
         self.indent();
         self.print(&format!("Pick Signal: {}", expr.pick_signal));
-        self.print(&format!("From Variable: {:?}", expr.from));
+        self.print(&format!("From Variable: {}", expr.from.name));
         self.unindent();
     }
 
