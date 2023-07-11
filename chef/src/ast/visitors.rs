@@ -34,6 +34,9 @@ pub trait Visitor {
             ExpressionKind::Number(number) => {
                 self.visit_number(number);
             }
+            ExpressionKind::Bool(bool) => {
+                self.visit_bool(bool);
+            }
             ExpressionKind::Variable(variable) => {
                 self.visit_variable(variable);
             }
@@ -98,6 +101,7 @@ pub trait Visitor {
     fn visit_pick_expression(&mut self, expr: &PickExpression);
     fn visit_error_statement(&mut self);
     fn visit_number(&mut self, number: &NumberExpression);
+    fn visit_bool(&mut self, value: &bool);
     fn visit_variable(&mut self, var: &Variable);
     fn visit_error_expression(&mut self);
 }
@@ -125,6 +129,9 @@ pub trait MutVisitor {
         match &mut expression.kind {
             ExpressionKind::Number(number) => {
                 self.visit_number(number);
+            }
+            ExpressionKind::Bool(bool) => {
+                self.visit_bool(bool);
             }
             ExpressionKind::Variable(variable) => {
                 self.visit_variable(variable);
@@ -189,6 +196,7 @@ pub trait MutVisitor {
     fn visit_block_link(&mut self, block: &mut BlockLinkExpression);
     fn visit_pick_expression(&mut self, expr: &mut PickExpression);
     fn visit_error_statement(&mut self);
+    fn visit_bool(&mut self, bool: &mut bool);
     fn visit_number(&mut self, number: &mut NumberExpression);
     fn visit_variable(&mut self, var: &Variable);
     fn visit_error_expression(&mut self);

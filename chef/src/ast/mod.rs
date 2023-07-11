@@ -234,11 +234,19 @@ impl Expression {
             span,
         }
     }
+
+    fn bool(value: bool, span: TextSpan) -> Self {
+        Self {
+            kind: ExpressionKind::Bool(value),
+            span,
+        }
+    }
 }
 
 /// Kinds of expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExpressionKind {
+    Bool(bool),
     Number(NumberExpression),
     Binary(BinaryExpression),
     Parenthesized(ParenthesizedExpression),
@@ -449,6 +457,10 @@ impl Visitor for Printer {
 
     fn visit_number(&mut self, number: &NumberExpression) {
         self.print(&format!("Number: {}", number.number));
+    }
+
+    fn visit_bool(&mut self, bool: &bool) {
+        self.print(&format!("Boolean: {}", bool));
     }
 
     fn visit_variable(&mut self, var: &Variable) {

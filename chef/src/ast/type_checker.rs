@@ -46,6 +46,7 @@ impl Visitor for TypeChecker {
     fn visit_block_link(&mut self, _block: &super::BlockLinkExpression) {}
     fn visit_error_statement(&mut self) {}
     fn visit_number(&mut self, _number: &super::NumberExpression) {}
+    fn visit_bool(&mut self, _value: &bool) {}
     fn visit_error_expression(&mut self) {}
 
     // TODO: report correctly

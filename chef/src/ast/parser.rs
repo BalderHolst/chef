@@ -504,12 +504,18 @@ impl Parser {
                     TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
                 ))
             }
-            TokenKind::Word(word) => {
+            TokenKind::Word(word) => { // TODO remove all the `return statements`
                 self.consume();
                 let current_token = self.current();
 
-                if let Some(var) = self.search_scope(word) {
-                    // If is defined variable
+                if word == "true" {
+                    return Ok(Expression::bool(true, self.peak(-1).span.clone()))
+                }
+                else if word == "false" {
+                    return Ok(Expression::bool(false, self.peak(-1).span.clone()))
+                }
+                // If is defined variable
+                else if let Some(var) = self.search_scope(word) {
                     if self.current().kind == TokenKind::LeftSquare {
                         self.consume();
                         if let TokenKind::Word(signal) = self.consume().kind.clone() {

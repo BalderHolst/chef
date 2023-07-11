@@ -80,8 +80,13 @@ impl GraphCompiler {
         out_type: Option<IOType>,
     ) -> (NId, IOType) {
         match &expr.kind {
+            // TODO: "" name is awful...
             ExpressionKind::Number(n) => {
                 let t = IOType::Constant(n.number);
+                (graph.push_input_node("".to_string(), t.clone()), t) // TODO: It is ugly with "" being the variable name.
+            },
+            ExpressionKind::Bool(b) => {
+                let t = IOType::Constant(*b as i32);
                 (graph.push_input_node("".to_string(), t.clone()), t) // TODO: It is ugly with "" being the variable name.
             },
             ExpressionKind::Variable(var) => {
@@ -201,6 +206,7 @@ impl GraphCompiler {
                                 else { panic!("Block links requires defined variables."); }
                             }
                             ExpressionKind::Number(_) => self.compile_expression(graph, expr, None),
+                            ExpressionKind::Bool(_) => self.compile_expression(graph, expr, None),
                             ExpressionKind::Binary(_) => self.compile_expression(graph, expr, None),
                             ExpressionKind::Parenthesized(_) => self.compile_expression(graph, expr, None),
                             ExpressionKind::Pick(p) => {

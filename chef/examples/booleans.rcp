@@ -1,0 +1,4 @@
+block main(input: all) -> (bool(signal_B)) {
+    a: bool(signal_D) = true;
+    out a;
+}
