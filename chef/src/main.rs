@@ -5,6 +5,7 @@ use std::{env, io};
 
 use ast::AST;
 use cli::{AddCommand, Command, CookOpts, Opts};
+use compiler::graph_visualizer::VisualizerError;
 use diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
 use gumdrop::Options;
 use text::SourceText;
@@ -44,7 +45,16 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
         graph.print();
     }
 
-    graph.visualize("graph.svg").unwrap();
+    if let Some(graph_path) = cook_opts.graph.as_ref() {
+        if let Err(e) = graph.visualize(graph_path) {
+            match e {
+                VisualizerError::IoErr(e) => {
+                    eprintln!("Error writing graph output file: `{}`", e)
+                }
+                VisualizerError::GraphvizError(e) => eprintln!("Error creating graph: `{}`", e),
+            };
+        };
+    }
 
     // let blueprint = BlueprintConverter::new(graph).convert_to_blueprint();
     // dbg!(blueprint);

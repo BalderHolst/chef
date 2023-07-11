@@ -48,11 +48,21 @@ pub struct CookOpts {
 
     #[options(free)]
     pub(crate) files: Vec<String>,
+
+    #[options(
+        short = "g",
+        help = "Output an svg to visualize the circuit connections."
+    )]
+    pub(crate) graph: Option<String>,
 }
 
 impl CookOpts {
     pub fn from_files(files: Vec<String>) -> Self {
-        Self { help: false, files }
+        Self {
+            help: false,
+            files,
+            graph: None,
+        }
     }
 }
 

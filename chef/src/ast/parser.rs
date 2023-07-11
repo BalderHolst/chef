@@ -273,10 +273,7 @@ impl Parser {
             TokenKind::Word(start_word) => match start_word.as_str() {
                 "any" => Ok(VariableType::Any),
                 "all" => Ok(VariableType::All),
-                w => {
-                    dbg!(&w);
-                    Ok(VariableType::Int(w.to_string()))
-                }
+                w => Ok(VariableType::Int(w.to_string())),
             },
             _ => Err(CompilationError::new(
                 format!("Expected variable type to be word, not `{}`", token.kind),
