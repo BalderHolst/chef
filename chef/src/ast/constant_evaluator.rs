@@ -1,6 +1,6 @@
 //! Evaluates constant expressions in the [AST]. Use the public [evaluate_constants] function.
 
-use super::{visitors::MutVisitor, Expression, ExpressionKind, NumberExpression, AST};
+use super::{visitors::MutVisitor, Expression, ExpressionKind, IntExpression, AST};
 
 /// Evaluate constant expressions in the [AST] and substitutes them for their results.
 pub fn evaluate_constants(ast: &mut AST) {
@@ -32,11 +32,16 @@ impl ConstantEvaluator {
     }
 }
 
+enum EvaluatorResult {
+    Int(i32),
+    Bool(bool),
+}
+
 impl MutVisitor for ConstantEvaluator {
     fn visit_block_link(&mut self, _block: &mut super::BlockLinkExpression) {}
     fn visit_pick_expression(&mut self, _expr: &mut super::PickExpression) {}
     fn visit_error_statement(&mut self) {}
-    fn visit_number(&mut self, _number: &mut super::NumberExpression) {}
+    fn visit_number(&mut self, _number: &mut super::IntExpression) {}
     fn visit_bool(&mut self, _bool: &mut bool) {}
     fn visit_variable(&mut self, _var: &super::Variable) {}
     fn visit_error_expression(&mut self) {}
@@ -46,7 +51,7 @@ impl MutVisitor for ConstantEvaluator {
             ExpressionKind::Binary(binary_expression) => {
                 let (left, right) =
                     match (&binary_expression.left.kind, &binary_expression.right.kind) {
-                        (ExpressionKind::Number(l), ExpressionKind::Number(r)) => {
+                        (ExpressionKind::Int(l), ExpressionKind::Int(r)) => {
                             (l.number, r.number)
                         }
                         _ => {
@@ -56,10 +61,17 @@ impl MutVisitor for ConstantEvaluator {
                     };
                 self.did_work = true;
                 match binary_expression.operator.kind {
-                    super::BinaryOperatorKind::Plus => left + right,
-                    super::BinaryOperatorKind::Minus => left - right,
-                    super::BinaryOperatorKind::Multiply => left * right,
-                    super::BinaryOperatorKind::Divide => left / right,
+                    super::BinaryOperatorKind::Plus => EvaluatorResult::Int(left + right),
+                    super::BinaryOperatorKind::Minus => EvaluatorResult::Int(left - right),
+                    super::BinaryOperatorKind::Multiply => EvaluatorResult::Int(left * right),
+                    super::BinaryOperatorKind::Divide => EvaluatorResult::Int(left / right),
+                    super::BinaryOperatorKind::LargerThan => EvaluatorResult::Bool(left > right),
+                    super::BinaryOperatorKind::LargerThanOrEqual => EvaluatorResult::Bool(left >= right),
+                    super::BinaryOperatorKind::LessThen => EvaluatorResult::Bool(left < right),
+                    super::BinaryOperatorKind::LessThenOrEqual => EvaluatorResult::Bool(left <= right),
+                    super::BinaryOperatorKind::Equals => EvaluatorResult::Bool(left == right),
+                    super::BinaryOperatorKind::NotEquals => EvaluatorResult::Bool(left != right),
+
                 }
             }
             _ => {
@@ -67,6 +79,10 @@ impl MutVisitor for ConstantEvaluator {
                 return;
             }
         };
-        expression.kind = ExpressionKind::Number(NumberExpression::new(result))
+
+        expression.kind = match result {
+                EvaluatorResult::Int(val) => ExpressionKind::Int(IntExpression::new(val)),
+                EvaluatorResult::Bool(val) => ExpressionKind::Bool(val),
+            }
     }
 }

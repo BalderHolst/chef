@@ -7,7 +7,7 @@
 
 use super::{
     Assignment, BinaryExpression, Block, BlockLinkExpression, Expression, ExpressionKind,
-    NumberExpression, ParenthesizedExpression, PickExpression, Statement, StatementKind, Variable,
+    IntExpression, ParenthesizedExpression, PickExpression, Statement, StatementKind, Variable,
 };
 
 /// Trait allowing for traversal of an immutable [AST].
@@ -31,7 +31,7 @@ pub trait Visitor {
 
     fn do_visit_expression(&mut self, expression: &Expression) {
         match &expression.kind {
-            ExpressionKind::Number(number) => {
+            ExpressionKind::Int(number) => {
                 self.visit_number(number);
             }
             ExpressionKind::Bool(bool) => {
@@ -100,7 +100,7 @@ pub trait Visitor {
     fn visit_block_link(&mut self, block: &BlockLinkExpression);
     fn visit_pick_expression(&mut self, expr: &PickExpression);
     fn visit_error_statement(&mut self);
-    fn visit_number(&mut self, number: &NumberExpression);
+    fn visit_number(&mut self, number: &IntExpression);
     fn visit_bool(&mut self, value: &bool);
     fn visit_variable(&mut self, var: &Variable);
     fn visit_error_expression(&mut self);
@@ -127,7 +127,7 @@ pub trait MutVisitor {
 
     fn do_visit_expression(&mut self, expression: &mut Expression) {
         match &mut expression.kind {
-            ExpressionKind::Number(number) => {
+            ExpressionKind::Int(number) => {
                 self.visit_number(number);
             }
             ExpressionKind::Bool(bool) => {
@@ -197,7 +197,7 @@ pub trait MutVisitor {
     fn visit_pick_expression(&mut self, expr: &mut PickExpression);
     fn visit_error_statement(&mut self);
     fn visit_bool(&mut self, bool: &mut bool);
-    fn visit_number(&mut self, number: &mut NumberExpression);
+    fn visit_number(&mut self, number: &mut IntExpression);
     fn visit_variable(&mut self, var: &Variable);
     fn visit_error_expression(&mut self);
 }

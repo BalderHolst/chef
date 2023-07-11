@@ -6,7 +6,7 @@ use std::rc::Rc;
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
     BinaryExpression, BinaryOperator, BinaryOperatorKind, Block, Expression, ExpressionKind,
-    NumberExpression, ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
+    IntExpression, ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
 };
 use crate::cli::Opts;
 use crate::diagnostics::{CompilationError, DiagnosticsBagRef};
@@ -500,7 +500,7 @@ impl Parser {
             TokenKind::Number(number) => {
                 self.consume();
                 Ok(Expression::new(
-                    ExpressionKind::Number(NumberExpression::new(*number as i32)),
+                    ExpressionKind::Int(IntExpression::new(*number as i32)),
                     TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
                 ))
             }
@@ -633,7 +633,7 @@ fn parse_binary_expression() {
     let expected_expr = Expression {
         kind: ExpressionKind::Binary(BinaryExpression {
             left: Box::new(Expression {
-                kind: ExpressionKind::Number(NumberExpression { number: 1 }),
+                kind: ExpressionKind::Int(IntExpression { number: 1 }),
                 span: TextSpan::new(0, 1, text.clone()),
             }),
             right: Box::new(Expression {
@@ -641,7 +641,7 @@ fn parse_binary_expression() {
                     left: Box::new(Expression {
                         kind: ExpressionKind::Binary(BinaryExpression {
                             left: Box::new(Expression {
-                                kind: ExpressionKind::Number(NumberExpression { number: 2 }),
+                                kind: ExpressionKind::Int(IntExpression { number: 2 }),
                                 span: TextSpan {
                                     start: 2,
                                     end: 3,
@@ -649,7 +649,7 @@ fn parse_binary_expression() {
                                 },
                             }),
                             right: Box::new(Expression {
-                                kind: ExpressionKind::Number(NumberExpression { number: 3 }),
+                                kind: ExpressionKind::Int(IntExpression { number: 3 }),
                                 span: TextSpan {
                                     start: 4,
                                     end: 5,
@@ -667,7 +667,7 @@ fn parse_binary_expression() {
                         },
                     }),
                     right: Box::new(Expression {
-                        kind: ExpressionKind::Number(NumberExpression { number: 4 }),
+                        kind: ExpressionKind::Int(IntExpression { number: 4 }),
                         span: TextSpan {
                             start: 6,
                             end: 7,

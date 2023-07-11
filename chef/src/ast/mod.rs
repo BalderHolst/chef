@@ -210,7 +210,7 @@ impl Expression {
 
     fn _number(n: i32, span: TextSpan) -> Self {
         Self {
-            kind: ExpressionKind::Number(NumberExpression::new(n)),
+            kind: ExpressionKind::Int(IntExpression::new(n)),
             span,
         }
     }
@@ -245,7 +245,7 @@ impl Expression {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExpressionKind {
     Bool(bool),
-    Number(NumberExpression),
+    Int(IntExpression),
     Binary(BinaryExpression),
     Parenthesized(ParenthesizedExpression),
     Pick(PickExpression),
@@ -256,11 +256,11 @@ pub enum ExpressionKind {
 
 /// An expression containing only a single number.
 #[derive(Debug, Clone, PartialEq)]
-pub struct NumberExpression {
+pub struct IntExpression {
     pub number: i32,
 }
 
-impl NumberExpression {
+impl IntExpression {
     fn new(number: i32) -> Self {
         Self { number }
     }
@@ -344,6 +344,13 @@ impl BinaryOperator {
             BinaryOperatorKind::Minus => 2,
             BinaryOperatorKind::Multiply => 3,
             BinaryOperatorKind::Divide => 3,
+            BinaryOperatorKind::LargerThan => 1,
+            BinaryOperatorKind::LargerThanOrEqual => 1,
+            BinaryOperatorKind::LessThen => 1,
+            BinaryOperatorKind::LessThenOrEqual => 1,
+            BinaryOperatorKind::Equals => 1,
+            BinaryOperatorKind::NotEquals => 1,
+
         }
     }
 }
@@ -355,6 +362,13 @@ impl Display for BinaryOperator {
             BinaryOperatorKind::Minus => write!(f, "-"),
             BinaryOperatorKind::Multiply => write!(f, "*"),
             BinaryOperatorKind::Divide => write!(f, "/"),
+            BinaryOperatorKind::LargerThan => write!(f, ">"),
+            BinaryOperatorKind::LargerThanOrEqual => write!(f, ">="),
+            BinaryOperatorKind::LessThen => write!(f, "<"),
+            BinaryOperatorKind::LessThenOrEqual => write!(f, "<="),
+            BinaryOperatorKind::Equals => write!(f, "=="),
+            BinaryOperatorKind::NotEquals => write!(f, "!="),
+
         }
     }
 }
@@ -366,6 +380,12 @@ pub enum BinaryOperatorKind {
     Minus,
     Multiply,
     Divide,
+    LargerThan,
+    LargerThanOrEqual,
+    LessThen,
+    LessThenOrEqual,
+    Equals,
+    NotEquals,
 }
 
 /// The indentation depth when printing the [AST].
@@ -453,7 +473,7 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_number(&mut self, number: &NumberExpression) {
+    fn visit_number(&mut self, number: &IntExpression) {
         self.print(&format!("Number: {}", number.number));
     }
 
