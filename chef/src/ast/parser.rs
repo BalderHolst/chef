@@ -440,6 +440,12 @@ impl Parser {
             TokenKind::Minus => Some(BinaryOperator::new(BinaryOperatorKind::Minus)),
             TokenKind::Asterisk => Some(BinaryOperator::new(BinaryOperatorKind::Multiply)),
             TokenKind::Slash => Some(BinaryOperator::new(BinaryOperatorKind::Divide)),
+            TokenKind::LargerThan => Some(BinaryOperator::new(BinaryOperatorKind::LargerThan)),
+            TokenKind::LargerThanEquals => Some(BinaryOperator::new(BinaryOperatorKind::LargerThanOrEqual)),
+            TokenKind::LessThan => Some(BinaryOperator::new(BinaryOperatorKind::LessThan)),
+            TokenKind::LessThanEquals => Some(BinaryOperator::new(BinaryOperatorKind::LessThanOrEqual)),
+            TokenKind::DoubleEquals => Some(BinaryOperator::new(BinaryOperatorKind::Equals)),
+            TokenKind::BangEquals => Some(BinaryOperator::new(BinaryOperatorKind::NotEquals)),
             _ => None,
         }
     }

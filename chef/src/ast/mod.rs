@@ -346,8 +346,8 @@ impl BinaryOperator {
             BinaryOperatorKind::Divide => 3,
             BinaryOperatorKind::LargerThan => 1,
             BinaryOperatorKind::LargerThanOrEqual => 1,
-            BinaryOperatorKind::LessThen => 1,
-            BinaryOperatorKind::LessThenOrEqual => 1,
+            BinaryOperatorKind::LessThan => 1,
+            BinaryOperatorKind::LessThanOrEqual => 1,
             BinaryOperatorKind::Equals => 1,
             BinaryOperatorKind::NotEquals => 1,
 
@@ -364,8 +364,8 @@ impl Display for BinaryOperator {
             BinaryOperatorKind::Divide => write!(f, "/"),
             BinaryOperatorKind::LargerThan => write!(f, ">"),
             BinaryOperatorKind::LargerThanOrEqual => write!(f, ">="),
-            BinaryOperatorKind::LessThen => write!(f, "<"),
-            BinaryOperatorKind::LessThenOrEqual => write!(f, "<="),
+            BinaryOperatorKind::LessThan => write!(f, "<"),
+            BinaryOperatorKind::LessThanOrEqual => write!(f, "<="),
             BinaryOperatorKind::Equals => write!(f, "=="),
             BinaryOperatorKind::NotEquals => write!(f, "!="),
 
@@ -382,8 +382,8 @@ pub enum BinaryOperatorKind {
     Divide,
     LargerThan,
     LargerThanOrEqual,
-    LessThen,
-    LessThenOrEqual,
+    LessThan,
+    LessThanOrEqual,
     Equals,
     NotEquals,
 }

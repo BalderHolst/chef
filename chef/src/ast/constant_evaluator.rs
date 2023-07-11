@@ -67,8 +67,8 @@ impl MutVisitor for ConstantEvaluator {
                     super::BinaryOperatorKind::Divide => EvaluatorResult::Int(left / right),
                     super::BinaryOperatorKind::LargerThan => EvaluatorResult::Bool(left > right),
                     super::BinaryOperatorKind::LargerThanOrEqual => EvaluatorResult::Bool(left >= right),
-                    super::BinaryOperatorKind::LessThen => EvaluatorResult::Bool(left < right),
-                    super::BinaryOperatorKind::LessThenOrEqual => EvaluatorResult::Bool(left <= right),
+                    super::BinaryOperatorKind::LessThan => EvaluatorResult::Bool(left < right),
+                    super::BinaryOperatorKind::LessThanOrEqual => EvaluatorResult::Bool(left <= right),
                     super::BinaryOperatorKind::Equals => EvaluatorResult::Bool(left == right),
                     super::BinaryOperatorKind::NotEquals => EvaluatorResult::Bool(left != right),
 

@@ -179,8 +179,8 @@ impl GraphCompiler {
                     BinaryOperatorKind::Divide => ReturnValue::Int(ArithmeticOperation::Divide),
                     BinaryOperatorKind::LargerThan => ReturnValue::Bool(DeciderOperation::LargerThan),
                     BinaryOperatorKind::LargerThanOrEqual => ReturnValue::Bool(DeciderOperation::LargerThanOrEqual),
-                    BinaryOperatorKind::LessThen => ReturnValue::Bool(DeciderOperation::LessThan),
-                    BinaryOperatorKind::LessThenOrEqual => ReturnValue::Bool(DeciderOperation::LessThanOrEqual),
+                    BinaryOperatorKind::LessThan => ReturnValue::Bool(DeciderOperation::LessThan),
+                    BinaryOperatorKind::LessThanOrEqual => ReturnValue::Bool(DeciderOperation::LessThanOrEqual),
                     BinaryOperatorKind::Equals => ReturnValue::Bool(DeciderOperation::Equals),
                     BinaryOperatorKind::NotEquals => ReturnValue::Bool(DeciderOperation::NotEquals),
 
