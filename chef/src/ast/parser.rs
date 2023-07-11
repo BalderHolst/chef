@@ -271,14 +271,29 @@ impl Parser {
         let token = self.consume();
         match token.kind.clone() {
             TokenKind::Word(start_word) => match start_word.as_str() {
+                "int" => match self.current().kind {
+                    TokenKind::LeftParen => {
+                        self.consume();
+                        let type_token = self.consume().clone();
+                        self.consume_and_check(TokenKind::RightParen)?;
+                        if let TokenKind::Word(word) = type_token.kind.clone() {
+                            Ok(VariableType::Int(VariableSignalType::Signal(word)))
+                        } else {
+                            Err(CompilationError::new_unexpected_token(type_token, TokenKind::Word("".to_string())))
+                        }
+                    }
+                    _ => Ok(VariableType::Int(VariableSignalType::Any)),
+                },
                 "all" => Ok(VariableType::All),
-                "any" => Ok(VariableType::Int(VariableSignalType::Any)),
-                w => Ok(VariableType::Int(VariableSignalType::Signal(w.to_string()))),
+                w => Err(CompilationError::new(
+                    format!("Unknown type `{}`.", w),
+                    token.span.clone(),
+                )),
             },
             _ => Err(CompilationError::new(
-                format!("Expected variable type to be word, not `{}`", token.kind),
-                token.span.clone(),
-            )),
+                    format!("Expected variable type to be word, not `{}`", token.kind),
+                    token.span.clone(),
+                    )),
         }
     }
 

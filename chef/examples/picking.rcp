@@ -1,5 +1,5 @@
-block main(in: all) -> (pipe) {
-    a: any = in[inserter] / 13;
-    b: any = in[belt] + 5 * 3 / 7;
+block main(in: all) -> (int(pipe)) {
+    a: int = in[inserter] / 13;
+    b: int = in[belt] + 5 * 3 / 7;
     out a * b;
 }
