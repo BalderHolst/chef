@@ -90,7 +90,8 @@ impl _BlueprintConverter {
                     filters: None,
                     is_on: None,
                 }
-            }
+            },
+            graph::Connection::Decider(_) => todo!(),
         }
     }
 

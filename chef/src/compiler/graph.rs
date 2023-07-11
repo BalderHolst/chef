@@ -5,6 +5,55 @@ use std::fmt::Display;
 
 use super::graph_visualizer;
 
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum DeciderOperation {
+    LargerThan,
+    LargerThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
+    Equals,
+    NotEquals,
+}
+
+impl Display for DeciderOperation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            DeciderOperation::LargerThan => "LARGERTHAN",
+            DeciderOperation::LargerThanOrEqual => "LARGERTHANOREQUAL",
+            DeciderOperation::LessThan => "LESSTHAN",
+            DeciderOperation::LessThanOrEqual => "LESSTHANOREQUAL",
+            DeciderOperation::Equals => "EQUALS",
+            DeciderOperation::NotEquals => "NOTEQUALS",
+        };
+        write!(f, "{s}")
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct DeciderConnection {
+    pub left: IOType,
+    pub right: IOType,
+    pub operation: DeciderOperation,
+    pub output: IOType,
+}
+
+impl DeciderConnection {
+    pub fn new(
+        left: IOType,
+        right: IOType,
+        operation: DeciderOperation,
+        output: IOType,
+    ) -> Self {
+        Self {
+            left,
+            right,
+            operation,
+            output,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArithmeticOperation {
     Add,
@@ -91,6 +140,7 @@ impl ArithmeticConnection {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Connection {
     Arithmetic(ArithmeticConnection),
+    Decider(DeciderConnection),
 }
 
 impl Connection {
@@ -102,6 +152,9 @@ impl Connection {
         match self {
             Connection::Arithmetic(ac) => {
                 vec![ac.output.clone()]
+            }
+            Connection::Decider(dc) => {
+                vec![dc.output.clone()]
             }
         }
     }
@@ -145,7 +198,11 @@ impl Display for Connection {
                         connection.operation, connection.left, connection.right
                     )
                 }
-            }
+            },
+            Connection::Decider(connection) => format!(
+                        "{}: {}, {}",
+                        connection.operation, connection.left, connection.right
+                    )
         };
         writeln!(f, "{s}")
     }
@@ -452,7 +509,18 @@ impl Graph {
                         if ac.output == old_type {
                             ac.output = new_type.clone()
                         }
-                    }
+                    },
+                    Connection::Decider(dc) => {
+                        if dc.left == old_type {
+                            dc.left = new_type.clone()
+                        }
+                        if dc.right == old_type {
+                            dc.right = new_type.clone()
+                        }
+                        if dc.output == old_type {
+                            dc.output = new_type.clone()
+                        }
+                    },
                 }
             }
         }

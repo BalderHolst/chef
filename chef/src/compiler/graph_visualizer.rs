@@ -44,7 +44,9 @@ fn create_dot(graph: &Graph) -> String {
                 "blue"
             } else {
                 match conn {
-                    super::graph::Connection::Arithmetic(_c) => "black",
+                    super::graph::Connection::Arithmetic(_) => "black",
+                    super::graph::Connection::Decider(_) => "purple",
+
                 }
             };
             dot += &format!(

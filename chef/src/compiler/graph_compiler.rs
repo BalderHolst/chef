@@ -5,6 +5,11 @@ use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
 use crate::diagnostics::DiagnosticsBagRef;
 
+pub enum ReturnValue<A, B> {
+    Int(A),
+    Bool(B),
+}
+
 pub struct GraphCompiler {
     ast: AST,
     next_anysignal: u64,
@@ -168,10 +173,17 @@ impl GraphCompiler {
                 }
 
                 let operation = match bin_expr.operator.kind {
-                    BinaryOperatorKind::Plus => ArithmeticOperation::Add,
-                    BinaryOperatorKind::Minus => ArithmeticOperation::Subtract,
-                    BinaryOperatorKind::Multiply => ArithmeticOperation::Multiply,
-                    BinaryOperatorKind::Divide => ArithmeticOperation::Divide,
+                    BinaryOperatorKind::Plus => ReturnValue::Int(ArithmeticOperation::Add),
+                    BinaryOperatorKind::Minus => ReturnValue::Int(ArithmeticOperation::Subtract),
+                    BinaryOperatorKind::Multiply => ReturnValue::Int(ArithmeticOperation::Multiply),
+                    BinaryOperatorKind::Divide => ReturnValue::Int(ArithmeticOperation::Divide),
+                    BinaryOperatorKind::LargerThan => ReturnValue::Bool(DeciderOperation::LargerThan),
+                    BinaryOperatorKind::LargerThanOrEqual => ReturnValue::Bool(DeciderOperation::LargerThanOrEqual),
+                    BinaryOperatorKind::LessThen => ReturnValue::Bool(DeciderOperation::LessThan),
+                    BinaryOperatorKind::LessThenOrEqual => ReturnValue::Bool(DeciderOperation::LessThanOrEqual),
+                    BinaryOperatorKind::Equals => ReturnValue::Bool(DeciderOperation::Equals),
+                    BinaryOperatorKind::NotEquals => ReturnValue::Bool(DeciderOperation::NotEquals),
+
                 };
 
                 let input = graph.push_inner_node();
@@ -190,8 +202,19 @@ impl GraphCompiler {
                 let out_type = if let Some(t) = out_type { t }
                 else { self.get_new_anysignal() };
 
-                let arithmetic_connection = ArithmeticConnection::new(left_type, right_type, operation, out_type.clone());
-                graph.push_connection(input, output, Connection::Arithmetic(arithmetic_connection));
+                // The connection doing the actual operation
+                let op_connection = match operation {
+                    ReturnValue::Int(op) => {
+                        let arithmetic_connection = ArithmeticConnection::new(left_type, right_type, op, out_type.clone());
+                        Connection::Arithmetic(arithmetic_connection)
+                    },
+                    ReturnValue::Bool(op) => {
+                        let decider_connection = DeciderConnection::new(left_type, right_type, op, out_type.clone());
+                        Connection::Decider(decider_connection)
+                    },
+                };
+                graph.push_connection(input, output, op_connection);
+
                 (output, out_type)
             },
             ExpressionKind::BlockLink(block_expr) => {
