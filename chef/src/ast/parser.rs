@@ -487,7 +487,8 @@ impl Parser {
             ExpressionKind::Binary(BinaryExpression {
                 left: Box::new(left.clone().unwrap()),
                 right: Box::new(right.clone()),
-                operator: left_operator,
+                operator: left_operator.clone(),
+                return_type: left_operator.return_type(),
             }),
             TextSpan {
                 start: left.clone().unwrap().span.start,
@@ -642,14 +643,17 @@ fn parse_binary_expression() {
 
     let expected_expr = Expression {
         kind: ExpressionKind::Binary(BinaryExpression {
+            return_type: ExpressionReturnType::Int,
             left: Box::new(Expression {
                 kind: ExpressionKind::Int(IntExpression { number: 1 }),
                 span: TextSpan::new(0, 1, text.clone()),
             }),
             right: Box::new(Expression {
                 kind: ExpressionKind::Binary(BinaryExpression {
+                    return_type: ExpressionReturnType::Int,
                     left: Box::new(Expression {
                         kind: ExpressionKind::Binary(BinaryExpression {
+                            return_type: ExpressionReturnType::Int,
                             left: Box::new(Expression {
                                 kind: ExpressionKind::Int(IntExpression { number: 2 }),
                                 span: TextSpan {

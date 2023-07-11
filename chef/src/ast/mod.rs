@@ -208,6 +208,25 @@ impl Expression {
         Self { kind, span }
     }
 
+    fn return_type(&self) -> ExpressionReturnType {
+        match &self.kind {
+            ExpressionKind::Bool(_) => ExpressionReturnType::Bool,
+            ExpressionKind::Int(_) => ExpressionReturnType::Int,
+            ExpressionKind::Binary(e) => e.return_type.clone(),
+            ExpressionKind::Parenthesized(e) => e.return_type(),
+            ExpressionKind::Pick(_) => ExpressionReturnType::Int,
+            ExpressionKind::Variable(e) => {
+                match e.type_ {
+                    VariableType::Int(_) => ExpressionReturnType::Int,
+                    VariableType::Bool(_) => ExpressionReturnType::Bool,
+                    VariableType::All => ExpressionReturnType::Int,
+                }
+            },
+            ExpressionKind::BlockLink(e) => e.return_type(),
+            ExpressionKind::Error => ExpressionReturnType::Int,
+        }
+    }
+
     fn _number(n: i32, span: TextSpan) -> Self {
         Self {
             kind: ExpressionKind::Int(IntExpression::new(n)),
@@ -220,6 +239,7 @@ impl Expression {
         right: Expression,
         operator: BinaryOperator,
         span: TextSpan,
+        return_type: ExpressionReturnType,
     ) -> Self {
         Self {
             kind: ExpressionKind::Binary({
@@ -227,6 +247,7 @@ impl Expression {
                     left: Box::new(left),
                     right: Box::new(right),
                     operator,
+                    return_type,
                 }
             }),
             span,
@@ -239,6 +260,12 @@ impl Expression {
             span,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExpressionReturnType {
+    Bool,
+    Int,
 }
 
 /// Kinds of expression.
@@ -276,6 +303,10 @@ impl ParenthesizedExpression {
     fn new(expression: Box<Expression>) -> Self {
         Self { expression }
     }
+
+    fn return_type(&self) -> ExpressionReturnType {
+        self.expression.return_type()
+    }
 }
 
 /// [AST] representation of a chef pick expression.
@@ -306,6 +337,15 @@ impl BlockLinkExpression {
     pub fn new(block: Rc<Block>, inputs: Vec<Expression>) -> Self {
         Self { block, inputs }
     }
+
+    fn return_type(&self) -> ExpressionReturnType {
+        assert!(self.block.outputs.len() == 1);
+        match self.block.outputs[0] {
+            VariableType::Int(_) => ExpressionReturnType::Int,
+            VariableType::Bool(_) => ExpressionReturnType::Bool,
+            VariableType::All => ExpressionReturnType::Int,
+        }
+    }
 }
 
 /// [AST] representation of an expression containing two operands and one operator.
@@ -314,14 +354,16 @@ pub struct BinaryExpression {
     pub left: Box<Expression>,
     pub right: Box<Expression>,
     pub operator: BinaryOperator,
+    pub return_type: ExpressionReturnType,
 }
 
 impl BinaryExpression {
-    fn _new(left: Box<Expression>, right: Box<Expression>, operator: BinaryOperator) -> Self {
+    fn _new(left: Box<Expression>, right: Box<Expression>, operator: BinaryOperator, return_type: ExpressionReturnType) -> Self {
         Self {
             left,
             right,
             operator,
+            return_type,
         }
     }
 }
@@ -350,6 +392,22 @@ impl BinaryOperator {
             BinaryOperatorKind::LessThanOrEqual => 1,
             BinaryOperatorKind::Equals => 1,
             BinaryOperatorKind::NotEquals => 1,
+        }
+    }
+
+    /// Get the type that the operator returns
+    fn return_type(&self) -> ExpressionReturnType {
+        match self.kind {
+            BinaryOperatorKind::Plus => ExpressionReturnType::Int,
+            BinaryOperatorKind::Minus => ExpressionReturnType::Int,
+            BinaryOperatorKind::Multiply => ExpressionReturnType::Int,
+            BinaryOperatorKind::Divide => ExpressionReturnType::Int,
+            BinaryOperatorKind::LargerThan => ExpressionReturnType::Bool,
+            BinaryOperatorKind::LargerThanOrEqual => ExpressionReturnType::Bool,
+            BinaryOperatorKind::LessThan => ExpressionReturnType::Bool,
+            BinaryOperatorKind::LessThanOrEqual => ExpressionReturnType::Bool,
+            BinaryOperatorKind::Equals => ExpressionReturnType::Bool,
+            BinaryOperatorKind::NotEquals => ExpressionReturnType::Bool,
         }
     }
 }
