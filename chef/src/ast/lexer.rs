@@ -1,18 +1,9 @@
 //! The lexer module converts the raw text into tokens.
 
-use std::collections::HashSet;
 use std::rc::Rc;
-
-use lazy_static::lazy_static;
 
 use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::{SourceText, TextSpan};
-
-lazy_static! {
-    static ref PUNCTUATION_CHARS: HashSet<char> = HashSet::from([
-        '+', '-', '>', '*', '/', '(', ')', '[', ']', '{', '}', '=', ',', '.', ':', ';',
-    ]);
-}
 
 /// Kinds of lexer tokens.
 #[derive(Debug, Clone, PartialEq)]
@@ -36,6 +27,11 @@ pub enum TokenKind {
     Semicolon,
     DoubleEquals,
     RightArrow,
+    LargerThan,
+    LargerThanEquals,
+    LessThan,
+    LessThanEquals,
+    BangEquals,
     Whitespace,
     Bad,
     End,
@@ -124,10 +120,6 @@ impl Lexer {
         c.is_whitespace()
     }
 
-    fn _is_punctuation_char(c: &char) -> bool {
-        PUNCTUATION_CHARS.get(c).is_some()
-    }
-
     fn consume_comment(&mut self) {
         loop {
             match self.consume() {
@@ -176,6 +168,27 @@ impl Lexer {
             Some('.') => TokenKind::Period,
             Some(':') => TokenKind::Colon,
             Some(';') => TokenKind::Semicolon,
+            Some('>') => match self.consume() {
+                Some('=') => TokenKind::LargerThanEquals,
+                _ => {
+                    self.backtrack(1);
+                    TokenKind::LargerThan
+                }
+            },
+            Some('<') => match self.consume() {
+                Some('=') => TokenKind::LessThanEquals,
+                _ => {
+                    self.backtrack(1);
+                    TokenKind::LessThan
+                }
+            },
+            Some('!') => match self.consume() {
+                Some('=') => TokenKind::BangEquals,
+                _ => {
+                    self.backtrack(1);
+                    TokenKind::Bad
+                }
+            },
             _ => TokenKind::Bad,
         };
         Some(kind)
