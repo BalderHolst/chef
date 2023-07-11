@@ -1,3 +1,3 @@
 block main(in: all) -> (int(inserter)) {
-    out in[belt] + 6 * 100 / 7;
+    out in[military_science_pack] + 6 * 100 / 7;
 }

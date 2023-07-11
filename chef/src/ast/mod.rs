@@ -212,15 +212,13 @@ impl Expression {
         match &self.kind {
             ExpressionKind::Bool(_) => ExpressionReturnType::Bool,
             ExpressionKind::Int(_) => ExpressionReturnType::Int,
-            ExpressionKind::Binary(e) => e.return_type.clone(),
+            ExpressionKind::Binary(e) => e.return_type().clone(),
             ExpressionKind::Parenthesized(e) => e.return_type(),
             ExpressionKind::Pick(_) => ExpressionReturnType::Int,
-            ExpressionKind::Variable(e) => {
-                match e.type_ {
-                    VariableType::Int(_) => ExpressionReturnType::Int,
-                    VariableType::Bool(_) => ExpressionReturnType::Bool,
-                    VariableType::All => ExpressionReturnType::Int,
-                }
+            ExpressionKind::Variable(e) => match e.type_ {
+                VariableType::Int(_) => ExpressionReturnType::Int,
+                VariableType::Bool(_) => ExpressionReturnType::Bool,
+                VariableType::All => ExpressionReturnType::Int,
             },
             ExpressionKind::BlockLink(e) => e.return_type(),
             ExpressionKind::Error => ExpressionReturnType::Int,
@@ -266,6 +264,16 @@ impl Expression {
 pub enum ExpressionReturnType {
     Bool,
     Int,
+}
+
+impl Display for ExpressionReturnType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            ExpressionReturnType::Bool => "bool",
+            ExpressionReturnType::Int => "int",
+        };
+        write!(f, "{s}")
+    }
 }
 
 /// Kinds of expression.
@@ -354,17 +362,26 @@ pub struct BinaryExpression {
     pub left: Box<Expression>,
     pub right: Box<Expression>,
     pub operator: BinaryOperator,
-    pub return_type: ExpressionReturnType,
+    return_type: ExpressionReturnType,
 }
 
 impl BinaryExpression {
-    fn _new(left: Box<Expression>, right: Box<Expression>, operator: BinaryOperator, return_type: ExpressionReturnType) -> Self {
+    fn _new(
+        left: Box<Expression>,
+        right: Box<Expression>,
+        operator: BinaryOperator,
+        return_type: ExpressionReturnType,
+    ) -> Self {
         Self {
             left,
             right,
             operator,
             return_type,
         }
+    }
+
+    fn return_type(&self) -> &ExpressionReturnType {
+        &self.return_type
     }
 }
 
