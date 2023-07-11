@@ -274,27 +274,39 @@ impl Parser {
         Ok(StatementKind::Assignment(Assignment::new(variable, expr)))
     }
 
+    /// Parse signal part of variable type
+    ///
+    /// Example:
+    /// ```text
+    /// i: int(signal) = ...
+    ///       ^^^^^^^^ - this part
+    /// ```
+    fn parse_variable_type_signal(&mut self) -> Result<VariableSignalType, CompilationError> {
+        match self.current().kind {
+            TokenKind::LeftParen => {
+                self.consume();
+                let type_token = self.consume().clone();
+                self.consume_and_check(TokenKind::RightParen)?;
+                if let TokenKind::Word(word) = type_token.kind.clone() {
+                    Ok(VariableSignalType::Signal(word))
+                } else {
+                    Err(CompilationError::new_unexpected_token(
+                        type_token,
+                        TokenKind::Word("".to_string()),
+                    ))
+                }
+            }
+            _ => Ok(VariableSignalType::Any),
+        }
+    }
+
     /// Parse variable type.
     fn parse_variable_type(&mut self) -> Result<VariableType, CompilationError> {
         let token = self.consume();
         match token.kind.clone() {
             TokenKind::Word(start_word) => match start_word.as_str() {
-                "int" => match self.current().kind {
-                    TokenKind::LeftParen => {
-                        self.consume();
-                        let type_token = self.consume().clone();
-                        self.consume_and_check(TokenKind::RightParen)?;
-                        if let TokenKind::Word(word) = type_token.kind.clone() {
-                            Ok(VariableType::Int(VariableSignalType::Signal(word)))
-                        } else {
-                            Err(CompilationError::new_unexpected_token(
-                                type_token,
-                                TokenKind::Word("".to_string()),
-                            ))
-                        }
-                    }
-                    _ => Ok(VariableType::Int(VariableSignalType::Any)),
-                },
+                "int" => Ok(VariableType::Int(self.parse_variable_type_signal()?)),
+                "bool" => Ok(VariableType::Bool(self.parse_variable_type_signal()?)),
                 "all" => Ok(VariableType::All),
                 w => Err(CompilationError::new(
                     format!("Unknown type `{}`.", w),
