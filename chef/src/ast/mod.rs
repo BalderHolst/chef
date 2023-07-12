@@ -226,6 +226,7 @@ impl Expression {
             ExpressionKind::Pick(_) => ExpressionReturnType::Int,
             ExpressionKind::Variable(var) => var.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(),
+            ExpressionKind::When(e) => e.return_type(),
             ExpressionKind::Error => ExpressionReturnType::Int,
         }
     }
@@ -293,7 +294,21 @@ pub enum ExpressionKind {
     Pick(PickExpression),
     Variable(Rc<Variable>),
     BlockLink(BlockLinkExpression),
+    When(WhenExpression),
     Error,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WhenExpression {
+    condition: Box<Expression>,
+    statements: Vec<Statement>,
+    out: Box<Expression>,
+}
+
+impl WhenExpression {
+    pub fn return_type(&self) -> ExpressionReturnType {
+        self.out.return_type()
+    }
 }
 
 /// An expression containing only a single number.
@@ -615,6 +630,23 @@ impl Visitor for Printer {
         self.print("Out:");
         self.indent();
         self.visit_expression(expr);
+        self.unindent();
+    }
+
+    fn visit_when_expression(&mut self, when: &WhenExpression) {
+        self.print("WhenExpression:");
+        self.indent();
+        self.print("Condition:");
+        self.indent();
+        self.do_visit_expression(&when.condition);
+        self.unindent();
+        for statement in &when.statements {
+            self.do_visit_statement(statement);
+        }
+        self.print("WhenOutput:");
+        self.indent();
+        self.visit_expression(&when.out);
+        self.unindent();
         self.unindent();
     }
 }

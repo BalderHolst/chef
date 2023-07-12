@@ -244,6 +244,7 @@ impl GraphCompiler {
                                 else { panic!("Block links requires defined variables."); }
                             },
                             ExpressionKind::BlockLink(_) => self.compile_expression(graph, expr, None),
+                            ExpressionKind::When(_) => todo!(),
                             ExpressionKind::Error => panic!("Compilation should have stopped before this step if errors where encountered."),
                         }
                     ).collect();
@@ -259,6 +260,7 @@ impl GraphCompiler {
                 if outputs.len() != 1 { todo!("Blocks with multipule outputs are not implemented yet"); }
                 outputs[0].clone()
             },
+            ExpressionKind::When(_) => todo!(),
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }
     }

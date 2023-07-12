@@ -14,8 +14,8 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct CompilationError {
-    desctiption: String,
-    span: TextSpan,
+    pub desctiption: String,
+    pub span: TextSpan,
 }
 
 impl CompilationError {

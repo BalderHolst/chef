@@ -79,6 +79,19 @@ impl Visitor for TypeChecker {
                     )
                 }
             }
+            ExpressionKind::When(e) => {
+                let cond_type = e.condition.return_type();
+                if cond_type != ExpressionReturnType::Bool {
+                    self.diagnostics_bag.borrow_mut().report_error(
+                        &expression.span,
+                        &format!(
+                            "`when` conditions should be `{}` not `{}`.",
+                            ExpressionReturnType::Bool,
+                            cond_type
+                        ),
+                    )
+                }
+            }
         };
         self.do_visit_expression(expression);
     }

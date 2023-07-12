@@ -13,7 +13,7 @@ use crate::diagnostics::{CompilationError, DiagnosticsBagRef};
 use crate::text::TextSpan;
 
 use super::lexer::Lexer;
-use super::{Assignment, BlockLinkExpression, PickExpression, VariableSignalType};
+use super::{Assignment, BlockLinkExpression, PickExpression, VariableSignalType, WhenExpression};
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
 pub struct Parser {
@@ -228,19 +228,19 @@ impl Parser {
             TokenKind::End => None,
             TokenKind::RightCurly => None,
             _ => {
-                let token = self.current();
-                self.diagnostics_bag.borrow_mut().report_error(
-                    &token.span,
-                    &format!("A statement cannot begin with a `{}` token", token.kind),
-                );
-                self.consume();
+                // Assume statement to be an `out` statement if nothing else.
+                let out_expr = match self.parse_expression() {
+                    Ok(expr) => expr,
+                    Err(e) => {
+                        self.diagnostics_bag
+                            .borrow_mut()
+                            .report_compilation_error(e);
+                        return None;
+                    }
+                };
                 Some(Statement::new(
-                    StatementKind::Error,
-                    TextSpan::new(
-                        start_token.span.start,
-                        self.peak(-1).span.end,
-                        start_token.span.text.clone(),
-                    ),
+                    StatementKind::Out(out_expr),
+                    TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
                 ))
             }
         }
@@ -426,7 +426,55 @@ impl Parser {
 
     /// Parse chef expression.
     fn parse_expression(&mut self) -> Result<Expression, CompilationError> {
-        self.parse_binary_expression(None)
+        match &self.current().kind {
+            TokenKind::Word(word) => match word.as_str() {
+                "when" => self.parse_when_expression(),
+                _ => self.parse_binary_expression(None),
+            },
+            _ => self.parse_binary_expression(None),
+        }
+    }
+
+    fn parse_when_expression(&mut self) -> Result<Expression, CompilationError> {
+        let start_token = self.consume().clone(); // Consume "when" token
+        let condition = self.parse_expression()?;
+
+        self.consume_and_check(TokenKind::LeftCurly)?;
+        let mut statements: Vec<Statement> = Vec::new();
+        while let Some(statement) = self.next_statement() {
+            statements.push(statement);
+        }
+        self.consume_and_check(TokenKind::RightCurly)?;
+
+        let out_statement = statements.pop();
+        let out_expr = match out_statement {
+            Some(last_statement) => match last_statement.kind {
+                StatementKind::Out(e) => e,
+                _ => {
+                    return Err(CompilationError {
+                        desctiption: "`when` expressions should end with an `out` expression"
+                            .to_string(),
+                        span: TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+                    })
+                }
+            },
+            None => {
+                return Err(CompilationError {
+                    desctiption: "`when` expressions should contain an `out` expression"
+                        .to_string(),
+                    span: TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+                })
+            }
+        };
+
+        Ok(Expression::new(
+            ExpressionKind::When(WhenExpression {
+                condition: Box::new(condition),
+                statements,
+                out: Box::new(out_expr),
+            }),
+            TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+        ))
     }
 
     /// Returns the operator if the current token is an operator

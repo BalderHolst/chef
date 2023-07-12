@@ -8,6 +8,7 @@
 use super::{
     Assignment, BinaryExpression, Block, BlockLinkExpression, Expression, ExpressionKind,
     IntExpression, ParenthesizedExpression, PickExpression, Statement, StatementKind, Variable,
+    WhenExpression,
 };
 
 // For documentation references
@@ -55,6 +56,9 @@ pub trait Visitor {
             }
             ExpressionKind::BlockLink(block) => {
                 self.visit_block_link(block);
+            }
+            ExpressionKind::When(when) => {
+                self.visit_when_expression(when);
             }
             ExpressionKind::Error => {
                 self.visit_error_expression();
@@ -107,6 +111,14 @@ pub trait Visitor {
         }
     }
 
+    fn visit_when_expression(&mut self, when: &WhenExpression) {
+        self.visit_expression(&when.condition);
+        for statement in &when.statements {
+            self.visit_statement(statement);
+        }
+        self.visit_expression(&when.out);
+    }
+
     fn visit_pick_expression(&mut self, expr: &PickExpression);
     fn visit_error_statement(&mut self);
     fn visit_number(&mut self, number: &IntExpression);
@@ -157,6 +169,9 @@ pub trait MutVisitor {
             ExpressionKind::BlockLink(block) => {
                 self.visit_block_link(block);
             }
+            ExpressionKind::When(when) => {
+                self.visit_when_expression(when);
+            }
             ExpressionKind::Error => {
                 self.visit_error_expression();
             }
@@ -206,6 +221,14 @@ pub trait MutVisitor {
         for expr in &mut block.inputs {
             self.visit_expression(expr);
         }
+    }
+
+    fn visit_when_expression(&mut self, when: &mut WhenExpression) {
+        self.visit_expression(&mut when.condition);
+        for statement in &mut when.statements {
+            self.visit_statement(statement);
+        }
+        self.visit_expression(&mut when.out);
     }
 
     fn visit_pick_expression(&mut self, expr: &mut PickExpression);
