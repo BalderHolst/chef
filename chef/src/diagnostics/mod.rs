@@ -101,11 +101,7 @@ impl DiagnosticsBag {
     }
 
     pub fn new_ref(options: Rc<Opts>, source: Rc<SourceText>) -> DiagnosticsBagRef {
-        let bag = Self {
-            diagnostics: vec![],
-            options,
-            source,
-        };
+        let bag = Self::new(options, source);
         Rc::new(RefCell::new(bag))
     }
 

@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::process::exit;
 use std::rc::Rc;
 use std::{env, io};
@@ -22,10 +21,7 @@ mod utils;
 pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
     let path = cook_opts.files.get(0).unwrap();
     let text = Rc::new(SourceText::from_file(path).unwrap());
-    let diagnostics_bag: DiagnosticsBagRef = Rc::new(RefCell::new(DiagnosticsBag::new(
-        opts.clone(),
-        text.clone(),
-    )));
+    let diagnostics_bag: DiagnosticsBagRef = DiagnosticsBag::new_ref(opts.clone(), text.clone());
     let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
 
     diagnostics_bag.borrow().exit_if_errored();
