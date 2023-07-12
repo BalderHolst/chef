@@ -129,11 +129,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn check_expression_types() {
+    fn check_assignment_types() {
         let (_, bag) = AST::from_str("a:int = false;");
         let m_bag = bag.borrow_mut();
         assert!(m_bag.error_count() == 1);
         let message = &format!("{:?}", m_bag.diagnostics()[0]);
         assert_eq!(message, "Diagnostic { message: \"Can not assign variable `a` of type `int` to expression returning `bool` type.\", span: TextSpan { start: 0, end: 14, text: SourceText { file: None, text: \"a:int = false;\", lines: [0] } } }");
+    }
+
+    #[test]
+    fn check_expression_types() {
+        let (_, bag) = AST::from_str("b:int = 5 + false * 10;");
+        let m_bag = bag.borrow_mut();
+        assert!(m_bag.error_count() == 1);
+        let message = &format!("{:?}", m_bag.diagnostics()[0]);
+        assert_eq!(message, "Diagnostic { message: \"Left side of expression must be `int` not `bool`.\", span: TextSpan { start: 12, end: 22, text: SourceText { file: None, text: \"b:int = 5 + false * 10;\", lines: [0] } } }");
     }
 }
