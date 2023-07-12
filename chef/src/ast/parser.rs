@@ -374,6 +374,30 @@ impl Parser {
         Ok(inputs)
     }
 
+    fn parse_statement_list_expression(&mut self) -> Result<Vec<Statement>, CompilationError> {
+        self.consume_and_check(TokenKind::LeftCurly)?;
+
+        let mut statements: Vec<Statement> = vec![];
+        while let Some(statement) = self.next_statement() {
+            statements.push(statement);
+        }
+
+        if !statements.is_empty() {
+            for statement in &statements[..statements.len() - 1] {
+                if let StatementKind::Out(_) = statement.kind {
+                    return Err(CompilationError::new(
+                        "Output statements have to be last.".to_string(),
+                        statement.span.clone(),
+                    ));
+                }
+            }
+        }
+
+        self.consume_and_check(TokenKind::RightCurly)?;
+
+        Ok(statements)
+    }
+
     /// Parse chef `block`.
     fn parse_block(&mut self) -> Result<Block, CompilationError> {
         let start_token = self.consume().clone(); // Consume "block" word
@@ -399,25 +423,7 @@ impl Parser {
 
         let output = self.parse_block_outputs()?;
 
-        self.consume_and_check(TokenKind::LeftCurly)?;
-
-        let mut statements: Vec<Statement> = vec![];
-        while let Some(statement) = self.next_statement() {
-            statements.push(statement);
-        }
-
-        if !statements.is_empty() {
-            for statement in &statements[..statements.len() - 1] {
-                if let StatementKind::Out(_) = statement.kind {
-                    return Err(CompilationError::new(
-                        "Output statements have to be last.".to_string(),
-                        statement.span.clone(),
-                    ));
-                }
-            }
-        }
-
-        self.consume_and_check(TokenKind::RightCurly)?;
+        let statements = self.parse_statement_list_expression()?;
 
         self.exit_scope();
 
@@ -449,12 +455,7 @@ impl Parser {
         let start_token = self.consume().clone(); // Consume "when" token
         let condition = self.parse_expression()?;
 
-        self.consume_and_check(TokenKind::LeftCurly)?;
-        let mut statements: Vec<Statement> = Vec::new();
-        while let Some(statement) = self.next_statement() {
-            statements.push(statement);
-        }
-        self.consume_and_check(TokenKind::RightCurly)?;
+        let mut statements = self.parse_statement_list_expression()?;
 
         let out_statement = statements.pop();
         let out_expr = match out_statement {
