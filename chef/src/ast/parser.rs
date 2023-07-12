@@ -381,8 +381,6 @@ impl Parser {
 
         self.enter_scope();
 
-        let mut statements: Vec<Statement> = vec![];
-
         let name: String = if let TokenKind::Word(s) = &self.consume().kind {
             s.clone()
         } else {
@@ -403,8 +401,20 @@ impl Parser {
 
         self.consume_and_check(TokenKind::LeftCurly)?;
 
+        let mut statements: Vec<Statement> = vec![];
         while let Some(statement) = self.next_statement() {
             statements.push(statement);
+        }
+
+        if !statements.is_empty() {
+            for statement in &statements[..statements.len() - 1] {
+                if let StatementKind::Out(_) = statement.kind {
+                    return Err(CompilationError::new(
+                        "Output statements have to be last.".to_string(),
+                        statement.span.clone(),
+                    ));
+                }
+            }
         }
 
         self.consume_and_check(TokenKind::RightCurly)?;
