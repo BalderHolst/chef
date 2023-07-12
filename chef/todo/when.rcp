@@ -1,0 +1,6 @@
+block main(input: all) -> int(signal_blue) {
+    i: int = when all[signal_red] > 5 {
+        100
+    };
+    out i;
+}

@@ -163,7 +163,7 @@ impl Parser {
                     "block" => match self.parse_block() {
                         Ok(block) => {
                             self.blocks.push(Rc::new(block.clone()));
-                            StatementKind::Block(block)
+                            Ok(StatementKind::Block(block))
                         }
                         Err(e) => {
                             self.diagnostics_bag
@@ -179,7 +179,7 @@ impl Parser {
                             // TODO handle error
                             self.consume_and_check(TokenKind::Semicolon)
                                 .expect("Could not find semicolon"); // TODO handle error
-                            StatementKind::Out(expr)
+                            Ok(StatementKind::Out(expr))
                         } else {
                             self.consume_bad_statement();
                             let statement_end = self.peak(-1).span.end;
@@ -188,7 +188,7 @@ impl Parser {
                                 &TextSpan::new(statement_start, statement_end, text),
                                 "Bad output expression",
                             ); // TODO use error message here
-                            StatementKind::Error
+                            Ok(StatementKind::Error)
                         }
                     }
                     "int" => {
@@ -196,17 +196,25 @@ impl Parser {
                             .borrow_mut()
                             .report_error(&start_token.span, "A variable cannot be named \"int\"");
                         self.consume();
-                        StatementKind::Error
+                        Ok(StatementKind::Error)
                     }
-                    _ => match self.parse_assignment_statement() {
-                        Ok(s) => s,
-                        Err(e) => {
-                            self.diagnostics_bag
-                                .borrow_mut()
-                                .report_compilation_error(e);
-                            return None;
-                        }
+                    _ => match self.peak(1).kind.clone() {
+                        TokenKind::Equals => self.parse_assignment_statement(),
+                        TokenKind::Colon => self.parse_assignment_statement(),
+                        _ => match self.parse_expression() {
+                            Ok(expr) => Ok(StatementKind::Out(expr)),
+                            Err(e) => Err(e),
+                        },
                     },
+                };
+                let kind = match kind {
+                    Ok(k) => k,
+                    Err(e) => {
+                        self.diagnostics_bag
+                            .borrow_mut()
+                            .report_compilation_error(e);
+                        return None;
+                    }
                 };
                 Some(Statement::new(
                     kind,
