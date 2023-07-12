@@ -181,7 +181,7 @@ impl Assignment {
 pub struct Block {
     pub name: String,
     pub inputs: Vec<Rc<Variable>>,
-    pub outputs: Vec<VariableType>,
+    pub output: VariableType,
     pub statements: Vec<Statement>,
     pub span: TextSpan,
 }
@@ -191,14 +191,14 @@ impl Block {
     fn new(
         name: String,
         inputs: Vec<Rc<Variable>>,
-        outputs: Vec<VariableType>,
+        output: VariableType,
         statements: Vec<Statement>,
         span: TextSpan,
     ) -> Self {
         Self {
             name,
             inputs,
-            outputs,
+            output,
             statements,
             span,
         }
@@ -354,8 +354,7 @@ impl BlockLinkExpression {
     }
 
     fn return_type(&self) -> ExpressionReturnType {
-        assert!(self.block.outputs.len() == 1);
-        match self.block.outputs[0] {
+        match self.block.output {
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Bool(_) => ExpressionReturnType::Bool,
             VariableType::All => ExpressionReturnType::All,
@@ -532,7 +531,7 @@ impl Visitor for Printer {
     fn visit_block(&mut self, block: &Block) {
         self.print(&format!(
             "Block: \"{}\" {:?} -> {:?}",
-            block.name, block.inputs, block.outputs
+            block.name, block.inputs, block.output
         ));
         self.indent();
         self.do_visit_block(block);

@@ -108,10 +108,8 @@ impl Visitor for TypeChecker {
                 self.report_if_invalid_signal(signal, &var.definition);
             }
         }
-        for var_type in &block.outputs {
-            if let super::VariableType::Int(VariableSignalType::Signal(signal)) = var_type {
-                self.report_if_invalid_signal(signal, &block.span);
-            }
+        if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &block.output {
+            self.report_if_invalid_signal(signal, &block.span);
         }
 
         self.do_visit_block(block);

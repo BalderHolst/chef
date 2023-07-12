@@ -357,10 +357,7 @@ impl GraphCompiler {
                     panic!("There should not be error statements when compilation has started.")
                 }
                 StatementKind::Out(expr) => {
-                    let out_variable_type = block
-                        .outputs
-                        .get(0)
-                        .expect("Blocks can only have exactly ONE output for now.");
+                    let out_variable_type = &block.output;
                     let out_iotype = self.variable_type_to_iotype(out_variable_type);
                     let (out_vid, _out_node) =
                         self.compile_expression(&mut graph, expr, Some(out_iotype.clone()));

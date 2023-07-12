@@ -345,16 +345,8 @@ impl Parser {
     }
 
     /// Parse outputs for `block` definition.
-    fn parse_block_outputs(&mut self) -> Result<Vec<VariableType>, CompilationError> {
-        let mut outputs: Vec<VariableType> = vec![];
-        loop {
-            if self.current().kind == TokenKind::RightParen {
-                break;
-            }
-            self.consume_if(TokenKind::Comma);
-            outputs.push(self.parse_variable_type()?);
-        }
-        Ok(outputs)
+    fn parse_block_outputs(&mut self) -> Result<VariableType, CompilationError> {
+        self.parse_variable_type()
     }
 
     /// Parse arguments for `block` links.
@@ -398,11 +390,8 @@ impl Parser {
 
         self.consume_and_check(TokenKind::RightParen)?;
         self.consume_and_check(TokenKind::RightArrow)?;
-        self.consume_and_check(TokenKind::LeftParen)?;
 
-        let outputs = self.parse_block_outputs()?;
-
-        self.consume_and_check(TokenKind::RightParen)?;
+        let output = self.parse_block_outputs()?;
 
         self.consume_and_check(TokenKind::LeftCurly)?;
 
@@ -417,7 +406,7 @@ impl Parser {
         Ok(Block::new(
             name,
             inputs,
-            outputs,
+            output,
             statements,
             TextSpan {
                 start: start_token.span.start,

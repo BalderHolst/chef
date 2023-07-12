@@ -1,4 +1,4 @@
-block main(in: all) -> (int(pipe)) {
+block main(in: all) -> int(pipe) {
     a: int = in[inserter] / 13;
     b: int = in[signal_B] + 5 * 3 / 7;
     out a * b;
