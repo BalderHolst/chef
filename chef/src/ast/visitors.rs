@@ -10,6 +10,10 @@ use super::{
     IntExpression, ParenthesizedExpression, PickExpression, Statement, StatementKind, Variable,
 };
 
+// For documentation references
+#[allow(unused_imports)]
+use super::AST;
+
 /// Trait allowing for traversal of an immutable [AST].
 pub trait Visitor {
     fn do_visit_statement(&mut self, statement: &Statement) {
