@@ -101,7 +101,12 @@ pub trait Visitor {
         self.do_visit_assignment(assignment);
     }
 
-    fn visit_block_link(&mut self, block: &BlockLinkExpression);
+    fn visit_block_link(&mut self, block: &BlockLinkExpression) {
+        for expr in &block.inputs {
+            self.visit_expression(expr);
+        }
+    }
+
     fn visit_pick_expression(&mut self, expr: &PickExpression);
     fn visit_error_statement(&mut self);
     fn visit_number(&mut self, number: &IntExpression);
@@ -197,7 +202,12 @@ pub trait MutVisitor {
         self.do_visit_assignment(assignment);
     }
 
-    fn visit_block_link(&mut self, block: &mut BlockLinkExpression);
+    fn visit_block_link(&mut self, block: &mut BlockLinkExpression) {
+        for expr in &mut block.inputs {
+            self.visit_expression(expr);
+        }
+    }
+
     fn visit_pick_expression(&mut self, expr: &mut PickExpression);
     fn visit_error_statement(&mut self);
     fn visit_bool(&mut self, bool: &mut bool);

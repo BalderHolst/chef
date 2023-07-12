@@ -38,7 +38,6 @@ enum EvaluatorResult {
 }
 
 impl MutVisitor for ConstantEvaluator {
-    fn visit_block_link(&mut self, _block: &mut super::BlockLinkExpression) {}
     fn visit_pick_expression(&mut self, _expr: &mut super::PickExpression) {}
     fn visit_error_statement(&mut self) {}
     fn visit_number(&mut self, _number: &mut super::IntExpression) {}
