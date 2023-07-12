@@ -109,6 +109,7 @@ impl DiagnosticsBag {
         Rc::new(RefCell::new(bag))
     }
 
+    #[cfg(test)]
     pub fn error_count(&self) -> usize {
         self.diagnostics.len()
     }

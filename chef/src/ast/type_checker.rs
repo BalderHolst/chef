@@ -127,19 +127,10 @@ impl Visitor for TypeChecker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::*;
-    use crate::diagnostics::*;
-    use crate::text::*;
-    use std::rc::Rc;
 
     #[test]
     fn check_expression_types() {
-        let source = Rc::new(SourceText::from_str("a:int = false;"));
-        let opts = Rc::new(Opts::default());
-        let bag = DiagnosticsBag::new_ref(opts.clone(), source.clone());
-
-        // This does typechecking
-        AST::from_source(source, bag.clone(), opts);
+        let (_, bag) = AST::from_str("a:int = false;");
         let m_bag = bag.borrow_mut();
         assert!(m_bag.error_count() == 1);
         let message = &format!("{:?}", m_bag.diagnostics()[0]);

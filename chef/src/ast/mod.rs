@@ -619,3 +619,14 @@ impl Visitor for Printer {
         self.unindent();
     }
 }
+
+#[cfg(test)]
+impl AST {
+    /// This function is only for testing
+    fn from_str(code: &str) -> (Self, crate::diagnostics::DiagnosticsBagRef) {
+        let source = Rc::new(SourceText::from_str(code));
+        let opts = Rc::new(Opts::default());
+        let bag = crate::diagnostics::DiagnosticsBag::new_ref(opts.clone(), source.clone());
+        (AST::from_source(source, bag.clone(), opts), bag)
+    }
+}
