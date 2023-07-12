@@ -2,7 +2,9 @@
 
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan};
 
-use super::{visitors::Visitor, ExpressionKind, ExpressionReturnType, VariableSignalType, AST};
+use super::{
+    visitors::Visitor, ExpressionKind, ExpressionReturnType, StatementKind, VariableSignalType, AST,
+};
 
 const BASE_SIGNALS: &str = include_str!("base.signals");
 
@@ -81,7 +83,26 @@ impl Visitor for TypeChecker {
         self.do_visit_expression(expression);
     }
 
+    fn visit_statement(&mut self, statement: &super::Statement) {
+        // Make sure variables are only assign expressions returning their type
+        if let StatementKind::Assignment(assignment) = &statement.kind {
+            let var_type = assignment.variable.return_type();
+            let expr_type = assignment.expression.return_type();
+            if var_type != expr_type {
+                self.diagnostics_bag.borrow_mut().report_error(
+                    &statement.span,
+                    &format!("Can not assign variable `{}` of type `{}` to expression returning `{}` type.",
+                             assignment.variable.name, var_type, expr_type
+                             ),
+                    )
+            }
+        }
+
+        self.do_visit_statement(statement);
+    }
+
     fn visit_block(&mut self, block: &super::Block) {
+        // Make sure block input signals are valid factorio signals
         for var in &block.inputs {
             if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &var.type_ {
                 self.report_if_invalid_signal(signal, &var.definition);
@@ -92,6 +113,7 @@ impl Visitor for TypeChecker {
                 self.report_if_invalid_signal(signal, &block.span);
             }
         }
+
         self.do_visit_block(block);
     }
 
@@ -99,5 +121,28 @@ impl Visitor for TypeChecker {
         if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &var.type_ {
             self.report_if_invalid_signal(signal, &var.definition);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::*;
+    use crate::diagnostics::*;
+    use crate::text::*;
+    use std::rc::Rc;
+
+    #[test]
+    fn check_expression_types() {
+        let source = Rc::new(SourceText::from_str("a:int = false;"));
+        let opts = Rc::new(Opts::default());
+        let bag = DiagnosticsBag::new_ref(opts.clone(), source.clone());
+
+        // This does typechecking
+        AST::from_source(source, bag.clone(), opts);
+        let m_bag = bag.borrow_mut();
+        assert!(m_bag.error_count() == 1);
+        let message = &format!("{:?}", m_bag.diagnostics()[0]);
+        assert_eq!(message, "Diagnostic { message: \"Can not assign variable `a` of type `int` to expression returning `bool` type.\", span: TextSpan { start: 0, end: 14, text: SourceText { file: None, text: \"a:int = false;\", lines: [0] } } }");
     }
 }

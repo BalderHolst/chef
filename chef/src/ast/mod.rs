@@ -148,6 +148,15 @@ impl Variable {
             definition,
         }
     }
+
+    /// Type returned
+    pub fn return_type(&self) -> ExpressionReturnType {
+        match self.type_ {
+            VariableType::Int(_) => ExpressionReturnType::Int,
+            VariableType::Bool(_) => ExpressionReturnType::Bool,
+            VariableType::All => ExpressionReturnType::Int,
+        }
+    }
 }
 
 /// [AST] representation of chef variable assignment.
@@ -215,11 +224,7 @@ impl Expression {
             ExpressionKind::Binary(e) => e.return_type().clone(),
             ExpressionKind::Parenthesized(e) => e.return_type(),
             ExpressionKind::Pick(_) => ExpressionReturnType::Int,
-            ExpressionKind::Variable(e) => match e.type_ {
-                VariableType::Int(_) => ExpressionReturnType::Int,
-                VariableType::Bool(_) => ExpressionReturnType::Bool,
-                VariableType::All => ExpressionReturnType::Int,
-            },
+            ExpressionKind::Variable(var) => var.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(),
             ExpressionKind::Error => ExpressionReturnType::Int,
         }

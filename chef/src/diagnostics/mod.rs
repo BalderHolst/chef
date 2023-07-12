@@ -71,7 +71,7 @@ impl Display for TokenKind {
 }
 
 /// A chef diagnostic
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Diagnostic {
     message: String,
     span: TextSpan,
@@ -98,6 +98,19 @@ impl DiagnosticsBag {
             options,
             source,
         }
+    }
+
+    pub fn new_ref(options: Rc<Opts>, source: Rc<SourceText>) -> DiagnosticsBagRef {
+        let bag = Self {
+            diagnostics: vec![],
+            options,
+            source,
+        };
+        Rc::new(RefCell::new(bag))
+    }
+
+    pub fn error_count(&self) -> usize {
+        self.diagnostics.len()
     }
 
     /// Checks whether any errors have been reported.
@@ -155,5 +168,12 @@ impl DiagnosticsBag {
         if self.has_errored() {
             self.exit_with_errors();
         }
+    }
+}
+
+#[cfg(test)]
+impl DiagnosticsBag {
+    pub fn diagnostics(&self) -> Vec<Diagnostic> {
+        self.diagnostics.clone()
     }
 }
