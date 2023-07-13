@@ -300,44 +300,19 @@ impl GraphCompiler {
         // Output of the gate
         let out_nid = graph.push_inner_node();
 
-        let (left, right, operation) = match &when.condition.kind {
-            // Integrate decider expressions into the decider combinator if possible
-            ExpressionKind::Binary(b) => match b.operator.to_graph_operation() {
-                GraphOperation::Decider(op) => {
-                    let (left_out_nid, left_out_type) =
-                        self.compile_expression(graph, &b.left, None)?;
-                    let (right_out_nid, right_out_type) =
-                        self.compile_expression(graph, &b.right, None)?;
-                    graph.push_connection(
-                        left_out_nid,
-                        gate_input_nid,
-                        Connection::new_pick(left_out_type.clone()),
-                    );
-                    graph.push_connection(
-                        right_out_nid,
-                        gate_input_nid,
-                        Connection::new_pick(right_out_type.clone()),
-                    );
-                    (left_out_type, right_out_type, op)
-                }
-                GraphOperation::Arithmetic(_) => {
-                    panic!("The typechecker shoud make sure this does not happen.")
-                }
-            },
-            _ => {
-                let (expr_out_nid, expr_out_type) =
-                    self.compile_expression(graph, &when.condition, None)?;
-                graph.push_connection(
-                    expr_out_nid,
-                    gate_input_nid,
-                    Connection::new_pick(expr_out_type.clone()),
-                );
-                (
-                    expr_out_type,
-                    IOType::Constant(0),
-                    DeciderOperation::LargerThan,
-                )
-            }
+        let (left, right, operation) = {
+            let (expr_out_nid, expr_out_type) =
+                self.compile_expression(graph, &when.condition, None)?;
+            graph.push_connection(
+                expr_out_nid,
+                gate_input_nid,
+                Connection::new_pick(expr_out_type.clone()),
+            );
+            (
+                expr_out_type,
+                IOType::Constant(0),
+                DeciderOperation::LargerThan,
+            )
         };
 
         // Push the actual gate opteration

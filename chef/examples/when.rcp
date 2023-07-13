@@ -1,6 +1,5 @@
 block main(input: all) -> int(signal_blue) {
-    cond: bool = input[signal_red] > 5;
-    i: int(pipe) = when cond {
+    i: int(pipe) = when input[signal_red] > 5 {
         100 + input[signal_blue]
     };
     out i;

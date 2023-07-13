@@ -4,7 +4,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::ast::visitors::Visitor;
-use crate::compiler::graph::{ArithmeticOperation, DeciderOperation, GraphOperation};
+use crate::compiler::graph::{ArithmeticOperation, DeciderOperation, _GraphOperation};
 use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::{SourceText, TextSpan};
 use crate::Opts;
@@ -469,24 +469,28 @@ impl BinaryOperator {
         }
     }
 
-    pub fn to_graph_operation(&self) -> GraphOperation {
+    pub fn _to_graph_operation(&self) -> _GraphOperation {
         match self.kind {
-            BinaryOperatorKind::Plus => GraphOperation::Arithmetic(ArithmeticOperation::Add),
-            BinaryOperatorKind::Minus => GraphOperation::Arithmetic(ArithmeticOperation::Subtract),
+            BinaryOperatorKind::Plus => _GraphOperation::_Arithmetic(ArithmeticOperation::Add),
+            BinaryOperatorKind::Minus => {
+                _GraphOperation::_Arithmetic(ArithmeticOperation::Subtract)
+            }
             BinaryOperatorKind::Multiply => {
-                GraphOperation::Arithmetic(ArithmeticOperation::Multiply)
+                _GraphOperation::_Arithmetic(ArithmeticOperation::Multiply)
             }
-            BinaryOperatorKind::Divide => GraphOperation::Arithmetic(ArithmeticOperation::Divide),
-            BinaryOperatorKind::LargerThan => GraphOperation::Decider(DeciderOperation::LargerThan),
+            BinaryOperatorKind::Divide => _GraphOperation::_Arithmetic(ArithmeticOperation::Divide),
+            BinaryOperatorKind::LargerThan => {
+                _GraphOperation::_Decider(DeciderOperation::LargerThan)
+            }
             BinaryOperatorKind::LargerThanOrEqual => {
-                GraphOperation::Decider(DeciderOperation::LargerThanOrEqual)
+                _GraphOperation::_Decider(DeciderOperation::LargerThanOrEqual)
             }
-            BinaryOperatorKind::LessThan => GraphOperation::Decider(DeciderOperation::LessThan),
+            BinaryOperatorKind::LessThan => _GraphOperation::_Decider(DeciderOperation::LessThan),
             BinaryOperatorKind::LessThanOrEqual => {
-                GraphOperation::Decider(DeciderOperation::LessThanOrEqual)
+                _GraphOperation::_Decider(DeciderOperation::LessThanOrEqual)
             }
-            BinaryOperatorKind::Equals => GraphOperation::Decider(DeciderOperation::Equals),
-            BinaryOperatorKind::NotEquals => GraphOperation::Decider(DeciderOperation::NotEquals),
+            BinaryOperatorKind::Equals => _GraphOperation::_Decider(DeciderOperation::Equals),
+            BinaryOperatorKind::NotEquals => _GraphOperation::_Decider(DeciderOperation::NotEquals),
         }
     }
 }

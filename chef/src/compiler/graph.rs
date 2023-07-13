@@ -6,9 +6,9 @@ use std::fmt::Display;
 use super::graph_visualizer;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum GraphOperation {
-    Decider(DeciderOperation),
-    Arithmetic(ArithmeticOperation),
+pub enum _GraphOperation {
+    _Decider(DeciderOperation),
+    _Arithmetic(ArithmeticOperation),
 }
 
 #[derive(Clone, Debug, PartialEq)]
