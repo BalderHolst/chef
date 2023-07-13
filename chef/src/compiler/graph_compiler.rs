@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::ast::{BinaryOperatorKind, Block, Expression, ExpressionKind, VariableSignalType, AST};
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
-use crate::diagnostics::DiagnosticsBagRef;
+use crate::diagnostics::{CompilationError, DiagnosticsBagRef};
 
 pub enum ReturnValue<A, B> {
     Int(A),
@@ -64,11 +64,11 @@ impl GraphCompiler {
         None
     }
 
-    pub fn compile(&mut self) -> Graph {
+    pub fn compile(&mut self) -> Result<Graph, CompilationError> {
         for statement in self.ast.statements.clone() {
-            self.compile_statement(statement);
+            self.compile_statement(statement)?;
         }
-        self.get_graph()
+        Ok(self.get_graph())
     }
 
     fn get_new_anysignal(&mut self) -> IOType {
@@ -83,16 +83,16 @@ impl GraphCompiler {
         graph: &mut Graph,
         expr: &Expression,
         out_type: Option<IOType>,
-    ) -> (NId, IOType) {
+    ) -> Result<(NId, IOType), CompilationError> {
         match &expr.kind {
             // TODO: "" name is awful...
             ExpressionKind::Int(n) => {
                 let t = IOType::Constant(n.number);
-                (graph.push_input_node("".to_string(), t.clone()), t) // TODO: It is ugly with "" being the variable name.
+                Ok((graph.push_input_node("".to_string(), t.clone()), t)) // TODO: It is ugly with "" being the variable name.
             },
             ExpressionKind::Bool(b) => {
                 let t = IOType::Constant(*b as i32);
-                (graph.push_input_node("".to_string(), t.clone()), t) // TODO: It is ugly with "" being the variable name.
+                Ok((graph.push_input_node("".to_string(), t.clone()), t)) // TODO: It is ugly with "" being the variable name.
             },
             ExpressionKind::VariableRef(var_ref) => {
                 let var = var_ref.var.clone();
@@ -116,10 +116,10 @@ impl GraphCompiler {
                             input_signal,
                             var_signal.clone()
                             )));
-                (vid, var_signal)
+                Ok((vid, var_signal))
             },
             ExpressionKind::VariableDef(var) => {
-                match &var.type_ {
+                let out = match &var.type_ {
                     VariableType::All => todo!(),
                     VariableType::Int(int_type) => match int_type {
                         VariableSignalType::Any => {
@@ -141,7 +141,8 @@ impl GraphCompiler {
                             (graph.push_input_node(var.name.clone(), signal.clone()), signal)
                         }
                     }
-                }
+                };
+                Ok(out)
             },
             ExpressionKind::Pick(pick_expr) => {
                 if let Some(var_out_vid) = self.search_scope(pick_expr.from.name.clone()) {
@@ -150,7 +151,7 @@ impl GraphCompiler {
                     graph.push_connection(var_out_vid, picked_vid, Connection::Arithmetic(
                             ArithmeticConnection::new_pick(out_type.clone())
                             ));
-                    (picked_vid, out_type)
+                    Ok((picked_vid, out_type))
                 }
                 else {
                     panic!("pick from variable which not in scope: {:?}.", pick_expr);
@@ -158,8 +159,8 @@ impl GraphCompiler {
             },
             ExpressionKind::Parenthesized(expr) => self.compile_expression(graph, &expr.expression, out_type),
             ExpressionKind::Binary(bin_expr) => {
-                let (left_vid, left_type) = self.compile_expression(graph, &bin_expr.left, None);
-                let (mut right_vid, mut right_type) = self.compile_expression(graph, &bin_expr.right, None);
+                let (left_vid, left_type) = self.compile_expression(graph, &bin_expr.left, None)?;
+                let (mut right_vid, mut right_type) = self.compile_expression(graph, &bin_expr.right, None)?;
 
                 // If the two inputs are of the same type, on mut be altered
                 if left_type == right_type {
@@ -215,53 +216,57 @@ impl GraphCompiler {
                 };
                 graph.push_connection(input, output, op_connection);
 
-                (output, out_type)
+                Ok((output, out_type))
             },
             ExpressionKind::BlockLink(block_expr) => {
-                let vars: Vec<(NId, IOType)> = block_expr.inputs.iter()
-                    .map(|expr|
-                         match expr.kind.clone() {
-                            ExpressionKind::VariableRef(var_ref) => {
-                                let variable = var_ref.var;
-                                let var_vid = self.search_scope(variable.name.clone())
-                                    .expect("A variable ref an only exist when its variable is defined");
-                                let t = self.variable_type_to_iotype(&variable.type_);
-                                (var_vid, t)
-                            },
-                            ExpressionKind::VariableDef(_variable) => {
-                                todo!("Report error")
-                            }
-                            ExpressionKind::Int(_) => self.compile_expression(graph, expr, None),
-                            ExpressionKind::Bool(_) => self.compile_expression(graph, expr, None),
-                            ExpressionKind::Binary(_) => self.compile_expression(graph, expr, None),
-                            ExpressionKind::Parenthesized(_) => self.compile_expression(graph, expr, None),
-                            ExpressionKind::Pick(p) => {
-                                let all_var = p.from;
-                                let signal = p.pick_signal;
-                                if let Some(var_vid) = self.search_scope(all_var.name.clone()) {
-                                    let picked_vid = graph.push_inner_node();
-                                    let t = IOType::Signal(signal);
-                                    graph.push_connection(var_vid, picked_vid, Connection::Arithmetic(ArithmeticConnection::new_pick(t.clone())));
-                                    (picked_vid, t)
-                                }
-                                else { panic!("Block links requires defined variables."); }
-                            },
-                            ExpressionKind::BlockLink(_) => self.compile_expression(graph, expr, None),
-                            ExpressionKind::When(_) => todo!(),
-                            ExpressionKind::Error => panic!("Compilation should have stopped before this step if errors where encountered."),
+                let mut vars: Vec<(NId, IOType)> = Vec::new();
+                for expr in block_expr.inputs.iter() {
+                     let pair = match expr.kind.clone() {
+                        ExpressionKind::VariableRef(var_ref) => {
+                            let variable = var_ref.var;
+                            let var_vid = self.search_scope(variable.name.clone())
+                                .expect("A variable ref an only exist when its variable is defined");
+                            let t = self.variable_type_to_iotype(&variable.type_);
+                            (var_vid, t)
+                        },
+                        ExpressionKind::VariableDef(_variable) => {
+                            todo!("Report error")
                         }
-                    ).collect();
+                        ExpressionKind::Int(_) => self.compile_expression(graph, expr, None)?,
+                        ExpressionKind::Bool(_) => self.compile_expression(graph, expr, None)?,
+                        ExpressionKind::Binary(_) => self.compile_expression(graph, expr, None)?,
+                        ExpressionKind::Parenthesized(_) => self.compile_expression(graph, expr, None)?,
+                        ExpressionKind::Pick(p) => {
+                            let all_var = p.from;
+                            let signal = p.pick_signal;
+                            if let Some(var_vid) = self.search_scope(all_var.name.clone()) {
+                                let picked_vid = graph.push_inner_node();
+                                let t = IOType::Signal(signal);
+                                graph.push_connection(var_vid, picked_vid, Connection::Arithmetic(ArithmeticConnection::new_pick(t.clone())));
+                                (picked_vid, t)
+                            }
+                            else { panic!("Block links requires defined variables."); }
+                        },
+                        ExpressionKind::BlockLink(_) => self.compile_expression(graph, expr, None)?,
+                        ExpressionKind::When(_) => todo!(),
+                        ExpressionKind::Error => panic!("Compilation should have stopped before this step if errors where encountered."),
+                    };
+                    vars.push(pair);
+                }
 
                 let outputs = match self.get_block_graph(&block_expr.block.name) {
                     Some(block_graph) => {
-                        graph.stitch_graph(block_graph, vars).expect("Wrong number of arguments for block link")
+                        match graph.stitch_graph(block_graph, vars) {
+                            Ok(v) => v,
+                            Err(e) => return Err(CompilationError::new(e, expr.span.clone()))
+                        }
                     },
                     None => {
                         panic!("Block not defined.");
                     },
                 };
                 if outputs.len() != 1 { todo!("Blocks with multipule outputs are not implemented yet"); }
-                outputs[0].clone()
+                Ok(outputs[0].clone())
             },
             ExpressionKind::When(_) => todo!(),
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
@@ -290,7 +295,7 @@ impl GraphCompiler {
         self.block_graphs.get(name)
     }
 
-    fn compile_block(&mut self, block: &Block) -> Graph {
+    fn compile_block(&mut self, block: &Block) -> Result<Graph, CompilationError> {
         let mut graph = Graph::new();
         self.enter_scope();
         for input_var in block.inputs.clone() {
@@ -313,7 +318,7 @@ impl GraphCompiler {
                         &mut graph,
                         &assignment.expression,
                         Some(out_type.clone()),
-                    );
+                    )?;
                     let output_node = graph.get_node(&output_vid).unwrap().clone();
                     match output_node {
                         Node::Inner(_n) => {
@@ -365,7 +370,7 @@ impl GraphCompiler {
                     let out_variable_type = &block.output;
                     let out_iotype = self.variable_type_to_iotype(out_variable_type);
                     let (out_vid, _out_node) =
-                        self.compile_expression(&mut graph, expr, Some(out_iotype.clone()));
+                        self.compile_expression(&mut graph, expr, Some(out_iotype.clone()))?;
                     graph
                         .vertices
                         .insert(out_vid, Node::Output(OutputNode::new(out_iotype)));
@@ -373,16 +378,17 @@ impl GraphCompiler {
             };
         }
         self.exit_scope();
-        graph
+        Ok(graph)
     }
 
-    fn compile_statement(&mut self, statement: Statement) {
+    fn compile_statement(&mut self, statement: Statement) -> Result<(), CompilationError> {
         match &statement.kind {
             StatementKind::Block(block) => {
-                let block_graph = self.compile_block(block);
+                let block_graph = self.compile_block(block)?;
                 self.add_block_graph(block.name.clone(), block_graph);
             }
             _ => todo!("Only block statements implemented for now."),
         }
+        Ok(())
     }
 }

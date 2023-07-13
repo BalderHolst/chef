@@ -35,7 +35,12 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
 
     let graph = compiler::compile(ast, diagnostics_bag.clone());
 
+    if let Err(e) = graph.clone() {
+        diagnostics_bag.borrow_mut().report_compilation_error(e);
+    }
     diagnostics_bag.borrow().exit_if_errored();
+
+    let graph = graph.expect("Error case handled above");
 
     if opts.verbose {
         graph.print();

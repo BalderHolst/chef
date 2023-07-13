@@ -382,7 +382,7 @@ impl Graph {
         &mut self,
         other: &Graph,
         inputs: Vec<(NId, IOType)>,
-    ) -> Result<Vec<(NId, IOType)>, ()> {
+    ) -> Result<Vec<(NId, IOType)>, String> {
         let mut vid_converter: fnv::FnvHashMap<NId, NId> = fnv::FnvHashMap::default();
 
         let mut outputs: FnvHashMap<NId, IOType> = FnvHashMap::default();
@@ -408,7 +408,7 @@ impl Graph {
         let other_graph_inputs = other.get_non_constant_inputs();
 
         if other_graph_inputs.len() != inputs.len() {
-            return Err(());
+            return Err("Number of arguments does not match with block definition.".to_string());
         }
 
         for (i, (block_input_vid, block_input_type)) in inputs.iter().enumerate() {
@@ -479,10 +479,10 @@ impl Graph {
     }
 
     /// TODO: Remove
-    pub fn get_single_input(&self, vid: &NId) -> Result<IOType, ()> {
+    pub fn get_single_input(&self, vid: &NId) -> Result<IOType, String> {
         let inputs = self.get_inputs(vid);
         if inputs.len() != 1 {
-            return Err(());
+            return Err("".to_string()); // TODO: REALLY remove
         }
         Ok(inputs[0].clone())
     }

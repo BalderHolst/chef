@@ -12,7 +12,7 @@ use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompilationError {
     pub desctiption: String,
     pub span: TextSpan,
