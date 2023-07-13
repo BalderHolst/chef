@@ -13,7 +13,10 @@ use crate::diagnostics::{CompilationError, DiagnosticsBagRef};
 use crate::text::TextSpan;
 
 use super::lexer::Lexer;
-use super::{Assignment, BlockLinkExpression, PickExpression, VariableSignalType, WhenExpression};
+use super::{
+    Assignment, BlockLinkExpression, PickExpression, VariableRef, VariableSignalType,
+    WhenExpression,
+};
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
 pub struct Parser {
@@ -260,13 +263,17 @@ impl Parser {
 
     /// Parse variable assignment statement.
     fn parse_assignment_statement(&mut self) -> Result<StatementKind, CompilationError> {
-        let variable: Rc<Variable>;
-        if let ExpressionKind::VariableDef(v) = self.parse_primary_expression()?.kind {
-            variable = v;
+        let start_span = self.current().span.clone();
+        let variable = if let ParsedVariable::Def(v) = self.parse_variable()? {
+            Rc::new(v)
         } else {
+            self.diagnostics_bag.borrow_mut().report_error(
+                &TextSpan::from_spans(start_span, self.peak(-1).span.clone()),
+                "Variables cannot be reassigned.",
+            );
             self.consume_bad_statement();
             return Ok(StatementKind::Error);
-        }
+        };
 
         if self.current().kind != TokenKind::Equals {
             self.diagnostics_bag
@@ -275,7 +282,9 @@ impl Parser {
             self.consume_bad_statement();
             return Ok(StatementKind::Error);
         }
-        self.consume();
+        self.consume(); // Consume equals
+
+        self.add_to_scope(variable.clone());
 
         let expr = self.parse_expression()?;
         self.consume_and_check(TokenKind::Semicolon)?;
@@ -308,6 +317,35 @@ impl Parser {
         }
     }
 
+    fn parse_variable(&mut self) -> Result<ParsedVariable, CompilationError> {
+        let start_token = self.current().clone();
+        let name = match &start_token.kind {
+            TokenKind::Word(w) => Ok(w),
+            _ => Err(CompilationError::new_unexpected_token(
+                start_token.clone(),
+                TokenKind::Word("".to_string()),
+            )),
+        }?;
+        self.consume(); // Consume name
+
+        if self.current().kind != TokenKind::Colon {
+            let var = self.search_scope(name).ok_or(CompilationError::new(
+                format!("Variable `{}` not defined.", name),
+                start_token.span.clone(),
+            ))?;
+            return Ok(ParsedVariable::Ref(VariableRef::new(var, start_token.span)));
+        }
+
+        self.consume_and_check(TokenKind::Colon)?;
+        let type_ = self.parse_variable_type()?;
+
+        Ok(ParsedVariable::Def(Variable::new(
+            name.to_owned(),
+            type_,
+            TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+        )))
+    }
+
     /// Parse variable type.
     fn parse_variable_type(&mut self) -> Result<VariableType, CompilationError> {
         let token = self.consume();
@@ -331,25 +369,22 @@ impl Parser {
     /// Parse arguments for `block` definition.
     fn parse_block_arguments(&mut self) -> Result<Vec<Rc<Variable>>, CompilationError> {
         let mut arguments: Vec<Rc<Variable>> = vec![];
-        loop {
-            let name = if let TokenKind::Word(s) = self.current().kind.clone() {
-                self.consume();
-                s
-            } else {
-                return Ok(arguments);
-            };
-            self.consume_and_check(TokenKind::Colon)?;
-            let var_start = self.current().span.clone();
-            let type_ = self.parse_variable_type()?;
-            let var_ref = Rc::new(Variable::new(
-                name,
-                type_,
-                TextSpan::from_spans(var_start, self.peak(-1).span.clone()),
-            ));
+        while self.current().kind != TokenKind::RightParen {
+            let var = match self.parse_variable()? {
+                ParsedVariable::Def(v) => Ok(v),
+
+                // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
+                ParsedVariable::Ref(v) => Err(CompilationError::new(
+                    "Please give variable a type.".to_string(),
+                    v.span.clone(),
+                )),
+            }?;
+            let var_ref = Rc::new(var);
             self.add_to_scope(var_ref.clone());
             arguments.push(var_ref);
             self.consume_if(TokenKind::Comma);
         }
+        Ok(arguments)
     }
 
     /// Parse outputs for `block` definition.
@@ -604,9 +639,10 @@ impl Parser {
                         });
                     }
                     return Ok({
-                        let kind = ExpressionKind::VariableDef(var);
                         let span =
                             TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                        let var_ref = VariableRef::new(var, span.clone());
+                        let kind = ExpressionKind::VariableRef(var_ref); // TODO
                         Expression { kind, span }
                     });
                 } else if current_token.kind == TokenKind::Colon {
@@ -688,6 +724,11 @@ impl Iterator for Parser {
     fn next(&mut self) -> Option<Self::Item> {
         self.next_statement()
     }
+}
+
+enum ParsedVariable {
+    Def(Variable),
+    Ref(VariableRef),
 }
 
 #[test]
