@@ -136,16 +136,16 @@ pub enum VariableSignalType {
 pub struct Variable {
     pub name: String,
     pub type_: VariableType,
-    pub definition: TextSpan,
+    pub span: TextSpan,
 }
 
 impl Variable {
     /// Instantiate a new [Variable].
-    pub fn new(name: String, variable_type: VariableType, definition: TextSpan) -> Self {
+    pub fn new(name: String, variable_type: VariableType, span: TextSpan) -> Self {
         Self {
             name,
             type_: variable_type,
-            definition,
+            span,
         }
     }
 
@@ -154,8 +154,25 @@ impl Variable {
         match self.type_ {
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Bool(_) => ExpressionReturnType::Bool,
-            VariableType::All => ExpressionReturnType::Int,
+            VariableType::All => ExpressionReturnType::Group,
         }
+    }
+}
+
+/// A reference to a defined chef variable
+#[derive(Debug, Clone, PartialEq)]
+pub struct VariableRef {
+    var: Rc<Variable>,
+    span: TextSpan,
+}
+
+impl VariableRef {
+    fn new(var: Rc<Variable>, span: TextSpan) -> Self {
+        Self { var, span }
+    }
+
+    pub fn return_type(&self) -> ExpressionReturnType {
+        self.var.return_type()
     }
 }
 
@@ -270,7 +287,7 @@ impl Expression {
 pub enum ExpressionReturnType {
     Bool,
     Int,
-    All,
+    Group,
 }
 
 impl Display for ExpressionReturnType {
@@ -278,7 +295,7 @@ impl Display for ExpressionReturnType {
         let s = match self {
             ExpressionReturnType::Bool => "bool",
             ExpressionReturnType::Int => "int",
-            ExpressionReturnType::All => "all",
+            ExpressionReturnType::Group => "all",
         };
         write!(f, "{s}")
     }
@@ -372,7 +389,7 @@ impl BlockLinkExpression {
         match self.block.output {
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Bool(_) => ExpressionReturnType::Bool,
-            VariableType::All => ExpressionReturnType::All,
+            VariableType::All => ExpressionReturnType::Group,
         }
     }
 }

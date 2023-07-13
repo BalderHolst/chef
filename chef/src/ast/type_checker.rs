@@ -118,7 +118,7 @@ impl Visitor for TypeChecker {
         // Make sure block input signals are valid factorio signals
         for var in &block.inputs {
             if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &var.type_ {
-                self.report_if_invalid_signal(signal, &var.definition);
+                self.report_if_invalid_signal(signal, &var.span);
             }
         }
         if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &block.output {
@@ -130,7 +130,7 @@ impl Visitor for TypeChecker {
 
     fn visit_variable(&mut self, var: &super::Variable) {
         if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &var.type_ {
-            self.report_if_invalid_signal(signal, &var.definition);
+            self.report_if_invalid_signal(signal, &var.span);
         }
     }
 }
