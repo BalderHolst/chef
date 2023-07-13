@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use crate::ast::{BinaryOperatorKind, Block, Expression, ExpressionKind, VariableSignalType, AST};
+use crate::ast::{
+    BinaryOperatorKind, Block, Expression, ExpressionKind, VariableSignalType, WhenExpression, AST,
+};
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
 use crate::diagnostics::{CompilationError, DiagnosticsBagRef};
@@ -254,7 +256,7 @@ impl GraphCompiler {
                             else { panic!("Block links requires defined variables."); }
                         },
                         ExpressionKind::BlockLink(_) => self.compile_expression(graph, expr, None)?,
-                        ExpressionKind::When(_) => todo!(),
+                        ExpressionKind::When(_) => self.compile_expression(graph, expr, None)?,
                         ExpressionKind::Error => panic!("Compilation should have stopped before this step if errors where encountered."),
                     };
                     vars.push(pair);
@@ -274,9 +276,82 @@ impl GraphCompiler {
                 if outputs.len() != 1 { todo!("Blocks with multipule outputs are not implemented yet"); }
                 Ok(outputs[0].clone())
             },
-            ExpressionKind::When(_) => todo!(),
+            ExpressionKind::When(when) => self.compile_when_expression(graph, when),
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }
+    }
+
+    fn compile_when_expression(
+        &mut self,
+        graph: &mut Graph,
+        when: &WhenExpression,
+    ) -> Result<(NId, IOType), CompilationError> {
+        self.enter_scope();
+
+        for statement in &when.statements {
+            self.compile_statement(graph, statement)?;
+        }
+
+        // Compule output expression
+        let (gate_input_nid, gate_type) = self.compile_expression(graph, &when.out, None)?;
+
+        self.exit_scope();
+
+        // Output of the gate
+        let out_nid = graph.push_inner_node();
+
+        let (left, right, operation) = match &when.condition.kind {
+            // Integrate decider expressions into the decider combinator if possible
+            ExpressionKind::Binary(b) => match b.operator.to_graph_operation() {
+                GraphOperation::Decider(op) => {
+                    let (left_out_nid, left_out_type) =
+                        self.compile_expression(graph, &b.left, None)?;
+                    let (right_out_nid, right_out_type) =
+                        self.compile_expression(graph, &b.right, None)?;
+                    graph.push_connection(
+                        left_out_nid,
+                        gate_input_nid,
+                        Connection::new_pick(left_out_type.clone()),
+                    );
+                    graph.push_connection(
+                        right_out_nid,
+                        gate_input_nid,
+                        Connection::new_pick(right_out_type.clone()),
+                    );
+                    (left_out_type, right_out_type, op)
+                }
+                GraphOperation::Arithmetic(_) => {
+                    panic!("The typechecker shoud make sure this does not happen.")
+                }
+            },
+            _ => {
+                let (expr_out_nid, expr_out_type) =
+                    self.compile_expression(graph, &when.condition, None)?;
+                graph.push_connection(
+                    expr_out_nid,
+                    gate_input_nid,
+                    Connection::new_pick(expr_out_type.clone()),
+                );
+                (
+                    expr_out_type,
+                    IOType::Constant(0),
+                    DeciderOperation::LargerThan,
+                )
+            }
+        };
+
+        // Push the actual gate opteration
+        graph.push_connection(
+            gate_input_nid,
+            out_nid,
+            Connection::Gate(GateConnection {
+                left,
+                right,
+                operation,
+                gate_type: gate_type.clone(),
+            }),
+        );
+        Ok((out_nid, gate_type))
     }
 
     fn variable_type_to_iotype(&mut self, variable_type: &VariableType) -> IOType {

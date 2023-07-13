@@ -4,6 +4,7 @@ use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::ast::visitors::Visitor;
+use crate::compiler::graph::{ArithmeticOperation, DeciderOperation, GraphOperation};
 use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::{SourceText, TextSpan};
 use crate::Opts;
@@ -319,9 +320,9 @@ pub enum ExpressionKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WhenExpression {
-    condition: Box<Expression>,
-    statements: Vec<Statement>,
-    out: Box<Expression>,
+    pub condition: Box<Expression>,
+    pub statements: Vec<Statement>,
+    pub out: Box<Expression>,
 }
 
 impl WhenExpression {
@@ -465,6 +466,27 @@ impl BinaryOperator {
             BinaryOperatorKind::LessThanOrEqual => ExpressionReturnType::Bool,
             BinaryOperatorKind::Equals => ExpressionReturnType::Bool,
             BinaryOperatorKind::NotEquals => ExpressionReturnType::Bool,
+        }
+    }
+
+    pub fn to_graph_operation(&self) -> GraphOperation {
+        match self.kind {
+            BinaryOperatorKind::Plus => GraphOperation::Arithmetic(ArithmeticOperation::Add),
+            BinaryOperatorKind::Minus => GraphOperation::Arithmetic(ArithmeticOperation::Subtract),
+            BinaryOperatorKind::Multiply => {
+                GraphOperation::Arithmetic(ArithmeticOperation::Multiply)
+            }
+            BinaryOperatorKind::Divide => GraphOperation::Arithmetic(ArithmeticOperation::Divide),
+            BinaryOperatorKind::LargerThan => GraphOperation::Decider(DeciderOperation::LargerThan),
+            BinaryOperatorKind::LargerThanOrEqual => {
+                GraphOperation::Decider(DeciderOperation::LargerThanOrEqual)
+            }
+            BinaryOperatorKind::LessThan => GraphOperation::Decider(DeciderOperation::LessThan),
+            BinaryOperatorKind::LessThanOrEqual => {
+                GraphOperation::Decider(DeciderOperation::LessThanOrEqual)
+            }
+            BinaryOperatorKind::Equals => GraphOperation::Decider(DeciderOperation::Equals),
+            BinaryOperatorKind::NotEquals => GraphOperation::Decider(DeciderOperation::NotEquals),
         }
     }
 }

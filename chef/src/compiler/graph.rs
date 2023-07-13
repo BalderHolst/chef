@@ -6,6 +6,12 @@ use std::fmt::Display;
 use super::graph_visualizer;
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum GraphOperation {
+    Decider(DeciderOperation),
+    Arithmetic(ArithmeticOperation),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum DeciderOperation {
     LargerThan,
     LargerThanOrEqual,
@@ -132,9 +138,18 @@ impl ArithmeticConnection {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct GateConnection {
+    pub left: IOType,
+    pub right: IOType,
+    pub operation: DeciderOperation,
+    pub gate_type: IOType,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Connection {
     Arithmetic(ArithmeticConnection),
     Decider(DeciderConnection),
+    Gate(GateConnection),
 }
 
 impl Connection {
@@ -143,12 +158,16 @@ impl Connection {
     }
 
     pub fn get_output(&self) -> Vec<IOType> {
+        // TODO: remove Vec and enforce single output
         match self {
             Connection::Arithmetic(ac) => {
                 vec![ac.output.clone()]
             }
             Connection::Decider(dc) => {
                 vec![dc.output.clone()]
+            }
+            Connection::Gate(gc) => {
+                vec![gc.gate_type.clone()]
             }
         }
     }
@@ -196,6 +215,10 @@ impl Display for Connection {
             Connection::Decider(connection) => format!(
                 "{}: {}, {}",
                 connection.operation, connection.left, connection.right
+            ),
+            Connection::Gate(gate) => format!(
+                "{}: {}, {}\nGATE: {}",
+                gate.operation, gate.left, gate.right, gate.gate_type
             ),
         };
         writeln!(f, "{s}")
@@ -521,6 +544,17 @@ impl Graph {
                         }
                         if dc.output == old_type {
                             dc.output = new_type.clone()
+                        }
+                    }
+                    Connection::Gate(gc) => {
+                        if gc.left == old_type {
+                            gc.left = new_type.clone()
+                        }
+                        if gc.right == old_type {
+                            gc.right = new_type.clone()
+                        }
+                        if gc.gate_type == old_type {
+                            gc.gate_type = new_type.clone()
                         }
                     }
                 }

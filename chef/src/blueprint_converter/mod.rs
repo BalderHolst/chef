@@ -92,6 +92,7 @@ impl _BlueprintConverter {
                 }
             }
             graph::Connection::Decider(_) => todo!(),
+            graph::Connection::Gate(_) => todo!(),
         }
     }
 
