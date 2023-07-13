@@ -51,13 +51,21 @@ impl Visitor for TypeChecker {
     fn visit_bool(&mut self, _value: &bool) {}
     fn visit_error_expression(&mut self) {}
     fn visit_pick_expression(&mut self, _expr: &super::PickExpression) {}
+    fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
+
+    fn visit_variable_def(&mut self, var: &super::Variable) {
+        if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &var.type_ {
+            self.report_if_invalid_signal(signal, &var.span);
+        }
+    }
 
     fn visit_expression(&mut self, expression: &super::Expression) {
         match &expression.kind {
             ExpressionKind::Bool(_) => {}
             ExpressionKind::Int(_) => {}
             ExpressionKind::Parenthesized(_) => {}
-            ExpressionKind::Variable(_) => {}
+            ExpressionKind::VariableDef(_) => {}
+            ExpressionKind::VariableRef(_) => {}
             ExpressionKind::BlockLink(_) => {}
             ExpressionKind::Error => {}
             ExpressionKind::Pick(e) => {
@@ -126,12 +134,6 @@ impl Visitor for TypeChecker {
         }
 
         self.do_visit_block(block);
-    }
-
-    fn visit_variable(&mut self, var: &super::Variable) {
-        if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &var.type_ {
-            self.report_if_invalid_signal(signal, &var.span);
-        }
     }
 }
 

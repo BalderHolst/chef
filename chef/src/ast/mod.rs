@@ -162,8 +162,8 @@ impl Variable {
 /// A reference to a defined chef variable
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariableRef {
-    var: Rc<Variable>,
-    span: TextSpan,
+    pub var: Rc<Variable>,
+    pub span: TextSpan,
 }
 
 impl VariableRef {
@@ -241,7 +241,8 @@ impl Expression {
             ExpressionKind::Binary(e) => e.return_type().clone(),
             ExpressionKind::Parenthesized(e) => e.return_type(),
             ExpressionKind::Pick(_) => ExpressionReturnType::Int,
-            ExpressionKind::Variable(var) => var.return_type(),
+            ExpressionKind::VariableDef(var) => var.return_type(),
+            ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(),
             ExpressionKind::When(e) => e.return_type(),
             ExpressionKind::Error => ExpressionReturnType::Int,
@@ -309,7 +310,8 @@ pub enum ExpressionKind {
     Binary(BinaryExpression),
     Parenthesized(ParenthesizedExpression),
     Pick(PickExpression),
-    Variable(Rc<Variable>),
+    VariableDef(Rc<Variable>),
+    VariableRef(VariableRef),
     BlockLink(BlockLinkExpression),
     When(WhenExpression),
     Error,
@@ -595,8 +597,16 @@ impl Visitor for Printer {
         self.print(&format!("Boolean: {}", bool));
     }
 
-    fn visit_variable(&mut self, var: &Variable) {
-        self.print(&format!("Variable: {} (type: {:?})", var.name, var.type_))
+    fn visit_variable_def(&mut self, var: &Variable) {
+        self.print(&format!(
+            "VariableDef: {} (type: {:?})",
+            var.name, var.type_
+        ))
+    }
+
+    fn visit_variable_ref(&mut self, var_ref: &VariableRef) {
+        let var = var_ref.var.clone();
+        self.print(&format!("VariableRef: {}", var.name))
     }
 
     fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression) {

@@ -94,51 +94,51 @@ impl GraphCompiler {
                 let t = IOType::Constant(*b as i32);
                 (graph.push_input_node("".to_string(), t.clone()), t) // TODO: It is ugly with "" being the variable name.
             },
-            ExpressionKind::Variable(var) => {
-                if let Some(var_node_vid) = self.search_scope(var.name.clone()) {
-                    let var_node = graph.get_node(&var_node_vid).unwrap().clone();
-                    let var_signal = self.variable_type_to_iotype(&var.type_);
-                    let input_signal = match var_node {
-                        Node::Input(var_output_node) => var_output_node.input,
-                        Node::Output(_) => {
-                            let inputs = graph.get_inputs(&var_node_vid);
-                            if inputs.len() != 1 {
-                                panic!("Output nodes should have exactly ONE input");
-                            }
-                            inputs[0].clone()
+            ExpressionKind::VariableRef(var_ref) => {
+                let var = var_ref.var.clone();
+                let var_node_vid = self.search_scope(var.name.clone()).expect("Variable references should always point to defined variables");
+                let var_node = graph.get_node(&var_node_vid).unwrap().clone();
+                let var_signal = self.variable_type_to_iotype(&var.type_);
+                let input_signal = match var_node {
+                    Node::Input(var_output_node) => var_output_node.input,
+                    Node::Output(_) => {
+                        let inputs = graph.get_inputs(&var_node_vid);
+                        if inputs.len() != 1 {
+                            panic!("Output nodes should have exactly ONE input");
+                        }
+                        inputs[0].clone()
+                    },
+                    Node::Inner(_) => panic!("Var nodes should be output or input nodes"),
+                };
+                let vid = graph.push_node(Node::Inner(InnerNode::new()));
+                graph.push_connection(var_node_vid, vid, Connection::Arithmetic(
+                        ArithmeticConnection::new_convert(
+                            input_signal,
+                            var_signal.clone()
+                            )));
+                (vid, var_signal)
+            },
+            ExpressionKind::VariableDef(var) => {
+                match &var.type_ {
+                    VariableType::All => todo!(),
+                    VariableType::Int(int_type) => match int_type {
+                        VariableSignalType::Any => {
+                            let signal = self.get_new_anysignal();
+                            (graph.push_input_node(var.name.clone(), signal.clone()), signal)
                         },
-                        Node::Inner(_) => panic!("Var nodes should be output or input nodes"),
-                    };
-                    let vid = graph.push_node(Node::Inner(InnerNode::new()));
-                    graph.push_connection(var_node_vid, vid, Connection::Arithmetic(
-                            ArithmeticConnection::new_convert(
-                                input_signal,
-                                var_signal.clone()
-                                )));
-                    (vid, var_signal)
-                }
-                else {
-                    match &var.type_ {
-                        VariableType::All => todo!(),
-                        VariableType::Int(int_type) => match int_type {
-                            VariableSignalType::Any => {
-                                let signal = self.get_new_anysignal();
-                                (graph.push_input_node(var.name.clone(), signal.clone()), signal)
-                            },
-                            VariableSignalType::Signal(s) => {
-                                let signal = IOType::Signal(s.clone());
-                                (graph.push_input_node(var.name.clone(), signal.clone()), signal)
-                            }
+                        VariableSignalType::Signal(s) => {
+                            let signal = IOType::Signal(s.clone());
+                            (graph.push_input_node(var.name.clone(), signal.clone()), signal)
+                        }
+                    },
+                    VariableType::Bool(bool_type) => match bool_type {
+                        VariableSignalType::Any => {
+                            let signal = self.get_new_anysignal();
+                            (graph.push_input_node(var.name.clone(), signal.clone()), signal)
                         },
-                        VariableType::Bool(bool_type) => match bool_type {
-                            VariableSignalType::Any => {
-                                let signal = self.get_new_anysignal();
-                                (graph.push_input_node(var.name.clone(), signal.clone()), signal)
-                            },
-                            VariableSignalType::Signal(s) => {
-                                let signal = IOType::Signal(s.clone());
-                                (graph.push_input_node(var.name.clone(), signal.clone()), signal)
-                            }
+                        VariableSignalType::Signal(s) => {
+                            let signal = IOType::Signal(s.clone());
+                            (graph.push_input_node(var.name.clone(), signal.clone()), signal)
                         }
                     }
                 }
@@ -221,12 +221,15 @@ impl GraphCompiler {
                 let vars: Vec<(NId, IOType)> = block_expr.inputs.iter()
                     .map(|expr|
                          match expr.kind.clone() {
-                            ExpressionKind::Variable(variable) => {
-                                if let Some(var_vid) = self.search_scope(variable.name.clone()) {
-                                    let t = self.variable_type_to_iotype(&variable.type_);
-                                    (var_vid, t)
-                                }
-                                else { panic!("Block links requires defined variables."); }
+                            ExpressionKind::VariableRef(var_ref) => {
+                                let variable = var_ref.var;
+                                let var_vid = self.search_scope(variable.name.clone())
+                                    .expect("A variable ref an only exist when its variable is defined");
+                                let t = self.variable_type_to_iotype(&variable.type_);
+                                (var_vid, t)
+                            },
+                            ExpressionKind::VariableDef(_variable) => {
+                                todo!("Report error")
                             }
                             ExpressionKind::Int(_) => self.compile_expression(graph, expr, None),
                             ExpressionKind::Bool(_) => self.compile_expression(graph, expr, None),
@@ -251,7 +254,7 @@ impl GraphCompiler {
 
                 let outputs = match self.get_block_graph(&block_expr.block.name) {
                     Some(block_graph) => {
-                        graph.stitch_graph(block_graph, vars).expect("Wrong number of arguments for function")
+                        graph.stitch_graph(block_graph, vars).expect("Wrong number of arguments for block link")
                     },
                     None => {
                         panic!("Block not defined.");

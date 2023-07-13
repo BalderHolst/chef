@@ -261,7 +261,7 @@ impl Parser {
     /// Parse variable assignment statement.
     fn parse_assignment_statement(&mut self) -> Result<StatementKind, CompilationError> {
         let variable: Rc<Variable>;
-        if let ExpressionKind::Variable(v) = self.parse_primary_expression()?.kind {
+        if let ExpressionKind::VariableDef(v) = self.parse_primary_expression()?.kind {
             variable = v;
         } else {
             self.consume_bad_statement();
@@ -604,7 +604,7 @@ impl Parser {
                         });
                     }
                     return Ok({
-                        let kind = ExpressionKind::Variable(var);
+                        let kind = ExpressionKind::VariableDef(var);
                         let span =
                             TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
                         Expression { kind, span }
@@ -624,7 +624,7 @@ impl Parser {
                     ));
                     self.add_to_scope(var.clone());
                     return Ok({
-                        let kind = ExpressionKind::Variable(var);
+                        let kind = ExpressionKind::VariableDef(var);
                         let span =
                             TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
                         Expression { kind, span }
