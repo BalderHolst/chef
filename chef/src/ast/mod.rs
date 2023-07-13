@@ -565,7 +565,13 @@ impl Visitor for Printer {
     fn visit_block(&mut self, block: &Block) {
         self.print(&format!(
             "Block: \"{}\" {:?} -> {:?}",
-            block.name, block.inputs, block.output
+            block.name,
+            block
+                .inputs
+                .iter()
+                .map(|i| (i.name.clone(), i.type_.to_string()))
+                .collect::<Vec<(String, String)>>(),
+            block.output
         ));
         self.indent();
         self.do_visit_block(block);
