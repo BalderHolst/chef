@@ -408,7 +408,11 @@ impl Graph {
         let other_graph_inputs = other.get_non_constant_inputs();
 
         if other_graph_inputs.len() != inputs.len() {
-            return Err("Number of arguments does not match with block definition.".to_string());
+            return Err(format!(
+                "Number of arguments does not match with block definition: Expected {}, found {}",
+                other_graph_inputs.len(),
+                inputs.len()
+            ));
         }
 
         for (i, (block_input_vid, block_input_type)) in inputs.iter().enumerate() {
