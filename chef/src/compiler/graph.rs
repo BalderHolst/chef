@@ -138,7 +138,7 @@ pub enum Connection {
 }
 
 impl Connection {
-    pub fn _new_pick(signal: IOType) -> Self {
+    pub fn new_pick(signal: IOType) -> Self {
         Self::Arithmetic(ArithmeticConnection::new_pick(signal))
     }
 
@@ -326,6 +326,10 @@ impl Graph {
         self.push_node(Node::Inner(InnerNode::new()))
     }
 
+    pub fn push_output_node(&mut self, output_type: IOType) -> NId {
+        self.push_node(Node::Output(OutputNode::new(output_type)))
+    }
+
     /// Push a connection between two nodes. Connections represent combinator operations.
     pub fn push_connection(&mut self, from: NId, to: NId, connection: Connection) {
         let adjacent_to_from = self.adjacency.entry(from).or_default();
@@ -409,7 +413,7 @@ impl Graph {
 
         if other_graph_inputs.len() != inputs.len() {
             return Err(format!(
-                "Number of arguments does not match with block definition: Expected {}, found {}",
+                "Number of arguments does not match with block definition: Expected {}, found {}.",
                 other_graph_inputs.len(),
                 inputs.len()
             ));

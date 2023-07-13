@@ -66,7 +66,13 @@ impl GraphCompiler {
 
     pub fn compile(&mut self) -> Result<Graph, CompilationError> {
         for statement in self.ast.statements.clone() {
-            self.compile_statement(statement)?;
+            match &statement.kind {
+                StatementKind::Block(block) => {
+                    let block_graph = self.compile_block(block)?;
+                    self.add_block_graph(block.name.clone(), block_graph);
+                }
+                _ => todo!("Only block statements implemented for now."),
+            }
         }
         Ok(self.get_graph())
     }
@@ -305,90 +311,81 @@ impl GraphCompiler {
             self.add_to_scope(var_name, input_vid)
         }
         for statement in &block.statements {
-            match &statement.kind {
-                StatementKind::Block(_) => {
-                    self.diagnostics_bag.borrow_mut().report_error(
-                        &statement.span,
-                        "A `block` cannot be defined within another block.",
-                    );
-                }
-                StatementKind::Assignment(assignment) => {
-                    let out_type = self.variable_type_to_iotype(&assignment.variable.type_);
-                    let (mut output_vid, _) = self.compile_expression(
-                        &mut graph,
-                        &assignment.expression,
-                        Some(out_type.clone()),
-                    )?;
-                    let output_node = graph.get_node(&output_vid).unwrap().clone();
-                    match output_node {
-                        Node::Inner(_n) => {
-                            // Convert inner node to output node
-                            let input_type = graph.get_single_input(&output_vid).unwrap();
-                            let var_out_node = OutputNode::new(out_type.clone());
-                            let middle_vid = output_vid;
-                            output_vid = graph.push_node(Node::Inner(InnerNode::new()));
-                            graph.push_connection(
-                                middle_vid,
-                                output_vid,
-                                Connection::Arithmetic(ArithmeticConnection::new_convert(
-                                    input_type, out_type,
-                                )),
-                            );
-                            graph.override_node(output_vid, Node::Output(var_out_node));
-                        }
-                        Node::Input(n) => {
-                            let var_node = Node::Output(OutputNode::new(out_type.clone()));
-                            let var_node_vid = graph.push_node(var_node);
-                            graph.push_connection(
-                                output_vid,
-                                var_node_vid,
-                                Connection::Arithmetic(ArithmeticConnection::new_convert(
-                                    n.input, out_type,
-                                )),
-                            );
-                            output_vid = var_node_vid;
-                        }
-                        Node::Output(n) => {
-                            let var_node_vid = graph.push_node(Node::Output(n.clone()));
-                            graph.push_connection(
-                                output_vid,
-                                var_node_vid,
-                                Connection::Arithmetic(ArithmeticConnection::new_convert(
-                                    n.output_type,
-                                    out_type,
-                                )),
-                            );
-                            output_vid = var_node_vid;
-                        }
-                    }
-                    self.add_to_scope(assignment.variable.name.clone(), output_vid);
-                }
-                StatementKind::Error => {
-                    panic!("There should not be error statements when compilation has started.")
-                }
-                StatementKind::Out(expr) => {
-                    let out_variable_type = &block.output;
-                    let out_iotype = self.variable_type_to_iotype(out_variable_type);
-                    let (out_vid, _out_node) =
-                        self.compile_expression(&mut graph, expr, Some(out_iotype.clone()))?;
-                    graph
-                        .vertices
-                        .insert(out_vid, Node::Output(OutputNode::new(out_iotype)));
-                }
-            };
+            self.compile_statement(&mut graph, statement)?;
         }
         self.exit_scope();
         Ok(graph)
     }
 
-    fn compile_statement(&mut self, statement: Statement) -> Result<(), CompilationError> {
-        match &statement.kind {
-            StatementKind::Block(block) => {
-                let block_graph = self.compile_block(block)?;
-                self.add_block_graph(block.name.clone(), block_graph);
+    fn compile_statement(
+        &mut self,
+        graph: &mut Graph,
+        statement: &Statement,
+    ) -> Result<(), CompilationError> {
+        match statement.kind.clone() {
+            StatementKind::Block(_) => {
+                self.diagnostics_bag.borrow_mut().report_error(
+                    &statement.span,
+                    "A `block` cannot be defined within another block.",
+                );
             }
-            _ => todo!("Only block statements implemented for now."),
-        }
+            StatementKind::Assignment(assignment) => {
+                let out_type = self.variable_type_to_iotype(&assignment.variable.type_);
+                let (mut output_vid, _) =
+                    self.compile_expression(graph, &assignment.expression, Some(out_type.clone()))?;
+                let output_node = graph.get_node(&output_vid).unwrap().clone();
+                match output_node {
+                    Node::Inner(_n) => {
+                        // Convert inner node to output node
+                        let input_type = graph.get_single_input(&output_vid).unwrap();
+                        let var_out_node = OutputNode::new(out_type.clone());
+                        let middle_vid = output_vid;
+                        output_vid = graph.push_node(Node::Inner(InnerNode::new()));
+                        graph.push_connection(
+                            middle_vid,
+                            output_vid,
+                            Connection::Arithmetic(ArithmeticConnection::new_convert(
+                                input_type, out_type,
+                            )),
+                        );
+                        graph.override_node(output_vid, Node::Output(var_out_node));
+                    }
+                    Node::Input(n) => {
+                        let var_node = Node::Output(OutputNode::new(out_type.clone()));
+                        let var_node_vid = graph.push_node(var_node);
+                        graph.push_connection(
+                            output_vid,
+                            var_node_vid,
+                            Connection::Arithmetic(ArithmeticConnection::new_convert(
+                                n.input, out_type,
+                            )),
+                        );
+                        output_vid = var_node_vid;
+                    }
+                    Node::Output(n) => {
+                        let var_node_vid = graph.push_node(Node::Output(n.clone()));
+                        graph.push_connection(
+                            output_vid,
+                            var_node_vid,
+                            Connection::Arithmetic(ArithmeticConnection::new_convert(
+                                n.output_type,
+                                out_type,
+                            )),
+                        );
+                        output_vid = var_node_vid;
+                    }
+                }
+                self.add_to_scope(assignment.variable.name.clone(), output_vid);
+            }
+            StatementKind::Error => {
+                panic!("There should not be error statements when compilation has started.")
+            }
+            StatementKind::Out(expr) => {
+                let (expr_nid, out_type) = self.compile_expression(graph, &expr, None)?;
+                let out_nid = graph.push_output_node(out_type.clone());
+                graph.push_connection(expr_nid, out_nid, Connection::new_pick(out_type));
+            }
+        };
         Ok(())
     }
 }
