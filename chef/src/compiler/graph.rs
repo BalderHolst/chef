@@ -158,18 +158,12 @@ impl Connection {
         ))
     }
 
-    pub fn get_output(&self) -> Vec<IOType> {
+    pub fn get_output(&self) -> IOType {
         // TODO: remove Vec and enforce single output
         match self {
-            Connection::Arithmetic(ac) => {
-                vec![ac.output.clone()]
-            }
-            Connection::Decider(dc) => {
-                vec![dc.output.clone()]
-            }
-            Connection::Gate(gc) => {
-                vec![gc.gate_type.clone()]
-            }
+            Connection::Arithmetic(ac) => ac.output.clone(),
+            Connection::Decider(dc) => dc.output.clone(),
+            Connection::Gate(gc) => gc.gate_type.clone(),
         }
     }
 
@@ -302,9 +296,7 @@ impl Graph {
         for to_vec in self.adjacency.values() {
             for (to_vid, conn) in to_vec {
                 if to_vid == vid {
-                    for output in conn.get_output() {
-                        inputs.push(output)
-                    }
+                    inputs.push(conn.get_output());
                 }
             }
         }
@@ -443,7 +435,7 @@ impl Graph {
                 let new_to_vid = vid_converter[&old_to_vid];
                 self.push_connection(new_from_vid, new_to_vid, conn.clone());
                 if self.is_output(new_to_vid) {
-                    outputs.insert(new_to_vid, conn.get_output().first().unwrap().clone());
+                    outputs.insert(new_to_vid, conn.get_output());
                 }
             }
         }
