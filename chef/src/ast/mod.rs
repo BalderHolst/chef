@@ -258,7 +258,7 @@ impl Expression {
         }
     }
 
-    fn _number(n: i32, span: TextSpan) -> Self {
+    fn number(n: i32, span: TextSpan) -> Self {
         Self {
             kind: ExpressionKind::Int(IntExpression::new(n)),
             span,

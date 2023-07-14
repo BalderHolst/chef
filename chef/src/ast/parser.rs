@@ -275,6 +275,19 @@ impl Parser {
             return Ok(StatementKind::Error);
         };
 
+        if let VariableType::Var(_) = variable.type_ {
+            self.consume_and_check(TokenKind::Semicolon)?;
+            self.add_to_scope(variable.clone());
+
+            // `var` type variable is always zero initialized, because memory cells in factorio
+            // cannot be assigned values.
+            let expr = Expression::number(
+                0,
+                TextSpan::from_spans(start_span, self.peak(-1).span.clone()),
+            );
+            return Ok(StatementKind::Assignment(Assignment::new(variable, expr)));
+        }
+
         if self.current().kind != TokenKind::Equals {
             self.diagnostics_bag
                 .borrow_mut()
