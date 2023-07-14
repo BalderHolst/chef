@@ -11,7 +11,7 @@ impl<'a> GraphOptimizer<'a> {
 
     pub fn optimize(&mut self) {
         for vid in self.graph.get_input_nodes() {
-            // self.integrate_constant_input(vid);
+            self.integrate_constant_input(vid);
         }
         self.remove_redundant_picks();
     }
@@ -51,14 +51,14 @@ impl<'a> GraphOptimizer<'a> {
     fn integrate_constant_input(&mut self, vid: NId) {
         let inputs = self.graph.get_inputs(&vid);
 
-        if inputs.len() == 1 {
-            if let IOType::Constant(_) = inputs.first().unwrap() {
-            } else {
-                return;
-            }
+        if inputs.len() != 1 {
+            return;
+        }
+
+        if let IOType::Constant(_) = inputs.first().unwrap() {
         } else {
             return;
-        };
+        }
 
         for (to_vid, connection) in self.graph.adjacency.get(&vid).unwrap().clone() {
             if connection.is_pick() {
