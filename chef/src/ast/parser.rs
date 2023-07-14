@@ -180,9 +180,12 @@ impl Parser {
                         self.consume();
                         let statement_start = self.current().span.start;
                         if let Ok(expr) = self.parse_expression() {
-                            // TODO handle error
-                            self.consume_and_check(TokenKind::Semicolon)
-                                .expect("Could not find semicolon"); // TODO handle error
+                            if let Err(e) = self.consume_and_check(TokenKind::Semicolon) {
+                                self.diagnostics_bag
+                                    .borrow_mut()
+                                    .report_compilation_error(e);
+                                return None;
+                            }
                             Ok(StatementKind::Out(expr))
                         } else {
                             self.consume_bad_statement();
