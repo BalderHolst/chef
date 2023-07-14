@@ -324,6 +324,7 @@ pub enum ExpressionReturnType {
     Bool,
     Int,
     Group,
+    None,
 }
 
 impl Display for ExpressionReturnType {
@@ -332,6 +333,7 @@ impl Display for ExpressionReturnType {
             ExpressionReturnType::Bool => "bool",
             ExpressionReturnType::Int => "int",
             ExpressionReturnType::Group => "all",
+            ExpressionReturnType::None => "none",
         };
         write!(f, "{s}")
     }
@@ -355,12 +357,15 @@ pub enum ExpressionKind {
 pub struct WhenExpression {
     pub condition: Box<Expression>,
     pub statements: Vec<Statement>,
-    pub out: Box<Expression>,
+    pub out: Option<Box<Expression>>,
 }
 
 impl WhenExpression {
     pub fn return_type(&self) -> ExpressionReturnType {
-        self.out.return_type()
+        match &self.out {
+            Some(o) => o.return_type(),
+            None => ExpressionReturnType::None,
+        }
     }
 }
 
@@ -729,7 +734,10 @@ impl Visitor for Printer {
         }
         self.print("WhenOutput:");
         self.indent();
-        self.visit_expression(&when.out);
+        match &when.out {
+            Some(out) => self.visit_expression(out),
+            None => self.print("No Output."),
+        }
         self.unindent();
         self.unindent();
     }

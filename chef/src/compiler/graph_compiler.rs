@@ -51,7 +51,7 @@ impl GraphCompiler {
             self.add_to_scope(var_name, input_vid)
         }
         for statement in &block.statements {
-            self.compile_statement(&mut graph, statement)?;
+            self.compile_statement(&mut graph, statement, None)?;
         }
         self.exit_scope();
         Ok(graph)
@@ -61,6 +61,7 @@ impl GraphCompiler {
         &mut self,
         graph: &mut Graph,
         statement: &Statement,
+        gate: Option<(NId, IOType)>,
     ) -> Result<(), CompilationError> {
         match statement.kind.clone() {
             StatementKind::Block(_) => {
@@ -73,7 +74,7 @@ impl GraphCompiler {
                 self.compile_assignment_statement(graph, assignment)?
             }
             StatementKind::Mutation(mutation_statement) => {
-                self.compile_mutation_statement(graph, mutation_statement)?
+                self.compile_mutation_statement(graph, mutation_statement, gate)?
             }
             StatementKind::Error => {
                 panic!("There should not be error statements when compilation has started.")
@@ -151,6 +152,7 @@ impl GraphCompiler {
         &mut self,
         graph: &mut Graph,
         mutation_statement: Mutation,
+        gate: Option<(NId, IOType)>,
     ) -> Result<(), CompilationError> {
         let var_nid = self.search_scope(mutation_statement.var_ref.var.name.clone()).expect("The parser should make sure that mutation statements only happen on defined variables.");
         let var_type = mutation_statement.var_ref.var.type_.clone();
@@ -406,34 +408,42 @@ impl GraphCompiler {
     ) -> Result<(NId, IOType), CompilationError> {
         self.enter_scope();
 
+        // Compile condition expression.
+        let cond_pair = self.compile_expression(graph, &when.condition, None)?;
+
+        // Compile statements
         for statement in &when.statements {
-            self.compile_statement(graph, statement)?;
+            self.compile_statement(graph, statement, Some(cond_pair.clone()))?;
         }
 
-        // Compule output expression
-        let (gate_input_nid, gate_type) = self.compile_expression(graph, &when.out, None)?;
+        // If the there is no output, we can skip creating the gate. In this case we just return
+        // the condition output node.
+        if when.out.is_none() {
+            return Ok(cond_pair);
+        }
 
-        self.exit_scope();
+        let (cond_out_nid, cond_out_type) = cond_pair;
 
-        // Output of the gate
+        // Compile output expression, we will attatch a gate to the output of this.
+        let (gate_input_nid, gate_type) =
+            self.compile_expression(graph, &when.out.clone().unwrap(), None)?;
+
+        // Output of the gate. This output will be turned on and off by the condition statement.
         let out_nid = graph.push_inner_node();
 
-        let (left, right, operation) = {
-            let (expr_out_nid, expr_out_type) =
-                self.compile_expression(graph, &when.condition, None)?;
-            graph.push_connection(
-                expr_out_nid,
-                gate_input_nid,
-                Connection::new_pick(expr_out_type.clone()),
-            );
-            (
-                expr_out_type,
-                IOType::Constant(0),
-                DeciderOperation::LargerThan,
-            )
-        };
+        // Connect the condition output to the gate input, so the gate can read the condition
+        // state.
+        graph.push_connection(
+            cond_out_nid,
+            gate_input_nid,
+            Connection::new_pick(cond_out_type.clone()),
+        );
 
-        // Push the actual gate opteration
+        // Push the actual gate opteration. Here we only let the signal through,
+        // if the condition returns a value larger than zero.
+        let left = cond_out_type;
+        let right = IOType::Constant(0);
+        let operation = DeciderOperation::LargerThan;
         graph.push_connection(
             gate_input_nid,
             out_nid,
@@ -444,6 +454,8 @@ impl GraphCompiler {
                 gate_type: gate_type.clone(),
             }),
         );
+
+        self.exit_scope();
         Ok((out_nid, gate_type))
     }
 

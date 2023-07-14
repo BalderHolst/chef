@@ -610,7 +610,7 @@ impl Parser {
             ExpressionKind::When(WhenExpression {
                 condition: Box::new(condition),
                 statements,
-                out: Box::new(out_expr),
+                out: Some(Box::new(out_expr)),
             }),
             TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
         ))

@@ -128,7 +128,9 @@ pub trait Visitor {
         for statement in &when.statements {
             self.visit_statement(statement);
         }
-        self.visit_expression(&when.out);
+        if let Some(out) = &when.out {
+            self.visit_expression(out);
+        }
     }
 
     fn visit_pick_expression(&mut self, expr: &PickExpression);
@@ -252,7 +254,9 @@ pub trait MutVisitor {
         for statement in &mut when.statements {
             self.visit_statement(statement);
         }
-        self.visit_expression(&mut when.out);
+        if let Some(out) = &mut when.out {
+            self.visit_expression(out);
+        }
     }
 
     fn visit_pick_expression(&mut self, expr: &mut PickExpression);
