@@ -126,47 +126,6 @@ impl GraphCompiler {
                             )));
                 Ok((vid, var_signal))
             },
-            ExpressionKind::VariableDef(var) => {
-                let out = match &var.type_ {
-                    VariableType::All => todo!(),
-                    VariableType::Int(int_type) => {
-                        let signal = match int_type {
-                            VariableSignalType::Any => {
-                                self.get_new_anysignal()
-                            },
-                            VariableSignalType::Signal(s) => {
-                                IOType::Signal(s.clone())
-                            }
-                        };
-                        (graph.push_input_node(var.name.clone(), signal.clone()), signal)
-                    },
-                    VariableType::Bool(bool_type) => {
-                        let signal = match bool_type {
-                            VariableSignalType::Any => {
-                                self.get_new_anysignal()
-                            },
-                            VariableSignalType::Signal(s) => {
-                                IOType::Signal(s.clone())
-                            }
-                        };
-                        (graph.push_input_node(var.name.clone(), signal.clone()), signal)
-                    },
-                    VariableType::Var(v) => {
-                        let signal = match v {
-                            VariableSignalType::Any => {
-                                self.get_new_anysignal()
-                            },
-                            VariableSignalType::Signal(s) => {
-                                IOType::Signal(s.clone())
-                            }
-                        };
-                        let nid = graph.push_inner_node();
-                        graph.push_connection(nid, nid, Connection::new_pick(signal.clone()));
-                        (nid, signal)
-                    }
-                };
-                Ok(out)
-            },
             ExpressionKind::Pick(pick_expr) => {
                 if let Some(var_out_vid) = self.search_scope(pick_expr.from.name.clone()) {
                     let out_type = IOType::Signal(pick_expr.pick_signal.clone());
@@ -251,9 +210,6 @@ impl GraphCompiler {
                             let t = self.variable_type_to_iotype(&variable.type_);
                             (var_vid, t)
                         },
-                        ExpressionKind::VariableDef(_variable) => {
-                            todo!("Report error")
-                        }
                         ExpressionKind::Int(_) => self.compile_expression(graph, expr, None)?,
                         ExpressionKind::Bool(_) => self.compile_expression(graph, expr, None)?,
                         ExpressionKind::Binary(_) => self.compile_expression(graph, expr, None)?,

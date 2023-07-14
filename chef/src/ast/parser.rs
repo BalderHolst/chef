@@ -698,7 +698,6 @@ impl Parser {
             TokenKind::Word(word) => {
                 // TODO remove all the `return statements`
                 self.consume();
-                let current_token = self.current();
 
                 if word == "true" {
                     return Ok(Expression::bool(true, self.peak(-1).span.clone()));
@@ -732,26 +731,6 @@ impl Parser {
                             TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
                         let var_ref = VariableRef::new(var, span.clone());
                         let kind = ExpressionKind::VariableRef(var_ref); // TODO
-                        Expression { kind, span }
-                    });
-                } else if current_token.kind == TokenKind::Colon {
-                    // If is variable definition
-                    self.consume();
-                    let t = self.parse_variable_type()?;
-                    let var = Rc::new(Variable::new(
-                        word.to_string(),
-                        t,
-                        TextSpan {
-                            start: start_token.span.start,
-                            end: self.peak(-1).span.end,
-                            text: start_token.span.text.clone(),
-                        },
-                    ));
-                    self.add_to_scope(var.clone());
-                    return Ok({
-                        let kind = ExpressionKind::VariableDef(var);
-                        let span =
-                            TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
                         Expression { kind, span }
                     });
                 } else if let Some(block) = self.search_blocks(word) {

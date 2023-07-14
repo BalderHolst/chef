@@ -42,7 +42,6 @@ impl MutVisitor for ConstantEvaluator {
     fn visit_error_statement(&mut self) {}
     fn visit_number(&mut self, _number: &mut super::IntExpression) {}
     fn visit_bool(&mut self, _bool: &mut bool) {}
-    fn visit_variable_def(&mut self, _var: &super::Variable) {}
     fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
     fn visit_error_expression(&mut self) {}
 

@@ -269,7 +269,6 @@ impl Expression {
             ExpressionKind::Binary(e) => e.return_type().clone(),
             ExpressionKind::Parenthesized(e) => e.return_type(),
             ExpressionKind::Pick(_) => ExpressionReturnType::Int,
-            ExpressionKind::VariableDef(var) => var.return_type(),
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(),
             ExpressionKind::When(e) => e.return_type(),
@@ -338,7 +337,6 @@ pub enum ExpressionKind {
     Binary(BinaryExpression),
     Parenthesized(ParenthesizedExpression),
     Pick(PickExpression),
-    VariableDef(Rc<Variable>),
     VariableRef(VariableRef),
     BlockLink(BlockLinkExpression),
     When(WhenExpression),
@@ -657,13 +655,6 @@ impl Visitor for Printer {
 
     fn visit_bool(&mut self, bool: &bool) {
         self.print(&format!("Boolean: {}", bool));
-    }
-
-    fn visit_variable_def(&mut self, var: &Variable) {
-        self.print(&format!(
-            "VariableDef: {} (type: {:?})",
-            var.name, var.type_
-        ))
     }
 
     fn visit_variable_ref(&mut self, var_ref: &VariableRef) {

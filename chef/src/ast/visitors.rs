@@ -8,7 +8,7 @@
 use super::{
     Assignment, BinaryExpression, Block, BlockLinkExpression, Expression, ExpressionKind,
     IntExpression, Mutation, ParenthesizedExpression, PickExpression, Statement, StatementKind,
-    Variable, VariableRef, WhenExpression,
+    VariableRef, WhenExpression,
 };
 
 // For documentation references
@@ -44,9 +44,6 @@ pub trait Visitor {
             }
             ExpressionKind::Bool(bool) => {
                 self.visit_bool(bool);
-            }
-            ExpressionKind::VariableDef(variable) => {
-                self.visit_variable_def(variable);
             }
             ExpressionKind::VariableRef(variable) => {
                 self.visit_variable_ref(variable);
@@ -138,7 +135,6 @@ pub trait Visitor {
     fn visit_error_statement(&mut self);
     fn visit_number(&mut self, number: &IntExpression);
     fn visit_bool(&mut self, value: &bool);
-    fn visit_variable_def(&mut self, var: &Variable);
     fn visit_variable_ref(&mut self, var: &VariableRef);
     fn visit_error_expression(&mut self);
 }
@@ -172,9 +168,6 @@ pub trait MutVisitor {
             }
             ExpressionKind::Bool(bool) => {
                 self.visit_bool(bool);
-            }
-            ExpressionKind::VariableDef(variable) => {
-                self.visit_variable_def(variable);
             }
             ExpressionKind::VariableRef(variable) => {
                 self.visit_variable_ref(variable);
@@ -266,7 +259,6 @@ pub trait MutVisitor {
     fn visit_error_statement(&mut self);
     fn visit_bool(&mut self, bool: &mut bool);
     fn visit_number(&mut self, number: &mut IntExpression);
-    fn visit_variable_def(&mut self, var: &Variable);
     fn visit_variable_ref(&mut self, var: &VariableRef);
     fn visit_error_expression(&mut self);
 }
