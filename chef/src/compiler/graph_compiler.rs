@@ -197,8 +197,8 @@ impl GraphCompiler {
                 }
 
                 let operation = match bin_expr.operator.kind {
-                    BinaryOperatorKind::Plus => ReturnValue::Int(ArithmeticOperation::Add),
-                    BinaryOperatorKind::Minus => ReturnValue::Int(ArithmeticOperation::Subtract),
+                    BinaryOperatorKind::Add => ReturnValue::Int(ArithmeticOperation::Add),
+                    BinaryOperatorKind::Subtract => ReturnValue::Int(ArithmeticOperation::Subtract),
                     BinaryOperatorKind::Multiply => ReturnValue::Int(ArithmeticOperation::Multiply),
                     BinaryOperatorKind::Divide => ReturnValue::Int(ArithmeticOperation::Divide),
                     BinaryOperatorKind::LargerThan => ReturnValue::Bool(DeciderOperation::LargerThan),
@@ -207,7 +207,6 @@ impl GraphCompiler {
                     BinaryOperatorKind::LessThanOrEqual => ReturnValue::Bool(DeciderOperation::LessThanOrEqual),
                     BinaryOperatorKind::Equals => ReturnValue::Bool(DeciderOperation::Equals),
                     BinaryOperatorKind::NotEquals => ReturnValue::Bool(DeciderOperation::NotEquals),
-
                 };
 
                 let input = graph.push_inner_node();
@@ -446,6 +445,7 @@ impl GraphCompiler {
                 }
                 self.add_to_scope(assignment.variable.name.clone(), output_vid);
             }
+            StatementKind::Mutation(_) => todo!(),
             StatementKind::Error => {
                 panic!("There should not be error statements when compilation has started.")
             }

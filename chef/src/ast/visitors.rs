@@ -7,8 +7,8 @@
 
 use super::{
     Assignment, BinaryExpression, Block, BlockLinkExpression, Expression, ExpressionKind,
-    IntExpression, ParenthesizedExpression, PickExpression, Statement, StatementKind, Variable,
-    VariableRef, WhenExpression,
+    IntExpression, Mutation, ParenthesizedExpression, PickExpression, Statement, StatementKind,
+    Variable, VariableRef, WhenExpression,
 };
 
 // For documentation references
@@ -27,6 +27,9 @@ pub trait Visitor {
             }
             StatementKind::Assignment(assignment) => {
                 self.visit_assignment(assignment);
+            }
+            StatementKind::Mutation(mutation) => {
+                self.visit_mutation(mutation);
             }
             StatementKind::Error => {
                 self.visit_error_statement();
@@ -79,6 +82,11 @@ pub trait Visitor {
         self.visit_expression(&assignment.expression)
     }
 
+    fn do_visit_mutation(&mut self, mutation: &Mutation) {
+        self.visit_variable_ref(&mutation.variable);
+        self.visit_expression(&mutation.expression);
+    }
+
     fn visit_statement(&mut self, statement: &Statement) {
         self.do_visit_statement(statement);
     }
@@ -106,6 +114,10 @@ pub trait Visitor {
 
     fn visit_assignment(&mut self, assignment: &Assignment) {
         self.do_visit_assignment(assignment);
+    }
+
+    fn visit_mutation(&mut self, mutation: &Mutation) {
+        self.do_visit_mutation(mutation);
     }
 
     fn visit_block_link(&mut self, block: &BlockLinkExpression) {
@@ -143,6 +155,9 @@ pub trait MutVisitor {
             }
             StatementKind::Assignment(assignment) => {
                 self.visit_assignment(assignment);
+            }
+            StatementKind::Mutation(mutation) => {
+                self.visit_mutation(mutation);
             }
             StatementKind::Error => {
                 self.visit_error_statement();
@@ -195,6 +210,11 @@ pub trait MutVisitor {
         self.visit_expression(&mut assignment.expression)
     }
 
+    fn do_visit_mutation(&mut self, mutation: &mut Mutation) {
+        self.visit_variable_ref(&mutation.variable);
+        self.visit_expression(&mut mutation.expression);
+    }
+
     fn visit_statement(&mut self, statement: &mut Statement) {
         self.do_visit_statement(statement);
     }
@@ -222,6 +242,10 @@ pub trait MutVisitor {
 
     fn visit_assignment(&mut self, assignment: &mut Assignment) {
         self.do_visit_assignment(assignment);
+    }
+
+    fn visit_mutation(&mut self, mutation: &mut Mutation) {
+        self.do_visit_mutation(mutation);
     }
 
     fn visit_block_link(&mut self, block: &mut BlockLinkExpression) {

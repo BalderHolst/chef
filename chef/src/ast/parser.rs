@@ -6,7 +6,8 @@ use std::rc::Rc;
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
     BinaryExpression, BinaryOperator, BinaryOperatorKind, Block, Expression, ExpressionKind,
-    IntExpression, ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
+    IntExpression, Mutation, ParenthesizedExpression, Statement, StatementKind, Variable,
+    VariableType,
 };
 use crate::cli::Opts;
 use crate::diagnostics::{CompilationError, DiagnosticsBagRef};
@@ -14,8 +15,8 @@ use crate::text::TextSpan;
 
 use super::lexer::Lexer;
 use super::{
-    Assignment, BlockLinkExpression, PickExpression, VariableRef, VariableSignalType,
-    WhenExpression,
+    Assignment, BlockLinkExpression, MutationOperator, PickExpression, VariableRef,
+    VariableSignalType, WhenExpression,
 };
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
@@ -201,14 +202,18 @@ impl Parser {
                         self.consume();
                         Ok(StatementKind::Error)
                     }
-                    _ => match self.peak(1).kind.clone() {
-                        TokenKind::Equals => self.parse_assignment_statement(),
-                        TokenKind::Colon => self.parse_assignment_statement(),
-                        _ => match self.parse_expression() {
-                            Ok(expr) => Ok(StatementKind::Out(expr)),
-                            Err(e) => Err(e),
-                        },
-                    },
+                    _ => {
+                        if self.is_at_assignment_statment() {
+                            self.parse_assignment_statement()
+                        } else if self.is_at_mutation_statment() {
+                            self.parse_mutation_statement()
+                        } else {
+                            match self.parse_expression() {
+                                Ok(expr) => Ok(StatementKind::Out(expr)),
+                                Err(e) => Err(e),
+                            }
+                        }
+                    }
                 };
                 let kind = match kind {
                     Ok(k) => k,
@@ -261,6 +266,22 @@ impl Parser {
         self.consume();
     }
 
+    /// Returns true if the cursor is at the begining of an mutation statement.
+    fn is_at_mutation_statment(&self) -> bool {
+        matches!(
+            &self.peak(1).kind,
+            &TokenKind::PlusEquals
+                | &TokenKind::MinusEquals
+                | &TokenKind::AsteriskEquals
+                | &TokenKind::SlashEquals
+        )
+    }
+
+    /// Returns true if the cursor is at the begining of an assignment statement.
+    fn is_at_assignment_statment(&self) -> bool {
+        matches!(&self.peak(1).kind, TokenKind::Colon | TokenKind::Equals)
+    }
+
     /// Parse variable assignment statement.
     fn parse_assignment_statement(&mut self) -> Result<StatementKind, CompilationError> {
         let start_span = self.current().span.clone();
@@ -281,11 +302,13 @@ impl Parser {
 
             // `var` type variable is always zero initialized, because memory cells in factorio
             // cannot be assigned values.
-            let expr = Expression::number(
+            let zero_expr = Expression::number(
                 0,
                 TextSpan::from_spans(start_span, self.peak(-1).span.clone()),
             );
-            return Ok(StatementKind::Assignment(Assignment::new(variable, expr)));
+            return Ok(StatementKind::Assignment(Assignment::new(
+                variable, zero_expr,
+            )));
         }
 
         if self.current().kind != TokenKind::Equals {
@@ -302,6 +325,55 @@ impl Parser {
         let expr = self.parse_expression()?;
         self.consume_and_check(TokenKind::Semicolon)?;
         Ok(StatementKind::Assignment(Assignment::new(variable, expr)))
+    }
+
+    fn consume_mutation_operator(&mut self) -> Result<MutationOperator, CompilationError> {
+        let token = self.consume();
+        match token.kind.clone() {
+            TokenKind::PlusEquals => Ok(MutationOperator::Add),
+            TokenKind::MinusEquals => Ok(MutationOperator::Subtract),
+            TokenKind::AsteriskEquals => Ok(MutationOperator::Multiply),
+            TokenKind::SlashEquals => Ok(MutationOperator::Divide),
+            k => Err(CompilationError::new(
+                format!("Expected mutation operator, found `{}`.", k),
+                token.span.clone(),
+            )),
+        }
+    }
+
+    /// Parse variable mutation statement.
+    fn parse_mutation_statement(&mut self) -> Result<StatementKind, CompilationError> {
+        let start_span = self.current().span.clone();
+        let var_ref = if let ParsedVariable::Ref(v) = self.parse_variable()? {
+            v
+        } else {
+            self.diagnostics_bag.borrow_mut().report_error(
+                &TextSpan::from_spans(start_span, self.peak(-1).span.clone()),
+                "Only defined variables can be mutated.",
+            );
+            self.consume_bad_statement();
+            return Ok(StatementKind::Error);
+        };
+
+        let var = if let VariableType::Var(_) = var_ref.var.type_.clone() {
+            var_ref
+        } else {
+            self.diagnostics_bag.borrow_mut().report_error(
+                &TextSpan::from_spans(start_span, self.peak(-1).span.clone()),
+                &format!(
+                    "Only `var` type variables can be mutated. Found variable of type: `{}`",
+                    var_ref.var.type_
+                ),
+            );
+            self.consume_bad_statement();
+            return Ok(StatementKind::Error);
+        };
+
+        let op = self.consume_mutation_operator()?;
+        let expr = self.parse_expression()?;
+        self.consume_and_check(TokenKind::Semicolon)?;
+
+        Ok(StatementKind::Mutation(Mutation::new(var, op, expr)))
     }
 
     /// Parse signal part of variable type
@@ -541,8 +613,8 @@ impl Parser {
     fn get_binary_operator(&mut self) -> Option<BinaryOperator> {
         let token = self.current();
         match token.kind {
-            TokenKind::Plus => Some(BinaryOperator::new(BinaryOperatorKind::Plus)),
-            TokenKind::Minus => Some(BinaryOperator::new(BinaryOperatorKind::Minus)),
+            TokenKind::Plus => Some(BinaryOperator::new(BinaryOperatorKind::Add)),
+            TokenKind::Minus => Some(BinaryOperator::new(BinaryOperatorKind::Subtract)),
             TokenKind::Asterisk => Some(BinaryOperator::new(BinaryOperatorKind::Multiply)),
             TokenKind::Slash => Some(BinaryOperator::new(BinaryOperatorKind::Divide)),
             TokenKind::LargerThan => Some(BinaryOperator::new(BinaryOperatorKind::LargerThan)),
@@ -800,7 +872,7 @@ fn parse_binary_expression() {
                         },
                     }),
                     operator: BinaryOperator {
-                        kind: BinaryOperatorKind::Minus,
+                        kind: BinaryOperatorKind::Subtract,
                     },
                 }),
                 span: TextSpan {
@@ -810,7 +882,7 @@ fn parse_binary_expression() {
                 },
             }),
             operator: BinaryOperator {
-                kind: BinaryOperatorKind::Plus,
+                kind: BinaryOperatorKind::Add,
             },
         }),
         span: TextSpan::new(0, 7, text.clone()),

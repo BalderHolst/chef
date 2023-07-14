@@ -112,6 +112,7 @@ impl Statement {
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
     Assignment(Assignment),
+    Mutation(Mutation),
     Block(Block),
     Out(Expression),
     Error,
@@ -197,6 +198,25 @@ impl Assignment {
         Self {
             variable,
             expression,
+        }
+    }
+}
+
+/// [AST] representation of mutaton of a chef `var` type variable.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Mutation {
+    pub variable: VariableRef,
+    pub operator: MutationOperator,
+    pub expression: Expression,
+}
+
+impl Mutation {
+    /// Instantiate a new [Mutation].
+    pub fn new(variable: VariableRef, operator: MutationOperator, expression: Expression) -> Self {
+        Self {
+            variable,
+            expression,
+            operator,
         }
     }
 }
@@ -429,6 +449,26 @@ impl BinaryExpression {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum MutationOperator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
+impl Display for MutationOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            MutationOperator::Add => "+=",
+            MutationOperator::Subtract => "-=",
+            MutationOperator::Multiply => "*=",
+            MutationOperator::Divide => "/=",
+        };
+        write!(f, "{s}")
+    }
+}
+
 /// Operator used by a [BinaryExpression].
 #[derive(Debug, Clone, PartialEq)]
 pub struct BinaryOperator {
@@ -440,27 +480,27 @@ impl BinaryOperator {
         Self { kind }
     }
 
-    /// Get the operator's precedence.
+    /// Get the operator's precedence. Operations with highter precedence will be evaluated first.
     fn precedence(&self) -> u8 {
         match self.kind {
-            BinaryOperatorKind::Plus => 2,
-            BinaryOperatorKind::Minus => 2,
-            BinaryOperatorKind::Multiply => 3,
-            BinaryOperatorKind::Divide => 3,
             BinaryOperatorKind::LargerThan => 1,
             BinaryOperatorKind::LargerThanOrEqual => 1,
             BinaryOperatorKind::LessThan => 1,
             BinaryOperatorKind::LessThanOrEqual => 1,
             BinaryOperatorKind::Equals => 1,
             BinaryOperatorKind::NotEquals => 1,
+            BinaryOperatorKind::Add => 2,
+            BinaryOperatorKind::Subtract => 2,
+            BinaryOperatorKind::Multiply => 3,
+            BinaryOperatorKind::Divide => 3,
         }
     }
 
     /// Get the type that the operator returns
     fn return_type(&self) -> ExpressionReturnType {
         match self.kind {
-            BinaryOperatorKind::Plus => ExpressionReturnType::Int,
-            BinaryOperatorKind::Minus => ExpressionReturnType::Int,
+            BinaryOperatorKind::Add => ExpressionReturnType::Int,
+            BinaryOperatorKind::Subtract => ExpressionReturnType::Int,
             BinaryOperatorKind::Multiply => ExpressionReturnType::Int,
             BinaryOperatorKind::Divide => ExpressionReturnType::Int,
             BinaryOperatorKind::LargerThan => ExpressionReturnType::Bool,
@@ -476,8 +516,8 @@ impl BinaryOperator {
 impl Display for BinaryOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.kind {
-            BinaryOperatorKind::Plus => write!(f, "+"),
-            BinaryOperatorKind::Minus => write!(f, "-"),
+            BinaryOperatorKind::Add => write!(f, "+"),
+            BinaryOperatorKind::Subtract => write!(f, "-"),
             BinaryOperatorKind::Multiply => write!(f, "*"),
             BinaryOperatorKind::Divide => write!(f, "/"),
             BinaryOperatorKind::LargerThan => write!(f, ">"),
@@ -493,8 +533,8 @@ impl Display for BinaryOperator {
 /// Kinds of [BinaryOperator].
 #[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOperatorKind {
-    Plus,
-    Minus,
+    Add,
+    Subtract,
     Multiply,
     Divide,
     LargerThan,
@@ -593,6 +633,14 @@ impl Visitor for Printer {
         ));
         self.indent();
         self.do_visit_assignment(assignment);
+        self.unindent();
+    }
+
+    fn visit_mutation(&mut self, mutation: &Mutation) {
+        self.print(&format!("Mutation: \"{}\"", mutation.variable.var.name));
+        self.indent();
+        self.print(&format!("Operation: {}", mutation.operator));
+        self.visit_expression(&mutation.expression);
         self.unindent();
     }
 

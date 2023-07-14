@@ -57,10 +57,9 @@ impl MutVisitor for ConstantEvaluator {
                             return;
                         }
                     };
-                self.did_work = true;
-                match binary_expression.operator.kind {
-                    super::BinaryOperatorKind::Plus => EvaluatorResult::Int(left + right),
-                    super::BinaryOperatorKind::Minus => EvaluatorResult::Int(left - right),
+                let res = match binary_expression.operator.kind {
+                    super::BinaryOperatorKind::Add => EvaluatorResult::Int(left + right),
+                    super::BinaryOperatorKind::Subtract => EvaluatorResult::Int(left - right),
                     super::BinaryOperatorKind::Multiply => EvaluatorResult::Int(left * right),
                     super::BinaryOperatorKind::Divide => EvaluatorResult::Int(left / right),
                     super::BinaryOperatorKind::LargerThan => EvaluatorResult::Bool(left > right),
@@ -73,7 +72,9 @@ impl MutVisitor for ConstantEvaluator {
                     }
                     super::BinaryOperatorKind::Equals => EvaluatorResult::Bool(left == right),
                     super::BinaryOperatorKind::NotEquals => EvaluatorResult::Bool(left != right),
-                }
+                };
+                self.did_work = true;
+                res
             }
             _ => {
                 self.do_visit_expression(expression);
