@@ -70,11 +70,14 @@ impl GraphCompiler {
                     "A `block` cannot be defined within another block.",
                 );
             }
+            StatementKind::Expression(expr) => {
+                self.compile_expression(graph, &expr, None)?;
+            }
             StatementKind::Assignment(assignment) => {
-                self.compile_assignment_statement(graph, assignment)?
+                self.compile_assignment_statement(graph, assignment)?;
             }
             StatementKind::Mutation(mutation_statement) => {
-                self.compile_mutation_statement(graph, mutation_statement, gate)?
+                self.compile_mutation_statement(graph, mutation_statement, gate)?;
             }
             StatementKind::Error => {
                 panic!("There should not be error statements when compilation has started.")
@@ -162,20 +165,42 @@ impl GraphCompiler {
 
         assert_ne!(&var_iotype, &expr_out_type); // TODO: catch
 
-        match mutation_statement.operator {
+        let conn = match mutation_statement.operator {
             crate::ast::MutationOperator::Add => {
-                let conn = Connection::new_convert(expr_out_type, var_iotype);
-                graph.push_connection(expr_out_nid, var_nid, conn);
+                Connection::new_convert(expr_out_type.clone(), var_iotype.clone())
             }
             crate::ast::MutationOperator::Subtract => {
-                let conn = Connection::Arithmetic(ArithmeticConnection::new(
-                    expr_out_type,
+                Connection::Arithmetic(ArithmeticConnection::new(
+                    expr_out_type.clone(),
                     IOType::Constant(-1),
                     ArithmeticOperation::Multiply,
-                    var_iotype,
-                ));
-                graph.push_connection(expr_out_nid, var_nid, conn);
+                    var_iotype.clone(),
+                ))
             }
+        };
+
+        match gate {
+            Some((condition_nid, condition_type)) => {
+                assert_ne!(&condition_type, &var_iotype); // TODO: catch
+
+                let expr_out_nid = {
+                    let new_out_nid = graph.push_inner_node();
+                    graph.push_connection(
+                        expr_out_nid,
+                        new_out_nid,
+                        Connection::new_convert(expr_out_type, var_iotype.clone()),
+                    );
+                    new_out_nid
+                };
+
+                graph.push_connection(
+                    condition_nid,
+                    expr_out_nid,
+                    Connection::new_pick(condition_type.clone()),
+                );
+                graph.push_gate_connection(expr_out_nid, var_nid, condition_type, var_iotype)
+            }
+            None => graph.push_connection(expr_out_nid, var_nid, conn),
         };
 
         Ok(())
@@ -189,15 +214,8 @@ impl GraphCompiler {
         out_type: Option<IOType>,
     ) -> Result<(NId, IOType), CompilationError> {
         match &expr.kind {
-            // TODO: "" name is awful...
-            ExpressionKind::Int(n) => {
-                let t = IOType::Constant(n.number);
-                Ok((graph.push_input_node("".to_string(), t.clone()), t)) // TODO: It is ugly with "" being the variable name.
-            },
-            ExpressionKind::Bool(b) => {
-                let t = IOType::Constant(*b as i32);
-                Ok((graph.push_input_node("".to_string(), t.clone()), t)) // TODO: It is ugly with "" being the variable name.
-            },
+            ExpressionKind::Int(n) => self.compile_constant(graph, n.number),
+            ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32),
             // TODO use out_type in all compilation functions
             ExpressionKind::VariableRef(var_ref) => self.compile_variable_ref_expression(graph, var_ref), // 
             ExpressionKind::Pick(pick_expr) => self.compile_pick_expression(graph, pick_expr),
@@ -208,6 +226,18 @@ impl GraphCompiler {
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }
     }
+
+    fn compile_constant(
+        &mut self,
+        graph: &mut Graph,
+        number: i32,
+    ) -> Result<(NId, IOType), CompilationError> {
+        let iotype = IOType::Constant(number);
+        // TODO: remove variable name from input nodes
+        let const_nid = graph.push_input_node("".to_string(), iotype.clone());
+        Ok((const_nid, iotype))
+    }
+
     fn compile_variable_ref_expression(
         &mut self,
         graph: &mut Graph,
@@ -441,19 +471,7 @@ impl GraphCompiler {
 
         // Push the actual gate opteration. Here we only let the signal through,
         // if the condition returns a value larger than zero.
-        let left = cond_out_type;
-        let right = IOType::Constant(0);
-        let operation = DeciderOperation::LargerThan;
-        graph.push_connection(
-            gate_input_nid,
-            out_nid,
-            Connection::Gate(GateConnection {
-                left,
-                right,
-                operation,
-                gate_type: gate_type.clone(),
-            }),
-        );
+        graph.push_gate_connection(gate_input_nid, out_nid, cond_out_type, gate_type.clone());
 
         self.exit_scope();
         Ok((out_nid, gate_type))

@@ -111,6 +111,7 @@ impl Statement {
 /// Kinds of statement.
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
+    Expression(Expression),
     Assignment(Assignment),
     Mutation(Mutation),
     Block(Block),
@@ -614,6 +615,13 @@ impl Visitor for Printer {
         self.print("Statement:");
         self.indent();
         self.do_visit_statement(statement);
+        self.unindent();
+    }
+
+    fn visit_expression_statement(&mut self, expr: &Expression) {
+        self.print("ExpressionStatement:");
+        self.indent();
+        self.visit_expression(expr);
         self.unindent();
     }
 

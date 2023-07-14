@@ -205,6 +205,16 @@ impl Parser {
                         self.consume();
                         Ok(StatementKind::Error)
                     }
+                    "when" => {
+                        match || -> Result<Expression, CompilationError> {
+                            let expr = self.parse_when_expression()?;
+                            self.consume_and_check(TokenKind::Semicolon)?;
+                            Ok(expr)
+                        }() {
+                            Err(e) => Err(e),
+                            Ok(expr) => Ok(StatementKind::Expression(expr)),
+                        }
+                    }
                     _ => {
                         if self.is_at_assignment_statment() {
                             self.parse_assignment_statement()
@@ -585,32 +595,23 @@ impl Parser {
 
         let mut statements = self.parse_statement_list_expression()?;
 
-        let out_statement = statements.pop();
-        let out_expr = match out_statement {
-            Some(last_statement) => match last_statement.kind {
-                StatementKind::Out(e) => e,
-                _ => {
-                    return Err(CompilationError {
-                        desctiption: "`when` expressions should end with an `out` expression"
-                            .to_string(),
-                        span: TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
-                    })
-                }
+        let out_expr = match statements.last() {
+            Some(last_statement) => match &last_statement.kind {
+                StatementKind::Out(e) => Some(Box::new(e.clone())),
+                _ => None,
             },
-            None => {
-                return Err(CompilationError {
-                    desctiption: "`when` expressions should contain an `out` expression"
-                        .to_string(),
-                    span: TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
-                })
-            }
+            None => None,
         };
+
+        if out_expr.is_some() {
+            statements.pop().unwrap();
+        }
 
         Ok(Expression::new(
             ExpressionKind::When(WhenExpression {
                 condition: Box::new(condition),
                 statements,
-                out: Some(Box::new(out_expr)),
+                out: out_expr,
             }),
             TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
         ))

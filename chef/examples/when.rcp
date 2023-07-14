@@ -1,6 +1,8 @@
 block main(input: all) -> int(signal_blue) {
-    i: int(pipe) = when input[signal_red] > 5 {
-        100 + input[signal_blue]
+    i: var(signal_green);
+    when input[signal_red] > 5 {
+        i +=  10 / input[pump]
+        ;
     };
     out i;
 }

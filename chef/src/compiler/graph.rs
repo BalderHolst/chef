@@ -218,8 +218,8 @@ impl Display for Connection {
                 connection.operation, connection.left, connection.right
             ),
             Connection::Gate(gate) => format!(
-                "{}: {}, {}\nGATE: {}",
-                gate.operation, gate.left, gate.right, gate.gate_type
+                "GATE: {}\n{}: {}, {}",
+                gate.gate_type, gate.operation, gate.left, gate.right
             ),
         };
         writeln!(f, "{s}")
@@ -358,6 +358,25 @@ impl Graph {
     pub fn push_connection(&mut self, from: NId, to: NId, connection: Connection) {
         let adjacent_to_from = self.adjacency.entry(from).or_default();
         adjacent_to_from.push((to, connection));
+    }
+
+    pub fn push_gate_connection(
+        &mut self,
+        input: NId,
+        output: NId,
+        cond_type: IOType,
+        gate_type: IOType,
+    ) {
+        self.push_connection(
+            input,
+            output,
+            Connection::Gate(GateConnection {
+                left: cond_type,
+                right: IOType::Constant(0),
+                operation: DeciderOperation::LargerThan,
+                gate_type,
+            }),
+        );
     }
 
     /// Remove a connection between two nodes.

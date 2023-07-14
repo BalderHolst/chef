@@ -19,6 +19,9 @@ use super::AST;
 pub trait Visitor {
     fn do_visit_statement(&mut self, statement: &Statement) {
         match &statement.kind {
+            StatementKind::Expression(expr) => {
+                self.visit_expression_statement(expr);
+            }
             StatementKind::Block(block) => {
                 self.visit_block(block);
             }
@@ -101,6 +104,10 @@ pub trait Visitor {
         self.visit_expression(&expr.expression);
     }
 
+    fn visit_expression_statement(&mut self, expr: &Expression) {
+        self.visit_expression(expr);
+    }
+
     fn visit_block(&mut self, block: &Block) {
         self.do_visit_block(block);
     }
@@ -145,6 +152,9 @@ pub trait Visitor {
 pub trait MutVisitor {
     fn do_visit_statement(&mut self, statement: &mut Statement) {
         match &mut statement.kind {
+            StatementKind::Expression(expr) => {
+                self.visit_expression_statement(expr);
+            }
             StatementKind::Block(block) => {
                 self.visit_block(block);
             }
@@ -225,6 +235,10 @@ pub trait MutVisitor {
 
     fn visit_parenthesized_expression(&mut self, expr: &mut ParenthesizedExpression) {
         self.visit_expression(&mut expr.expression);
+    }
+
+    fn visit_expression_statement(&mut self, expr: &mut Expression) {
+        self.visit_expression(expr);
     }
 
     fn visit_block(&mut self, block: &mut Block) {
