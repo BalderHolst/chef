@@ -341,8 +341,6 @@ impl Parser {
         match token.kind.clone() {
             TokenKind::PlusEquals => Ok(MutationOperator::Add),
             TokenKind::MinusEquals => Ok(MutationOperator::Subtract),
-            TokenKind::AsteriskEquals => Ok(MutationOperator::Multiply),
-            TokenKind::SlashEquals => Ok(MutationOperator::Divide),
             k => Err(CompilationError::new(
                 format!("Expected mutation operator, found `{}`.", k),
                 token.span.clone(),

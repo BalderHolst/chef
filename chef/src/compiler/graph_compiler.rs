@@ -448,8 +448,6 @@ impl GraphCompiler {
                 ));
                 graph.push_connection(expr_out_nid, var_nid, conn);
             }
-            crate::ast::MutationOperator::Multiply => todo!(),
-            crate::ast::MutationOperator::Divide => todo!(),
         };
 
         Ok(())

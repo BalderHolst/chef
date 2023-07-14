@@ -459,8 +459,6 @@ impl BinaryExpression {
 pub enum MutationOperator {
     Add,
     Subtract,
-    Multiply,
-    Divide,
 }
 
 impl Display for MutationOperator {
@@ -468,8 +466,6 @@ impl Display for MutationOperator {
         let s = match self {
             MutationOperator::Add => "+=",
             MutationOperator::Subtract => "-=",
-            MutationOperator::Multiply => "*=",
-            MutationOperator::Divide => "/=",
         };
         write!(f, "{s}")
     }
