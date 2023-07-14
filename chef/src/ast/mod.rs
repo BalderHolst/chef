@@ -122,8 +122,20 @@ pub enum StatementKind {
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariableType {
     Int(VariableSignalType),
+    Var(VariableSignalType),
     Bool(VariableSignalType),
     All,
+}
+
+impl VariableType {
+    pub fn return_type(&self) -> ExpressionReturnType {
+        match self {
+            VariableType::Int(_) => ExpressionReturnType::Int,
+            VariableType::Var(_) => ExpressionReturnType::Int,
+            VariableType::Bool(_) => ExpressionReturnType::Bool,
+            VariableType::All => ExpressionReturnType::Group,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -152,11 +164,7 @@ impl Variable {
 
     /// Type returned
     pub fn return_type(&self) -> ExpressionReturnType {
-        match self.type_ {
-            VariableType::Int(_) => ExpressionReturnType::Int,
-            VariableType::Bool(_) => ExpressionReturnType::Bool,
-            VariableType::All => ExpressionReturnType::Group,
-        }
+        self.type_.return_type()
     }
 }
 
@@ -389,11 +397,7 @@ impl BlockLinkExpression {
     }
 
     fn return_type(&self) -> ExpressionReturnType {
-        match self.block.output {
-            VariableType::Int(_) => ExpressionReturnType::Int,
-            VariableType::Bool(_) => ExpressionReturnType::Bool,
-            VariableType::All => ExpressionReturnType::Group,
-        }
+        self.block.output.return_type()
     }
 }
 
@@ -562,6 +566,10 @@ impl Display for VariableType {
         let s = match self {
             VariableType::Int(int_type) => match int_type {
                 VariableSignalType::Signal(n) => format!("Int({n})"),
+                VariableSignalType::Any => "Int(Any)".to_string(),
+            },
+            VariableType::Var(var_type) => match var_type {
+                VariableSignalType::Signal(n) => format!("Var({n})"),
                 VariableSignalType::Any => "Int(Any)".to_string(),
             },
             VariableType::Bool(bool_type) => match bool_type {

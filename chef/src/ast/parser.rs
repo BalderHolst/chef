@@ -353,6 +353,7 @@ impl Parser {
             TokenKind::Word(start_word) => match start_word.as_str() {
                 "int" => Ok(VariableType::Int(self.parse_variable_type_signal()?)),
                 "bool" => Ok(VariableType::Bool(self.parse_variable_type_signal()?)),
+                "var" => Ok(VariableType::Var(self.parse_variable_type_signal()?)),
                 "all" => Ok(VariableType::All),
                 w => Err(CompilationError::new(
                     format!("Unknown type `{}`.", w),

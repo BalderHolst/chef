@@ -1,0 +1,4 @@
+block main (input: all) -> int(automation_science_pack) {
+    v: var(signal_A);
+    v += 1;
+}
