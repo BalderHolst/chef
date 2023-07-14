@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use crate::ast::{
-    BinaryOperatorKind, Block, Expression, ExpressionKind, VariableSignalType, WhenExpression, AST,
+    BinaryOperatorKind, Block, Expression, ExpressionKind, Mutation, VariableSignalType,
+    WhenExpression, AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
@@ -109,13 +110,7 @@ impl GraphCompiler {
                 let var_signal = self.variable_type_to_iotype(&var.type_);
                 let input_signal = match var_node {
                     Node::Input(var_output_node) => var_output_node.input,
-                    Node::Output(_) => {
-                        let inputs = graph.get_inputs(&var_node_vid);
-                        if inputs.len() != 1 {
-                            panic!("Output nodes should have exactly ONE input");
-                        }
-                        inputs[0].clone()
-                    },
+                    Node::Output(o) => { o.output_type },
                     Node::Inner(_) => panic!("Var nodes should be output or input nodes"),
                 };
                 let vid = graph.push_node(Node::Inner(InnerNode::new()));
@@ -401,7 +396,9 @@ impl GraphCompiler {
                 }
                 self.add_to_scope(assignment.variable.name.clone(), output_vid);
             }
-            StatementKind::Mutation(_) => todo!(),
+            StatementKind::Mutation(mutation_statement) => {
+                self.compile_mutation_statement(graph, mutation_statement)?
+            }
             StatementKind::Error => {
                 panic!("There should not be error statements when compilation has started.")
             }
@@ -411,6 +408,30 @@ impl GraphCompiler {
                 graph.push_connection(expr_nid, out_nid, Connection::new_pick(out_type));
             }
         };
+        Ok(())
+    }
+
+    fn compile_mutation_statement(
+        &mut self,
+        graph: &mut Graph,
+        mutation_statement: Mutation,
+    ) -> Result<(), CompilationError> {
+        let var_nid = self.search_scope(mutation_statement.var_ref.var.name.clone()).expect("The parser should make sure that mutation statements only happen on defined variables.");
+        let var_type = mutation_statement.var_ref.var.type_.clone();
+        let var_iotype = self.variable_type_to_iotype(&var_type);
+        let (expr_out_nid, expr_out_type) =
+            self.compile_expression(graph, &mutation_statement.expression, None)?;
+
+        assert_ne!(&var_iotype, &expr_out_type); // TODO: catch
+
+        let conn = match mutation_statement.operator {
+            crate::ast::MutationOperator::Add => Connection::new_convert(expr_out_type, var_iotype),
+            crate::ast::MutationOperator::Subtract => todo!(),
+            crate::ast::MutationOperator::Multiply => todo!(),
+            crate::ast::MutationOperator::Divide => todo!(),
+        };
+
+        graph.push_connection(expr_out_nid, var_nid, conn);
         Ok(())
     }
 }

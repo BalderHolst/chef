@@ -151,6 +151,13 @@ impl Connection {
         Self::Arithmetic(ArithmeticConnection::new_pick(signal))
     }
 
+    pub fn new_convert(input_signal: IOType, output_signal: IOType) -> Self {
+        Self::Arithmetic(ArithmeticConnection::new_convert(
+            input_signal,
+            output_signal,
+        ))
+    }
+
     pub fn get_output(&self) -> Vec<IOType> {
         // TODO: remove Vec and enforce single output
         match self {

@@ -80,7 +80,7 @@ pub trait Visitor {
     }
 
     fn do_visit_mutation(&mut self, mutation: &Mutation) {
-        self.visit_variable_ref(&mutation.variable);
+        self.visit_variable_ref(&mutation.var_ref);
         self.visit_expression(&mutation.expression);
     }
 
@@ -204,7 +204,7 @@ pub trait MutVisitor {
     }
 
     fn do_visit_mutation(&mut self, mutation: &mut Mutation) {
-        self.visit_variable_ref(&mutation.variable);
+        self.visit_variable_ref(&mutation.var_ref);
         self.visit_expression(&mut mutation.expression);
     }
 

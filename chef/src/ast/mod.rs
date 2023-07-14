@@ -185,19 +185,27 @@ impl VariableRef {
     }
 }
 
-/// [AST] representation of chef variable assignment.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AssignmentKind {
+    Int,
+    Var,
+}
+
+/// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Assignment {
     pub variable: Rc<Variable>,
     pub expression: Expression,
+    pub kind: AssignmentKind,
 }
 
 impl Assignment {
     /// Instantiate a new [Assignment].
-    pub fn new(variable: Rc<Variable>, expression: Expression) -> Self {
+    pub fn new(variable: Rc<Variable>, expression: Expression, kind: AssignmentKind) -> Self {
         Self {
             variable,
             expression,
+            kind,
         }
     }
 }
@@ -205,7 +213,7 @@ impl Assignment {
 /// [AST] representation of mutaton of a chef `var` type variable.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Mutation {
-    pub variable: VariableRef,
+    pub var_ref: VariableRef,
     pub operator: MutationOperator,
     pub expression: Expression,
 }
@@ -214,7 +222,7 @@ impl Mutation {
     /// Instantiate a new [Mutation].
     pub fn new(variable: VariableRef, operator: MutationOperator, expression: Expression) -> Self {
         Self {
-            variable,
+            var_ref: variable,
             expression,
             operator,
         }
@@ -635,7 +643,7 @@ impl Visitor for Printer {
     }
 
     fn visit_mutation(&mut self, mutation: &Mutation) {
-        self.print(&format!("Mutation: \"{}\"", mutation.variable.var.name));
+        self.print(&format!("Mutation: \"{}\"", mutation.var_ref.var.name));
         self.indent();
         self.print(&format!("Operation: {}", mutation.operator));
         self.visit_expression(&mutation.expression);

@@ -15,7 +15,7 @@ use crate::text::TextSpan;
 
 use super::lexer::Lexer;
 use super::{
-    Assignment, BlockLinkExpression, MutationOperator, PickExpression, VariableRef,
+    Assignment, AssignmentKind, BlockLinkExpression, MutationOperator, PickExpression, VariableRef,
     VariableSignalType, WhenExpression,
 };
 
@@ -310,7 +310,9 @@ impl Parser {
                 TextSpan::from_spans(start_span, self.peak(-1).span.clone()),
             );
             return Ok(StatementKind::Assignment(Assignment::new(
-                variable, zero_expr,
+                variable,
+                zero_expr,
+                AssignmentKind::Var,
             )));
         }
 
@@ -327,7 +329,11 @@ impl Parser {
 
         let expr = self.parse_expression()?;
         self.consume_and_check(TokenKind::Semicolon)?;
-        Ok(StatementKind::Assignment(Assignment::new(variable, expr)))
+        Ok(StatementKind::Assignment(Assignment::new(
+            variable,
+            expr,
+            AssignmentKind::Int,
+        )))
     }
 
     fn consume_mutation_operator(&mut self) -> Result<MutationOperator, CompilationError> {
