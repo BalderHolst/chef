@@ -1,5 +1,6 @@
-block main (input: all) -> int(automation_science_pack) {
+block main () -> int(automation_science_pack) {
     i: int = 10;
     v: var(signal_A);
-    out input[pump];
+    v -= 30 * i;
+    out v / i;
 }

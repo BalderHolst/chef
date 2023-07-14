@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::ast::{
-    BinaryOperatorKind, Block, Expression, ExpressionKind, Mutation, VariableSignalType,
-    WhenExpression, AST,
+    AssignmentKind, BinaryOperatorKind, Block, Expression, ExpressionKind, Mutation,
+    VariableSignalType, WhenExpression, AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
@@ -349,52 +349,62 @@ impl GraphCompiler {
                 );
             }
             StatementKind::Assignment(assignment) => {
-                let out_type = self.variable_type_to_iotype(&assignment.variable.type_);
-                let (mut output_vid, _) =
-                    self.compile_expression(graph, &assignment.expression, Some(out_type.clone()))?;
-                let output_node = graph.get_node(&output_vid).unwrap().clone();
+                let var = &assignment.variable;
+                let var_type = self.variable_type_to_iotype(&var.type_);
+
+                if assignment.kind == AssignmentKind::Var {
+                    let var_nid = graph.push_output_node(var_type.clone());
+                    graph.push_connection(var_nid, var_nid, Connection::new_pick(var_type));
+                    self.add_to_scope(var.name.clone(), var_nid);
+                    return Ok(());
+                }
+
+                let (mut var_vid, _) =
+                    self.compile_expression(graph, &assignment.expression, Some(var_type.clone()))?;
+                let output_node = graph.get_node(&var_vid).unwrap().clone();
                 match output_node {
                     Node::Inner(_n) => {
                         // Convert inner node to output node
-                        let input_type = graph.get_single_input(&output_vid).unwrap();
-                        let var_out_node = OutputNode::new(out_type.clone());
-                        let middle_vid = output_vid;
-                        output_vid = graph.push_node(Node::Inner(InnerNode::new()));
+                        let input_type = graph.get_single_input(&var_vid).unwrap();
+                        let var_out_node = OutputNode::new(var_type.clone());
+                        let middle_vid = var_vid;
+                        var_vid = graph.push_node(Node::Inner(InnerNode::new()));
                         graph.push_connection(
                             middle_vid,
-                            output_vid,
+                            var_vid,
                             Connection::Arithmetic(ArithmeticConnection::new_convert(
-                                input_type, out_type,
+                                input_type, var_type,
                             )),
                         );
-                        graph.override_node(output_vid, Node::Output(var_out_node));
+                        graph.override_node(var_vid, Node::Output(var_out_node));
                     }
                     Node::Input(n) => {
-                        let var_node = Node::Output(OutputNode::new(out_type.clone()));
+                        // Make var node and connect the input to it.
+                        let var_node = Node::Output(OutputNode::new(var_type.clone()));
                         let var_node_vid = graph.push_node(var_node);
                         graph.push_connection(
-                            output_vid,
+                            var_vid,
                             var_node_vid,
                             Connection::Arithmetic(ArithmeticConnection::new_convert(
-                                n.input, out_type,
+                                n.input, var_type,
                             )),
                         );
-                        output_vid = var_node_vid;
+                        var_vid = var_node_vid;
                     }
                     Node::Output(n) => {
                         let var_node_vid = graph.push_node(Node::Output(n.clone()));
                         graph.push_connection(
-                            output_vid,
+                            var_vid,
                             var_node_vid,
                             Connection::Arithmetic(ArithmeticConnection::new_convert(
                                 n.output_type,
-                                out_type,
+                                var_type,
                             )),
                         );
-                        output_vid = var_node_vid;
+                        var_vid = var_node_vid;
                     }
                 }
-                self.add_to_scope(assignment.variable.name.clone(), output_vid);
+                self.add_to_scope(assignment.variable.name.clone(), var_vid);
             }
             StatementKind::Mutation(mutation_statement) => {
                 self.compile_mutation_statement(graph, mutation_statement)?
@@ -424,14 +434,24 @@ impl GraphCompiler {
 
         assert_ne!(&var_iotype, &expr_out_type); // TODO: catch
 
-        let conn = match mutation_statement.operator {
-            crate::ast::MutationOperator::Add => Connection::new_convert(expr_out_type, var_iotype),
-            crate::ast::MutationOperator::Subtract => todo!(),
+        match mutation_statement.operator {
+            crate::ast::MutationOperator::Add => {
+                let conn = Connection::new_convert(expr_out_type, var_iotype);
+                graph.push_connection(expr_out_nid, var_nid, conn);
+            }
+            crate::ast::MutationOperator::Subtract => {
+                let conn = Connection::Arithmetic(ArithmeticConnection::new(
+                    expr_out_type,
+                    IOType::Constant(-1),
+                    ArithmeticOperation::Multiply,
+                    var_iotype,
+                ));
+                graph.push_connection(expr_out_nid, var_nid, conn);
+            }
             crate::ast::MutationOperator::Multiply => todo!(),
             crate::ast::MutationOperator::Divide => todo!(),
         };
 
-        graph.push_connection(expr_out_nid, var_nid, conn);
         Ok(())
     }
 }

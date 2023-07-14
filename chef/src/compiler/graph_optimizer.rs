@@ -28,6 +28,11 @@ impl<'a> GraphOptimizer<'a> {
     fn get_redundant_pick(&mut self) -> Option<(NId, NId, NId, usize)> {
         for (from_vid, middle_vec) in self.graph.adjacency.iter() {
             for (i, (middle_vid, _conn1)) in middle_vec.clone().iter().enumerate() {
+                // Perserve `var` variables
+                if from_vid == middle_vid {
+                    continue;
+                }
+
                 if let Some(to_vec) = self.graph.adjacency.get(middle_vid) {
                     if to_vec.len() != 1 {
                         continue;
