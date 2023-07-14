@@ -247,15 +247,11 @@ impl OutputNode {
 #[derive(Clone, Debug)]
 pub struct InputNode {
     pub input: IOType,
-    pub variable_name: String,
 }
 
 impl InputNode {
-    pub fn new(variable_name: String, input: IOType) -> Self {
-        Self {
-            variable_name,
-            input,
-        }
+    pub fn new(input: IOType) -> Self {
+        Self { input }
     }
 }
 
@@ -341,8 +337,8 @@ impl Graph {
     }
 
     /// Push a node of type [InputNode].
-    pub fn push_input_node(&mut self, variable_name: String, input: IOType) -> NId {
-        self.push_node(Node::Input(InputNode::new(variable_name, input)))
+    pub fn push_input_node(&mut self, input: IOType) -> NId {
+        self.push_node(Node::Input(InputNode::new(input)))
     }
 
     /// Push a node of type [InnerNode].
@@ -625,12 +621,7 @@ impl Graph {
             }
             match node {
                 Node::Inner(_) => println!("\t\t{} : INNER : {:?}", vid, self.get_inputs(vid)),
-                Node::Input(n) => println!(
-                    "\t\t{} : INPUT({}) : {:?}",
-                    vid,
-                    n.variable_name,
-                    self.get_inputs(vid)
-                ),
+                Node::Input(_) => println!("\t\t{} : INPUT : {:?}", vid, self.get_inputs(vid)),
                 Node::Output(_n) => println!("\t\t{} : OUTPUT : {:?}", vid, self.get_inputs(vid)),
             }
         }

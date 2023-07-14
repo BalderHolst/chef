@@ -47,7 +47,7 @@ impl GraphCompiler {
         for input_var in block.inputs.clone() {
             let var_name = input_var.name.clone();
             let var_iotype = self.variable_type_to_iotype(&input_var.type_.clone());
-            let input_vid = graph.push_input_node(var_name.clone(), var_iotype);
+            let input_vid = graph.push_input_node(var_iotype);
             self.add_to_scope(var_name, input_vid)
         }
         for statement in &block.statements {
@@ -244,8 +244,7 @@ impl GraphCompiler {
         number: i32,
     ) -> Result<(NId, IOType), CompilationError> {
         let iotype = IOType::Constant(number);
-        // TODO: remove variable name from input nodes
-        let const_nid = graph.push_input_node("".to_string(), iotype.clone());
+        let const_nid = graph.push_input_node(iotype.clone());
         Ok((const_nid, iotype))
     }
 
