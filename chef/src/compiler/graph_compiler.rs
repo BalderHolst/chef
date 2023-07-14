@@ -53,6 +53,17 @@ impl GraphCompiler {
         for statement in &block.statements {
             self.compile_statement(&mut graph, statement, None)?;
         }
+
+        let (out_expr_nid, out_expr_type) =
+            self.compile_expression(&mut graph, &block.output, None)?;
+        let block_out_type = self.variable_type_to_iotype(&block.output_type);
+        let block_out_nid = graph.push_output_node(block_out_type.clone());
+        graph.push_connection(
+            out_expr_nid,
+            block_out_nid,
+            Connection::new_convert(out_expr_type, block_out_type),
+        );
+
         self.exit_scope();
         Ok(graph)
     }

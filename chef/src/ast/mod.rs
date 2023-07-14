@@ -235,8 +235,9 @@ impl Mutation {
 pub struct Block {
     pub name: String,
     pub inputs: Vec<Rc<Variable>>,
-    pub output: VariableType,
+    pub output_type: VariableType,
     pub statements: Vec<Statement>,
+    pub output: Expression,
     pub span: TextSpan,
 }
 
@@ -245,15 +246,17 @@ impl Block {
     fn new(
         name: String,
         inputs: Vec<Rc<Variable>>,
-        output: VariableType,
+        output_type: VariableType,
         statements: Vec<Statement>,
+        output: Expression,
         span: TextSpan,
     ) -> Self {
         Self {
             name,
             inputs,
-            output,
+            output_type,
             statements,
+            output,
             span,
         }
     }
@@ -428,7 +431,7 @@ impl BlockLinkExpression {
     }
 
     fn return_type(&self) -> ExpressionReturnType {
-        self.block.output.return_type()
+        self.block.output_type.return_type()
     }
 }
 
@@ -634,10 +637,22 @@ impl Visitor for Printer {
                 .iter()
                 .map(|i| (i.name.clone(), i.type_.to_string()))
                 .collect::<Vec<(String, String)>>(),
-            block.output
+            block.output_type
         ));
         self.indent();
-        self.do_visit_block(block);
+
+        self.print("BlockStatements:");
+        self.indent();
+        for statement in &block.statements {
+            self.visit_statement(statement);
+        }
+        self.unindent();
+
+        self.print("BlockOutput:");
+        self.indent();
+        self.visit_expression(&block.output);
+        self.unindent();
+
         self.unindent();
     }
 

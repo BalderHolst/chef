@@ -559,17 +559,48 @@ impl Parser {
         self.consume_and_check(TokenKind::RightParen)?;
         self.consume_and_check(TokenKind::RightArrow)?;
 
-        let output = self.parse_block_outputs()?;
+        let output_type = self.parse_block_outputs()?;
 
-        let statements = self.parse_statement_list_expression()?;
+        let mut statements = self.parse_statement_list_expression()?;
+
+        let out_expr = match statements.pop() {
+            Some(s) => match s.kind {
+                StatementKind::Out(e) => e,
+                _ => {
+                    return Err(CompilationError::new(
+                        "A `block` must contain an output statement as its last statement."
+                            .to_string(),
+                        TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+                    ))
+                }
+            },
+            _ => {
+                return Err(CompilationError::new(
+                    "A `block` must contain an output statement.".to_string(),
+                    TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+                ))
+            }
+        };
+
+        for statement in &statements {
+            if let StatementKind::Out(_) = &statement.kind {
+                return Err(CompilationError::new(
+                    "Only the last statement in a `block` can be an output statement.".to_string(),
+                    statement.span.clone(),
+                ));
+            }
+        }
+
+        dbg!(&out_expr);
 
         self.exit_scope();
 
         Ok(Block::new(
             name,
             inputs,
-            output,
+            output_type,
             statements,
+            out_expr,
             TextSpan {
                 start: start_token.span.start,
                 end: self.peak(-1).span.end,
