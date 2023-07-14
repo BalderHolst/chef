@@ -11,9 +11,13 @@ pub enum TokenKind {
     Number(u32),
     Word(String),
     Plus,
+    PlusEquals,
     Minus,
+    MinusEquals,
     Asterisk,
+    AsteriskEquals,
     Slash,
+    SlashEquals,
     LeftParen,
     RightParen,
     LeftSquare,
@@ -135,16 +139,36 @@ impl Lexer {
     // Lexes punktuation. Returns `None` if the punktuation is a commend.
     fn consume_punctuation(&mut self) -> Option<TokenKind> {
         let kind = match self.consume() {
-            Some('+') => TokenKind::Plus,
+            Some('+') => match self.current() {
+                Some('=') => {
+                    self.consume();
+                    TokenKind::PlusEquals
+                }
+                _ => TokenKind::Plus,
+            },
             Some('-') => match self.current() {
+                Some('=') => {
+                    self.consume();
+                    TokenKind::MinusEquals
+                }
                 Some('>') => {
                     self.consume();
                     TokenKind::RightArrow
                 }
                 _ => TokenKind::Minus,
             },
-            Some('*') => TokenKind::Asterisk,
+            Some('*') => match self.current() {
+                Some('=') => {
+                    self.consume();
+                    TokenKind::AsteriskEquals
+                }
+                _ => TokenKind::Asterisk,
+            },
             Some('/') => match self.current() {
+                Some('=') => {
+                    self.consume();
+                    TokenKind::SlashEquals
+                }
                 Some('/') => {
                     self.consume_comment();
                     return None;
@@ -298,12 +322,14 @@ fn lex_string() {
 
 #[test]
 fn lex_2_char_operators() {
-    let code = "==->-=";
+    let code = "==->+=-=*=/=";
     let expected_tokens = vec![
         TokenKind::DoubleEquals,
         TokenKind::RightArrow,
-        TokenKind::Minus,
-        TokenKind::Equals,
+        TokenKind::PlusEquals,
+        TokenKind::MinusEquals,
+        TokenKind::AsteriskEquals,
+        TokenKind::SlashEquals,
         TokenKind::End,
     ];
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
