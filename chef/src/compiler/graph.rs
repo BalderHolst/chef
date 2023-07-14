@@ -159,7 +159,6 @@ impl Connection {
     }
 
     pub fn get_output(&self) -> IOType {
-        // TODO: remove Vec and enforce single output
         match self {
             Connection::Arithmetic(ac) => ac.output.clone(),
             Connection::Decider(dc) => dc.output.clone(),
