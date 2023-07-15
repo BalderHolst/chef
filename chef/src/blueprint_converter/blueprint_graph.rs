@@ -42,8 +42,8 @@ type Node = (graph::NId, NodeType);
 
 pub struct BlueprintGraph {
     pub vertices: FnvHashMap<NId, Node>,
-    combinators: FnvHashMap<NId, Vec<(NId, EntityNumber, Combinator)>>,
-    wires: FnvHashMap<NId, Vec<NId>>,
+    pub combinators: FnvHashMap<NId, Vec<(NId, EntityNumber, Combinator)>>,
+    pub wires: FnvHashMap<NId, Vec<NId>>,
     next_nid: NId,
     next_entity_number: EntityNumber,
 }
@@ -119,8 +119,8 @@ impl BlueprintGraph {
         let mut blueprint_graph = Self::new();
         for (orig_from_nid, to_vec) in graph.adjacency {
             for (orig_to_nid, conn) in to_vec {
-                let new_from_nid = blueprint_graph.push_node((orig_from_nid, NodeType::Output));
-                let new_to_nid = blueprint_graph.push_node((orig_to_nid, NodeType::Input));
+                let new_from_nid = blueprint_graph.push_node((orig_from_nid, NodeType::Input));
+                let new_to_nid = blueprint_graph.push_node((orig_to_nid, NodeType::Output));
                 let entity_number = blueprint_graph.get_next_entity_number();
                 blueprint_graph.push_combinator(
                     new_from_nid,
@@ -136,8 +136,15 @@ impl BlueprintGraph {
     fn create_dot(&self) -> String {
         let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();
 
-        for (nid, (node_netword_id, _node_type)) in &self.vertices {
-            dot += &format!("\t{} [style=filled label=\"{}\" ]\n", nid, node_netword_id);
+        for (nid, (node_netword_id, node_type)) in &self.vertices {
+            let color = match node_type {
+                NodeType::Input => "lightgreen",
+                NodeType::Output => "orange",
+            };
+            dot += &format!(
+                "\t{} [style=filled fillcolor=\"{}\" label=\"{}\" ]\n",
+                nid, color, node_netword_id
+            );
         }
 
         for (from_nid, to_vec) in &self.combinators {
