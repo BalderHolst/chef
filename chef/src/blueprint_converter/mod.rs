@@ -1,6 +1,7 @@
 //! Converted combinator graphs to factorio blueprints.
 
 pub mod blueprint_graph;
+pub mod placement;
 
 use std::collections::HashMap;
 
@@ -172,9 +173,11 @@ impl BlueprintConverter {
     }
 
     pub fn convert_to_blueprint(&mut self, graph: Graph) {
-        let blueprint_graph = BlueprintGraph::from_graph(graph);
-        blueprint_graph.visualize("fgraph.svg").unwrap();
-        self.test();
+        let mut bp_graph = BlueprintGraph::from_graph(graph);
+        placement::place_combinators(&mut bp_graph);
+        bp_graph.visualize("fgraph.svg").unwrap();
+
+        // self.test();
     }
 
     fn test(&self) {

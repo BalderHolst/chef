@@ -9,8 +9,6 @@ use crate::{
     utils::{self, VisualizerError},
 };
 
-type NId = OneBasedIndex;
-
 pub enum NodeType {
     Input,
     Output,
@@ -37,6 +35,8 @@ impl Combinator {
     }
 }
 
+type NId = usize;
+
 // Id of directly connected nodes will be the same
 type Node = (graph::NId, NodeType);
 
@@ -54,7 +54,7 @@ impl BlueprintGraph {
             vertices: FnvHashMap::default(),
             combinators: FnvHashMap::default(),
             wires: FnvHashMap::default(),
-            next_nid: EntityNumber::new(1).unwrap(),
+            next_nid: 0,
             next_entity_number: EntityNumber::new(1).unwrap(),
         }
     }
@@ -68,7 +68,7 @@ impl BlueprintGraph {
         nid
     }
 
-    fn get_next_entity_number(&mut self) -> NId {
+    fn get_next_entity_number(&mut self) -> EntityNumber {
         let en = self.next_entity_number;
         self.next_entity_number = self
             .next_entity_number
@@ -77,13 +77,13 @@ impl BlueprintGraph {
         en
     }
 
-    fn push_node(&mut self, node: Node) -> NId {
+    pub fn push_node(&mut self, node: Node) -> NId {
         let nid = self.get_next_nid();
         self.vertices.insert(nid, node);
         nid
     }
 
-    fn push_combinator(
+    pub fn push_combinator(
         &mut self,
         from: NId,
         to: NId,
@@ -94,7 +94,7 @@ impl BlueprintGraph {
         adj.push((to, entity_id, conn_type));
     }
 
-    fn get_nodes_in_wire_network(&self, network_id: &u64) -> Vec<NId> {
+    pub fn get_nodes_in_wire_network(&self, network_id: &u64) -> Vec<NId> {
         let mut network_nids = Vec::new();
         for (nid, (node_network_id, _node_type)) in &self.vertices {
             if node_network_id == network_id {
@@ -104,7 +104,7 @@ impl BlueprintGraph {
         network_nids
     }
 
-    fn push_wire(&mut self, first: NId, second: NId) {
+    pub fn push_wire(&mut self, first: NId, second: NId) {
         {
             let first_adj = self.wires.entry(first).or_default();
             first_adj.push(second);
@@ -155,13 +155,20 @@ impl BlueprintGraph {
                     Connection::Gate(_) => "Gate".to_string(),
                 };
                 dot += &format!(
-                    "{} -> {} [label=\"{} ({})\"]",
+                    "\t{} -> {} [label=\"{} ({})\"]\n",
                     from_nid, to_nid, conn_repr, entity_num
                 );
             }
         }
 
+        for (from, to_vec) in &self.wires {
+            for to in to_vec {
+                dot += &format!("\t{} -> {} [color=red]\n", from, to);
+            }
+        }
+
         dot += "}\n";
+        println!("{dot}");
         dot
     }
 
