@@ -1,0 +1,8 @@
+block main(input: all) -> int(tank) {
+    c: counter(signal_T);
+    v: var(signal_V);
+    when (c == 5) {
+        v += 1;
+    };
+    out v;
+}

@@ -122,18 +122,20 @@ pub enum StatementKind {
 /// Chef variable types.
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariableType {
+    Bool(VariableSignalType),
     Int(VariableSignalType),
     Var(VariableSignalType),
-    Bool(VariableSignalType),
+    Counter(VariableSignalType),
     All,
 }
 
 impl VariableType {
     pub fn return_type(&self) -> ExpressionReturnType {
         match self {
+            VariableType::Bool(_) => ExpressionReturnType::Bool,
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Var(_) => ExpressionReturnType::Int,
-            VariableType::Bool(_) => ExpressionReturnType::Bool,
+            VariableType::Counter(_) => ExpressionReturnType::Int,
             VariableType::All => ExpressionReturnType::Group,
         }
     }
@@ -190,6 +192,7 @@ impl VariableRef {
 pub enum AssignmentKind {
     Int,
     Var,
+    Counter,
 }
 
 /// [AST] representation of chef `int` variable assignment.
@@ -589,17 +592,21 @@ impl Printer {
 impl Display for VariableType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
+            VariableType::Bool(bool_type) => match bool_type {
+                VariableSignalType::Signal(n) => format!("Bool({n})"),
+                VariableSignalType::Any => "Bool(Any)".to_string(),
+            },
             VariableType::Int(int_type) => match int_type {
                 VariableSignalType::Signal(n) => format!("Int({n})"),
                 VariableSignalType::Any => "Int(Any)".to_string(),
             },
             VariableType::Var(var_type) => match var_type {
                 VariableSignalType::Signal(n) => format!("Var({n})"),
-                VariableSignalType::Any => "Int(Any)".to_string(),
+                VariableSignalType::Any => "Var(Any)".to_string(),
             },
-            VariableType::Bool(bool_type) => match bool_type {
-                VariableSignalType::Signal(n) => format!("Bool({n})"),
-                VariableSignalType::Any => "Bool(Any)".to_string(),
+            VariableType::Counter(var_type) => match var_type {
+                VariableSignalType::Signal(n) => format!("Counter({n})"),
+                VariableSignalType::Any => "Counter(Any)".to_string(),
             },
             VariableType::All => "All".to_string(),
         };

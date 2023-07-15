@@ -110,11 +110,27 @@ impl GraphCompiler {
         let var = &assignment.variable;
         let var_type = self.variable_type_to_iotype(&var.type_);
 
-        if assignment.kind == AssignmentKind::Var {
-            let var_nid = graph.push_output_node(var_type.clone());
-            graph.push_connection(var_nid, var_nid, Connection::new_pick(var_type));
-            self.add_to_scope(var.name.clone(), var_nid);
-            return Ok(());
+        // Add connections to self for counters and var variables
+        match &assignment.kind {
+            AssignmentKind::Int => {}
+            AssignmentKind::Var => {
+                let var_nid = graph.push_output_node(var_type.clone());
+                graph.push_connection(var_nid, var_nid, Connection::new_pick(var_type));
+                self.add_to_scope(var.name.clone(), var_nid);
+                return Ok(());
+            }
+            AssignmentKind::Counter => {
+                let var_nid = graph.push_output_node(var_type.clone());
+                let add_one = Connection::Arithmetic(ArithmeticConnection {
+                    left: var_type.clone(),
+                    right: IOType::Constant(1),
+                    operation: ArithmeticOperation::Add,
+                    output: var_type,
+                });
+                graph.push_connection(var_nid, var_nid, add_one);
+                self.add_to_scope(var.name.clone(), var_nid);
+                return Ok(());
+            }
         }
 
         let (mut var_vid, _) =
@@ -462,6 +478,10 @@ impl GraphCompiler {
 
     fn variable_type_to_iotype(&mut self, variable_type: &VariableType) -> IOType {
         match variable_type {
+            VariableType::Bool(bool_type) => match bool_type {
+                VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
+                VariableSignalType::Any => self.get_new_anysignal(),
+            },
             VariableType::Int(int_type) => match int_type {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
@@ -470,7 +490,7 @@ impl GraphCompiler {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
-            VariableType::Bool(bool_type) => match bool_type {
+            VariableType::Counter(var_type) => match var_type {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },

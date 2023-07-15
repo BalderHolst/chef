@@ -309,19 +309,35 @@ impl Parser {
             return Ok(StatementKind::Error);
         };
 
-        if let VariableType::Var(_) = variable.type_ {
-            self.consume_and_check(TokenKind::Semicolon)?;
-            self.add_to_scope(variable.clone());
+        self.add_to_scope(variable.clone());
 
-            // `var` type variable is always zero initialized, because memory cells in factorio
-            // cannot be assigned values.
-            let zero_expr = Expression::number(0, self.get_span_from(&start_span));
-            return Ok(StatementKind::Assignment(Assignment::new(
-                variable,
-                zero_expr,
-                AssignmentKind::Var,
-            )));
-        }
+        match &variable.type_ {
+            VariableType::Var(_) => {
+                self.consume_and_check(TokenKind::Semicolon)?;
+
+                // `var` type variable is always zero initialized, because memory cells in factorio
+                // cannot be assigned values.
+                let zero_expr = Expression::number(0, self.get_span_from(&start_span));
+                return Ok(StatementKind::Assignment(Assignment::new(
+                    variable,
+                    zero_expr,
+                    AssignmentKind::Var,
+                )));
+            }
+            VariableType::Counter(_) => {
+                self.consume_and_check(TokenKind::Semicolon)?;
+
+                // `var` type variable is always zero initialized, because memory cells in factorio
+                // cannot be assigned values.
+                let zero_expr = Expression::number(0, self.get_span_from(&start_span));
+                return Ok(StatementKind::Assignment(Assignment::new(
+                    variable,
+                    zero_expr,
+                    AssignmentKind::Counter,
+                )));
+            }
+            _ => {}
+        };
 
         if self.current().kind != TokenKind::Equals {
             self.diagnostics_bag
@@ -331,8 +347,6 @@ impl Parser {
             return Ok(StatementKind::Error);
         }
         self.consume(); // Consume equals
-
-        self.add_to_scope(variable.clone());
 
         let expr = self.parse_expression()?;
         self.consume_and_check(TokenKind::Semicolon)?;
@@ -450,9 +464,10 @@ impl Parser {
         let token = self.consume();
         match token.kind.clone() {
             TokenKind::Word(start_word) => match start_word.as_str() {
-                "int" => Ok(VariableType::Int(self.parse_variable_type_signal()?)),
                 "bool" => Ok(VariableType::Bool(self.parse_variable_type_signal()?)),
+                "int" => Ok(VariableType::Int(self.parse_variable_type_signal()?)),
                 "var" => Ok(VariableType::Var(self.parse_variable_type_signal()?)),
+                "counter" => Ok(VariableType::Counter(self.parse_variable_type_signal()?)),
                 "all" => Ok(VariableType::All),
                 w => Err(CompilationError::new(
                     format!("Unknown type `{}`.", w),
