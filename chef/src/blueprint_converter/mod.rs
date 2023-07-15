@@ -1,37 +1,27 @@
 //! Converted combinator graphs to factorio blueprints.
 
+pub mod blueprint_graph;
+
 use std::collections::HashMap;
 
 use factorio_blueprint as fb;
 use fb::objects::{self as fbo, ArithmeticConditions, EntityConnections, SignalID};
 use fb::objects::{Blueprint, ControlBehavior, Entity, EntityNumber, OneBasedIndex, Position};
 use fb::BlueprintCodec;
+use noisy_float::types::R64;
 
-use fnv::FnvHashMap;
+use crate::blueprint_converter::blueprint_graph::BlueprintGraph;
+use crate::compiler::graph::{self, ArithmeticConnection, ArithmeticOperation, Graph, IOType, NId};
 
-use crate::compiler::graph::{self, ArithmeticOperation, Graph, NId};
+pub struct BlueprintConverter {}
 
-pub struct _BlueprintConverter {
-    vid_to_entity_number: FnvHashMap<NId, EntityNumber>,
-    graph: Graph,
-}
-
-impl _BlueprintConverter {
-    pub fn _new(graph: Graph) -> Self {
-        let mut m: FnvHashMap<NId, EntityNumber> = FnvHashMap::default();
-
-        // Create translation between vid and entity_number
-        for (i, (vid, _node)) in graph.vertices.iter().enumerate() {
-            m.insert(*vid, EntityNumber::new(i + 1).unwrap());
-        }
-
-        Self {
-            vid_to_entity_number: m,
-            graph,
-        }
+impl BlueprintConverter {
+    pub fn new() -> Self {
+        Self {}
     }
 
-    fn _create_blueprint(entities: Vec<Entity>) -> Blueprint {
+    /// Create an empty circuit blueprint
+    fn create_blueprint(entities: Vec<Entity>) -> Blueprint {
         Blueprint {
             item: "Blueprint".to_string(),
             label: "Circuit".to_string(),
@@ -45,7 +35,7 @@ impl _BlueprintConverter {
     }
 
     /// Returns (first_constant, first_signal)
-    fn _iotype_to_signal_pair(t: graph::IOType) -> (Option<i32>, Option<SignalID>) {
+    fn iotype_to_signal_pair(t: graph::IOType) -> (Option<i32>, Option<SignalID>) {
         match t {
             graph::IOType::Signal(s) => (
                 None,
@@ -60,7 +50,7 @@ impl _BlueprintConverter {
         }
     }
 
-    fn _operation_to_operation_string(op: ArithmeticOperation) -> String {
+    fn operation_to_op_string(op: ArithmeticOperation) -> String {
         match op {
             ArithmeticOperation::Add => "+".to_string(),
             ArithmeticOperation::Subtract => "-".to_string(),
@@ -69,13 +59,13 @@ impl _BlueprintConverter {
         }
     }
 
-    fn _connection_to_control_behavior(conn: graph::Connection) -> ControlBehavior {
+    fn connection_to_control_behavior(conn: graph::Connection) -> ControlBehavior {
         match conn {
             graph::Connection::Arithmetic(ac) => {
-                let (first_constant, first_signal) = Self::_iotype_to_signal_pair(ac.left);
-                let (second_constant, second_signal) = Self::_iotype_to_signal_pair(ac.right);
-                let (_, output_signal) = Self::_iotype_to_signal_pair(ac.output);
-                let operation = Self::_operation_to_operation_string(ac.operation);
+                let (first_constant, first_signal) = Self::iotype_to_signal_pair(ac.left);
+                let (second_constant, second_signal) = Self::iotype_to_signal_pair(ac.right);
+                let (_, output_signal) = Self::iotype_to_signal_pair(ac.output);
+                let operation = Self::operation_to_op_string(ac.operation);
 
                 ControlBehavior {
                     arithmetic_conditions: Some(ArithmeticConditions {
@@ -96,7 +86,7 @@ impl _BlueprintConverter {
         }
     }
 
-    fn _create_arithmetic_combinator(
+    fn create_arithmetic_combinator(
         id: EntityNumber,
         position: Position,
         connections: Vec<EntityNumber>,
@@ -120,14 +110,37 @@ impl _BlueprintConverter {
             );
         }
 
-        let control_behavior = Some(Self::_connection_to_control_behavior(operation));
+        let control_behavior = Some(Self::connection_to_control_behavior(operation));
 
         Entity {
             entity_number: id,
-            name: "arithmetic-combinator".to_string(), // TODO: check
+            name: "arithmetic-combinator".to_string(),
             position,
             direction: None,
             orientation: None,
+
+            // Connections are block recorded in both the connected entities.
+            //
+            // connections: Some(
+            // StringIdx(
+            //   {
+            //     "2": ConnectionPoint { // The id of the connection point on THIS combinator
+            //                            // "1" = input & "2" -> output
+            //       red: None,
+            //       green: Some(
+            //         [
+            //           ConnectionData {
+            //             entity_id: 2,  // The BLUEPRINT id of the connected entity
+            //             circuit_id: Some( // The connection point id on the OTHER entity
+            //               1,
+            //             ),
+            //           },
+            //         ],
+            //       ),
+            //     },
+            //   },
+            // ),
+            // ),
             connections: Some(EntityConnections::NumberIdx(blueprint_connections)),
             control_behavior,
             items: None,
@@ -155,12 +168,35 @@ impl _BlueprintConverter {
         }
     }
 
-    pub fn _convert_to_blueprint(&mut self) -> Blueprint {
-        let bstring = "0eNq9k9FuwjAMRf/FrwsbDWxAfgVNVdp6YIkmVeKiVaj/PieVGAimiT3sJZKT65vro+QE1aHHLpBjMCeg2rsIZnuCSDtnD2mPhw7BADG2oMDZNlU2EO9bZKpntW8rcpZ9gFEBuQY/wRTjuwJ0TEw4GeZiKF3fVhhE8IuVgs5H6fYuZRDH2fL5VcEAZi63SEwO/lBWuLdHErlovn1KOW5yb0wHHxQilzcDHSlwLzvnIJNiloCkSSImm+QV2SY8cwW+w2CnUPAknb7nrn/AO2AD4zgN4LA+R9Rp2QVEd8mKGjBatBTqnjiXwjX13+DUD+Nc/BPOPPIdmvqa5ssfaNaDdXdxFj/iLK5x6oxTnmp+3ebiMyg4Yog5m14Xy9VGr942er5e6HH8AjHWHFw=";
+    pub fn convert_to_blueprint(&mut self, graph: Graph) {
+        let blueprint_graph = BlueprintGraph::from_graph(graph);
+        blueprint_graph.visualize("fgraph.svg").unwrap();
+    }
 
-        let blueprint = BlueprintCodec::decode_string(bstring).expect("Invalid Blueprint");
-        dbg!(blueprint);
+    fn test(&self) {
+        use crate::cli;
+        // let bstring = "0eNq9k9FuwjAMRf/FrwsbDWxAfgVNVdp6YIkmVeKiVaj/PieVGAimiT3sJZKT65vro+QE1aHHLpBjMCeg2rsIZnuCSDtnD2mPhw7BADG2oMDZNlU2EO9bZKpntW8rcpZ9gFEBuQY/wRTjuwJ0TEw4GeZiKF3fVhhE8IuVgs5H6fYuZRDH2fL5VcEAZi63SEwO/lBWuLdHErlovn1KOW5yb0wHHxQilzcDHSlwLzvnIJNiloCkSSImm+QV2SY8cwW+w2CnUPAknb7nrn/AO2AD4zgN4LA+R9Rp2QVEd8mKGjBatBTqnjiXwjX13+DUD+Nc/BPOPPIdmvqa5ssfaNaDdXdxFj/iLK5x6oxTnmp+3ebiMyg4Yog5m14Xy9VGr942er5e6HH8AjHWHFw=";
+        let bstring = "0eNq9k2FrgzAQhv/LfV3cqrXY5q+MIlFv7YEmkpwykfz3JQpdRwvDfdiXwCXvvXnvIZmhagfsLWkGOQPVRjuQ7zM4umjVxj2eegQJxNiBAK26WClLfO2QqU5q01WkFRsLXgDpBj9Bpv4sADUTE66GSzGVeugqtEHwi5WA3rjQbXTMEByT/PUgYAK5C7eEmGxNW1Z4VSMFedB8+5ThuFl6XTz4IOu4fBhoJMtD2LkFWRVJBBIncRhtopdjFfHsBJgerVpDwUvoNAP3wwZviw14vw6gsb5FzOJysYj6nhU1ILOgJVsPxGvpz7H/AWe2Gef+n3AuIz+hmf2k+fYHmvWk9Eac6TOc4akur1vefQYBI1q3ZMuOaV6csqLYF6fDMff+CzP3HGs=";
 
-        todo!()
+        let parsed = BlueprintCodec::decode_string(bstring).expect("Invalid Blueprint");
+
+        cli::print_label("PARSED");
+        dbg!(parsed);
+
+        cli::print_label("CREATED");
+        let op = graph::Connection::Arithmetic(ArithmeticConnection::new(
+            IOType::Signal("signal-blue".to_string()),
+            IOType::Constant(0),
+            ArithmeticOperation::Add,
+            IOType::Signal("signal-red".to_string()),
+        ));
+        let x = R64::new(-4.5);
+        let y = R64::new(0.0);
+        dbg!(Self::create_arithmetic_combinator(
+            EntityNumber::new(1).unwrap(),
+            Position { x, y },
+            vec![],
+            op
+        ));
     }
 }

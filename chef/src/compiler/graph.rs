@@ -625,7 +625,7 @@ impl Graph {
     }
 
     /// Visualize the graph in an svg.
-    pub fn visualize(&self, output_path: &str) -> graph_visualizer::VisualizerResult {
+    pub fn visualize(&self, output_path: &str) -> Result<(), crate::utils::VisualizerError> {
         graph_visualizer::visualize(self, output_path)
     }
 }

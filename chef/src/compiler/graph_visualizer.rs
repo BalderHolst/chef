@@ -5,15 +5,9 @@ use std::{
 
 use graphviz_rust::{self, cmd::Format, printer::PrinterContext};
 
+use crate::utils::{self, VisualizerError};
+
 use super::graph::Graph;
-
-pub type VisualizerResult = Result<(), VisualizerError>;
-
-#[derive(Debug)]
-pub enum VisualizerError {
-    IoErr(io::Error),
-    GraphvizError(String),
-}
 
 fn create_dot(graph: &Graph) -> String {
     let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();
@@ -61,32 +55,14 @@ fn create_dot(graph: &Graph) -> String {
 
 pub fn visualize(graph: &Graph, output_path: &str) -> Result<(), VisualizerError> {
     let dot = create_dot(graph);
-    let dot_graph = match graphviz_rust::parse(dot.as_str()) {
-        Ok(g) => g,
-        Err(e) => return Err(VisualizerError::GraphvizError(e)),
-    };
+    let svg = utils::dot_to_svg(dot)?;
 
-    let graph_svg = match graphviz_rust::exec(
-        dot_graph,
-        &mut PrinterContext::default(),
-        vec![Format::Svg.into()],
-    ) {
-        Ok(s) => s,
-        Err(e) => return Err(VisualizerError::IoErr(e)),
-    };
-
-    match OpenOptions::new()
+    OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
         .open(output_path)
-    {
-        Ok(mut handle) => match handle.write_all(graph_svg.as_bytes()) {
-            Ok(()) => {}
-            Err(e) => return Err(VisualizerError::IoErr(e)),
-        },
-        Err(e) => return Err(VisualizerError::IoErr(e)),
-    }
-
-    Ok(())
+        .map_err(|e| VisualizerError::IoErr(e))?
+        .write_all(svg.as_bytes())
+        .map_err(|e| VisualizerError::IoErr(e))
 }

@@ -3,11 +3,12 @@ use std::rc::Rc;
 use std::{env, io};
 
 use ast::AST;
+use blueprint_converter::BlueprintConverter;
 use cli::{AddCommand, Command, CookOpts, Opts};
-use compiler::graph_visualizer::VisualizerError;
 use diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
 use gumdrop::Options;
 use text::SourceText;
+use utils::VisualizerError;
 
 mod ast;
 mod blueprint_converter;
@@ -57,7 +58,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
         };
     }
 
-    // let blueprint = BlueprintConverter::new(graph).convert_to_blueprint();
+    let _blueprint = BlueprintConverter::new().convert_to_blueprint(graph);
     // dbg!(blueprint);
 }
 

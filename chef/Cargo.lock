@@ -57,6 +57,7 @@ dependencies = [
  "graphviz-rust",
  "gumdrop",
  "lazy_static",
+ "noisy_float",
  "rand",
  "terminal_size",
  "termion",
