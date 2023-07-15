@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::OpenOptions, io::Write, rc::Rc};
+use std::{fs::OpenOptions, io::Write};
 
 use factorio_blueprint as fb;
 use fb::objects::{EntityNumber, OneBasedIndex};
@@ -16,12 +16,18 @@ pub enum NodeType {
     Output,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ConnectionType {
+    Wire,
+    Operation(Connection),
+}
+
 // Id of directly connected nodes will be the same
 type Node = (graph::NId, NodeType);
 
 pub struct BlueprintGraph {
     pub vertices: FnvHashMap<NId, Node>,
-    operations: FnvHashMap<NId, Vec<(NId, EntityNumber, Connection)>>,
+    operations: FnvHashMap<NId, Vec<(NId, EntityNumber, ConnectionType)>>,
     _wires: FnvHashMap<NId, Vec<NId>>,
     next_nid: NId,
     next_entity_number: EntityNumber,
@@ -62,9 +68,25 @@ impl BlueprintGraph {
         nid
     }
 
-    fn push_operation(&mut self, from: NId, to: NId, entity_id: EntityNumber, conn: Connection) {
+    fn push_operation(
+        &mut self,
+        from: NId,
+        to: NId,
+        entity_id: EntityNumber,
+        conn_type: ConnectionType,
+    ) {
         let adj = self.operations.entry(from).or_default();
-        adj.push((to, entity_id, conn));
+        adj.push((to, entity_id, conn_type));
+    }
+
+    fn get_nodes_in_wire_network(&self, network_id: &u64) -> Vec<NId> {
+        let mut network_nids = Vec::new();
+        for (nid, (node_network_id, _node_type)) in &self.vertices {
+            if node_network_id == network_id {
+                network_nids.push(nid.clone());
+            }
+        }
+        network_nids
     }
 
     fn push_wire(&mut self, first: NId, second: NId) {
@@ -89,7 +111,7 @@ impl BlueprintGraph {
                     new_from_nid,
                     new_to_nid,
                     entity_number,
-                    conn.clone(),
+                    ConnectionType::Operation(conn.clone()),
                 );
             }
         }
@@ -99,16 +121,19 @@ impl BlueprintGraph {
     fn create_dot(&self) -> String {
         let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();
 
-        for (nid, node) in &self.vertices {
-            dot += &format!("\t{} [style=filled label=\"{}\" ]\n", nid, node.0);
+        for (nid, (node_netword_id, _node_type)) in &self.vertices {
+            dot += &format!("\t{} [style=filled label=\"{}\" ]\n", nid, node_netword_id);
         }
 
         for (from_nid, to_vec) in &self.operations {
-            for (to_nid, entity_num, conn) in to_vec {
-                let conn_repr = match conn {
-                    Connection::Arithmetic(_) => "Arithmetic",
-                    Connection::Decider(_) => "Decider",
-                    Connection::Gate(_) => "Gate",
+            for (to_nid, entity_num, conn_type) in to_vec {
+                let conn_repr = match conn_type {
+                    ConnectionType::Operation(conn) => match conn {
+                        Connection::Arithmetic(ac) => ac.operation.to_string(),
+                        Connection::Decider(_) => "Decider".to_string(),
+                        Connection::Gate(_) => "Gate".to_string(),
+                    },
+                    ConnectionType::Wire => "Wire".to_string(),
                 };
                 dot += &format!(
                     "{} -> {} [label=\"{} ({})\"]",
