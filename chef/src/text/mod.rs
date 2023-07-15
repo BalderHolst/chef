@@ -14,11 +14,11 @@ impl TextSpan {
         Self { start, end, text }
     }
 
-    pub fn from_spans(start: TextSpan, end: TextSpan) -> Self {
+    pub fn from_spans(start: &TextSpan, end: &TextSpan) -> Self {
         Self {
             start: start.start,
             end: end.end,
-            text: start.text,
+            text: start.text.clone(),
         }
     }
 

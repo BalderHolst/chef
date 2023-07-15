@@ -261,7 +261,7 @@ impl Parser {
                 };
                 Some(Statement::new(
                     StatementKind::Out(out_expr),
-                    TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+                    self.get_span_from(&start_token.span),
                 ))
             }
         }
@@ -302,7 +302,7 @@ impl Parser {
             Rc::new(v)
         } else {
             self.diagnostics_bag.borrow_mut().report_error(
-                &TextSpan::from_spans(start_span, self.peak(-1).span.clone()),
+                &self.get_span_from(&start_span),
                 "Variables cannot be reassigned.",
             );
             self.consume_bad_statement();
@@ -315,10 +315,7 @@ impl Parser {
 
             // `var` type variable is always zero initialized, because memory cells in factorio
             // cannot be assigned values.
-            let zero_expr = Expression::number(
-                0,
-                TextSpan::from_spans(start_span, self.peak(-1).span.clone()),
-            );
+            let zero_expr = Expression::number(0, self.get_span_from(&start_span));
             return Ok(StatementKind::Assignment(Assignment::new(
                 variable,
                 zero_expr,
@@ -365,7 +362,7 @@ impl Parser {
             v
         } else {
             self.diagnostics_bag.borrow_mut().report_error(
-                &TextSpan::from_spans(start_span, self.peak(-1).span.clone()),
+                &self.get_span_from(&start_span),
                 "Only defined variables can be mutated.",
             );
             self.consume_bad_statement();
@@ -376,7 +373,7 @@ impl Parser {
             var_ref
         } else {
             self.diagnostics_bag.borrow_mut().report_error(
-                &TextSpan::from_spans(start_span, self.peak(-1).span.clone()),
+                &self.get_span_from(&start_span),
                 &format!(
                     "Only `var` type variables can be mutated. Found variable of type: `{}`",
                     var_ref.var.type_
@@ -444,7 +441,7 @@ impl Parser {
         Ok(ParsedVariable::Def(Variable::new(
             name.to_owned(),
             type_,
-            TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+            self.get_span_from(&start_token.span),
         )))
     }
 
@@ -570,14 +567,14 @@ impl Parser {
                     return Err(CompilationError::new(
                         "A `block` must contain an output statement as its last statement."
                             .to_string(),
-                        TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+                        self.get_span_from(&start_token.span),
                     ))
                 }
             },
             _ => {
                 return Err(CompilationError::new(
                     "A `block` must contain an output statement.".to_string(),
-                    TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+                    self.get_span_from(&start_token.span),
                 ))
             }
         };
@@ -642,7 +639,7 @@ impl Parser {
                 statements,
                 out: out_expr,
             }),
-            TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+            self.get_span_from(&start_token.span),
         ))
     }
 
@@ -726,7 +723,7 @@ impl Parser {
                 self.consume();
                 Ok(Expression::new(
                     ExpressionKind::Int(IntExpression::new(*number as i32)),
-                    TextSpan::from_spans(start_token.span, self.peak(-1).span.clone()),
+                    self.get_span_from(&start_token.span),
                 ))
             }
             TokenKind::Word(word) => {
@@ -747,31 +744,20 @@ impl Parser {
                             return Ok({
                                 let kind = ExpressionKind::Pick(PickExpression::new(
                                     signal,
-                                    VariableRef::new(
-                                        var,
-                                        TextSpan::from_spans(
-                                            start_token.span.clone(),
-                                            self.peak(-1).span.clone(),
-                                        ),
-                                    ),
+                                    VariableRef::new(var, self.get_span_from(&start_token.span)),
                                 ));
-                                let span = TextSpan::from_spans(
-                                    start_token.span,
-                                    self.peak(-1).span.clone(),
-                                );
+                                let span = self.get_span_from(&start_token.span);
                                 Expression { kind, span }
                             });
                         }
                         return Ok({
                             let kind = ExpressionKind::Error;
-                            let span =
-                                TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                            let span = self.get_span_from(&start_token.span);
                             Expression { kind, span }
                         });
                     }
                     return Ok({
-                        let span =
-                            TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                        let span = self.get_span_from(&start_token.span);
                         let var_ref = VariableRef::new(var, span.clone());
                         let kind = ExpressionKind::VariableRef(var_ref); // TODO
                         Expression { kind, span }
@@ -780,8 +766,7 @@ impl Parser {
                     let block_link_expr = self.parse_block_link(block)?;
                     return Ok({
                         let kind = ExpressionKind::BlockLink(block_link_expr);
-                        let span =
-                            TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                        let span = self.get_span_from(&start_token.span);
                         Expression { kind, span }
                     });
                 } else {
@@ -791,8 +776,7 @@ impl Parser {
                     );
                     return Ok({
                         let kind = ExpressionKind::Error;
-                        let span =
-                            TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                        let span = self.get_span_from(&start_token.span);
                         Expression { kind, span }
                     });
                 };
@@ -804,7 +788,7 @@ impl Parser {
                     let kind = ExpressionKind::Parenthesized(ParenthesizedExpression::new(
                         Box::new(inner),
                     ));
-                    let span = TextSpan::from_spans(start_token.span, self.peak(-1).span.clone());
+                    let span = self.get_span_from(&start_token.span);
                     Expression { kind, span }
                 };
                 self.consume_and_check(TokenKind::RightParen)?;
@@ -827,6 +811,10 @@ impl Parser {
     ) -> Result<BlockLinkExpression, CompilationError> {
         let inputs = self.parse_block_link_arguments()?;
         Ok(BlockLinkExpression::new(block, inputs))
+    }
+
+    fn get_span_from(&self, start_span: &TextSpan) -> TextSpan {
+        TextSpan::from_spans(start_span, &self.peak(-1).span)
     }
 }
 
