@@ -15,6 +15,9 @@ use crate::compiler::graph::{self, ArithmeticConnection, ArithmeticOperation, Gr
 
 pub struct BlueprintConverter {}
 
+/// The maxinum distanct a wire can connect two points in factorio.
+const WIRE_RANGE: f64 = 10.0;
+
 impl BlueprintConverter {
     pub fn new() -> Self {
         Self {}
@@ -171,12 +174,14 @@ impl BlueprintConverter {
     pub fn convert_to_blueprint(&mut self, graph: Graph) {
         let blueprint_graph = BlueprintGraph::from_graph(graph);
         blueprint_graph.visualize("fgraph.svg").unwrap();
+        self.test();
     }
 
     fn test(&self) {
         use crate::cli;
         // let bstring = "0eNq9k9FuwjAMRf/FrwsbDWxAfgVNVdp6YIkmVeKiVaj/PieVGAimiT3sJZKT65vro+QE1aHHLpBjMCeg2rsIZnuCSDtnD2mPhw7BADG2oMDZNlU2EO9bZKpntW8rcpZ9gFEBuQY/wRTjuwJ0TEw4GeZiKF3fVhhE8IuVgs5H6fYuZRDH2fL5VcEAZi63SEwO/lBWuLdHErlovn1KOW5yb0wHHxQilzcDHSlwLzvnIJNiloCkSSImm+QV2SY8cwW+w2CnUPAknb7nrn/AO2AD4zgN4LA+R9Rp2QVEd8mKGjBatBTqnjiXwjX13+DUD+Nc/BPOPPIdmvqa5ssfaNaDdXdxFj/iLK5x6oxTnmp+3ebiMyg4Yog5m14Xy9VGr942er5e6HH8AjHWHFw=";
-        let bstring = "0eNq9k2FrgzAQhv/LfV3cqrXY5q+MIlFv7YEmkpwykfz3JQpdRwvDfdiXwCXvvXnvIZmhagfsLWkGOQPVRjuQ7zM4umjVxj2eegQJxNiBAK26WClLfO2QqU5q01WkFRsLXgDpBj9Bpv4sADUTE66GSzGVeugqtEHwi5WA3rjQbXTMEByT/PUgYAK5C7eEmGxNW1Z4VSMFedB8+5ThuFl6XTz4IOu4fBhoJMtD2LkFWRVJBBIncRhtopdjFfHsBJgerVpDwUvoNAP3wwZviw14vw6gsb5FzOJysYj6nhU1ILOgJVsPxGvpz7H/AWe2Gef+n3AuIz+hmf2k+fYHmvWk9Eac6TOc4akur1vefQYBI1q3ZMuOaV6csqLYF6fDMff+CzP3HGs=";
+        // let bstring = "0eNq9k2FrgzAQhv/LfV3cqrXY5q+MIlFv7YEmkpwykfz3JQpdRwvDfdiXwCXvvXnvIZmhagfsLWkGOQPVRjuQ7zM4umjVxj2eegQJxNiBAK26WClLfO2QqU5q01WkFRsLXgDpBj9Bpv4sADUTE66GSzGVeugqtEHwi5WA3rjQbXTMEByT/PUgYAK5C7eEmGxNW1Z4VSMFedB8+5ThuFl6XTz4IOu4fBhoJMtD2LkFWRVJBBIncRhtopdjFfHsBJgerVpDwUvoNAP3wwZviw14vw6gsb5FzOJysYj6nhU1ILOgJVsPxGvpz7H/AWe2Gef+n3AuIz+hmf2k+fYHmvWk9Eac6TOc4akur1vefQYBI1q3ZMuOaV6csqLYF6fDMff+CzP3HGs=";
+        let bstring = "0eNrNU8tqwzAQ/JWyx6KUyE5won/IpdcSjGwvyYItGUkOMUb/3pUNbfqAPi7tRTC7M6MdpJ2gagfsHZkAagKqrfGgnibwdDK6TbUw9ggKKGAHAozuEtKOwrnDQPWqtl1FRgfrIAog0+AVlIxHAWgCBcLFcAZjaYauQseEL6wE9Naz2po0AzsWD1sBI6iVlHwNzxmcbcsKz/pCzGfSq1HJ7WYW+9TwmHAq+qBT0LUA26PTiz3cQ1wsDdYvoiwdJ4dobsenBlTGXHL1QGGB8RhZ/yFh9tuE6z/OJ9/nE2/a+ffi5z+NL/9L/k/fl7/zvAHqZmEEtLpCXhI46OvdI+r6zLULOj/fm+3kpthnRZEX++1uE+MzyiovNA==";
 
         let parsed = BlueprintCodec::decode_string(bstring).expect("Invalid Blueprint");
 
