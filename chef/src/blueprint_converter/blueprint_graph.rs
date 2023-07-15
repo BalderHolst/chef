@@ -19,7 +19,28 @@ pub enum NodeType {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ConnectionType {
     Wire,
-    Operation(Connection),
+    Combinator(Combinator),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Combinator {
+    operation: Connection,
+    position: Option<(f64, f64)>,
+}
+
+impl Combinator {
+    fn new(operation: Connection, position: Option<(f64, f64)>) -> Self {
+        Self {
+            operation,
+            position,
+        }
+    }
+    fn new_no_pos(operation: Connection) -> Self {
+        Self {
+            operation,
+            position: None,
+        }
+    }
 }
 
 // Id of directly connected nodes will be the same
@@ -111,7 +132,7 @@ impl BlueprintGraph {
                     new_from_nid,
                     new_to_nid,
                     entity_number,
-                    ConnectionType::Operation(conn.clone()),
+                    ConnectionType::Combinator(Combinator::new_no_pos(conn.clone())),
                 );
             }
         }
@@ -128,7 +149,7 @@ impl BlueprintGraph {
         for (from_nid, to_vec) in &self.operations {
             for (to_nid, entity_num, conn_type) in to_vec {
                 let conn_repr = match conn_type {
-                    ConnectionType::Operation(conn) => match conn {
+                    ConnectionType::Combinator(com) => match &com.operation {
                         Connection::Arithmetic(ac) => ac.operation.to_string(),
                         Connection::Decider(_) => "Decider".to_string(),
                         Connection::Gate(_) => "Gate".to_string(),
