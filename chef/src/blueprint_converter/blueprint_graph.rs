@@ -17,12 +17,6 @@ pub enum NodeType {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ConnectionType {
-    Wire,
-    Combinator(Combinator),
-}
-
-#[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
     operation: Connection,
     position: Option<(f64, f64)>,
@@ -48,8 +42,8 @@ type Node = (graph::NId, NodeType);
 
 pub struct BlueprintGraph {
     pub vertices: FnvHashMap<NId, Node>,
-    operations: FnvHashMap<NId, Vec<(NId, EntityNumber, ConnectionType)>>,
-    _wires: FnvHashMap<NId, Vec<NId>>,
+    combinators: FnvHashMap<NId, Vec<(NId, EntityNumber, Combinator)>>,
+    wires: FnvHashMap<NId, Vec<NId>>,
     next_nid: NId,
     next_entity_number: EntityNumber,
 }
@@ -58,8 +52,8 @@ impl BlueprintGraph {
     fn new() -> Self {
         Self {
             vertices: FnvHashMap::default(),
-            operations: FnvHashMap::default(),
-            _wires: FnvHashMap::default(),
+            combinators: FnvHashMap::default(),
+            wires: FnvHashMap::default(),
             next_nid: EntityNumber::new(1).unwrap(),
             next_entity_number: EntityNumber::new(1).unwrap(),
         }
@@ -89,14 +83,14 @@ impl BlueprintGraph {
         nid
     }
 
-    fn push_operation(
+    fn push_combinator(
         &mut self,
         from: NId,
         to: NId,
         entity_id: EntityNumber,
-        conn_type: ConnectionType,
+        conn_type: Combinator,
     ) {
-        let adj = self.operations.entry(from).or_default();
+        let adj = self.combinators.entry(from).or_default();
         adj.push((to, entity_id, conn_type));
     }
 
@@ -112,11 +106,11 @@ impl BlueprintGraph {
 
     fn push_wire(&mut self, first: NId, second: NId) {
         {
-            let first_adj = self._wires.entry(first).or_default();
+            let first_adj = self.wires.entry(first).or_default();
             first_adj.push(second);
         }
         {
-            let second_adj = self._wires.entry(second).or_default();
+            let second_adj = self.wires.entry(second).or_default();
             second_adj.push(first);
         }
     }
@@ -128,11 +122,11 @@ impl BlueprintGraph {
                 let new_from_nid = blueprint_graph.push_node((orig_from_nid, NodeType::Output));
                 let new_to_nid = blueprint_graph.push_node((orig_to_nid, NodeType::Input));
                 let entity_number = blueprint_graph.get_next_entity_number();
-                blueprint_graph.push_operation(
+                blueprint_graph.push_combinator(
                     new_from_nid,
                     new_to_nid,
                     entity_number,
-                    ConnectionType::Combinator(Combinator::new_no_pos(conn.clone())),
+                    Combinator::new_no_pos(conn.clone()),
                 );
             }
         }
@@ -146,15 +140,12 @@ impl BlueprintGraph {
             dot += &format!("\t{} [style=filled label=\"{}\" ]\n", nid, node_netword_id);
         }
 
-        for (from_nid, to_vec) in &self.operations {
-            for (to_nid, entity_num, conn_type) in to_vec {
-                let conn_repr = match conn_type {
-                    ConnectionType::Combinator(com) => match &com.operation {
-                        Connection::Arithmetic(ac) => ac.operation.to_string(),
-                        Connection::Decider(_) => "Decider".to_string(),
-                        Connection::Gate(_) => "Gate".to_string(),
-                    },
-                    ConnectionType::Wire => "Wire".to_string(),
+        for (from_nid, to_vec) in &self.combinators {
+            for (to_nid, entity_num, com) in to_vec {
+                let conn_repr = match &com.operation {
+                    Connection::Arithmetic(ac) => ac.operation.to_string(),
+                    Connection::Decider(_) => "Decider".to_string(),
+                    Connection::Gate(_) => "Gate".to_string(),
                 };
                 dot += &format!(
                     "{} -> {} [label=\"{} ({})\"]",
