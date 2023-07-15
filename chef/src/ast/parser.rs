@@ -745,7 +745,16 @@ impl Parser {
                         if let TokenKind::Word(signal) = self.consume().kind.clone() {
                             self.consume_and_check(TokenKind::RightSquare)?;
                             return Ok({
-                                let kind = ExpressionKind::Pick(PickExpression::new(signal, var));
+                                let kind = ExpressionKind::Pick(PickExpression::new(
+                                    signal,
+                                    VariableRef::new(
+                                        var,
+                                        TextSpan::from_spans(
+                                            start_token.span.clone(),
+                                            self.peak(-1).span.clone(),
+                                        ),
+                                    ),
+                                ));
                                 let span = TextSpan::from_spans(
                                     start_token.span,
                                     self.peak(-1).span.clone(),

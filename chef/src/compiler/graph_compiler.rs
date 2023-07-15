@@ -281,7 +281,8 @@ impl GraphCompiler {
         graph: &mut Graph,
         pick_expr: &PickExpression,
     ) -> Result<(NId, IOType), CompilationError> {
-        if let Some(var_out_vid) = self.search_scope(pick_expr.from.name.clone()) {
+        let var_ref = pick_expr.from.clone();
+        if let Some(var_out_vid) = self.search_scope(var_ref.var.name.clone()) {
             let out_type = IOType::Signal(pick_expr.pick_signal.clone());
             let picked_vid = graph.push_inner_node();
             graph.push_connection(
@@ -291,7 +292,10 @@ impl GraphCompiler {
             );
             Ok((picked_vid, out_type))
         } else {
-            panic!("pick from variable which not in scope: {:?}.", pick_expr);
+            Err(CompilationError::new(
+                format!("No variable with the name \'{}\', ", var_ref.var.name),
+                var_ref.span,
+            ))
         }
     }
 
@@ -399,7 +403,7 @@ impl GraphCompiler {
                 ExpressionKind::Binary(_) => self.compile_expression(graph, expr, None)?,
                 ExpressionKind::Parenthesized(_) => self.compile_expression(graph, expr, None)?,
                 ExpressionKind::Pick(p) => {
-                    let all_var = p.from;
+                    let all_var = p.from.var;
                     let signal = p.pick_signal;
                     if let Some(var_vid) = self.search_scope(all_var.name.clone()) {
                         let picked_vid = graph.push_inner_node();

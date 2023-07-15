@@ -409,11 +409,11 @@ impl ParenthesizedExpression {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PickExpression {
     pub pick_signal: String,
-    pub from: Rc<Variable>,
+    pub from: VariableRef,
 }
 
 impl PickExpression {
-    fn new(pick_signal: String, from: Rc<Variable>) -> Self {
+    fn new(pick_signal: String, from: VariableRef) -> Self {
         Self { pick_signal, from }
     }
 }
@@ -722,7 +722,7 @@ impl Visitor for Printer {
         self.print("PickExpression:");
         self.indent();
         self.print(&format!("Pick Signal: {}", expr.pick_signal));
-        self.print(&format!("From Variable: {}", expr.from.name));
+        self.print(&format!("From Variable: {}", expr.from.var.name));
         self.unindent();
     }
 
