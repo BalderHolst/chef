@@ -278,9 +278,7 @@ impl Graph {
         }
     }
 
-    /// TODO
     pub fn get_inputs(&self, vid: &NId) -> Vec<IOType> {
-        // TODO: Return a single type
         match self.vertices.get(vid) {
             Some(Node::Input(input_node)) => {
                 return vec![input_node.input.clone()];
@@ -465,7 +463,10 @@ impl Graph {
             match signal {
                 IOType::Signal(_) => {
                     let middle_node = self.push_node(Node::Inner(InnerNode::new()));
-                    let input_types = self.get_inputs(block_input_vid); // TODO
+                    let input_types = self.get_inputs(block_input_vid);
+
+                    debug_assert!(input_types.len() == 1);
+
                     let input_type = input_types[0].clone();
 
                     self.push_connection(
@@ -488,7 +489,7 @@ impl Graph {
                 }
                 IOType::AnySignal(_) => {
                     // TODO : Something is wrong here
-                    let new_type = self.get_single_input(block_input_vid)?;
+                    let new_type = self.get_single_input(block_input_vid).unwrap();
                     self.replace_iotype(signal, &new_type);
                     self.push_connection(
                         *block_input_vid,
@@ -516,11 +517,10 @@ impl Graph {
             .collect())
     }
 
-    /// TODO: Remove
     pub fn get_single_input(&self, vid: &NId) -> Result<IOType, String> {
         let inputs = self.get_inputs(vid);
         if inputs.len() != 1 {
-            return Err("".to_string()); // TODO: REALLY remove
+            return Err("Could not get single input".to_string());
         }
         Ok(inputs[0].clone())
     }

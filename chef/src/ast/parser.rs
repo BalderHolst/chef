@@ -591,8 +591,6 @@ impl Parser {
             }
         }
 
-        dbg!(&out_expr);
-
         self.exit_scope();
 
         Ok(Block::new(

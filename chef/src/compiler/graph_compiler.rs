@@ -305,7 +305,7 @@ impl GraphCompiler {
         let (mut right_vid, mut right_type) =
             self.compile_expression(graph, &bin_expr.right, None)?;
 
-        // If the two inputs are of the same type, on mut be altered
+        // If the two inputs are of the same type, one must be converted.
         if left_type == right_type {
             let new_right_vid = graph.push_inner_node();
             let new_right_type = self.get_new_anysignal();
@@ -321,6 +321,29 @@ impl GraphCompiler {
             right_type = new_right_type;
         }
 
+        let input = graph.push_inner_node();
+        let output = graph.push_inner_node();
+
+        // Connect the outputs of the left and right expressions to the inputs.
+        graph.push_connection(
+            left_vid,
+            input,
+            Connection::Arithmetic(ArithmeticConnection::new_pick(left_type.clone())),
+        );
+        graph.push_connection(
+            right_vid,
+            input,
+            Connection::Arithmetic(ArithmeticConnection::new_pick(right_type.clone())),
+        );
+
+        // Use the outtype if any was provided.
+        let out_type = if let Some(t) = out_type {
+            t
+        } else {
+            self.get_new_anysignal()
+        };
+
+        // Get the combinator operation
         let operation = match bin_expr.operator.kind {
             BinaryOperatorKind::Add => ReturnValue::Int(ArithmeticOperation::Add),
             BinaryOperatorKind::Subtract => ReturnValue::Int(ArithmeticOperation::Subtract),
@@ -336,29 +359,6 @@ impl GraphCompiler {
             }
             BinaryOperatorKind::Equals => ReturnValue::Bool(DeciderOperation::Equals),
             BinaryOperatorKind::NotEquals => ReturnValue::Bool(DeciderOperation::NotEquals),
-        };
-
-        let input = graph.push_inner_node();
-        let output = graph.push_inner_node();
-
-        // Pick
-        graph.push_connection(
-            left_vid,
-            input,
-            Connection::Arithmetic(ArithmeticConnection::new_pick(left_type.clone())),
-        );
-
-        // Pick
-        graph.push_connection(
-            right_vid,
-            input,
-            Connection::Arithmetic(ArithmeticConnection::new_pick(right_type.clone())),
-        );
-
-        let out_type = if let Some(t) = out_type {
-            t
-        } else {
-            self.get_new_anysignal()
         };
 
         // The connection doing the actual operation
@@ -465,26 +465,29 @@ impl GraphCompiler {
         let (cond_out_nid, cond_out_type) = cond_pair;
 
         // Compile output expression, we will attatch a gate to the output of this.
-        let (gate_input_nid, gate_type) =
+        let (gated_input_nid, gated_type) =
             self.compile_expression(graph, &when.out.clone().unwrap(), None)?;
 
         // Output of the gate. This output will be turned on and off by the condition statement.
         let out_nid = graph.push_inner_node();
 
+        // We make sure that the cond type is not the same as the gated type
+        assert_ne!(gated_type, cond_out_type); // TODO: catch
+
         // Connect the condition output to the gate input, so the gate can read the condition
         // state.
         graph.push_connection(
             cond_out_nid,
-            gate_input_nid,
+            gated_input_nid,
             Connection::new_pick(cond_out_type.clone()),
         );
 
         // Push the actual gate opteration. Here we only let the signal through,
         // if the condition returns a value larger than zero.
-        graph.push_gate_connection(gate_input_nid, out_nid, cond_out_type, gate_type.clone());
+        graph.push_gate_connection(gated_input_nid, out_nid, cond_out_type, gated_type.clone());
 
         self.exit_scope();
-        Ok((out_nid, gate_type))
+        Ok((out_nid, gated_type))
     }
 
     fn variable_type_to_iotype(&mut self, variable_type: &VariableType) -> IOType {
