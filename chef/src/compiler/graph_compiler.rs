@@ -389,41 +389,7 @@ impl GraphCompiler {
     ) -> Result<(NId, IOType), CompilationError> {
         let mut vars: Vec<(NId, IOType)> = Vec::new();
         for expr in block_link_expr.inputs.iter() {
-            let pair = match expr.kind.clone() {
-                ExpressionKind::VariableRef(var_ref) => {
-                    let variable = var_ref.var;
-                    let var_vid = self
-                        .search_scope(variable.name.clone())
-                        .expect("A variable ref an only exist when its variable is defined");
-                    let t = self.variable_type_to_iotype(&variable.type_);
-                    (var_vid, t)
-                }
-                ExpressionKind::Int(_) => self.compile_expression(graph, expr, None)?,
-                ExpressionKind::Bool(_) => self.compile_expression(graph, expr, None)?,
-                ExpressionKind::Binary(_) => self.compile_expression(graph, expr, None)?,
-                ExpressionKind::Parenthesized(_) => self.compile_expression(graph, expr, None)?,
-                ExpressionKind::Pick(p) => {
-                    let all_var = p.from.var;
-                    let signal = p.pick_signal;
-                    if let Some(var_vid) = self.search_scope(all_var.name.clone()) {
-                        let picked_vid = graph.push_inner_node();
-                        let t = IOType::Signal(signal);
-                        graph.push_connection(
-                            var_vid,
-                            picked_vid,
-                            Connection::Arithmetic(ArithmeticConnection::new_pick(t.clone())),
-                        );
-                        (picked_vid, t)
-                    } else {
-                        panic!("Block links requires defined variables.");
-                    }
-                }
-                ExpressionKind::BlockLink(_) => self.compile_expression(graph, expr, None)?,
-                ExpressionKind::When(_) => self.compile_expression(graph, expr, None)?,
-                ExpressionKind::Error => panic!(
-                    "Compilation should have stopped before this step if errors where encountered."
-                ),
-            };
+            let pair = self.compile_expression(graph, expr, None)?;
             vars.push(pair);
         }
 
