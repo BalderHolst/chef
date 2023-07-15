@@ -1,6 +1,6 @@
-block main(input: all) -> int(signal_blue) {
-    i: var(signal_green);
-    when input[signal_red] > 5 {
+block main(input: all) -> int(signal-blue) {
+    i: var(signal-green);
+    when input[signal-red] > 5 {
         i +=  10 // input[pump]
         ;
     };

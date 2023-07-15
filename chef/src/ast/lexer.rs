@@ -117,7 +117,7 @@ impl Lexer {
     }
 
     fn is_word_char(c: char) -> bool {
-        c.is_alphabetic() || c == '_'
+        c.is_alphabetic() || c == '_' || c == '-'
     }
 
     fn is_whitespace(c: char) -> bool {
@@ -248,7 +248,7 @@ impl Iterator for Lexer {
                 self.consume().unwrap();
             }
             TokenKind::Whitespace
-        } else if Self::is_word_char(current_char) {
+        } else if Self::is_word_char(current_char) && current_char != '-' {
             let mut word = "".to_string();
             while self.current().is_some() && Self::is_word_char(self.current().unwrap()) {
                 word += self.consume().unwrap().to_string().as_str();
