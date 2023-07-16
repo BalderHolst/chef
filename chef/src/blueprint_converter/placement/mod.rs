@@ -17,8 +17,9 @@ type CoordSet = (Coord, Coord);
 /// 1. Check if any input or output combinators to this one have been placed.
 /// 2. If they have, choose an end of the turd and check if the inputs/outputs are in range.
 /// 3. If not try the other end.
-/// 4. Lastly try placing on top of turn.
+/// 4. Lastly try placing on top of the turd.
 /// 5. If nothing works, backtrack. We will just panic for now... // TODO
+/// 6. When placed, connect wires to the other combinators that were placed.
 struct TurdMaster2000<'a> {
     graph: &'a mut BlueprintGraph,
     placed_positions: HashSet<CoordSet>,
@@ -38,8 +39,6 @@ impl<'a> TurdMaster2000<'a> {
         let mut y = 0;
         let len = locs.len();
 
-        print!("{:?} -> ", locs);
-
         // Sum up positions
         for (loc_x, loc_y) in locs {
             x += loc_x;
@@ -49,8 +48,6 @@ impl<'a> TurdMaster2000<'a> {
         // Divide by number of position to get the average
         let x = x as f64 / len as f64;
         let y = y as f64 / len as f64;
-
-        println!("{:?}", (x, y));
 
         (x, y)
     }
@@ -79,7 +76,31 @@ impl<'a> TurdMaster2000<'a> {
 impl<'a> Placer for TurdMaster2000<'a> {
     fn place(&mut self) {
         for com_index in 0..self.graph.combinators.len() {
-            // let connected_and_placed = self.graph.get_placed_connected_combinators(com.entity_number);
+            let com = self.graph.combinators[com_index].clone();
+
+            let input_nodes = self.graph.get_other_nodes_in_wire_network(&com.from);
+            let output_nodes = self.graph.get_other_nodes_in_wire_network(&com.to);
+
+            for input_nid in input_nodes {
+                if self
+                    .graph
+                    .get_corresponding_combinator(input_nid)
+                    .position
+                    .is_some()
+                {
+                    self.graph.push_wire(input_nid, com.from);
+                }
+            }
+            for output_nid in output_nodes {
+                if self
+                    .graph
+                    .get_corresponding_combinator(output_nid)
+                    .position
+                    .is_some()
+                {
+                    self.graph.push_wire(output_nid, com.to);
+                }
+            }
 
             let x = self.next_right_pos().clone();
             self.place_combinator(vec![(x, 0), (x, 1)], com_index)
