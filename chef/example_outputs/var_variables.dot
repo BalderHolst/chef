@@ -1,0 +1,20 @@
+strict digraph {
+	nodesep=1
+	5	[style=filled fillcolor=white label="Any(1)"]
+	6	[style=filled fillcolor=white label="Any(2)"]
+	1	[style=filled fillcolor=orange label="Any(0)"]
+	0	[style=filled fillcolor=lightgreen label="(10)"]
+	2	[style=filled fillcolor=orange label="int(signal-A) | int(signal-A)"]
+	9	[style=filled fillcolor=white label="Any(3) | int(signal-A)"]
+	11	[style=filled fillcolor=orange label="int(automation-science-pack)"]
+	10	[style=filled fillcolor=white label="Any(4)"]
+	5 -> 6	[label="MULTIPLY: (30), Any(1)" color=black fontcolor=black]
+	6 -> 2	[label="MULTIPLY: Any(2), (-1)" color=black fontcolor=black]
+	1 -> 5	[label="CONVERT: Any(0) -> Any(1)" color=blue fontcolor=blue]
+	1 -> 9	[label="CONVERT: Any(0) -> Any(3)" color=blue fontcolor=blue]
+	0 -> 1	[label="CONVERT: (10) -> Any(0)" color=blue fontcolor=blue]
+	2 -> 2	[label="PICK: int(signal-A)" color=red fontcolor=red]
+	2 -> 9	[label="PICK: int(signal-A)" color=red fontcolor=red]
+	9 -> 10	[label="DIVIDE: int(signal-A), Any(3)" color=black fontcolor=black]
+	10 -> 11	[label="CONVERT: Any(4) -> int(automation-science-pack)" color=blue fontcolor=blue]
+}

@@ -1,0 +1,20 @@
+strict digraph {
+	nodesep=1
+	5	[style=filled fillcolor=white label="int(signal_T)"]
+	7	[style=filled fillcolor=lightgreen label="(1)"]
+	1	[style=filled fillcolor=orange label="int(signal_T)"]
+	0	[style=filled fillcolor=lightgreen label="ALL"]
+	2	[style=filled fillcolor=orange label="int(signal_V) | int(signal_V)"]
+	9	[style=filled fillcolor=white label="int(signal_V)"]
+	8	[style=filled fillcolor=white label="Any(0) | int(signal_V)"]
+	10	[style=filled fillcolor=orange label="int(tank)"]
+	5 -> 8	[label="EQUALS: int(signal_T), (5)" color=purple fontcolor=purple]
+	7 -> 8	[label="CONVERT: (1) -> int(signal_V)" color=blue fontcolor=blue]
+	1 -> 1	[label="ADD: int(signal_T), (1)" color=black fontcolor=black]
+	1 -> 5	[label="PICK: int(signal_T)" color=red fontcolor=red]
+	2 -> 2	[label="PICK: int(signal_V)" color=red fontcolor=red]
+	2 -> 9	[label="PICK: int(signal_V)" color=red fontcolor=red]
+	9 -> 10	[label="CONVERT: int(signal_V) -> int(tank)" color=blue fontcolor=blue]
+	8 -> 2	[label="GATE: int(signal_V)
+LARGERTHAN: Any(0), (0)" color=teal fontcolor=teal]
+}

@@ -215,7 +215,7 @@ impl Display for Connection {
                 gate.gate_type, gate.operation, gate.left, gate.right
             ),
         };
-        writeln!(f, "{s}")
+        write!(f, "{s}")
     }
 }
 
@@ -627,5 +627,9 @@ impl Graph {
     /// Visualize the graph in an svg.
     pub fn visualize(&self, output_path: &str) -> Result<(), crate::utils::VisualizerError> {
         graph_visualizer::visualize(self, output_path)
+    }
+
+    pub fn dot_repr(&self) -> String {
+        graph_visualizer::create_dot(self)
     }
 }

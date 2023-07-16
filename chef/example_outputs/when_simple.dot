@@ -1,0 +1,18 @@
+strict digraph {
+	nodesep=1
+	7	[style=filled fillcolor=white label="int(signal-blue)"]
+	0	[style=filled fillcolor=lightgreen label="ALL"]
+	3	[style=filled fillcolor=white label="int(signal-red)"]
+	12	[style=filled fillcolor=orange label="int(signal-blue)"]
+	9	[style=filled fillcolor=white label="Any(1)"]
+	8	[style=filled fillcolor=white label="Any(1) | Any(0)"]
+	11	[style=filled fillcolor=white label="int(pipe)"]
+	7 -> 8	[label="ADD: (100), int(signal-blue)" color=black fontcolor=black]
+	0 -> 3	[label="PICK: int(signal-red)" color=red fontcolor=red]
+	0 -> 7	[label="PICK: int(signal-blue)" color=red fontcolor=red]
+	3 -> 8	[label="LARGERTHAN: int(signal-red), (5)" color=purple fontcolor=purple]
+	9 -> 11	[label="CONVERT: Any(1) -> int(pipe)" color=blue fontcolor=blue]
+	8 -> 9	[label="GATE: Any(1)
+LARGERTHAN: Any(0), (0)" color=teal fontcolor=teal]
+	11 -> 12	[label="CONVERT: int(pipe) -> int(signal-blue)" color=blue fontcolor=blue]
+}

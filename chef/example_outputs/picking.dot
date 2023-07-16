@@ -1,0 +1,19 @@
+strict digraph {
+	nodesep=1
+	5	[style=filled fillcolor=orange label="Any(0)"]
+	0	[style=filled fillcolor=lightgreen label="ALL"]
+	3	[style=filled fillcolor=white label="int(inserter)"]
+	13	[style=filled fillcolor=white label="Any(2) | Any(3)"]
+	15	[style=filled fillcolor=orange label="int(pipe)"]
+	14	[style=filled fillcolor=white label="Any(4)"]
+	8	[style=filled fillcolor=white label="int(signal-B)"]
+	10	[style=filled fillcolor=orange label="Any(1)"]
+	5 -> 13	[label="CONVERT: Any(0) -> Any(2)" color=blue fontcolor=blue]
+	0 -> 3	[label="PICK: int(inserter)" color=red fontcolor=red]
+	0 -> 8	[label="PICK: int(signal-B)" color=red fontcolor=red]
+	3 -> 5	[label="DIVIDE: int(inserter), (13)" color=black fontcolor=black]
+	13 -> 14	[label="MULTIPLY: Any(2), Any(3)" color=black fontcolor=black]
+	14 -> 15	[label="CONVERT: Any(4) -> int(pipe)" color=blue fontcolor=blue]
+	8 -> 10	[label="ADD: int(signal-B), (2)" color=black fontcolor=black]
+	10 -> 13	[label="CONVERT: Any(1) -> Any(3)" color=blue fontcolor=blue]
+}

@@ -9,7 +9,7 @@ use crate::utils::{self, VisualizerError};
 
 use super::graph::Graph;
 
-fn create_dot(graph: &Graph) -> String {
+pub fn create_dot(graph: &Graph) -> String {
     let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();
 
     for (vid, node) in &graph.vertices {
@@ -25,7 +25,7 @@ fn create_dot(graph: &Graph) -> String {
             Vec::from_iter(inputs.iter().map(|i| i.to_string())).join(" | ")
         };
         dot += &format!(
-            "\t{} [style=filled fillcolor={} label=\"{}\"]\n",
+            "\t{}\t[style=filled fillcolor={} label=\"{}\"]\n",
             vid, color, input
         );
     }
@@ -44,7 +44,7 @@ fn create_dot(graph: &Graph) -> String {
                 }
             };
             dot += &format!(
-                "\t{} -> {}\n [label=\"{}\" color={} fontcolor={}]",
+                "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",
                 from_vid, to_vid, conn, color, color
             );
         }
