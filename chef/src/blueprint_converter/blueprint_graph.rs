@@ -135,19 +135,39 @@ impl BlueprintGraph {
         network_nids
     }
 
-    pub fn get_placed_connected_combinators(&self, this_id: EntityNumber) -> Vec<Combinator> {
-        // for (input_nid, conns) in &self.combinators {
-        //     let other_nodes = self.get_other_nodes_in_wire_network(&input_nid);
-        //     let input_combinators = other_nodes
-        //         .iter()
-        //         .map(|other_nid| self.get_corresponding_combinator(other_nid.clone()));
+    pub fn get_placed_combinators(&self) -> Vec<&Combinator> {
+        self.combinators
+            .iter()
+            .filter(|com| com.position.is_some())
+            .collect()
+    }
 
-        //     let placed_input_combinators: Vec<(&EntityNumber, &Combinator)> = input_combinators
-        //         .filter(|(e_num, com)| com.position.is_some())
-        //         .collect();
-        //     for (output_nid, entity_number, combinator) in conns {}
-        // }
-        todo!()
+    pub fn get_combinator(&self, entity_number: EntityNumber) -> &Combinator {
+        for com in &self.combinators {
+            if com.entity_number == entity_number {
+                return com;
+            }
+        }
+        panic!("Could not find combinator.")
+    }
+
+    pub fn get_placed_connected_combinators(
+        &self,
+        this_entity_number: EntityNumber,
+    ) -> Vec<&Combinator> {
+        let com = self.get_combinator(this_entity_number);
+        let placed = self.get_placed_combinators();
+        placed
+            .iter()
+            .filter(|other| other.entity_number != this_entity_number)
+            .filter(|other| {
+                other.to == com.to
+                    || other.from == com.to
+                    || other.to == com.from
+                    || other.from == com.from
+            })
+            .map(|com| *com)
+            .collect()
     }
 
     pub fn push_wire(&mut self, first: NId, second: NId) {
