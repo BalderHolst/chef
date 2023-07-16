@@ -17,11 +17,11 @@ pub enum NodeType {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
-    from: NId,
-    to: NId,
+    pub from: NId,
+    pub to: NId,
     operation: Connection,
     pub position: Option<(f64, f64)>,
-    entity_number: EntityNumber,
+    pub entity_number: EntityNumber,
 }
 
 impl Combinator {
@@ -220,8 +220,8 @@ impl BlueprintGraph {
                 Connection::Gate(_) => "Gate".to_string(),
             };
             dot += &format!(
-                "\t{} -> {} [label=\"{} ({})\"]\n",
-                com.from, com.to, com_repr, com.entity_number
+                "\t{} -> {} [label=\"{} ({})\\n{:?}\"]\n",
+                com.from, com.to, com_repr, com.entity_number, com.position
             );
         }
 

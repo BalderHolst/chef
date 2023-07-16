@@ -21,7 +21,7 @@ type CoordSet = (Coord, Coord);
 /// 5. If nothing works, backtrack. We will just panic for now... // TODO
 struct TurdMaster2000<'a> {
     graph: &'a mut BlueprintGraph,
-    placed_positions: HashSet<(Coord, Coord)>,
+    placed_positions: HashSet<CoordSet>,
 }
 
 impl<'a> TurdMaster2000<'a> {
@@ -32,10 +32,13 @@ impl<'a> TurdMaster2000<'a> {
         }
     }
 
-    fn pos_middle(locs: Vec<CoordSet>) -> (f64, f64) {
+    fn pos_avg(locs: Vec<CoordSet>) -> (f64, f64) {
         debug_assert!(!locs.is_empty());
-        let (mut x, mut y) = locs.first().unwrap().clone();
+        let mut x = 0;
+        let mut y = 0;
         let len = locs.len();
+
+        print!("{:?} -> ", locs);
 
         // Sum up positions
         for (loc_x, loc_y) in locs {
@@ -47,24 +50,40 @@ impl<'a> TurdMaster2000<'a> {
         let x = x as f64 / len as f64;
         let y = y as f64 / len as f64;
 
+        println!("{:?}", (x, y));
+
         (x, y)
     }
 
-    fn place_combinator(&mut self, locs: Vec<CoordSet>, combinator: &mut Combinator) {
+    fn next_right_pos(&self) -> i64 {
+        let mut i: i64 = 0;
+        while self.placed_positions.get(&(i, 0)).is_some() {
+            i += 1;
+        }
+        i
+    }
+
+    fn place_combinator(&mut self, locs: Vec<CoordSet>, com_index: usize) {
         // Reserve space for the combinator.
         for loc in locs.clone() {
             if !self.placed_positions.insert(loc) {
                 panic!("You cannot place a combinator on top of another.")
             }
         }
+        let com = self.graph.combinators.get_mut(com_index).unwrap();
 
-        combinator.position = Some(Self::pos_middle(locs));
+        com.position = Some(Self::pos_avg(locs));
     }
 }
 
 impl<'a> Placer for TurdMaster2000<'a> {
     fn place(&mut self) {
-        let graph = &self.graph;
+        for com_index in 0..self.graph.combinators.len() {
+            // let connected_and_placed = self.graph.get_placed_connected_combinators(com.entity_number);
+
+            let x = self.next_right_pos().clone();
+            self.place_combinator(vec![(x, 0), (x, 1)], com_index)
+        }
     }
 }
 
