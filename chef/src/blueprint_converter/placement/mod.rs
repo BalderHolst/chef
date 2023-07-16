@@ -2,7 +2,10 @@ use std::collections::HashSet;
 
 use factorio_blueprint::{objects::EntityNumber, Container};
 
-use super::blueprint_graph::{BlueprintGraph, Combinator};
+use super::{
+    blueprint_graph::{BlueprintGraph, Combinator, CombinatorPosition},
+    WIRE_RANGE,
+};
 
 trait Placer {
     fn place(&mut self) {}
@@ -10,6 +13,13 @@ trait Placer {
 
 type Coord = i64;
 type CoordSet = (Coord, Coord);
+
+pub(crate) fn is_in_range(p1: CoordSet, p2: CoordSet) -> bool {
+    let dx = (p2.0 - p1.0) as f64;
+    let dy = (p2.1 - p1.1) as f64;
+    let dist = f64::sqrt(dx * dx + dy * dy);
+    dist <= WIRE_RANGE
+}
 
 /// Tries to arrange combinators in a horrizontal line facing north.
 ///
@@ -60,50 +70,98 @@ impl<'a> TurdMaster2000<'a> {
         i
     }
 
-    fn place_combinator(&mut self, locs: Vec<CoordSet>, com_index: usize) {
+    fn place_combinator(&mut self, input_loc: CoordSet, output_loc: CoordSet, com_index: usize) {
         // Reserve space for the combinator.
-        for loc in locs.clone() {
-            if !self.placed_positions.insert(loc) {
-                panic!("You cannot place a combinator on top of another.")
-            }
+        if !self.placed_positions.insert(input_loc) || !self.placed_positions.insert(output_loc) {
+            panic!("You cannot place a combinator on top of another.")
         }
         let com = self.graph.combinators.get_mut(com_index).unwrap();
 
-        com.position = Some(Self::pos_avg(locs));
+        com.position = Some(CombinatorPosition {
+            input: input_loc,
+            output: output_loc,
+        });
+    }
+
+    fn try_place_combinator(
+        &mut self,
+        input_loc: CoordSet,
+        output_loc: CoordSet,
+        com_index: usize,
+    ) -> bool {
+        let com = self.graph.combinators[com_index].clone();
+
+        let input_nodes = self.graph.get_other_nodes_in_wire_network(&com.from);
+        let output_nodes = self.graph.get_other_nodes_in_wire_network(&com.to);
+
+        // Check if the input_loc allows for connecting to the combinator inputs,
+        // and connect if so.
+        let mut any_placed = false;
+        let mut connected = false;
+        for input_nid in input_nodes {
+            if let Some(placed_com_pos) =
+                &self.graph.get_corresponding_combinator(input_nid).position
+            {
+                any_placed = true;
+                if is_in_range(input_loc, placed_com_pos.output) {
+                    connected = true;
+                    self.graph.push_wire(input_nid, com.from);
+                }
+            }
+        }
+        // If some input combinator(s) were found, but none could be connected to, the placement
+        // position is invalid.
+        if any_placed && !connected {
+            println!("COULD NOT CONNECT INPUT: {:?}", input_loc);
+            return false;
+        }
+
+        // Check if the input_loc allows for connecting to the combinator inputs,
+        // and connect if so.
+        let mut any_placed = false;
+        let mut connected = false;
+        for output_nid in output_nodes {
+            if let Some(placed_com_pos) =
+                &self.graph.get_corresponding_combinator(output_nid).position
+            {
+                any_placed = true;
+                if is_in_range(input_loc, placed_com_pos.output) {
+                    connected = true;
+                    self.graph.push_wire(output_nid, com.to);
+                }
+            }
+        }
+        // If some input combinator(s) were found, but none could be connected to, the placement
+        // position is invalid.
+        if any_placed && !connected {
+            println!("COULD NOT CONNECT INPUT: {:?}", input_loc);
+            return false;
+        }
+
+        // for output_nid in output_nodes {
+        //     if self
+        //         .graph
+        //         .get_corresponding_combinator(output_nid)
+        //         .position
+        //         .is_some()
+        //     {
+        //         self.graph.push_wire(output_nid, com.to);
+        //     }
+        // }
+
+        self.place_combinator(input_loc, output_loc, com_index);
+
+        true
     }
 }
 
 impl<'a> Placer for TurdMaster2000<'a> {
     fn place(&mut self) {
         for com_index in 0..self.graph.combinators.len() {
-            let com = self.graph.combinators[com_index].clone();
-
-            let input_nodes = self.graph.get_other_nodes_in_wire_network(&com.from);
-            let output_nodes = self.graph.get_other_nodes_in_wire_network(&com.to);
-
-            for input_nid in input_nodes {
-                if self
-                    .graph
-                    .get_corresponding_combinator(input_nid)
-                    .position
-                    .is_some()
-                {
-                    self.graph.push_wire(input_nid, com.from);
-                }
-            }
-            for output_nid in output_nodes {
-                if self
-                    .graph
-                    .get_corresponding_combinator(output_nid)
-                    .position
-                    .is_some()
-                {
-                    self.graph.push_wire(output_nid, com.to);
-                }
-            }
-
             let x = self.next_right_pos().clone();
-            self.place_combinator(vec![(x, 0), (x, 1)], com_index)
+
+            // Input always down, and output always up.
+            self.try_place_combinator((x, 0), (x, 1), com_index);
         }
     }
 }

@@ -16,11 +16,17 @@ pub enum NodeType {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct CombinatorPosition {
+    pub input: (i64, i64),
+    pub output: (i64, i64),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
     pub from: NId,
     pub to: NId,
     operation: Connection,
-    pub position: Option<(f64, f64)>,
+    pub position: Option<CombinatorPosition>,
     pub entity_number: EntityNumber,
 }
 
@@ -29,7 +35,7 @@ impl Combinator {
         from: NId,
         to: NId,
         operation: Connection,
-        position: Option<(f64, f64)>,
+        position: Option<CombinatorPosition>,
         entity_number: EntityNumber,
     ) -> Self {
         Self {
