@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use factorio_blueprint::Container;
+use factorio_blueprint::{objects::EntityNumber, Container};
 
 use super::blueprint_graph::{BlueprintGraph, Combinator};
 
@@ -64,9 +64,7 @@ impl<'a> TurdMaster2000<'a> {
 
 impl<'a> Placer for TurdMaster2000<'a> {
     fn place(&mut self) {
-        for (input_nid, conns) in &self.graph.combinators {
-            for (output_nid, entity_number, combinator) in conns {}
-        }
+        let graph = &self.graph;
     }
 }
 

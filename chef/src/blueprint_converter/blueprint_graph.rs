@@ -1,7 +1,7 @@
 use std::{fs::OpenOptions, io::Write};
 
 use factorio_blueprint as fb;
-use fb::objects::{EntityNumber, OneBasedIndex};
+use fb::objects::EntityNumber;
 use fnv::FnvHashMap;
 
 use crate::{
@@ -9,6 +9,7 @@ use crate::{
     utils::{self, VisualizerError},
 };
 
+#[derive(Clone)]
 pub enum NodeType {
     Input,
     Output,
@@ -16,21 +17,36 @@ pub enum NodeType {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
+    from: NId,
+    to: NId,
     operation: Connection,
     pub position: Option<(f64, f64)>,
+    entity_number: EntityNumber,
 }
 
 impl Combinator {
-    fn new(operation: Connection, position: Option<(f64, f64)>) -> Self {
+    fn new(
+        from: NId,
+        to: NId,
+        operation: Connection,
+        position: Option<(f64, f64)>,
+        entity_number: EntityNumber,
+    ) -> Self {
         Self {
+            from,
+            to,
             operation,
             position,
+            entity_number,
         }
     }
-    fn new_no_pos(operation: Connection) -> Self {
+    fn new_no_pos(from: NId, to: NId, operation: Connection, entity_number: EntityNumber) -> Self {
         Self {
+            from,
+            to,
             operation,
             position: None,
+            entity_number,
         }
     }
 }
@@ -40,9 +56,10 @@ type NId = usize;
 // Id of directly connected nodes will be the same
 type Node = (graph::NId, NodeType);
 
+#[derive(Clone)]
 pub struct BlueprintGraph {
     pub vertices: FnvHashMap<NId, Node>,
-    pub combinators: FnvHashMap<NId, Vec<(NId, EntityNumber, Combinator)>>,
+    pub combinators: Vec<Combinator>,
     pub wires: FnvHashMap<NId, Vec<NId>>,
     next_nid: NId,
     next_entity_number: EntityNumber,
@@ -52,7 +69,7 @@ impl BlueprintGraph {
     fn new() -> Self {
         Self {
             vertices: FnvHashMap::default(),
-            combinators: FnvHashMap::default(),
+            combinators: vec![],
             wires: FnvHashMap::default(),
             next_nid: 0,
             next_entity_number: EntityNumber::new(1).unwrap(),
@@ -83,15 +100,29 @@ impl BlueprintGraph {
         nid
     }
 
-    pub fn push_combinator(
-        &mut self,
-        from: NId,
-        to: NId,
-        entity_id: EntityNumber,
-        conn_type: Combinator,
-    ) {
-        let adj = self.combinators.entry(from).or_default();
-        adj.push((to, entity_id, conn_type));
+    pub fn push_combinator(&mut self, com: Combinator) {
+        self.combinators.push(com);
+    }
+
+    pub fn get_corresponding_combinator(&self, nid: NId) -> &Combinator {
+        for com in &self.combinators {
+            if com.from == nid || com.to == nid {
+                return com;
+            }
+        }
+        panic!("All nids should be connected to combinators.")
+    }
+
+    pub fn get_other_nodes_in_wire_network(&self, nid: &NId) -> Vec<NId> {
+        let (network_id, _node_type) = self
+            .vertices
+            .get(nid)
+            .expect("The nid should always be valid");
+        self.get_nodes_in_wire_network(network_id)
+            .iter()
+            .map(|e| e.clone())
+            .filter(|other| other != nid)
+            .collect()
     }
 
     pub fn get_nodes_in_wire_network(&self, network_id: &u64) -> Vec<NId> {
@@ -102,6 +133,21 @@ impl BlueprintGraph {
             }
         }
         network_nids
+    }
+
+    pub fn get_placed_connected_combinators(&self, this_id: EntityNumber) -> Vec<Combinator> {
+        // for (input_nid, conns) in &self.combinators {
+        //     let other_nodes = self.get_other_nodes_in_wire_network(&input_nid);
+        //     let input_combinators = other_nodes
+        //         .iter()
+        //         .map(|other_nid| self.get_corresponding_combinator(other_nid.clone()));
+
+        //     let placed_input_combinators: Vec<(&EntityNumber, &Combinator)> = input_combinators
+        //         .filter(|(e_num, com)| com.position.is_some())
+        //         .collect();
+        //     for (output_nid, entity_number, combinator) in conns {}
+        // }
+        todo!()
     }
 
     pub fn push_wire(&mut self, first: NId, second: NId) {
@@ -122,12 +168,12 @@ impl BlueprintGraph {
                 let new_from_nid = blueprint_graph.push_node((orig_from_nid, NodeType::Input));
                 let new_to_nid = blueprint_graph.push_node((orig_to_nid, NodeType::Output));
                 let entity_number = blueprint_graph.get_next_entity_number();
-                blueprint_graph.push_combinator(
+                blueprint_graph.push_combinator(Combinator::new_no_pos(
                     new_from_nid,
                     new_to_nid,
+                    conn.clone(),
                     entity_number,
-                    Combinator::new_no_pos(conn.clone()),
-                );
+                ));
             }
         }
         blueprint_graph
@@ -147,18 +193,16 @@ impl BlueprintGraph {
             );
         }
 
-        for (from_nid, to_vec) in &self.combinators {
-            for (to_nid, entity_num, com) in to_vec {
-                let conn_repr = match &com.operation {
-                    Connection::Arithmetic(ac) => ac.operation.to_string(),
-                    Connection::Decider(_) => "Decider".to_string(),
-                    Connection::Gate(_) => "Gate".to_string(),
-                };
-                dot += &format!(
-                    "\t{} -> {} [label=\"{} ({})\"]\n",
-                    from_nid, to_nid, conn_repr, entity_num
-                );
-            }
+        for com in &self.combinators {
+            let com_repr = match &com.operation {
+                Connection::Arithmetic(ac) => ac.operation.to_string(),
+                Connection::Decider(_) => "Decider".to_string(),
+                Connection::Gate(_) => "Gate".to_string(),
+            };
+            dot += &format!(
+                "\t{} -> {} [label=\"{} ({})\"]\n",
+                com.from, com.to, com_repr, com.entity_number
+            );
         }
 
         for (from, to_vec) in &self.wires {
