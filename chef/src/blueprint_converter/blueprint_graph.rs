@@ -225,15 +225,19 @@ impl BlueprintGraph {
                 Connection::Decider(_) => "Decider".to_string(),
                 Connection::Gate(_) => "Gate".to_string(),
             };
+            let color = match com.position {
+                Some(_) => "black",
+                None => "red",
+            };
             dot += &format!(
-                "\t{} -> {} [label=\"{} ({})\\n{:?}\"]\n",
-                com.from, com.to, com_repr, com.entity_number, com.position
+                "\t{} -> {} [label=\"{} ({})\\n{:?}\" color={} fontcolor={}]\n",
+                com.from, com.to, com_repr, com.entity_number, com.position, color, color
             );
         }
 
         for (from, to_vec) in &self.wires {
             for to in to_vec {
-                dot += &format!("\t{} -> {} [color=red]\n", from, to);
+                dot += &format!("\t{} -> {} [color=blue]\n", from, to);
             }
         }
 
