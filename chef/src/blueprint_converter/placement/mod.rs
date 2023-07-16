@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{cmp, collections::HashSet};
 
 use factorio_blueprint::{objects::EntityNumber, Container};
 
@@ -33,6 +33,10 @@ pub(crate) fn is_in_range(p1: CoordSet, p2: CoordSet) -> bool {
 struct TurdMaster2000<'a> {
     graph: &'a mut BlueprintGraph,
     placed_positions: HashSet<CoordSet>,
+    max_x: i64,
+    min_x: i64,
+    max_y: i64,
+    min_y: i64,
 }
 
 impl<'a> TurdMaster2000<'a> {
@@ -40,6 +44,10 @@ impl<'a> TurdMaster2000<'a> {
         Self {
             graph,
             placed_positions: HashSet::new(),
+            max_x: 0,
+            min_x: 1,
+            max_y: 0,
+            min_y: 1,
         }
     }
 
@@ -89,6 +97,13 @@ impl<'a> TurdMaster2000<'a> {
         output_loc: CoordSet,
         com_index: usize,
     ) -> bool {
+        // See if the position if occupied.
+        if self.placed_positions.get(&input_loc).is_some()
+            || self.placed_positions.get(&output_loc).is_some()
+        {
+            return false;
+        }
+
         let com = self.graph.combinators[com_index].clone();
 
         let input_nodes = self.graph.get_other_nodes_in_wire_network(&com.from);
@@ -112,7 +127,6 @@ impl<'a> TurdMaster2000<'a> {
         // If some input combinator(s) were found, but none could be connected to, the placement
         // position is invalid.
         if any_placed && !connected {
-            println!("COULD NOT CONNECT INPUT: {:?}", input_loc);
             return false;
         }
 
@@ -134,20 +148,8 @@ impl<'a> TurdMaster2000<'a> {
         // If some input combinator(s) were found, but none could be connected to, the placement
         // position is invalid.
         if any_placed && !connected {
-            println!("COULD NOT CONNECT INPUT: {:?}", input_loc);
             return false;
         }
-
-        // for output_nid in output_nodes {
-        //     if self
-        //         .graph
-        //         .get_corresponding_combinator(output_nid)
-        //         .position
-        //         .is_some()
-        //     {
-        //         self.graph.push_wire(output_nid, com.to);
-        //     }
-        // }
 
         self.place_combinator(input_loc, output_loc, com_index);
 
@@ -157,11 +159,20 @@ impl<'a> TurdMaster2000<'a> {
 
 impl<'a> Placer for TurdMaster2000<'a> {
     fn place(&mut self) {
-        for com_index in 0..self.graph.combinators.len() {
-            let x = self.next_right_pos().clone();
-
-            // Input always down, and output always up.
-            self.try_place_combinator((x, 0), (x, 1), com_index);
+        'outer: for com_index in 0..self.graph.combinators.len() {
+            // try to place at the end of turd
+            for y in self.min_y - 1..self.max_y + 2 {
+                for x in self.min_x - 1..self.max_x + 2 {
+                    println!("trying: ({x}, {y})");
+                    if self.try_place_combinator((x, y * 2), (x, y * 2 + 1), com_index) {
+                        println!("placed on ({}, {}).", x, y);
+                        self.max_x = cmp::max(self.max_x, x);
+                        self.max_y = cmp::max(self.max_y, y);
+                        continue 'outer;
+                    }
+                }
+            }
+            todo!("COULD NOT PLACE COMBINATOR");
         }
     }
 }

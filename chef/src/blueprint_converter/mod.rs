@@ -17,7 +17,7 @@ use crate::compiler::graph::{self, ArithmeticConnection, ArithmeticOperation, Gr
 pub struct BlueprintConverter {}
 
 /// The maxinum distanct a wire can connect two points in factorio.
-const WIRE_RANGE: f64 = 10.0;
+const WIRE_RANGE: f64 = 9.0;
 
 impl BlueprintConverter {
     pub fn new() -> Self {
