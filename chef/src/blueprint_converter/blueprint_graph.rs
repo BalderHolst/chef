@@ -17,7 +17,7 @@ pub enum NodeType {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
     operation: Connection,
-    position: Option<(f64, f64)>,
+    pub position: Option<(f64, f64)>,
 }
 
 impl Combinator {
