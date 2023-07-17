@@ -8,11 +8,11 @@ use std::num::NonZeroUsize;
 
 use factorio_blueprint as fb;
 use fb::objects::{self as fbo, ArithmeticConditions, EntityConnections, SignalID, SignalIDType};
-use fb::objects::{Blueprint, ControlBehavior, Entity, EntityNumber, Position};
+use fb::objects::{Blueprint, ControlBehavior, Entity, EntityNumber};
 use fb::Container;
 
 use crate::blueprint_converter::blueprint_graph::BlueprintGraph;
-use crate::compiler::graph::{self, ArithmeticOperation, Graph, NId};
+use crate::compiler::graph::{self, ArithmeticOperation, Graph};
 use crate::utils::BASE_SIGNALS;
 
 use self::blueprint_graph::Combinator;
@@ -121,32 +121,9 @@ impl BlueprintConverter {
     }
 
     fn combinator_to_entity(&self, com: Combinator) -> Entity {
-        match com.operation {
-            graph::Connection::Arithmetic(_) => self.create_arithmetic_combinator(
-                com.from,
-                com.to,
-                com.entity_number,
-                com.position
-                    .expect("All combinators should have been placed at this point.")
-                    .factorio_pos(),
-                com.operation,
-            ),
-            graph::Connection::Decider(_) => todo!(),
-            graph::Connection::Gate(_) => todo!(),
-        }
-    }
-
-    fn create_arithmetic_combinator(
-        &self,
-        input: NId,
-        output: NId,
-        id: EntityNumber,
-        position: Position,
-        operation: graph::Connection,
-    ) -> Entity {
         let mut blueprint_connections: HashMap<EntityNumber, fbo::Connection> = HashMap::new();
 
-        if let Some(inputs) = self.graph.wires.get(&input) {
+        if let Some(inputs) = self.graph.wires.get(&com.from) {
             for in_nid in inputs {
                 let other_com = self.graph.get_corresponding_combinator(*in_nid);
 
@@ -166,7 +143,7 @@ impl BlueprintConverter {
         }
 
         // Do the same for outputs
-        if let Some(outputs) = self.graph.wires.get(&output) {
+        if let Some(outputs) = self.graph.wires.get(&com.to) {
             for out_nid in outputs {
                 let other_com = self.graph.get_corresponding_combinator(*out_nid);
 
@@ -185,12 +162,15 @@ impl BlueprintConverter {
             }
         }
 
-        let control_behavior = Some(Self::connection_to_control_behavior(operation));
+        let control_behavior = Some(Self::connection_to_control_behavior(com.operation));
 
         Entity {
-            entity_number: id,
+            entity_number: com.entity_number,
             name: "arithmetic-combinator".to_string(),
-            position,
+            position: com
+                .position
+                .expect("Combinators should all be placed at this point")
+                .factorio_pos(),
             direction: None,
             orientation: None,
 
