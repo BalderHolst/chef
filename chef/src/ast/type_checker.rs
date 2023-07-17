@@ -22,12 +22,15 @@ struct TypeChecker {
 impl TypeChecker {
     /// Checks if a signal is a valid factorio signal.
     fn is_valid_signal(s: &str) -> bool {
+        print!("checking {s}...");
         for signal_line in BASE_SIGNALS.lines() {
             let signal = signal_line.split(':').last().unwrap();
             if s == signal {
+                println!("VALID.");
                 return true;
             }
         }
+        println!("INVALID.");
         false
     }
 
@@ -50,6 +53,13 @@ impl Visitor for TypeChecker {
     fn visit_error_expression(&mut self) {}
     fn visit_pick_expression(&mut self, _expr: &super::PickExpression) {}
     fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
+
+    fn visit_assignment(&mut self, assignment: &super::Assignment) {
+        if let Some(sig) = assignment.variable.type_.signal() {
+            self.report_if_invalid_signal(sig.as_str(), &assignment.variable.span)
+        }
+        self.do_visit_assignment(assignment);
+    }
 
     fn visit_expression(&mut self, expression: &super::Expression) {
         match &expression.kind {
@@ -120,6 +130,11 @@ impl Visitor for TypeChecker {
                 self.report_if_invalid_signal(signal, &var.span);
             }
         }
+
+        if let Some(s) = block.output_type.signal() {
+            self.report_if_invalid_signal(s.as_str(), &block.span)
+        }
+
         if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &block.output_type {
             self.report_if_invalid_signal(signal, &block.span);
         }

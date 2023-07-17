@@ -139,6 +139,23 @@ impl VariableType {
             VariableType::All => ExpressionReturnType::Group,
         }
     }
+
+    pub fn signal_type(&self) -> Option<&VariableSignalType> {
+        match self {
+            VariableType::Bool(s) => Some(s),
+            VariableType::Int(s) => Some(s),
+            VariableType::Var(s) => Some(s),
+            VariableType::Counter(s) => Some(s),
+            VariableType::All => None,
+        }
+    }
+
+    pub fn signal(&self) -> Option<String> {
+        match self.signal_type()? {
+            VariableSignalType::Signal(s) => Some(s.to_owned()),
+            VariableSignalType::Any => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
