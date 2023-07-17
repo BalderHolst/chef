@@ -37,6 +37,20 @@ enum EvaluatorResult {
     Bool(bool),
 }
 
+fn get_constant_int(expr: &Expression) -> Option<i32> {
+    match &expr.kind {
+        ExpressionKind::Int(n) => Some(n.number),
+        ExpressionKind::Parenthesized(p) => get_constant_int(&p.expression),
+        ExpressionKind::Bool(_) => None,
+        ExpressionKind::Binary(_) => None,
+        ExpressionKind::Pick(_) => None,
+        ExpressionKind::VariableRef(_) => None,
+        ExpressionKind::BlockLink(_) => None,
+        ExpressionKind::When(_) => None,
+        ExpressionKind::Error => None,
+    }
+}
+
 impl MutVisitor for ConstantEvaluator {
     fn visit_pick_expression(&mut self, _expr: &mut super::PickExpression) {}
     fn visit_error_statement(&mut self) {}
@@ -48,14 +62,16 @@ impl MutVisitor for ConstantEvaluator {
     fn visit_expression(&mut self, expression: &mut Expression) {
         let result = match &mut expression.kind {
             ExpressionKind::Binary(binary_expression) => {
-                let (left, right) =
-                    match (&binary_expression.left.kind, &binary_expression.right.kind) {
-                        (ExpressionKind::Int(l), ExpressionKind::Int(r)) => (l.number, r.number),
-                        _ => {
-                            self.visit_binary_expression(binary_expression);
-                            return;
-                        }
-                    };
+                let left = get_constant_int(&binary_expression.left);
+                let right = get_constant_int(&binary_expression.right);
+
+                if left.is_none() || right.is_none() {
+                    self.visit_binary_expression(binary_expression);
+                    return;
+                }
+                let left = left.unwrap();
+                let right = right.unwrap();
+
                 let res = match binary_expression.operator.kind {
                     super::BinaryOperatorKind::Add => EvaluatorResult::Int(left + right),
                     super::BinaryOperatorKind::Subtract => EvaluatorResult::Int(left - right),
