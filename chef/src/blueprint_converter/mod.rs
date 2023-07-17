@@ -7,12 +7,13 @@ use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 use factorio_blueprint as fb;
-use fb::objects::{self as fbo, ArithmeticConditions, EntityConnections, SignalID};
+use fb::objects::{self as fbo, ArithmeticConditions, EntityConnections, SignalID, SignalIDType};
 use fb::objects::{Blueprint, ControlBehavior, Entity, EntityNumber, Position};
 use fb::Container;
 
 use crate::blueprint_converter::blueprint_graph::BlueprintGraph;
 use crate::compiler::graph::{self, ArithmeticOperation, Graph, NId};
+use crate::utils::BASE_SIGNALS;
 
 use self::blueprint_graph::Combinator;
 
@@ -44,16 +45,39 @@ impl BlueprintConverter {
         }
     }
 
+    fn get_signal_type(s: &str) -> SignalIDType {
+        for line in BASE_SIGNALS.lines() {
+            let (type_, sig) = line
+                .split_once(':')
+                .expect("Eact line in signale files should be formattet like this: type:signal");
+            if s == sig {
+                return match type_ {
+                    "item" => SignalIDType::Item,
+                    "fluid" => SignalIDType::Fluid,
+                    "virtual" => SignalIDType::Virtual,
+                    _ => panic!("Invalid signal type in signal file: `{}`.", type_),
+                };
+            }
+        }
+        panic!(
+            "Could not find signal: {}. The typechecker should have prevented this.",
+            s
+        );
+    }
+
     /// Returns (first_constant, first_signal)
     fn iotype_to_signal_pair(t: graph::IOType) -> (Option<i32>, Option<SignalID>) {
         match t {
-            graph::IOType::Signal(s) => (
-                None,
-                Some(SignalID {
-                    name: s,
-                    type_: fbo::SignalIDType::Virtual, // TODO
-                }),
-            ),
+            graph::IOType::Signal(s) => {
+                let type_ = Self::get_signal_type(s.as_str());
+                (
+                    None,
+                    Some(SignalID {
+                        name: s,
+                        type_, // TODO
+                    }),
+                )
+            }
             graph::IOType::Constant(n) => (Some(n), None),
             graph::IOType::All => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
