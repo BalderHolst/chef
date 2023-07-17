@@ -175,4 +175,29 @@ mod tests {
             compile(Rc::new(Opts::default()), &CookOpts::from_files(vec![file]));
         }
     }
+
+    #[test]
+    fn check_dot_files() {
+        let example_dir = "examples";
+        let out_dir = "example_outputs".to_string();
+        for file in fs::read_dir(example_dir).unwrap() {
+            let file = file.unwrap().path();
+            println!("Compiling: {}... ", file.display());
+            let output_file =
+                out_dir.clone() + "/" + file.file_stem().unwrap().to_str().unwrap() + ".dot";
+
+            println!("\treading expected dot: \'{}\'", output_file);
+            let expected_dot = fs::read_to_string(output_file).unwrap();
+
+            let text = Rc::new(SourceText::from_file(file.to_str().unwrap()).unwrap());
+            let opts = Rc::new(Opts::default());
+            let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
+            let ast = AST::from_source(text, bag.clone(), opts);
+            bag.borrow_mut().exit_if_errored();
+            let graph = compiler::compile(ast, bag.clone()).unwrap();
+            bag.borrow_mut().exit_if_errored();
+            let compiled_dot = graph.dot_repr();
+            assert_eq!(expected_dot, compiled_dot);
+        }
+    }
 }
