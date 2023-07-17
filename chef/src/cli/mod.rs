@@ -57,9 +57,12 @@ pub struct CookOpts {
     #[options(free)]
     pub(crate) files: Vec<String>,
 
+    #[options(help = "output only a graph version of the output in 'dot' format.")]
+    pub(crate) dot: bool,
+
     #[options(
         short = "g",
-        help = "Output an svg to visualize the circuit connections."
+        help = "output an svg to visualize the circuit connections."
     )]
     pub(crate) graph: Option<String>,
 }
@@ -68,6 +71,7 @@ impl CookOpts {
     pub fn from_files(files: Vec<String>) -> Self {
         Self {
             help: false,
+            dot: false,
             files,
             graph: None,
         }

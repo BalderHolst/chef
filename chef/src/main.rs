@@ -58,6 +58,12 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
         };
     }
 
+    if cook_opts.dot {
+        let dot = graph.dot_repr();
+        println!("{dot}");
+        exit(0);
+    }
+
     match BlueprintConverter::new(graph).convert_to_blueprint_string() {
         Ok(blueprint) => {
             cli_clipboard::set_contents(blueprint.clone()).unwrap();

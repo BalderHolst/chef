@@ -1,8 +1,7 @@
 block main(input: all) -> int(signal-blue) {
     i: var(signal-green);
     when input[signal-red] > 5 {
-        i +=  10 // input[pump]
-        ;
+        i += 10;
     };
     out i;
 }
