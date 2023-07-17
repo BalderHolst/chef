@@ -688,11 +688,8 @@ impl<'a> AnysignalAssigner<'a> {
         // Keep track of what signals are already used by the blueprint
         for to_vec in self.graph.adjacency.values() {
             for (_, conn) in to_vec {
-                match conn.get_output() {
-                    IOType::Signal(s) => {
-                        self.used_signals.insert(s);
-                    }
-                    _ => {}
+                if let IOType::Signal(s) = conn.get_output() {
+                    self.used_signals.insert(s);
                 }
             }
         }
@@ -729,10 +726,10 @@ impl<'a> AnysignalAssigner<'a> {
 
     fn assign_if_anysignal(&mut self, iotype: &IOType) {
         if let IOType::AnySignal(n) = iotype {
-            if let Some(_signal) = self.anysignal_to_signal.get(&n) {
+            if let Some(_signal) = self.anysignal_to_signal.get(n) {
             } else {
                 let sig = self.get_next_signal();
-                self.anysignal_to_signal.insert(n.clone(), sig);
+                self.anysignal_to_signal.insert(*n, sig);
             }
         }
     }

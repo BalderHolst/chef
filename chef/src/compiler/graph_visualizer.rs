@@ -1,9 +1,4 @@
-use std::{
-    fs::OpenOptions,
-    io::{self, Write},
-};
-
-use graphviz_rust::{self, cmd::Format, printer::PrinterContext};
+use std::{fs::OpenOptions, io::Write};
 
 use crate::utils::{self, VisualizerError};
 
@@ -62,7 +57,7 @@ pub fn visualize(graph: &Graph, output_path: &str) -> Result<(), VisualizerError
         .create(true)
         .truncate(true)
         .open(output_path)
-        .map_err(|e| VisualizerError::IoErr(e))?
+        .map_err(VisualizerError::IoErr)?
         .write_all(svg.as_bytes())
-        .map_err(|e| VisualizerError::IoErr(e))
+        .map_err(VisualizerError::IoErr)
 }

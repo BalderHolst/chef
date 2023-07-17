@@ -1,7 +1,7 @@
 use std::{cmp, collections::HashSet};
 
 use super::{
-    blueprint_graph::{BlueprintGraph, Combinator, CombinatorPosition},
+    blueprint_graph::{BlueprintGraph, CombinatorPosition},
     WIRE_RANGE,
 };
 
@@ -47,25 +47,6 @@ impl<'a> TurdMaster2000<'a> {
             max_y: 0,
             min_y: 1,
         }
-    }
-
-    fn pos_avg(locs: Vec<CoordSet>) -> (f64, f64) {
-        debug_assert!(!locs.is_empty());
-        let mut x = 0;
-        let mut y = 0;
-        let len = locs.len();
-
-        // Sum up positions
-        for (loc_x, loc_y) in locs {
-            x += loc_x;
-            y += loc_y;
-        }
-
-        // Divide by number of position to get the average
-        let x = x as f64 / len as f64;
-        let y = y as f64 / len as f64;
-
-        (x, y)
     }
 
     fn place_combinator(&mut self, input_loc: CoordSet, output_loc: CoordSet, com_index: usize) {

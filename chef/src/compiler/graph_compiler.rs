@@ -283,7 +283,7 @@ impl GraphCompiler {
         let input_signal = match var_node {
             Node::Input(var_output_node) => var_output_node.input,
             Node::Output(o) => o.output_type,
-            Node::Inner(n) => panic!("Var nodes should be output or input nodes"),
+            Node::Inner(_) => panic!("Var nodes should be output or input nodes"),
         };
         let vid = graph.push_node(Node::Inner(InnerNode::new()));
         graph.push_connection(

@@ -47,7 +47,7 @@ pub struct Combinator {
 }
 
 impl Combinator {
-    fn new(
+    fn _new(
         from: NId,
         to: NId,
         operation: Connection,
@@ -142,7 +142,7 @@ impl BlueprintGraph {
             .expect("The nid should always be valid");
         self.get_nodes_in_wire_network(network_id)
             .iter()
-            .map(|e| e.clone())
+            .copied()
             .filter(|other| other != nid)
             .collect()
     }
@@ -151,20 +151,20 @@ impl BlueprintGraph {
         let mut network_nids = Vec::new();
         for (nid, (node_network_id, _node_type)) in &self.vertices {
             if node_network_id == network_id {
-                network_nids.push(nid.clone());
+                network_nids.push(*nid);
             }
         }
         network_nids
     }
 
-    pub fn get_placed_combinators(&self) -> Vec<&Combinator> {
+    pub fn _get_placed_combinators(&self) -> Vec<&Combinator> {
         self.combinators
             .iter()
             .filter(|com| com.position.is_some())
             .collect()
     }
 
-    pub fn get_combinator(&self, entity_number: EntityNumber) -> &Combinator {
+    pub fn _get_combinator(&self, entity_number: EntityNumber) -> &Combinator {
         for com in &self.combinators {
             if com.entity_number == entity_number {
                 return com;
@@ -173,12 +173,12 @@ impl BlueprintGraph {
         panic!("Could not find combinator.")
     }
 
-    pub fn get_placed_connected_combinators(
+    pub fn _get_placed_connected_combinators(
         &self,
         this_entity_number: EntityNumber,
     ) -> Vec<&Combinator> {
-        let com = self.get_combinator(this_entity_number);
-        let placed = self.get_placed_combinators();
+        let com = self._get_combinator(this_entity_number);
+        let placed = self._get_placed_combinators();
         placed
             .iter()
             .filter(|other| other.entity_number != this_entity_number)
@@ -188,7 +188,7 @@ impl BlueprintGraph {
                     || other.to == com.from
                     || other.from == com.from
             })
-            .map(|com| *com)
+            .copied()
             .collect()
     }
 
@@ -265,8 +265,8 @@ impl BlueprintGraph {
             .create(true)
             .truncate(true)
             .open(output_path)
-            .map_err(|e| VisualizerError::IoErr(e))?
+            .map_err(VisualizerError::IoErr)?
             .write_all(svg.as_bytes())
-            .map_err(|e| VisualizerError::IoErr(e))
+            .map_err(VisualizerError::IoErr)
     }
 }

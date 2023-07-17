@@ -148,7 +148,7 @@ impl BlueprintConverter {
 
         if let Some(inputs) = self.graph.wires.get(&input) {
             for in_nid in inputs {
-                let other_com = self.graph.get_corresponding_combinator(in_nid.clone());
+                let other_com = self.graph.get_corresponding_combinator(*in_nid);
 
                 // Connect to the input (id 1) connection point if THIS conbinator.
                 blueprint_connections.insert(NonZeroUsize::new(1).unwrap(), {
@@ -168,7 +168,7 @@ impl BlueprintConverter {
         // Do the same for outputs
         if let Some(outputs) = self.graph.wires.get(&output) {
             for out_nid in outputs {
-                let other_com = self.graph.get_corresponding_combinator(out_nid.clone());
+                let other_com = self.graph.get_corresponding_combinator(*out_nid);
 
                 // Connect to the OUTPUT (id 2) connection point if THIS conbinator.
                 blueprint_connections.insert(NonZeroUsize::new(2).unwrap(), {
