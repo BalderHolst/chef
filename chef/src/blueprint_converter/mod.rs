@@ -7,12 +7,14 @@ use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 use factorio_blueprint as fb;
-use fb::objects::{self as fbo, ArithmeticConditions, EntityConnections, SignalID, SignalIDType};
+use fb::objects::{
+    self as fbo, ArithmeticConditions, DeciderConditions, EntityConnections, SignalID, SignalIDType,
+};
 use fb::objects::{Blueprint, ControlBehavior, Entity, EntityNumber};
 use fb::Container;
 
 use crate::blueprint_converter::blueprint_graph::BlueprintGraph;
-use crate::compiler::graph::{self, ArithmeticOperation, Graph};
+use crate::compiler::graph::{self, ArithmeticOperation, DeciderOperation, Graph};
 use crate::utils::BASE_SIGNALS;
 
 use self::blueprint_graph::Combinator;
@@ -66,40 +68,53 @@ impl BlueprintConverter {
     }
 
     /// Returns (first_constant, first_signal)
-    fn iotype_to_signal_pair(t: graph::IOType) -> (Option<i32>, Option<SignalID>) {
+    fn iotype_to_signal_pair(t: &graph::IOType) -> (Option<i32>, Option<SignalID>) {
         match t {
             graph::IOType::Signal(s) => {
                 let type_ = Self::get_signal_type(s.as_str());
                 (
                     None,
                     Some(SignalID {
-                        name: s,
+                        name: s.clone(),
                         type_, // TODO
                     }),
                 )
             }
-            graph::IOType::Constant(n) => (Some(n), None),
+            graph::IOType::Constant(n) => (Some(*n), None),
             graph::IOType::All => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
         }
     }
 
-    fn operation_to_op_string(op: ArithmeticOperation) -> String {
+    fn arithmetic_operation_to_op_string(op: &ArithmeticOperation) -> String {
         match op {
-            ArithmeticOperation::Add => "+".to_string(),
-            ArithmeticOperation::Subtract => "-".to_string(),
-            ArithmeticOperation::Multiply => "*".to_string(),
-            ArithmeticOperation::Divide => "/".to_string(),
+            ArithmeticOperation::Add => "+",
+            ArithmeticOperation::Subtract => "-",
+            ArithmeticOperation::Multiply => "*",
+            ArithmeticOperation::Divide => "/",
         }
+        .to_string()
     }
 
-    fn connection_to_control_behavior(conn: graph::Connection) -> ControlBehavior {
+    fn decider_operation_to_op_string(op: &DeciderOperation) -> String {
+        match op {
+            DeciderOperation::LargerThan => ">",
+            DeciderOperation::LargerThanOrEqual => ">=",
+            DeciderOperation::LessThan => "<",
+            DeciderOperation::LessThanOrEqual => "<=",
+            DeciderOperation::Equals => "=",
+            DeciderOperation::NotEquals => "!=",
+        }
+        .to_string()
+    }
+
+    fn connection_to_control_behavior(conn: &graph::Connection) -> ControlBehavior {
         match conn {
             graph::Connection::Arithmetic(ac) => {
-                let (first_constant, first_signal) = Self::iotype_to_signal_pair(ac.left);
-                let (second_constant, second_signal) = Self::iotype_to_signal_pair(ac.right);
-                let (_, output_signal) = Self::iotype_to_signal_pair(ac.output);
-                let operation = Self::operation_to_op_string(ac.operation);
+                let (first_constant, first_signal) = Self::iotype_to_signal_pair(&ac.left);
+                let (second_constant, second_signal) = Self::iotype_to_signal_pair(&ac.right);
+                let (_, output_signal) = Self::iotype_to_signal_pair(&ac.output);
+                let operation = Self::arithmetic_operation_to_op_string(&ac.operation);
 
                 ControlBehavior {
                     arithmetic_conditions: Some(ArithmeticConditions {
@@ -115,8 +130,46 @@ impl BlueprintConverter {
                     is_on: None,
                 }
             }
-            graph::Connection::Decider(_) => todo!(),
-            graph::Connection::Gate(_) => todo!(),
+            graph::Connection::Decider(dc) => {
+                let (_first_constant, first_signal) = Self::iotype_to_signal_pair(&dc.left);
+                let (second_constant, second_signal) = Self::iotype_to_signal_pair(&dc.right);
+                let (_, output_signal) = Self::iotype_to_signal_pair(&dc.output);
+                let operation = Self::decider_operation_to_op_string(&dc.operation);
+
+                ControlBehavior {
+                    arithmetic_conditions: None,
+                    decider_conditions: Some(DeciderConditions {
+                        first_signal,
+                        second_signal,
+                        constant: second_constant,
+                        comparator: operation,
+                        output_signal,
+                        copy_count_from_input: Some(false),
+                    }),
+                    filters: None,
+                    is_on: None,
+                }
+            }
+            graph::Connection::Gate(gc) => {
+                let (_first_constant, first_signal) = Self::iotype_to_signal_pair(&gc.left);
+                let (second_constant, second_signal) = Self::iotype_to_signal_pair(&gc.right);
+                let (_, gate_signal) = Self::iotype_to_signal_pair(&gc.gate_type);
+                let operation = Self::decider_operation_to_op_string(&gc.operation);
+
+                ControlBehavior {
+                    arithmetic_conditions: None,
+                    decider_conditions: Some(DeciderConditions {
+                        first_signal,
+                        second_signal,
+                        constant: second_constant,
+                        comparator: operation,
+                        output_signal: gate_signal,
+                        copy_count_from_input: Some(true),
+                    }),
+                    filters: None,
+                    is_on: None,
+                }
+            }
         }
     }
 
