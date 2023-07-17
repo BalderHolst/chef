@@ -107,8 +107,6 @@ fn main() -> Result<(), io::Error> {
                 }
             }
         }
-        #[cfg(debug_assertions)]
-        Some(Command::RecordExampleOutputs(_)) => record_example_outputs(),
         None => {
             eprintln!("{}", opts.self_usage());
             if let Some(command_list) = opts.self_command_list() {
@@ -117,48 +115,6 @@ fn main() -> Result<(), io::Error> {
             exit(1);
         }
     }
-}
-
-#[cfg(debug_assertions)]
-fn record_example_outputs() -> Result<(), io::Error> {
-    use std::{fs, io::Write};
-
-    let example_dir = "examples";
-    let out_dir = "example_outputs";
-
-    // Remove previous output
-    fs::remove_dir_all(out_dir)?;
-    fs::create_dir(out_dir)?;
-
-    for file in fs::read_dir(example_dir).unwrap() {
-        let path = file.unwrap().path();
-        println!("Compiling: \'{:?}\'... ", path.to_str());
-
-        let source = Rc::new(SourceText::from_file(path.to_str().unwrap())?);
-        let opts = Rc::new(cli::Opts::default());
-        let bag = DiagnosticsBag::new_ref(opts.clone(), source.clone());
-        let ast = AST::from_source(source, bag.clone(), opts);
-        if bag.borrow_mut().has_errored() {
-            panic!("Compilation failed.")
-        }
-        let graph = match compiler::compile(ast, bag.clone()) {
-            Ok(g) => g,
-            Err(_) => panic!("Compilation has failed"),
-        };
-        if bag.borrow_mut().has_errored() {
-            panic!("Compilation failed.")
-        }
-        let dot = graph.dot_repr();
-        let output_path =
-            out_dir.to_string() + "/" + path.file_stem().unwrap().to_str().unwrap() + ".dot";
-        fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(output_path)?
-            .write_all(dot.as_bytes())?;
-    }
-    Ok(())
 }
 
 #[cfg(test)]

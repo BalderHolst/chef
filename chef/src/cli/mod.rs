@@ -38,15 +38,7 @@ pub enum Command {
     Cook(CookOpts),
     #[options(help = "add signals to your project")]
     Add(AddOpts),
-
-    #[cfg(debug_assertions)]
-    #[options()]
-    RecordExampleOutputs(RecordOpts),
 }
-
-#[cfg(debug_assertions)]
-#[derive(Debug, Options)]
-pub struct RecordOpts {}
 
 /// Options for the cli `cook` subcommand.
 #[derive(Debug, Options)]
