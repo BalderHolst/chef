@@ -59,7 +59,10 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
     }
 
     match BlueprintConverter::new(graph).convert_to_blueprint_string() {
-        Ok(blueprint) => println!("BLUEPRINT STRING: {blueprint}"),
+        Ok(blueprint) => {
+            cli_clipboard::set_contents(blueprint.clone()).unwrap();
+            println!("\n\n{blueprint}\n");
+        }
         Err(e) => println!("Could not create blueprint string: `{}`", e),
     }
 }
