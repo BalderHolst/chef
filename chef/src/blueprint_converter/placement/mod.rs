@@ -1,7 +1,5 @@
 use std::{cmp, collections::HashSet};
 
-use factorio_blueprint::{objects::EntityNumber, Container};
-
 use super::{
     blueprint_graph::{BlueprintGraph, Combinator, CombinatorPosition},
     WIRE_RANGE,
@@ -68,14 +66,6 @@ impl<'a> TurdMaster2000<'a> {
         let y = y as f64 / len as f64;
 
         (x, y)
-    }
-
-    fn next_right_pos(&self) -> i64 {
-        let mut i: i64 = 0;
-        while self.placed_positions.get(&(i, 0)).is_some() {
-            i += 1;
-        }
-        i
     }
 
     fn place_combinator(&mut self, input_loc: CoordSet, output_loc: CoordSet, com_index: usize) {
@@ -161,8 +151,8 @@ impl<'a> Placer for TurdMaster2000<'a> {
     fn place(&mut self) {
         'outer: for com_index in 0..self.graph.combinators.len() {
             // try to place at the end of turd
-            for y in self.min_y - 1..self.max_y + 2 {
-                for x in self.min_x - 1..self.max_x + 2 {
+            for y in self.min_y - 1..=self.max_y + 1 {
+                for x in self.min_x - 1..=self.max_x + 1 {
                     println!("trying: ({x}, {y})");
                     if self.try_place_combinator((x, y * 2), (x, y * 2 + 1), com_index) {
                         println!("placed on ({}, {}).", x, y);

@@ -220,18 +220,13 @@ impl BlueprintGraph {
         }
 
         for com in &self.combinators {
-            let com_repr = match &com.operation {
-                Connection::Arithmetic(ac) => ac.operation.to_string(),
-                Connection::Decider(_) => "Decider".to_string(),
-                Connection::Gate(_) => "Gate".to_string(),
-            };
             let color = match com.position {
                 Some(_) => "black",
                 None => "red",
             };
             dot += &format!(
                 "\t{} -> {} [label=\"{} ({})\\n{:?}\" color={} fontcolor={}]\n",
-                com.from, com.to, com_repr, com.entity_number, com.position, color, color
+                com.from, com.to, com.operation, com.entity_number, com.position, color, color
             );
         }
 
