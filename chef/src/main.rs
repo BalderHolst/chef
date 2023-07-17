@@ -58,8 +58,10 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
         };
     }
 
-    let _blueprint = BlueprintConverter::new().convert_to_blueprint(graph);
-    // dbg!(blueprint);
+    match BlueprintConverter::new(graph).convert_to_blueprint_string() {
+        Ok(blueprint) => println!("BLUEPRINT STRING: {blueprint}"),
+        Err(e) => println!("Could not create blueprint string: `{}`", e),
+    }
 }
 
 fn main() -> Result<(), io::Error> {

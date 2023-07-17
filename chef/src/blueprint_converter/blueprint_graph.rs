@@ -1,8 +1,9 @@
 use std::{fs::OpenOptions, io::Write};
 
 use factorio_blueprint as fb;
-use fb::objects::EntityNumber;
+use fb::objects::{EntityNumber, Position};
 use fnv::FnvHashMap;
+use noisy_float::types::R64;
 
 use crate::{
     compiler::graph::{self, Connection, Graph},
@@ -21,11 +22,26 @@ pub struct CombinatorPosition {
     pub output: (i64, i64),
 }
 
+impl CombinatorPosition {
+    pub fn factorio_pos(&self) -> Position {
+        let (x1, y1) = self.input;
+        let (x2, y2) = self.output;
+
+        let x = ((x1 + x2) / 2) as f64;
+        let y = ((y1 + y2) / 2) as f64;
+
+        let x = R64::new(x);
+        let y = R64::new(y);
+
+        Position { x, y }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
     pub from: NId,
     pub to: NId,
-    operation: Connection,
+    pub operation: Connection,
     pub position: Option<CombinatorPosition>,
     pub entity_number: EntityNumber,
 }
@@ -57,7 +73,7 @@ impl Combinator {
     }
 }
 
-type NId = usize;
+type NId = u64;
 
 // Id of directly connected nodes will be the same
 type Node = (graph::NId, NodeType);
