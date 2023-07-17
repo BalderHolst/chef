@@ -162,11 +162,18 @@ impl BlueprintConverter {
             }
         }
 
-        let control_behavior = Some(Self::connection_to_control_behavior(com.operation));
+        let control_behavior = Some(Self::connection_to_control_behavior(&com.operation));
+
+        let name = match &com.operation {
+            graph::Connection::Arithmetic(_) => "arithmetic-combinator",
+            graph::Connection::Decider(_) => "decider-combinator",
+            graph::Connection::Gate(_) => "decider-combinator",
+        }
+        .to_string();
 
         Entity {
             entity_number: com.entity_number,
-            name: "arithmetic-combinator".to_string(),
+            name,
             position: com
                 .position
                 .expect("Combinators should all be placed at this point")
