@@ -1,6 +1,6 @@
 block main(input: all) -> int(tank) {
-    c: counter(signal_T);
-    v: var(signal_V);
+    c: counter(signal-T);
+    v: var(signal-V);
     when (c == 5) {
         v += 1;
     };
