@@ -82,7 +82,7 @@ pub enum IOType {
 impl Display for IOType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            IOType::Signal(s) => format!("int({})", s),
+            IOType::Signal(s) => format!("Sig({})", s),
             IOType::AnySignal(n) => format!("Any({})", n),
             IOType::Constant(n) => format!("({})", n),
             IOType::All => "ALL".to_string(),

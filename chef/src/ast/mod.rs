@@ -207,7 +207,7 @@ impl VariableRef {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AssignmentKind {
-    Int,
+    Sig,
     Var,
     Counter,
 }

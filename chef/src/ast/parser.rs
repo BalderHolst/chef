@@ -353,7 +353,7 @@ impl Parser {
         Ok(StatementKind::Assignment(Assignment::new(
             variable,
             expr,
-            AssignmentKind::Int,
+            AssignmentKind::Sig,
         )))
     }
 

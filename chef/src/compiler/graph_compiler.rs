@@ -112,7 +112,7 @@ impl GraphCompiler {
 
         // Add connections to self for counters and var variables
         match &assignment.kind {
-            AssignmentKind::Int => {}
+            AssignmentKind::Sig => {}
             AssignmentKind::Var => {
                 let var_nid = graph.push_output_node(var_type.clone());
                 graph.push_connection(var_nid, var_nid, Connection::new_pick(var_type));
