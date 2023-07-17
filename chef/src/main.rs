@@ -182,7 +182,7 @@ mod tests {
         let out_dir = "example_outputs".to_string();
         for file in fs::read_dir(example_dir).unwrap() {
             let file = file.unwrap().path();
-            println!("Compiling: {}... ", file.display());
+            println!("\nCompiling: {}... ", file.display());
             let output_file =
                 out_dir.clone() + "/" + file.file_stem().unwrap().to_str().unwrap() + ".dot";
 
@@ -196,8 +196,17 @@ mod tests {
             bag.borrow_mut().exit_if_errored();
             let graph = compiler::compile(ast, bag.clone()).unwrap();
             bag.borrow_mut().exit_if_errored();
-            let compiled_dot = graph.dot_repr();
-            assert_eq!(expected_dot, compiled_dot);
+            let compiled_dot = graph.dot_repr() + "\n";
+
+            // Fail test with fancy diff output
+            if expected_dot != compiled_dot {
+                let diff = prettydiff::diff_chars(&expected_dot, &compiled_dot)
+                    .set_highlight_whitespace(true);
+                println!("EXPECTED:\n{expected_dot}\n");
+                println!("COMPILED:{compiled_dot}\n");
+                println!("DIFF:\n{diff}\n");
+                panic!("Compiled dot is different from expected.")
+            }
         }
     }
 }
