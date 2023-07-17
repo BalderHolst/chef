@@ -1,12 +1,10 @@
 //! Chef type checker.
 
-use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan};
+use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
 use super::{
     visitors::Visitor, ExpressionKind, ExpressionReturnType, StatementKind, VariableSignalType, AST,
 };
-
-const BASE_SIGNALS: &str = include_str!("base.signals");
 
 /// Type check an [AST].
 pub fn check(ast: &AST, diagnostics_bag: DiagnosticsBagRef) {

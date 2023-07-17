@@ -19,5 +19,6 @@ pub fn compile(ast: AST, diagnostics_bag: DiagnosticsBagRef) -> Result<Graph, Co
     let mut graph = graph_compiler.compile()?;
     let mut graph_optimizer = GraphOptimizer::new(&mut graph);
     graph_optimizer.optimize();
+    graph.assign_anysignals();
     Ok(graph)
 }

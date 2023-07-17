@@ -6,6 +6,8 @@ use graphviz_rust::{self, cmd::Format, printer::PrinterContext};
 
 pub mod import_signals;
 
+pub const BASE_SIGNALS: &str = include_str!("base.signals");
+
 pub type VisualizerResult = Result<String, VisualizerError>;
 
 #[derive(Debug)]

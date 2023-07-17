@@ -1,7 +1,9 @@
 //! Implementation of [Graph]. A graph for representing a network of factorio combinators.
 
 use fnv::FnvHashMap;
-use std::fmt::Display;
+use std::{collections::HashSet, fmt::Display, usize};
+
+use crate::utils::BASE_SIGNALS;
 
 use super::graph_visualizer;
 
@@ -601,6 +603,10 @@ impl Graph {
             .collect()
     }
 
+    pub fn assign_anysignals(&mut self) {
+        AnysignalAssigner::new(self).assign();
+    }
+
     /// Print the graph to stout.
     pub fn print(&self) {
         println!("Graph:");
@@ -631,5 +637,103 @@ impl Graph {
 
     pub fn dot_repr(&self) -> String {
         graph_visualizer::create_dot(self)
+    }
+}
+
+struct AnysignalAssigner<'a> {
+    graph: &'a mut Graph,
+    anysignal_to_signal: FnvHashMap<u64, String>,
+    next_sig_nr: u64,
+    used_signals: HashSet<String>,
+    signal_names: Vec<&'static str>,
+}
+
+impl<'a> AnysignalAssigner<'a> {
+    fn new(graph: &'a mut Graph) -> Self {
+        let signal_names: Vec<&str> = BASE_SIGNALS
+            .lines()
+            .map(|l| {
+                l.split_once(':')
+                    .expect("there should always be a ':' denoting type:signal")
+                    .1
+            })
+            .collect();
+        Self {
+            graph,
+            anysignal_to_signal: FnvHashMap::default(),
+            next_sig_nr: 0,
+            used_signals: HashSet::new(),
+            signal_names,
+        }
+    }
+
+    fn get_signal(&self, signal_nr: u64) -> &str {
+        self.signal_names[signal_nr as usize]
+    }
+
+    fn get_next_signal(&mut self) -> String {
+        while self
+            .used_signals
+            .get(self.get_signal(self.next_sig_nr))
+            .is_some()
+        {
+            self.next_sig_nr += 1
+        }
+        let sig = self.get_signal(self.next_sig_nr).to_string();
+        self.next_sig_nr += 1;
+        sig
+    }
+
+    fn assign(&mut self) {
+        // Keep track of what signals are already used by the blueprint
+        for to_vec in self.graph.adjacency.values() {
+            for (_, conn) in to_vec {
+                match conn.get_output() {
+                    IOType::Signal(s) => {
+                        self.used_signals.insert(s);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // Create conversions for anysignals
+        for to_vec in self.graph.adjacency.clone().values() {
+            for (_, conn) in to_vec {
+                match conn {
+                    Connection::Arithmetic(c) => {
+                        self.assign_if_anysignal(&c.left);
+                        self.assign_if_anysignal(&c.right);
+                        self.assign_if_anysignal(&c.output);
+                    }
+                    Connection::Decider(c) => {
+                        self.assign_if_anysignal(&c.left);
+                        self.assign_if_anysignal(&c.right);
+                        self.assign_if_anysignal(&c.output);
+                    }
+                    Connection::Gate(c) => {
+                        self.assign_if_anysignal(&c.left);
+                        self.assign_if_anysignal(&c.right);
+                        self.assign_if_anysignal(&c.gate_type);
+                    }
+                }
+            }
+        }
+
+        // Convert anysignals
+        for (any_n, sig) in self.anysignal_to_signal.clone() {
+            self.graph
+                .replace_iotype(IOType::AnySignal(any_n), &IOType::Signal(sig))
+        }
+    }
+
+    fn assign_if_anysignal(&mut self, iotype: &IOType) {
+        if let IOType::AnySignal(n) = iotype {
+            if let Some(_signal) = self.anysignal_to_signal.get(&n) {
+            } else {
+                let sig = self.get_next_signal();
+                self.anysignal_to_signal.insert(n.clone(), sig);
+            }
+        }
     }
 }
