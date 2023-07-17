@@ -142,7 +142,6 @@ impl BlueprintConverter {
         output: NId,
         id: EntityNumber,
         position: Position,
-        // connections: Vec<EntityNumber>,
         operation: graph::Connection,
     ) -> Entity {
         let mut blueprint_connections: HashMap<EntityNumber, fbo::Connection> = HashMap::new();
@@ -160,6 +159,26 @@ impl BlueprintConverter {
                             entity_id: other_com.entity_number,
                             // Connect to the output of the other combinator
                             circuit_id: Some(2),
+                        }]),
+                    }
+                });
+            }
+        }
+
+        // Do the same for outputs
+        if let Some(outputs) = self.graph.wires.get(&output) {
+            for out_nid in outputs {
+                let other_com = self.graph.get_corresponding_combinator(out_nid.clone());
+
+                // Connect to the OUTPUT (id 2) connection point if THIS conbinator.
+                blueprint_connections.insert(NonZeroUsize::new(2).unwrap(), {
+                    fbo::Connection {
+                        red: None,
+                        green: Some(vec![fbo::ConnectionData {
+                            // Entity number of other conbinator
+                            entity_id: other_com.entity_number,
+                            // Connect to the INPUT of the other combinator
+                            circuit_id: Some(1),
                         }]),
                     }
                 });
