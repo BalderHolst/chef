@@ -153,9 +153,7 @@ impl<'a> Placer for TurdMaster2000<'a> {
             // try to place at the end of turd
             for y in self.min_y - 1..=self.max_y + 1 {
                 for x in self.min_x - 1..=self.max_x + 1 {
-                    println!("trying: ({x}, {y})");
                     if self.try_place_combinator((x, y * 2), (x, y * 2 + 1), com_index) {
-                        println!("placed on ({}, {}).", x, y);
                         self.max_x = cmp::max(self.max_x, x);
                         self.max_y = cmp::max(self.max_y, y);
                         continue 'outer;

@@ -90,13 +90,13 @@ impl GraphCompiler {
             StatementKind::Mutation(mutation_statement) => {
                 self.compile_mutation_statement(graph, mutation_statement, gate)?;
             }
-            StatementKind::Error => {
-                panic!("There should not be error statements when compilation has started.")
-            }
             StatementKind::Out(expr) => {
                 let (expr_nid, out_type) = self.compile_expression(graph, &expr, None)?;
                 let out_nid = graph.push_output_node(out_type.clone());
                 graph.push_connection(expr_nid, out_nid, Connection::new_pick(out_type));
+            }
+            StatementKind::Error => {
+                panic!("There should not be error statements when compilation has started.")
             }
         };
         Ok(())
@@ -133,47 +133,52 @@ impl GraphCompiler {
             }
         }
 
-        let (mut var_vid, _) =
+        let (expr_out_vid, _) =
             self.compile_expression(graph, &assignment.expression, Some(var_type.clone()))?;
-        let output_node = graph.get_node(&var_vid).unwrap().clone();
-        match output_node {
+        let output_node = graph.get_node(&expr_out_vid).unwrap().clone();
+
+        // TODO: refactor
+        // NOTICE: Var nodes should always be output nodes.
+        let var_vid = match output_node {
             Node::Inner(_n) => {
-                // Convert inner node to output node
-                let input_type = graph.get_single_input(&var_vid).unwrap();
-                let var_out_node = OutputNode::new(var_type.clone());
-                let middle_vid = var_vid;
-                var_vid = graph.push_node(Node::Inner(InnerNode::new()));
+                // Connect expr output to var_vid and convert iotype.
+                let expr_out_type = graph.get_single_input(&expr_out_vid).unwrap();
+                let var_node_vid = graph.push_node(Node::Output(OutputNode {
+                    output_type: var_type.clone(),
+                }));
                 graph.push_connection(
-                    middle_vid,
-                    var_vid,
-                    Connection::Arithmetic(ArithmeticConnection::new_convert(input_type, var_type)),
+                    expr_out_vid,
+                    var_node_vid,
+                    Connection::Arithmetic(ArithmeticConnection::new_convert(
+                        expr_out_type,
+                        var_type,
+                    )),
                 );
-                graph.override_node(var_vid, Node::Output(var_out_node));
+                var_node_vid
             }
             Node::Input(n) => {
                 // Make var node and connect the input to it.
-                let var_node = Node::Output(OutputNode::new(var_type.clone()));
-                let var_node_vid = graph.push_node(var_node);
+                let var_node_vid = graph.push_node(Node::Output(OutputNode::new(var_type.clone())));
                 graph.push_connection(
-                    var_vid,
+                    expr_out_vid,
                     var_node_vid,
                     Connection::Arithmetic(ArithmeticConnection::new_convert(n.input, var_type)),
                 );
-                var_vid = var_node_vid;
+                var_node_vid
             }
             Node::Output(n) => {
-                let var_node_vid = graph.push_node(Node::Output(n.clone()));
+                let var_node_vid = graph.push_node(Node::Output(OutputNode::new(var_type.clone())));
                 graph.push_connection(
-                    var_vid,
+                    expr_out_vid,
                     var_node_vid,
                     Connection::Arithmetic(ArithmeticConnection::new_convert(
                         n.output_type,
                         var_type,
                     )),
                 );
-                var_vid = var_node_vid;
+                var_node_vid
             }
-        }
+        };
         self.add_to_scope(assignment.variable.name.clone(), var_vid);
         Ok(())
     }
@@ -278,7 +283,7 @@ impl GraphCompiler {
         let input_signal = match var_node {
             Node::Input(var_output_node) => var_output_node.input,
             Node::Output(o) => o.output_type,
-            Node::Inner(_) => panic!("Var nodes should be output or input nodes"),
+            Node::Inner(n) => panic!("Var nodes should be output or input nodes"),
         };
         let vid = graph.push_node(Node::Inner(InnerNode::new()));
         graph.push_connection(
@@ -398,6 +403,7 @@ impl GraphCompiler {
 
         Ok((output, out_type))
     }
+
     fn compile_block_link_expression(
         &mut self,
         graph: &mut Graph,

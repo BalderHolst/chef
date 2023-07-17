@@ -253,7 +253,6 @@ impl BlueprintGraph {
         }
 
         dot += "}\n";
-        println!("{dot}");
         dot
     }
 
