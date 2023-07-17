@@ -22,15 +22,12 @@ struct TypeChecker {
 impl TypeChecker {
     /// Checks if a signal is a valid factorio signal.
     fn is_valid_signal(s: &str) -> bool {
-        print!("checking {s}...");
         for signal_line in BASE_SIGNALS.lines() {
             let signal = signal_line.split(':').last().unwrap();
             if s == signal {
-                println!("VALID.");
                 return true;
             }
         }
-        println!("INVALID.");
         false
     }
 
