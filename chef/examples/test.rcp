@@ -1,4 +1,0 @@
-block main(in: all) -> int(inserter) {
-    a: int = in[pipe] * 5;
-    out a - 3;
-}

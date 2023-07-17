@@ -1,15 +1,16 @@
 strict digraph {
 	nodesep=1
-	4	[style=filled fillcolor=white label="int(pump)"]
-	6	[style=filled fillcolor=white label="Any(1) | int(inserter)"]
+	4	[style=filled fillcolor=white label="Sig(pump)"]
+	6	[style=filled fillcolor=white label="Sig(wooden-chest) | Sig(inserter)"]
 	0	[style=filled fillcolor=lightgreen label="ALL"]
-	9	[style=filled fillcolor=white label="Any(2)"]
-	8	[style=filled fillcolor=orange label="Any(0)"]
-	10	[style=filled fillcolor=orange label="int(water)"]
-	4 -> 6	[label="MULTIPLY: (7), int(pump)" color=black fontcolor=black]
-	6 -> 8	[label="ADD: int(inserter), Any(1)" color=black fontcolor=black]
-	0 -> 6	[label="PICK: int(inserter)" color=red fontcolor=red]
-	0 -> 4	[label="PICK: int(pump)" color=red fontcolor=red]
-	9 -> 10	[label="CONVERT: Any(2) -> int(water)" color=blue fontcolor=blue]
-	8 -> 9	[label="CONVERT: Any(0) -> Any(2)" color=blue fontcolor=blue]
+	9	[style=filled fillcolor=white label="Sig(steel-chest)"]
+	8	[style=filled fillcolor=orange label="Sig(iron-chest)"]
+	10	[style=filled fillcolor=orange label="Sig(water)"]
+	4 -> 6	[label="MULTIPLY: (7), Sig(pump)" color=black fontcolor=black]
+	6 -> 8	[label="ADD: Sig(inserter), Sig(wooden-chest)" color=black fontcolor=black]
+	0 -> 6	[label="PICK: Sig(inserter)" color=red fontcolor=red]
+	0 -> 4	[label="PICK: Sig(pump)" color=red fontcolor=red]
+	9 -> 10	[label="CONVERT: Sig(steel-chest) -> Sig(water)" color=blue fontcolor=blue]
+	8 -> 9	[label="CONVERT: Sig(iron-chest) -> Sig(steel-chest)" color=blue fontcolor=blue]
 }
+

@@ -1,3 +1,4 @@
+// TODO this results in a floating CONST node...
 block add(a: int, b: int) -> int(steam) {
     out a + b;
 }

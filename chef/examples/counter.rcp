@@ -1,4 +1,6 @@
-block main(input: all) -> int(tank) {
+// TODO: Counter should take a max variable, and compile to a decider combinator
+// TODO: This also has a floating CONST node.
+block main() -> int(tank) {
     c: counter(signal-T);
     v: var(signal-V);
     when (c == 5) {

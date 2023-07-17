@@ -1,10 +1,11 @@
 strict digraph {
 	nodesep=1
-	7	[style=filled fillcolor=orange label="int(signal_B)"]
-	6	[style=filled fillcolor=white label="int(signal_D)"]
+	7	[style=filled fillcolor=orange label="Sig(signal-B)"]
+	6	[style=filled fillcolor=white label="Sig(signal-D)"]
 	0	[style=filled fillcolor=lightgreen label="ALL"]
-	3	[style=filled fillcolor=white label="int(pump)"]
-	6 -> 7	[label="CONVERT: int(signal_D) -> int(signal_B)" color=blue fontcolor=blue]
-	0 -> 3	[label="PICK: int(pump)" color=red fontcolor=red]
-	3 -> 6	[label="LARGERTHAN: int(pump), (10)" color=purple fontcolor=purple]
+	3	[style=filled fillcolor=white label="Sig(pump)"]
+	6 -> 7	[label="CONVERT: Sig(signal-D) -> Sig(signal-B)" color=blue fontcolor=blue]
+	0 -> 3	[label="PICK: Sig(pump)" color=red fontcolor=red]
+	3 -> 6	[label="NOTEQUALS: Sig(pump), (10)" color=purple fontcolor=purple]
 }
+
