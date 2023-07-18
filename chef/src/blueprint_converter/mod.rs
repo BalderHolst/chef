@@ -284,7 +284,6 @@ impl BlueprintConverter {
     }
 
     pub fn convert_to_blueprint(&mut self) -> Container {
-        self.graph.visualize("fgraph.svg").unwrap();
         let mut entities: Vec<Entity> = vec![];
         for com in &self.graph.combinators {
             entities.push(self.combinator_to_entity(com.clone()));
@@ -293,8 +292,16 @@ impl BlueprintConverter {
         Container::Blueprint(blueprint)
     }
 
-    pub fn convert_to_blueprint_string(&mut self) -> fb::Result<String> {
+    pub fn convert_to_blueprint_string(
+        &mut self,
+        opts: &crate::cli::CookOpts,
+    ) -> fb::Result<String> {
         let container = self.convert_to_blueprint();
+        if let Some(path) = &opts.fgraph {
+            if self.graph.visualize(path.as_str()).is_err() {
+                eprintln!("Could not visualize factorio graph.");
+            }
+        }
         fb::BlueprintCodec::encode_string(&container)
     }
 

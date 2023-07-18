@@ -52,11 +52,14 @@ pub struct CookOpts {
     #[options(help = "output only a graph version of the output in 'dot' format.")]
     pub(crate) dot: bool,
 
-    #[options(
-        short = "g",
-        help = "output an svg to visualize the circuit connections."
-    )]
+    #[options(short = "g", help = "output an svg to visualize the circuit.")]
     pub(crate) graph: Option<String>,
+
+    #[options(
+        short = "G",
+        help = "output an svg to visualize the factorio circuit connections."
+    )]
+    pub(crate) fgraph: Option<String>,
 }
 
 impl CookOpts {
@@ -66,6 +69,7 @@ impl CookOpts {
             dot: false,
             files,
             graph: None,
+            fgraph: None,
         }
     }
 }
