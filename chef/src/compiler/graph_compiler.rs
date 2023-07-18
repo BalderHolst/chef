@@ -274,27 +274,21 @@ impl GraphCompiler {
         graph: &mut Graph,
         var_ref: &VariableRef,
     ) -> Result<(NId, IOType), CompilationError> {
+        // Get the referenced variable.
         let var = var_ref.var.clone();
-        let var_node_vid = self
+        let var_node_nid = self
             .search_scope(var.name.clone())
             .expect("Variable references should always point to defined variables");
-        let var_node = graph.get_node(&var_node_vid).unwrap().clone();
-        let var_signal = self.variable_type_to_iotype(&var.type_);
-        let input_signal = match var_node {
+        let var_node = graph.get_node(&var_node_nid).unwrap().clone();
+
+        // Get the signal type of the var node.
+        let var_signal = match var_node {
             Node::Input(var_output_node) => var_output_node.input,
             Node::Output(o) => o.output_type,
             Node::Inner(_) => panic!("Var nodes should be output or input nodes"),
         };
-        let vid = graph.push_node(Node::Inner(InnerNode::new()));
-        graph.push_connection(
-            var_node_vid,
-            vid,
-            Connection::Arithmetic(ArithmeticConnection::new_convert(
-                input_signal,
-                var_signal.clone(),
-            )),
-        );
-        Ok((vid, var_signal))
+
+        Ok((var_node_nid, var_signal))
     }
 
     fn compile_pick_expression(
