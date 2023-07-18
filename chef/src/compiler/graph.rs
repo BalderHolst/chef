@@ -76,6 +76,7 @@ pub enum IOType {
     Signal(String),
     AnySignal(u64),
     Constant(i32),
+    ConstantSignal((String, i32)),
     All,
 }
 
@@ -85,6 +86,7 @@ impl Display for IOType {
             IOType::Signal(s) => format!("Sig({})", s),
             IOType::AnySignal(n) => format!("Any({})", n),
             IOType::Constant(n) => format!("({})", n),
+            IOType::ConstantSignal((sig, n)) => format!("({}, {})", sig, n),
             IOType::All => "ALL".to_string(),
         };
         write!(f, "{}", s)
@@ -499,6 +501,7 @@ impl Graph {
                         Connection::Arithmetic(ArithmeticConnection::new_pick(new_type)),
                     );
                 }
+                IOType::ConstantSignal(_) => todo!(),
                 IOType::Constant(_) => {
                     panic!("Compiler Error: Inputs to a block should not be constants.")
                 }

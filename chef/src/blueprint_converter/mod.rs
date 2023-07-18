@@ -80,6 +80,7 @@ impl BlueprintConverter {
                     }),
                 )
             }
+            graph::IOType::ConstantSignal(_) => todo!(),
             graph::IOType::Constant(n) => (Some(*n), None),
             graph::IOType::All => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),

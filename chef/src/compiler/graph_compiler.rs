@@ -128,14 +128,34 @@ impl GraphCompiler {
                 return Ok(());
             }
             AssignmentKind::Counter => {
+                let (limit_nid, limit_type) =
+                    if let VariableType::Counter((_, limit_expr)) = &var.type_ {
+                        self.compile_expression(graph, limit_expr, None)?
+                    } else {
+                        panic!("Counter assignment should be to counter variabls.")
+                    };
                 let var_nid = graph.push_output_node(var_type.clone());
-                let add_one = Connection::Arithmetic(ArithmeticConnection {
+
+                // Connect up the memory cell
+                let if_less_than_limit = Connection::Decider(DeciderConnection {
                     left: var_type.clone(),
-                    right: IOType::Constant(1),
-                    operation: ArithmeticOperation::Add,
-                    output: var_type,
+                    right: limit_type.clone(),
+                    operation: DeciderOperation::LessThan,
+                    output: var_type.clone(),
                 });
-                graph.push_connection(var_nid, var_nid, add_one);
+                graph.push_connection(var_nid, var_nid, if_less_than_limit);
+
+                // Connect the limit to the memory cell
+                graph.push_connection(limit_nid, var_nid, Connection::new_pick(limit_type));
+
+                // Push constant node, to drive the counter.
+                let const_sig = match var_type.clone() {
+                    IOType::Signal(s) => s,
+                    _ => panic!("A counter cannot be crated without a signal."),
+                };
+                let driver_nid = graph.push_input_node(IOType::ConstantSignal((const_sig, 1)));
+                graph.push_connection(driver_nid, var_nid, Connection::new_pick(var_type));
+
                 self.add_to_scope(var.name.clone(), var_nid);
                 return Ok(());
             }
