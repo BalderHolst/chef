@@ -32,6 +32,7 @@ impl ConstantEvaluator {
     }
 }
 
+#[derive(Debug)]
 enum EvaluatorResult {
     Int(i32),
     Bool(bool),
@@ -72,7 +73,7 @@ impl MutVisitor for ConstantEvaluator {
                 let left = left.unwrap();
                 let right = right.unwrap();
 
-                let res = match binary_expression.operator.kind {
+                match binary_expression.operator.kind {
                     super::BinaryOperatorKind::Add => EvaluatorResult::Int(left + right),
                     super::BinaryOperatorKind::Subtract => EvaluatorResult::Int(left - right),
                     super::BinaryOperatorKind::Multiply => EvaluatorResult::Int(left * right),
@@ -87,10 +88,13 @@ impl MutVisitor for ConstantEvaluator {
                     }
                     super::BinaryOperatorKind::Equals => EvaluatorResult::Bool(left == right),
                     super::BinaryOperatorKind::NotEquals => EvaluatorResult::Bool(left != right),
-                };
-                self.did_work = true;
-                res
+                }
             }
+            ExpressionKind::VariableRef(var_ref) => match var_ref.var.type_ {
+                super::VariableType::ConstInt(i) => EvaluatorResult::Int(i),
+                super::VariableType::ConstBool(b) => EvaluatorResult::Bool(b),
+                _ => return,
+            },
             _ => {
                 self.do_visit_expression(expression);
                 return;
@@ -100,6 +104,7 @@ impl MutVisitor for ConstantEvaluator {
         expression.kind = match result {
             EvaluatorResult::Int(val) => ExpressionKind::Int(IntExpression::new(val)),
             EvaluatorResult::Bool(val) => ExpressionKind::Bool(val),
-        }
+        };
+        self.did_work = true;
     }
 }

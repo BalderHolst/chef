@@ -108,6 +108,14 @@ impl GraphCompiler {
         assignment: Assignment,
     ) -> Result<(), CompilationError> {
         let var = &assignment.variable;
+
+        if matches!(
+            &var.type_,
+            VariableType::ConstInt(_) | VariableType::ConstBool(_)
+        ) {
+            return Ok(());
+        }
+
         let var_type = self.variable_type_to_iotype(&var.type_);
 
         // Add connections to self for counters and var variables
@@ -495,6 +503,12 @@ impl GraphCompiler {
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
             VariableType::All => IOType::All,
+            VariableType::ConstInt(_) => {
+                panic!("ConstInt expression should never need to be converted to IOType.")
+            }
+            VariableType::ConstBool(_) => {
+                panic!("ConstBool expression should never need to be converted to IOType.")
+            }
         }
     }
 

@@ -126,6 +126,8 @@ pub enum VariableType {
     Int(VariableSignalType),
     Var(VariableSignalType),
     Counter(VariableSignalType),
+    ConstInt(i32),
+    ConstBool(bool),
     All,
 }
 
@@ -136,6 +138,8 @@ impl VariableType {
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Var(_) => ExpressionReturnType::Int,
             VariableType::Counter(_) => ExpressionReturnType::Int,
+            VariableType::ConstInt(_) => ExpressionReturnType::Int,
+            VariableType::ConstBool(_) => ExpressionReturnType::Bool,
             VariableType::All => ExpressionReturnType::Group,
         }
     }
@@ -146,6 +150,8 @@ impl VariableType {
             VariableType::Int(s) => Some(s),
             VariableType::Var(s) => Some(s),
             VariableType::Counter(s) => Some(s),
+            VariableType::ConstInt(_) => None,
+            VariableType::ConstBool(_) => None,
             VariableType::All => None,
         }
     }
@@ -625,6 +631,8 @@ impl Display for VariableType {
                 VariableSignalType::Signal(n) => format!("Counter({n})"),
                 VariableSignalType::Any => "Counter(Any)".to_string(),
             },
+            VariableType::ConstInt(_) => "ConstInt".to_string(),
+            VariableType::ConstBool(_) => "ConstBool".to_string(),
             VariableType::All => "All".to_string(),
         };
         write!(f, "{s}")
