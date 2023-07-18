@@ -3,14 +3,12 @@ strict digraph {
 	4	[style=filled fillcolor=white label="Sig(pump)"]
 	6	[style=filled fillcolor=white label="Sig(wooden-chest) | Sig(inserter)"]
 	0	[style=filled fillcolor=lightgreen label="ALL"]
-	9	[style=filled fillcolor=white label="Sig(steel-chest)"]
+	9	[style=filled fillcolor=orange label="Sig(water)"]
 	8	[style=filled fillcolor=orange label="Sig(iron-chest)"]
-	10	[style=filled fillcolor=orange label="Sig(water)"]
 	4 -> 6	[label="MULTIPLY: (7), Sig(pump)" color=black fontcolor=black]
 	6 -> 8	[label="ADD: Sig(inserter), Sig(wooden-chest)" color=black fontcolor=black]
 	0 -> 6	[label="PICK: Sig(inserter)" color=red fontcolor=red]
 	0 -> 4	[label="PICK: Sig(pump)" color=red fontcolor=red]
-	9 -> 10	[label="CONVERT: Sig(steel-chest) -> Sig(water)" color=blue fontcolor=blue]
-	8 -> 9	[label="CONVERT: Sig(iron-chest) -> Sig(steel-chest)" color=blue fontcolor=blue]
+	8 -> 9	[label="CONVERT: Sig(iron-chest) -> Sig(water)" color=blue fontcolor=blue]
 }
 

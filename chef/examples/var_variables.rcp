@@ -1,3 +1,4 @@
+// TODO: floating const
 block main () -> int(automation-science-pack) {
     i: int = 10;
     v: var(signal-A);
