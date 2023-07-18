@@ -148,9 +148,10 @@ mod tests {
     fn check_assignment_types() {
         let (_, bag) = AST::from_str("a:int = false;");
         let m_bag = bag.borrow_mut();
-        assert!(m_bag.error_count() == 1);
+        assert_eq!(m_bag.error_count(), 1);
         let message = &format!("{:?}", m_bag.diagnostics()[0]);
-        assert_eq!(message, "Diagnostic { message: \"Can not assign variable `a` of type `int` to expression returning `bool` type.\", span: TextSpan { start: 0, end: 14, text: SourceText { file: None, text: \"a:int = false;\", lines: [0] } } }");
+        m_bag.print();
+        assert_eq!(message, "Diagnostic { message: \"Can not assign variable `a` of type `Int(Any)` to expression returning `bool` type.\", span: TextSpan { start: 0, end: 13, text: SourceText { file: None, text: \"a:int = false;\", lines: [0] } } }");
     }
 
     #[test]

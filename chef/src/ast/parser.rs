@@ -353,8 +353,32 @@ impl Parser {
         let expr = self.parse_expression()?;
 
         match &expr.kind {
-            ExpressionKind::Bool(v) => variable.type_ = VariableType::ConstBool(*v),
-            ExpressionKind::Int(v) => variable.type_ = VariableType::ConstInt(v.number),
+            ExpressionKind::Bool(v) => {
+                variable.type_ = {
+                    if let VariableType::Bool(_) = variable.type_ {
+                        VariableType::ConstBool(*v)
+                    } else {
+                        return Err(CompilationError::new(
+                            format!("Can not assign variable `{}` of type `{}` to expression returning `bool` type.",
+                                    variable.name,
+                                    variable.type_
+                                    ), TextSpan::from_spans(&variable.span, &expr.span)));
+                    }
+                }
+            }
+            ExpressionKind::Int(v) => {
+                variable.type_ = {
+                    if let VariableType::Int(_) = variable.type_ {
+                        VariableType::ConstInt(v.number)
+                    } else {
+                        return Err(CompilationError::new(
+                            format!("Can not assign variable `{}` of type `{}` to expression returning `int` type.",
+                                    variable.name,
+                                    variable.type_
+                                    ), TextSpan::from_spans(&variable.span, &expr.span)));
+                    }
+                }
+            }
             ExpressionKind::Binary(_) => {}
             ExpressionKind::Parenthesized(_) => {}
             ExpressionKind::Pick(_) => {}

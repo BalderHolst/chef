@@ -47,8 +47,11 @@ impl AST {
         for statement in parser {
             ast.add_statement(statement);
         }
-        ast.evaluate_constants();
+
+        // Check types first to make sure that bool constants are evaluated as int constants and
+        // vise versa.
         ast.check_types();
+        ast.evaluate_constants();
         ast
     }
 
