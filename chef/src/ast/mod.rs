@@ -128,7 +128,7 @@ pub enum VariableType {
     Bool(VariableSignalType),
     Int(VariableSignalType),
     Var(VariableSignalType),
-    Counter(VariableSignalType),
+    Counter((VariableSignalType, Box<Expression>)),
     ConstInt(i32),
     ConstBool(bool),
     All,
@@ -152,7 +152,7 @@ impl VariableType {
             VariableType::Bool(s) => Some(s),
             VariableType::Int(s) => Some(s),
             VariableType::Var(s) => Some(s),
-            VariableType::Counter(s) => Some(s),
+            VariableType::Counter((s, _lim)) => Some(s),
             VariableType::ConstInt(_) => None,
             VariableType::ConstBool(_) => None,
             VariableType::All => None,
@@ -630,7 +630,7 @@ impl Display for VariableType {
                 VariableSignalType::Signal(n) => format!("Var({n})"),
                 VariableSignalType::Any => "Var(Any)".to_string(),
             },
-            VariableType::Counter(var_type) => match var_type {
+            VariableType::Counter((var_type, _lim)) => match var_type {
                 VariableSignalType::Signal(n) => format!("Counter({n})"),
                 VariableSignalType::Any => "Counter(Any)".to_string(),
             },

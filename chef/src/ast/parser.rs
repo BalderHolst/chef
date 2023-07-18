@@ -509,7 +509,22 @@ impl Parser {
                 "bool" => Ok(VariableType::Bool(self.parse_variable_type_signal()?)),
                 "int" => Ok(VariableType::Int(self.parse_variable_type_signal()?)),
                 "var" => Ok(VariableType::Var(self.parse_variable_type_signal()?)),
-                "counter" => Ok(VariableType::Counter(self.parse_variable_type_signal()?)),
+                "counter" => {
+                    self.consume_and_check(TokenKind::LeftParen)?;
+                    let sig_token = self.consume();
+                    let type_ = if let TokenKind::Word(t) = &sig_token.kind {
+                        VariableSignalType::Signal(t.clone())
+                    } else {
+                        return Err(CompilationError::new(
+                            format!("Expected signal for counter, found: `{}`", sig_token.kind),
+                            sig_token.span.clone(),
+                        ));
+                    };
+                    self.consume_and_check(TokenKind::Colon)?;
+                    let limit_expr = self.parse_expression()?;
+                    self.consume_and_check(TokenKind::RightParen)?;
+                    Ok(VariableType::Counter((type_, Box::new(limit_expr))))
+                }
                 "all" => Ok(VariableType::All),
                 w => Err(CompilationError::new(
                     format!("Unknown type `{}`.", w),
