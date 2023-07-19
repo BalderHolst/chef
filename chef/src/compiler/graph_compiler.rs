@@ -137,11 +137,11 @@ impl GraphCompiler {
                 let var_nid = graph.push_output_node(var_type.clone());
 
                 // Connect up the memory cell
-                let if_less_than_limit = Connection::Decider(DeciderConnection {
+                let if_less_than_limit = Connection::Gate(GateConnection {
                     left: var_type.clone(),
                     right: limit_type.clone(),
                     operation: DeciderOperation::LessThan,
-                    output: var_type.clone(),
+                    gate_type: var_type.clone(),
                 });
                 graph.push_connection(var_nid, var_nid, if_less_than_limit);
 

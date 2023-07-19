@@ -9,7 +9,8 @@ strict digraph {
 	8	[style=filled fillcolor=white label="Sig(wooden-chest) | Sig(signal-V)"]
 	5 -> 8	[label="EQUALS: Sig(signal-T), (5)" color=purple fontcolor=purple]
 	7 -> 8	[label="CONVERT: (1) -> Sig(signal-V)" color=blue fontcolor=blue]
-	1 -> 1	[label="LESSTHAN: Sig(signal-T), (50)" color=purple fontcolor=purple]
+	1 -> 1	[label="GATE: Sig(signal-T)
+LESSTHAN: Sig(signal-T), (50)" color=teal fontcolor=teal]
 	1 -> 5	[label="PICK: Sig(signal-T)" color=red fontcolor=red]
 	3 -> 3	[label="PICK: Sig(signal-V)" color=red fontcolor=red]
 	3 -> 9	[label="CONVERT: Sig(signal-V) -> Sig(tank)" color=blue fontcolor=blue]
