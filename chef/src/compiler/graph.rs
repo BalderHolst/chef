@@ -144,10 +144,17 @@ pub struct GateConnection {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct ConstantConnection {
+    pub type_: IOType,
+    pub count: i32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Connection {
     Arithmetic(ArithmeticConnection),
     Decider(DeciderConnection),
     Gate(GateConnection),
+    Constant(ConstantConnection),
 }
 
 impl Connection {
@@ -167,6 +174,7 @@ impl Connection {
             Connection::Arithmetic(ac) => ac.output.clone(),
             Connection::Decider(dc) => dc.output.clone(),
             Connection::Gate(gc) => gc.gate_type.clone(),
+            Connection::Constant(cc) => cc.type_.clone(),
         }
     }
 
@@ -218,6 +226,7 @@ impl Display for Connection {
                 "GATE: {}\n{}: {}, {}",
                 gate.gate_type, gate.operation, gate.left, gate.right
             ),
+            Connection::Constant(con) => format!("CONSTANT : {} = {}", con.type_, con.count),
         };
         write!(f, "{s}")
     }
@@ -228,6 +237,11 @@ pub enum Node {
     Inner(InnerNode),
     Input(InputNode),
     Output(OutputNode),
+
+    // A `None` used when reperesenting a constant combinator. As the graph reperesents all
+    // combinators as connections, the constant combinator must also be. The constant combinator
+    // does however not take any input, therefore its input is connected to a `None` node.
+    None,
 }
 
 #[derive(Clone, Debug)]
@@ -569,6 +583,11 @@ impl Graph {
                             gc.gate_type = new_type.clone()
                         }
                     }
+                    Connection::Constant(cc) => {
+                        if cc.type_ == old_type {
+                            cc.type_ = new_type.clone()
+                        }
+                    }
                 }
             }
         }
@@ -623,6 +642,7 @@ impl Graph {
                 Node::Inner(_) => println!("\t\t{} : INNER : {:?}", vid, self.get_inputs(vid)),
                 Node::Input(_) => println!("\t\t{} : INPUT : {:?}", vid, self.get_inputs(vid)),
                 Node::Output(_n) => println!("\t\t{} : OUTPUT : {:?}", vid, self.get_inputs(vid)),
+                Node::None => println!("\t\t{} : NONE : {:?}", vid, self.get_inputs(vid)),
             }
         }
         println!("\n\tConnections:");
@@ -715,6 +735,9 @@ impl<'a> AnysignalAssigner<'a> {
                         self.assign_if_anysignal(&c.left);
                         self.assign_if_anysignal(&c.right);
                         self.assign_if_anysignal(&c.gate_type);
+                    }
+                    Connection::Constant(c) => {
+                        self.assign_if_anysignal(&c.type_);
                     }
                 }
             }

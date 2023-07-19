@@ -149,12 +149,12 @@ impl GraphCompiler {
                 graph.push_connection(limit_nid, var_nid, Connection::new_pick(limit_type));
 
                 // Push constant node, to drive the counter.
-                let const_sig = match var_type.clone() {
-                    IOType::Signal(s) => s,
-                    _ => panic!("A counter cannot be crated without a signal."),
-                };
-                let driver_nid = graph.push_input_node(IOType::ConstantSignal((const_sig, 1)));
-                graph.push_connection(driver_nid, var_nid, Connection::new_pick(var_type));
+                let driver_nid = graph.push_node(Node::None);
+                let conn = Connection::Constant(ConstantConnection {
+                    type_: var_type,
+                    count: 1,
+                });
+                graph.push_connection(driver_nid, var_nid, conn);
 
                 self.add_to_scope(var.name.clone(), var_nid);
                 return Ok(());
@@ -206,6 +206,7 @@ impl GraphCompiler {
                 );
                 var_node_vid
             }
+            Node::None => panic!("Expressions should never output `None` nodes"),
         };
         self.add_to_scope(assignment.variable.name.clone(), var_vid);
         Ok(())
@@ -314,6 +315,7 @@ impl GraphCompiler {
             Node::Input(var_output_node) => var_output_node.input,
             Node::Output(o) => o.output_type,
             Node::Inner(_) => panic!("Var nodes should be output or input nodes"),
+            Node::None => panic!("Var nodes should be output or input nodes"),
         };
 
         Ok((var_node_nid, var_signal))

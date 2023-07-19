@@ -12,6 +12,7 @@ pub fn create_dot(graph: &Graph) -> String {
             super::graph::Node::Inner(_n) => "white",
             super::graph::Node::Input(_n) => "lightgreen",
             super::graph::Node::Output(_n) => "orange",
+            super::graph::Node::None => "lightgray",
         };
         let inputs = &graph.get_inputs(vid);
         let input = if inputs.is_empty() {
@@ -36,6 +37,7 @@ pub fn create_dot(graph: &Graph) -> String {
                     super::graph::Connection::Arithmetic(_) => "black",
                     super::graph::Connection::Decider(_) => "purple",
                     super::graph::Connection::Gate(_) => "teal",
+                    super::graph::Connection::Constant(_) => "green",
                 }
             };
             dot += &format!(

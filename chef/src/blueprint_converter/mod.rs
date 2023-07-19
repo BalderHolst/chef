@@ -171,6 +171,7 @@ impl BlueprintConverter {
                     is_on: None,
                 }
             }
+            graph::Connection::Constant(_) => todo!(),
         }
     }
 
@@ -222,6 +223,7 @@ impl BlueprintConverter {
             graph::Connection::Arithmetic(_) => "arithmetic-combinator",
             graph::Connection::Decider(_) => "decider-combinator",
             graph::Connection::Gate(_) => "decider-combinator",
+            graph::Connection::Constant(_) => "constant-combinator",
         }
         .to_string();
 
