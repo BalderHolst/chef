@@ -5,16 +5,18 @@ pub mod placement;
 
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
+use std::vec;
 
 use factorio_blueprint as fb;
 use fb::objects::{
-    self as fbo, ArithmeticConditions, DeciderConditions, EntityConnections, SignalID, SignalIDType,
+    self as fbo, ArithmeticConditions, ControlFilter, DeciderConditions, EntityConnections,
+    SignalID, SignalIDType,
 };
 use fb::objects::{Blueprint, ControlBehavior, Entity, EntityNumber};
 use fb::Container;
 
 use crate::blueprint_converter::blueprint_graph::BlueprintGraph;
-use crate::compiler::graph::{self, ArithmeticOperation, DeciderOperation, Graph};
+use crate::compiler::graph::{self, ArithmeticOperation, DeciderOperation, Graph, IOType};
 use crate::utils::BASE_SIGNALS;
 
 use self::blueprint_graph::Combinator;
@@ -67,8 +69,19 @@ impl BlueprintConverter {
         );
     }
 
+    // Get the corresponding (signal_type, signal_string) pair
+    fn iotype_to_signal_pair(t: IOType) -> (SignalIDType, String) {
+        match t {
+            IOType::Signal(s) => (Self::get_signal_type(s.as_str()), s),
+            IOType::Constant(_) => todo!(),
+            IOType::ConstantSignal(_) => todo!(),
+            IOType::All => todo!(),
+            graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
+        }
+    }
+
     /// Returns (first_constant, first_signal)
-    fn iotype_to_signal_pair(t: &graph::IOType) -> (Option<i32>, Option<SignalID>) {
+    fn iotype_to_const_signal_pair(t: &graph::IOType) -> (Option<i32>, Option<SignalID>) {
         match t {
             graph::IOType::Signal(s) => {
                 let type_ = Self::get_signal_type(s.as_str());
@@ -112,9 +125,9 @@ impl BlueprintConverter {
     fn connection_to_control_behavior(conn: &graph::Connection) -> ControlBehavior {
         match conn {
             graph::Connection::Arithmetic(ac) => {
-                let (first_constant, first_signal) = Self::iotype_to_signal_pair(&ac.left);
-                let (second_constant, second_signal) = Self::iotype_to_signal_pair(&ac.right);
-                let (_, output_signal) = Self::iotype_to_signal_pair(&ac.output);
+                let (first_constant, first_signal) = Self::iotype_to_const_signal_pair(&ac.left);
+                let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&ac.right);
+                let (_, output_signal) = Self::iotype_to_const_signal_pair(&ac.output);
                 let operation = Self::arithmetic_operation_to_op_string(&ac.operation);
 
                 ControlBehavior {
@@ -132,9 +145,9 @@ impl BlueprintConverter {
                 }
             }
             graph::Connection::Decider(dc) => {
-                let (_first_constant, first_signal) = Self::iotype_to_signal_pair(&dc.left);
-                let (second_constant, second_signal) = Self::iotype_to_signal_pair(&dc.right);
-                let (_, output_signal) = Self::iotype_to_signal_pair(&dc.output);
+                let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&dc.left);
+                let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&dc.right);
+                let (_, output_signal) = Self::iotype_to_const_signal_pair(&dc.output);
                 let operation = Self::decider_operation_to_op_string(&dc.operation);
 
                 ControlBehavior {
@@ -152,9 +165,9 @@ impl BlueprintConverter {
                 }
             }
             graph::Connection::Gate(gc) => {
-                let (_first_constant, first_signal) = Self::iotype_to_signal_pair(&gc.left);
-                let (second_constant, second_signal) = Self::iotype_to_signal_pair(&gc.right);
-                let (_, gate_signal) = Self::iotype_to_signal_pair(&gc.gate_type);
+                let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&gc.left);
+                let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&gc.right);
+                let (_, gate_signal) = Self::iotype_to_const_signal_pair(&gc.gate_type);
                 let operation = Self::decider_operation_to_op_string(&gc.operation);
 
                 ControlBehavior {
@@ -171,7 +184,24 @@ impl BlueprintConverter {
                     is_on: None,
                 }
             }
-            graph::Connection::Constant(_) => todo!(),
+            graph::Connection::Constant(cc) => {
+                let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
+                ControlBehavior {
+                    arithmetic_conditions: None,
+                    decider_conditions: None,
+                    filters: {
+                        Some(vec![ControlFilter {
+                            signal: SignalID {
+                                name: signal,
+                                type_,
+                            },
+                            index: NonZeroUsize::new(1).unwrap(),
+                            count: cc.count,
+                        }])
+                    },
+                    is_on: Some(true),
+                }
+            }
         }
     }
 
@@ -312,27 +342,11 @@ impl BlueprintConverter {
     //     use crate::cli;
     //     // let bstring = "0eNq9k9FuwjAMRf/FrwsbDWxAfgVNVdp6YIkmVeKiVaj/PieVGAimiT3sJZKT65vro+QE1aHHLpBjMCeg2rsIZnuCSDtnD2mPhw7BADG2oMDZNlU2EO9bZKpntW8rcpZ9gFEBuQY/wRTjuwJ0TEw4GeZiKF3fVhhE8IuVgs5H6fYuZRDH2fL5VcEAZi63SEwO/lBWuLdHErlovn1KOW5yb0wHHxQilzcDHSlwLzvnIJNiloCkSSImm+QV2SY8cwW+w2CnUPAknb7nrn/AO2AD4zgN4LA+R9Rp2QVEd8mKGjBatBTqnjiXwjX13+DUD+Nc/BPOPPIdmvqa5ssfaNaDdXdxFj/iLK5x6oxTnmp+3ebiMyg4Yog5m14Xy9VGr942er5e6HH8AjHWHFw=";
     //     // let bstring = "0eNq9k2FrgzAQhv/LfV3cqrXY5q+MIlFv7YEmkpwykfz3JQpdRwvDfdiXwCXvvXnvIZmhagfsLWkGOQPVRjuQ7zM4umjVxj2eegQJxNiBAK26WClLfO2QqU5q01WkFRsLXgDpBj9Bpv4sADUTE66GSzGVeugqtEHwi5WA3rjQbXTMEByT/PUgYAK5C7eEmGxNW1Z4VSMFedB8+5ThuFl6XTz4IOu4fBhoJMtD2LkFWRVJBBIncRhtopdjFfHsBJgerVpDwUvoNAP3wwZviw14vw6gsb5FzOJysYj6nhU1ILOgJVsPxGvpz7H/AWe2Gef+n3AuIz+hmf2k+fYHmvWk9Eac6TOc4akur1vefQYBI1q3ZMuOaV6csqLYF6fDMff+CzP3HGs=";
-    //     let bstring = "0eNrNU8tqwzAQ/JWyx6KUyE5won/IpdcSjGwvyYItGUkOMUb/3pUNbfqAPi7tRTC7M6MdpJ2gagfsHZkAagKqrfGgnibwdDK6TbUw9ggKKGAHAozuEtKOwrnDQPWqtl1FRgfrIAog0+AVlIxHAWgCBcLFcAZjaYauQseEL6wE9Naz2po0AzsWD1sBI6iVlHwNzxmcbcsKz/pCzGfSq1HJ7WYW+9TwmHAq+qBT0LUA26PTiz3cQ1wsDdYvoiwdJ4dobsenBlTGXHL1QGGB8RhZ/yFh9tuE6z/OJ9/nE2/a+ffi5z+NL/9L/k/fl7/zvAHqZmEEtLpCXhI46OvdI+r6zLULOj/fm+3kpthnRZEX++1uE+MzyiovNA==";
+    //     let bstring = "0eNqVUttqwzAM/Rc9Dmckabu0/pVRgpNqrSCxg6OEleJ/n+ywroy1ZS9GF+tcLF+g6SYcPFkGfQFqnR1Bv19gpKM1XazxeUDQQIw9KLCmj5nxxKcemdqsdX1D1rDzEBSQPeAn6CKopxiRi43lvxHKsFeAlokJF0kpOdd26hv0QvFEjILBjTLtbFQgiNmqfN0oOEtUvAmR8LN3Xd3gycwkE3LtB6qW9iGNj7ExYszrb82gcwVuQG8WAniBsEBabK9DRTyOHtHeGqBDchdCfKNfpsqHr/PQkkR3TH1Qx+jv7HUmz5NUrsTLjWyRnRCn6HeV5/nNevf/cSurasm3E/GSJvOy3vQf9M0XVDCL0OSv3BbraldW1arabbbrEL4A2RrojQ==";
 
-    // let parsed = BlueprintCodec::decode_string(bstring).expect("Invalid Blueprint");
+    //     let parsed = fb::BlueprintCodec::decode_string(bstring).expect("Invalid Blueprint");
 
-    // cli::print_label("PARSED");
-    // dbg!(parsed);
-
-    //         cli::print_label("CREATED");
-    //         let op = graph::Connection::Arithmetic(ArithmeticConnection::new(
-    //             IOType::Signal("signal-blue".to_string()),
-    //             IOType::Constant(0),
-    //             ArithmeticOperation::Add,
-    //             IOType::Signal("signal-red".to_string()),
-    //         ));
-    //         let x = R64::new(-4.5);
-    //         let y = R64::new(0.0);
-    //         dbg!(Self::create_arithmetic_combinator(
-    //             EntityNumber::new(1).unwrap(),
-    //             Position { x, y },
-    //             vec![],
-    //             op
-    //         ));
-    //     }
+    //     cli::print_label("PARSED");
+    //     dbg!(parsed);
+    // }
 }
