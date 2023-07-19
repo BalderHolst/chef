@@ -76,6 +76,17 @@ impl Combinator {
     }
 }
 
+enum _ConnectionPoint {
+    Constant(_ConstantCombinator),
+    PowerPole,
+}
+
+struct _ConstantCombinator {
+    position: CoordSet,
+    count: i32,
+    signal: String,
+}
+
 type NId = u64;
 
 // Id of directly connected nodes will be the same
