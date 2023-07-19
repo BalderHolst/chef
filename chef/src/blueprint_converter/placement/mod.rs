@@ -1,16 +1,13 @@
 use std::{cmp, collections::HashSet};
 
 use super::{
-    blueprint_graph::{BlueprintGraph, CombinatorPosition},
+    blueprint_graph::{BlueprintGraph, CombinatorPosition, CoordSet},
     WIRE_RANGE,
 };
 
 trait Placer {
     fn place(&mut self) {}
 }
-
-type Coord = i64;
-type CoordSet = (Coord, Coord);
 
 pub(crate) fn is_in_range(p1: CoordSet, p2: CoordSet) -> bool {
     let dx = (p2.0 - p1.0) as f64;

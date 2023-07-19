@@ -10,6 +10,9 @@ use crate::{
     utils::{self, VisualizerError},
 };
 
+pub(crate) type Coord = i64;
+pub(crate) type CoordSet = (Coord, Coord);
+
 #[derive(Clone)]
 pub enum NodeType {
     Input,
@@ -18,8 +21,8 @@ pub enum NodeType {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CombinatorPosition {
-    pub input: (i64, i64),
-    pub output: (i64, i64),
+    pub input: CoordSet,
+    pub output: CoordSet,
 }
 
 impl CombinatorPosition {
