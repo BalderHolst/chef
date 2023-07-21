@@ -212,6 +212,15 @@ impl BlueprintConverter {
             for in_nid in inputs {
                 let other_com = self.graph.get_corresponding_combinator(*in_nid);
 
+                // If the input is a constant combinator, the there is only an output connection
+                // point to connect to.
+                let circuit_id = match other_com.operation {
+                    graph::Connection::Arithmetic(_) => Some(2),
+                    graph::Connection::Decider(_) => Some(2),
+                    graph::Connection::Gate(_) => Some(2),
+                    graph::Connection::Constant(_) => Some(1),
+                };
+
                 // Connect to the input (id 1) connection point if THIS conbinator.
                 blueprint_connections.insert(NonZeroUsize::new(1).unwrap(), {
                     fbo::Connection {
@@ -220,7 +229,7 @@ impl BlueprintConverter {
                             // Entity number of other conbinator
                             entity_id: other_com.entity_number,
                             // Connect to the output of the other combinator
-                            circuit_id: Some(2),
+                            circuit_id,
                         }]),
                     }
                 });
@@ -342,10 +351,8 @@ impl BlueprintConverter {
     //     use crate::cli;
     //     // let bstring = "0eNq9k9FuwjAMRf/FrwsbDWxAfgVNVdp6YIkmVeKiVaj/PieVGAimiT3sJZKT65vro+QE1aHHLpBjMCeg2rsIZnuCSDtnD2mPhw7BADG2oMDZNlU2EO9bZKpntW8rcpZ9gFEBuQY/wRTjuwJ0TEw4GeZiKF3fVhhE8IuVgs5H6fYuZRDH2fL5VcEAZi63SEwO/lBWuLdHErlovn1KOW5yb0wHHxQilzcDHSlwLzvnIJNiloCkSSImm+QV2SY8cwW+w2CnUPAknb7nrn/AO2AD4zgN4LA+R9Rp2QVEd8mKGjBatBTqnjiXwjX13+DUD+Nc/BPOPPIdmvqa5ssfaNaDdXdxFj/iLK5x6oxTnmp+3ebiMyg4Yog5m14Xy9VGr942er5e6HH8AjHWHFw=";
     //     // let bstring = "0eNq9k2FrgzAQhv/LfV3cqrXY5q+MIlFv7YEmkpwykfz3JQpdRwvDfdiXwCXvvXnvIZmhagfsLWkGOQPVRjuQ7zM4umjVxj2eegQJxNiBAK26WClLfO2QqU5q01WkFRsLXgDpBj9Bpv4sADUTE66GSzGVeugqtEHwi5WA3rjQbXTMEByT/PUgYAK5C7eEmGxNW1Z4VSMFedB8+5ThuFl6XTz4IOu4fBhoJMtD2LkFWRVJBBIncRhtopdjFfHsBJgerVpDwUvoNAP3wwZviw14vw6gsb5FzOJysYj6nhU1ILOgJVsPxGvpz7H/AWe2Gef+n3AuIz+hmf2k+fYHmvWk9Eac6TOc4akur1vefQYBI1q3ZMuOaV6csqLYF6fDMff+CzP3HGs=";
-    //     let bstring = "0eNqVUttqwzAM/Rc9Dmckabu0/pVRgpNqrSCxg6OEleJ/n+ywroy1ZS9GF+tcLF+g6SYcPFkGfQFqnR1Bv19gpKM1XazxeUDQQIw9KLCmj5nxxKcemdqsdX1D1rDzEBSQPeAn6CKopxiRi43lvxHKsFeAlokJF0kpOdd26hv0QvFEjILBjTLtbFQgiNmqfN0oOEtUvAmR8LN3Xd3gycwkE3LtB6qW9iGNj7ExYszrb82gcwVuQG8WAniBsEBabK9DRTyOHtHeGqBDchdCfKNfpsqHr/PQkkR3TH1Qx+jv7HUmz5NUrsTLjWyRnRCn6HeV5/nNevf/cSurasm3E/GSJvOy3vQf9M0XVDCL0OSv3BbraldW1arabbbrEL4A2RrojQ==";
-
+    //     let bstring = "0eNqdU9tuwjAM/Rc/TgHRACqL9icTqtLWA0s0idIUrUL59zntYB3jIu2lipPjc3HSE5SHDp0nE0CdgCprWlDvJ2hpZ/Qh7YXeISiggA0IMLpJlfYU9g0GqmaVbUoyOlgPUQCZGj9BZVE85aixohr9bQIZtwLQBAqEo6Oh6AvTNSV6VrjwJM9BmzAlEuBsy73WJHnmm62y+VpAzysp52sW4jaDVYK0CZOlz84jmqka1WyFseSrjsJYpmiT4+X18TbGCeTsVz6Z3Q3Hi4vjbPQbvD0UJe71kbiDYT9UBR/XdEnTYqqL82hALQRYh16PAvAC8e8I5N0RZHdCLR9d5sM7uJfom+cqzq8cLOG0HyQUvEHacD03dCYUH942BRnXMTT4Dv+Rkt/d8E7V5NcQcETfDknkJlvlrzLPl/nrerOK8QtpOh40";
     //     let parsed = fb::BlueprintCodec::decode_string(bstring).expect("Invalid Blueprint");
-
     //     cli::print_label("PARSED");
     //     dbg!(parsed);
     // }
