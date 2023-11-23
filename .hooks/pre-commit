@@ -1,0 +1,2 @@
+#!/bin/sh
+cargo fmt --manifest-path chef/Cargo.toml || exit 1
