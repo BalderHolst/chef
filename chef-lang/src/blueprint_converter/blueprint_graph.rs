@@ -42,8 +42,8 @@ impl CombinatorPosition {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
-    pub from: NId,
-    pub to: NId,
+    pub input_node: NId,
+    pub output_node: NId,
     pub operation: Connection,
     pub position: Option<CombinatorPosition>,
     pub entity_number: EntityNumber,
@@ -58,8 +58,8 @@ impl Combinator {
         entity_number: EntityNumber,
     ) -> Self {
         Self {
-            from,
-            to,
+            input_node: from,
+            output_node: to,
             operation,
             position,
             entity_number,
@@ -67,8 +67,8 @@ impl Combinator {
     }
     fn new_no_pos(from: NId, to: NId, operation: Connection, entity_number: EntityNumber) -> Self {
         Self {
-            from,
-            to,
+            input_node: from,
+            output_node: to,
             operation,
             position: None,
             entity_number,
@@ -142,7 +142,7 @@ impl BlueprintGraph {
 
     pub fn get_corresponding_combinator(&self, nid: NId) -> &Combinator {
         for com in &self.combinators {
-            if com.from == nid || com.to == nid {
+            if com.input_node == nid || com.output_node == nid {
                 return com;
             }
         }
@@ -197,10 +197,10 @@ impl BlueprintGraph {
             .iter()
             .filter(|other| other.entity_number != this_entity_number)
             .filter(|other| {
-                other.to == com.to
-                    || other.from == com.to
-                    || other.to == com.from
-                    || other.from == com.from
+                other.output_node == com.output_node
+                    || other.input_node == com.output_node
+                    || other.output_node == com.input_node
+                    || other.input_node == com.input_node
             })
             .copied()
             .collect()
@@ -256,7 +256,7 @@ impl BlueprintGraph {
             };
             dot += &format!(
                 "\t{} -> {} [label=\"{} ({})\\n{:?}\" color={} fontcolor={}]\n",
-                com.from, com.to, com.operation, com.entity_number, com.position, color, color
+                com.input_node, com.output_node, com.operation, com.entity_number, com.position, color, color
             );
         }
 

@@ -74,8 +74,8 @@ impl<'a> TurdMaster2000<'a> {
 
         let com = self.graph.combinators[com_index].clone();
 
-        let input_nodes = self.graph.get_other_nodes_in_wire_network(&com.from);
-        let output_nodes = self.graph.get_other_nodes_in_wire_network(&com.to);
+        let input_nodes = self.graph.get_other_nodes_in_wire_network(&com.input_node);
+        let output_nodes = self.graph.get_other_nodes_in_wire_network(&com.output_node);
 
         // Check if the input_loc allows for connecting to the combinator inputs,
         // and connect if so.
@@ -88,7 +88,7 @@ impl<'a> TurdMaster2000<'a> {
                 any_placed = true;
                 if is_in_range(input_loc, placed_com_pos.output) {
                     connected = true;
-                    self.graph.push_wire(input_nid, com.from);
+                    self.graph.push_wire(input_nid, com.input_node);
                 }
             }
         }
@@ -109,7 +109,7 @@ impl<'a> TurdMaster2000<'a> {
                 any_placed = true;
                 if is_in_range(input_loc, placed_com_pos.output) {
                     connected = true;
-                    self.graph.push_wire(output_nid, com.to);
+                    self.graph.push_wire(output_nid, com.output_node);
                 }
             }
         }
