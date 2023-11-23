@@ -52,6 +52,9 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
             match e {
                 VisualizerError::IoErr(e) => {
                     eprintln!("Error writing graph output file: `{}`", e)
+                },
+                VisualizerError::GraphvizIoError(_e) => {
+                    eprintln!("Error calling graphviz. Do you have it installed?");
                 }
                 VisualizerError::GraphvizError(e) => eprintln!("Error creating graph: `{}`", e),
             };

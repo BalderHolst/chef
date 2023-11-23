@@ -13,6 +13,7 @@ pub type VisualizerResult = Result<String, VisualizerError>;
 #[derive(Debug)]
 pub enum VisualizerError {
     IoErr(io::Error),
+    GraphvizIoError(io::Error),
     GraphvizError(String),
 }
 
@@ -28,6 +29,6 @@ pub fn dot_to_svg(dot: String) -> VisualizerResult {
         vec![Format::Svg.into()],
     ) {
         Ok(s) => Ok(s),
-        Err(e) => Err(VisualizerError::IoErr(e)),
+        Err(e) => Err(VisualizerError::GraphvizIoError(e)),
     }
 }
