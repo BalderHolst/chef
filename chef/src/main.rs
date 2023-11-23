@@ -67,7 +67,8 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
     match BlueprintConverter::new(graph).convert_to_blueprint_string(cook_opts) {
         Ok(blueprint) => {
             let _ = cli_clipboard::set_contents(blueprint.clone());
-            println!("\n\n{blueprint}\n");
+            println!("{blueprint}");
+            eprintln!("\n")
         }
         Err(e) => println!("Could not create blueprint string: `{}`", e),
     }
@@ -91,7 +92,7 @@ fn main() -> Result<(), io::Error> {
 
             compile(opts.clone(), cook_opts);
 
-            println!("Enjoy!");
+            eprintln!("Enjoy!");
             Ok(())
         }
         Some(Command::Add(c)) => {
