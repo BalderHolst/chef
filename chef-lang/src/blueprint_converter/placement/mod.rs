@@ -91,7 +91,8 @@ impl TurdMaster2000 {
         let input_coord = (x, y * 2);
         let output_coord = (x, y * 2 + 1);
 
-        if self.coordset_is_occupied(&input_coord) && self.coordset_is_occupied(&output_coord) {
+        if self.coordset_is_occupied(&input_coord) || self.coordset_is_occupied(&output_coord) {
+            println!("Coordset was occupied: [{:?}, {:?}]", input_coord, output_coord);
             return None;
         }
 
