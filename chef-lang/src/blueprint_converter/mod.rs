@@ -45,6 +45,18 @@ impl CombinatorPosition {
     }
 }
 
+impl Display for CombinatorPosition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (x1, y1) = self.input;
+        let (x2, y2) = self.output;
+        write!(
+            f,
+            "{{({}, {}) -> ({}, {})}}",
+            x1, y1, x2, y2
+        )
+    }
+}
+
 /// Placed Factorio Combinator
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
@@ -60,8 +72,13 @@ impl Display for Combinator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} -> {} (input for: {:?}): [{}] {}",
-            self.input_network, self.output_network, self.output_entities, self.entity_number, self.operation
+            "{} -> {} (input for: {:?}): [{}] {} {{{}}}",
+            self.input_network,
+            self.output_network,
+            self.output_entities,
+            self.entity_number,
+            self.operation,
+            self.position
         )
     }
 }
