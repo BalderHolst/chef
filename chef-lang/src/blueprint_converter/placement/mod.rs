@@ -1,12 +1,11 @@
 use std::{cmp, collections::HashSet};
 
-use super::{
-    blueprint_graph::{BlueprintGraph, CombinatorPosition, CoordSet},
-    WIRE_RANGE,
-};
+use crate::compiler::graph::Graph;
+
+use super::{ WIRE_RANGE, CoordSet, CombinatorPosition, Combinator, PlacedCombinator };
 
 trait Placer {
-    fn place(&mut self) {}
+    fn place(&self) -> Vec<PlacedCombinator>;
 }
 
 pub(crate) fn is_in_range(p1: CoordSet, p2: CoordSet) -> bool {
@@ -26,7 +25,9 @@ pub(crate) fn is_in_range(p1: CoordSet, p2: CoordSet) -> bool {
 /// 5. If nothing works, backtrack. We will just panic for now... // TODO
 /// 6. When placed, connect wires to the other combinators that were placed.
 struct TurdMaster2000<'a> {
-    graph: &'a mut BlueprintGraph,
+    graph: &'a mut Graph,
+    unplaced_combinators: Vec<Combinator>,
+    placed_combinators: Vec<PlacedCombinator>,
     placed_positions: HashSet<CoordSet>,
     max_x: i64,
     min_x: i64,
@@ -35,9 +36,11 @@ struct TurdMaster2000<'a> {
 }
 
 impl<'a> TurdMaster2000<'a> {
-    fn new(graph: &'a mut BlueprintGraph) -> Self {
+    fn new(graph: &'a mut Graph, combinators: Vec<Combinator>) -> Self {
         Self {
             graph,
+            unplaced_combinators: combinators,
+            placed_combinators: vec![],
             placed_positions: HashSet::new(),
             max_x: 0,
             min_x: 1,
@@ -46,7 +49,7 @@ impl<'a> TurdMaster2000<'a> {
         }
     }
 
-    fn place_combinator(&mut self, input_loc: CoordSet, output_loc: CoordSet, com_index: usize) {
+    fn place_combinator(&self, input_loc: CoordSet, output_loc: CoordSet, com_index: usize) {
         // Reserve space for the combinator.
         if !self.placed_positions.insert(input_loc) || !self.placed_positions.insert(output_loc) {
             panic!("You cannot place a combinator on top of another.")
@@ -72,8 +75,9 @@ impl<'a> TurdMaster2000<'a> {
             return false;
         }
 
-        let com = self.graph.combinators[com_index].clone();
+        let com = self.unplaced_combinators[com_index].clone();
 
+        self.graph.get_inputs(vid)
         let input_nodes = self.graph.get_other_nodes_in_wire_network(&com.input_node);
         let output_nodes = self.graph.get_other_nodes_in_wire_network(&com.output_node);
 
@@ -126,8 +130,8 @@ impl<'a> TurdMaster2000<'a> {
 }
 
 impl<'a> Placer for TurdMaster2000<'a> {
-    fn place(&mut self) {
-        'outer: for com_index in 0..self.graph.combinators.len() {
+    fn place(&self) -> Vec<PlacedCombinator> {
+        'outer: for com_index in 0..self.unplaced_combinators.len() {
             // try to place at the end of turd
             for y in self.min_y - 1..=self.max_y + 1 {
                 for x in self.min_x - 1..=self.max_x + 1 {
@@ -140,9 +144,10 @@ impl<'a> Placer for TurdMaster2000<'a> {
             }
             todo!("COULD NOT PLACE COMBINATOR");
         }
+        todo!()
     }
 }
 
-pub fn place_combinators(bp_graph: &mut BlueprintGraph) {
-    TurdMaster2000::new(bp_graph).place();
+pub fn place_combinators(graph: &mut Graph, combinators: Vec<Combinator>) -> Vec<PlacedCombinator> {
+    TurdMaster2000::new(graph, combinators).place()
 }

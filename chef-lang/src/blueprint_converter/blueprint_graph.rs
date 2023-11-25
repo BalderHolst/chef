@@ -1,4 +1,5 @@
 use std::{fs::OpenOptions, io::Write};
+use std::rc::Rc;
 
 use factorio_blueprint as fb;
 use fb::objects::{EntityNumber, Position};
