@@ -169,7 +169,7 @@ impl Connection {
         ))
     }
 
-    pub fn get_output(&self) -> IOType {
+    pub fn get_output_iotype(&self) -> IOType {
         match self {
             Connection::Arithmetic(ac) => ac.output.clone(),
             Connection::Decider(dc) => dc.output.clone(),
@@ -278,6 +278,7 @@ impl InnerNode {
 /// Index of a node in a [Graph].
 pub type NId = u64;
 
+// TODO: vid -> nid
 /// A graph for storing connection and nodes representing factorio combinators.
 #[derive(Clone)]
 pub struct Graph {
@@ -296,7 +297,7 @@ impl Graph {
         }
     }
 
-    pub fn get_inputs(&self, vid: &NId) -> Vec<IOType> {
+    pub fn get_input_iotypes(&self, vid: &NId) -> Vec<IOType> {
         match self.vertices.get(vid) {
             Some(Node::Input(input_node)) => {
                 return vec![input_node.input.clone()];
@@ -311,11 +312,57 @@ impl Graph {
         for to_vec in self.adjacency.values() {
             for (to_vid, conn) in to_vec {
                 if to_vid == vid {
-                    inputs.push(conn.get_output());
+                    inputs.push(conn.get_output_iotype());
                 }
             }
         }
         inputs
+    }
+
+    /// Returns an iterator overr graph connections with the format:
+    /// (from_nid, to_nid, connection).
+    pub fn iter_conns(&self) -> impl Iterator<Item = (NId, NId, Connection)> + '_ {
+        self.adjacency
+            .iter()
+            .map(|(from_nid, to_vec)| {
+                to_vec
+                    .iter()
+                    .map(|(to_nid, conn)| (from_nid.to_owned(), to_nid.to_owned(), conn.clone()))
+            })
+            .flatten()
+    }
+
+    /// Get connections pointing away from the node
+    pub fn get_from_connections(&self, nid: &NId) -> Vec<(NId, Connection)> {
+        self.adjacency.get(nid).unwrap_or(&vec![]).clone()
+    }
+
+    /// Returns 'to' (incomming), 'from' (outgoing) and 'loop'
+    /// connections and the nodes they are connected to (to, from, loop).
+    /// 'loop' connections are connections where both from and to nodes are this node.
+    pub fn get_connections(
+        &self,
+        nid: &NId,
+    ) -> (
+        Vec<(NId, Connection)>,
+        Vec<(NId, Connection)>,
+        Vec<Connection>,
+    ) {
+        let mut from_conns = vec![];
+        let mut to_conns = vec![];
+        let mut loop_conns = vec![];
+
+        for (from_nid, to_nid, conn) in self.iter_conns() {
+            if from_nid == *nid && to_nid == *nid {
+                loop_conns.push(conn)
+            } else if from_nid == *nid {
+                from_conns.push((to_nid, conn))
+            } else if to_nid == *nid {
+                to_conns.push((from_nid, conn))
+            }
+        }
+
+        (to_conns, from_conns, loop_conns)
     }
 
     /// Get a graph node by id.
@@ -450,7 +497,7 @@ impl Graph {
                 let new_to_vid = vid_converter[&old_to_vid];
                 self.push_connection(new_from_vid, new_to_vid, conn.clone());
                 if self.is_output(new_to_vid) {
-                    outputs.insert(new_to_vid, conn.get_output());
+                    outputs.insert(new_to_vid, conn.get_output_iotype());
                 }
             }
         }
@@ -481,7 +528,7 @@ impl Graph {
             match signal {
                 IOType::Signal(_) => {
                     let middle_node = self.push_node(Node::Inner(InnerNode::new()));
-                    let input_types = self.get_inputs(block_input_vid);
+                    let input_types = self.get_input_iotypes(block_input_vid);
 
                     debug_assert!(input_types.len() == 1);
 
@@ -537,7 +584,7 @@ impl Graph {
     }
 
     pub fn get_single_input(&self, vid: &NId) -> Result<IOType, String> {
-        let inputs = self.get_inputs(vid);
+        let inputs = self.get_input_iotypes(vid);
         if inputs.len() != 1 {
             return Err("Could not get single input".to_string());
         }
@@ -639,10 +686,16 @@ impl Graph {
                 return;
             }
             match node {
-                Node::Inner(_) => println!("\t\t{} : INNER : {:?}", vid, self.get_inputs(vid)),
-                Node::Input(_) => println!("\t\t{} : INPUT : {:?}", vid, self.get_inputs(vid)),
-                Node::Output(_n) => println!("\t\t{} : OUTPUT : {:?}", vid, self.get_inputs(vid)),
-                Node::None => println!("\t\t{} : NONE : {:?}", vid, self.get_inputs(vid)),
+                Node::Inner(_) => {
+                    println!("\t\t{} : INNER : {:?}", vid, self.get_input_iotypes(vid))
+                }
+                Node::Input(_) => {
+                    println!("\t\t{} : INPUT : {:?}", vid, self.get_input_iotypes(vid))
+                }
+                Node::Output(_n) => {
+                    println!("\t\t{} : OUTPUT : {:?}", vid, self.get_input_iotypes(vid))
+                }
+                Node::None => println!("\t\t{} : NONE : {:?}", vid, self.get_input_iotypes(vid)),
             }
         }
         println!("\n\tConnections:");
@@ -711,7 +764,7 @@ impl<'a> AnysignalAssigner<'a> {
         // Keep track of what signals are already used by the blueprint
         for to_vec in self.graph.adjacency.values() {
             for (_, conn) in to_vec {
-                if let IOType::Signal(s) = conn.get_output() {
+                if let IOType::Signal(s) = conn.get_output_iotype() {
                     self.used_signals.insert(s);
                 }
             }

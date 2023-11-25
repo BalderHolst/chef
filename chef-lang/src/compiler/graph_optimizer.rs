@@ -49,7 +49,7 @@ impl<'a> GraphOptimizer<'a> {
     }
 
     fn integrate_constant_input(&mut self, vid: NId) {
-        let inputs = self.graph.get_inputs(&vid);
+        let inputs = self.graph.get_input_iotypes(&vid);
 
         if inputs.len() != 1 {
             return;

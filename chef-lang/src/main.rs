@@ -3,7 +3,6 @@ use std::rc::Rc;
 use std::{env, io};
 
 use ast::AST;
-use blueprint_converter::BlueprintConverter;
 use cli::{AddCommand, Command, CookOpts, Opts};
 use diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
 use gumdrop::Options;
@@ -52,7 +51,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
             match e {
                 VisualizerError::IoErr(e) => {
                     eprintln!("Error writing graph output file: `{}`", e)
-                },
+                }
                 VisualizerError::GraphvizIoError(_e) => {
                     eprintln!("Error calling graphviz. Do you have it installed?");
                 }
@@ -67,14 +66,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
         exit(0);
     }
 
-    match BlueprintConverter::new(graph).convert_to_blueprint_string(cook_opts) {
-        Ok(blueprint) => {
-            let _ = cli_clipboard::set_contents(blueprint.clone());
-            println!("{blueprint}");
-            eprintln!("\n")
-        }
-        Err(e) => println!("Could not create blueprint string: `{}`", e),
-    }
+    blueprint_converter::convert_to_graph_to_blueprint_string(graph).unwrap();
 }
 
 fn main() -> Result<(), io::Error> {

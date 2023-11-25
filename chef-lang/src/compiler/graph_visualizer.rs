@@ -14,7 +14,7 @@ pub fn create_dot(graph: &Graph) -> String {
             super::graph::Node::Output(_n) => "orange",
             super::graph::Node::None => "lightgray",
         };
-        let inputs = &graph.get_inputs(vid);
+        let inputs = &graph.get_input_iotypes(vid);
         let input = if inputs.is_empty() {
             "CONST".to_string()
         } else {
