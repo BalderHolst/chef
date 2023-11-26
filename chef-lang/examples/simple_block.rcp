@@ -1,0 +1,5 @@
+block main(a: int(logistic-chest-active-provider), b: int(pipe)) -> int(sulfur) {
+    c: int = a / 4;
+    d: int(signal-Z)= b + 3;
+    c + d
+}

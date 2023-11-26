@@ -1,0 +1,17 @@
+strict digraph {
+	nodesep=1
+	7	[style=filled fillcolor=white label="Sig(pipe)"]
+	1	[style=filled fillcolor=lightgreen label="Sig(pipe)"]
+	0	[style=filled fillcolor=lightgreen label="Sig(logistic-chest-active-provider)"]
+	3	[style=filled fillcolor=white label="Sig(logistic-chest-active-provider)"]
+	12	[style=filled fillcolor=orange label="Sig(sulfur)"]
+	11	[style=filled fillcolor=white label="Sig(iron-chest)"]
+	10	[style=filled fillcolor=white label="Sig(signal-Z) | Sig(wooden-chest)"]
+	7 -> 10	[label="ADD: Sig(pipe), (3)" color=black fontcolor=black]
+	1 -> 7	[label="PICK: Sig(pipe)" color=red fontcolor=red]
+	0 -> 3	[label="PICK: Sig(logistic-chest-active-provider)" color=red fontcolor=red]
+	3 -> 10	[label="DIVIDE: Sig(logistic-chest-active-provider), (4)" color=black fontcolor=black]
+	11 -> 12	[label="CONVERT: Sig(iron-chest) -> Sig(sulfur)" color=blue fontcolor=blue]
+	10 -> 11	[label="ADD: Sig(wooden-chest), Sig(signal-Z)" color=black fontcolor=black]
+}
+

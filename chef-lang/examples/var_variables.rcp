@@ -1,0 +1,6 @@
+block main () -> int(automation-science-pack) {
+    i: int = 10;
+    v: var(signal-A);
+    v += 30 * i;
+    out v / i;
+}

@@ -1,0 +1,4 @@
+block main(input: all) -> bool(signal-B) {
+    a: bool(signal-D) = input[pump] != 10;
+    out a;
+}

@@ -1,0 +1,16 @@
+strict digraph {
+	nodesep=1
+	0	[style=filled fillcolor=lightgreen label="ALL"]
+	3	[style=filled fillcolor=white label="Sig(inserter)"]
+	13	[style=filled fillcolor=orange label="Sig(pipe)"]
+	12	[style=filled fillcolor=white label="Sig(iron-chest)"]
+	8	[style=filled fillcolor=white label="Sig(signal-B)"]
+	11	[style=filled fillcolor=white label="Sig(wooden-chest) | Sig(steel-chest)"]
+	0 -> 3	[label="PICK: Sig(inserter)" color=red fontcolor=red]
+	0 -> 8	[label="PICK: Sig(signal-B)" color=red fontcolor=red]
+	3 -> 11	[label="DIVIDE: Sig(inserter), (13)" color=black fontcolor=black]
+	12 -> 13	[label="CONVERT: Sig(iron-chest) -> Sig(pipe)" color=blue fontcolor=blue]
+	8 -> 11	[label="ADD: Sig(signal-B), (2)" color=black fontcolor=black]
+	11 -> 12	[label="MULTIPLY: Sig(wooden-chest), Sig(steel-chest)" color=black fontcolor=black]
+}
+

@@ -1,0 +1,24 @@
+#!/bin/sh
+
+manifest="chef-lang/Cargo.toml"
+
+cargo fmt --manifest-path "$manifest" --check 2> /dev/null  || {
+    echo -e "\nPlease format your code."
+    exit 1
+}
+
+echo "PASSED: Format"
+
+cargo clippy --manifest-path "$manifest" -- --deny warnings 2> /dev/null || {
+    echo -e "\nClippy is angry."
+    exit 1
+}
+
+echo "PASSED: Clippy"
+
+cargo test --manifest-path "$manifest" -q 2> /dev/null || {
+    echo -e "\nSome tests have failed"
+    exit 1
+}
+
+echo "PASSED: Tests"

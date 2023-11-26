@@ -1,3 +1,0 @@
-block main(input: all) -> (int(inserter)) {
-    out 4 * ( 5 - 3 ) + 80 / 10;
-}

@@ -1,0 +1,11 @@
+strict digraph {
+	nodesep=1
+	5	[style=filled fillcolor=orange label="Sig(inserter)"]
+	4	[style=filled fillcolor=white label="Sig(wooden-chest)"]
+	0	[style=filled fillcolor=lightgreen label="ALL"]
+	3	[style=filled fillcolor=white label="Sig(military-science-pack)"]
+	4 -> 5	[label="CONVERT: Sig(wooden-chest) -> Sig(inserter)" color=blue fontcolor=blue]
+	0 -> 3	[label="PICK: Sig(military-science-pack)" color=red fontcolor=red]
+	3 -> 4	[label="ADD: Sig(military-science-pack), (85)" color=black fontcolor=black]
+}
+
