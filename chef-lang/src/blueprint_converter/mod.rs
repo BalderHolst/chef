@@ -7,14 +7,18 @@ use std::{collections::HashMap, fmt::Display, num::NonZeroUsize};
 use factorio_blueprint as fb;
 use fb::{
     objects::{
-        self as fbo, ArithmeticConditions, Blueprint, ControlBehavior, Entity, EntityNumber,
-        OneBasedIndex, Position, SignalID, EntityConnections, SignalIDType, DeciderConditions, ControlFilter,
+        self as fbo, ArithmeticConditions, Blueprint, ControlBehavior, ControlFilter,
+        DeciderConditions, Entity, EntityConnections, EntityNumber, OneBasedIndex, Position,
+        SignalID, SignalIDType,
     },
     Container,
 };
 use noisy_float::types::R64;
 
-use crate::{compiler::graph::{self, ArithmeticOperation, Connection, Graph, IOType, DeciderOperation}, utils::BASE_SIGNALS};
+use crate::{
+    compiler::graph::{self, ArithmeticOperation, Connection, DeciderOperation, Graph, IOType},
+    utils::BASE_SIGNALS,
+};
 use placement::Placer;
 
 use self::{graph::NId, placement::TurdMaster2000};
@@ -291,7 +295,6 @@ impl Combinator {
             s
         );
     }
-
 }
 
 impl Display for Combinator {
@@ -330,7 +333,10 @@ fn place_combinators(placer: impl Placer) -> Vec<Combinator> {
 
 /// Create a [Blueprint] from a list of combinators
 fn combinators_to_blueprint(combinators: Vec<Combinator>) -> Container {
-    let entities: Vec<Entity> = combinators.iter().map(|c| c.to_blueprint_entity()).collect();
+    let entities: Vec<Entity> = combinators
+        .iter()
+        .map(|c| c.to_blueprint_entity())
+        .collect();
     let blueprint = create_blueprint(entities);
     Container::Blueprint(blueprint)
 }

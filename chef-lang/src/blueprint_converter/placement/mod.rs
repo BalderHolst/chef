@@ -1,10 +1,10 @@
 use std::{cmp, collections::HashSet};
 
-use factorio_blueprint::objects::{EntityNumber};
+use factorio_blueprint::objects::EntityNumber;
 
 use crate::{
     blueprint_converter::{NetworkId, Operation},
-    compiler::graph::{Graph},
+    compiler::graph::Graph,
 };
 
 use super::{Combinator, CombinatorPosition, CoordSet, WIRE_RANGE};
@@ -92,7 +92,10 @@ impl TurdMaster2000 {
         let output_coord = (x, y * 2 + 1);
 
         if self.coordset_is_occupied(&input_coord) || self.coordset_is_occupied(&output_coord) {
-            println!("Coordset was occupied: [{:?}, {:?}]", input_coord, output_coord);
+            println!(
+                "Coordset was occupied: [{:?}, {:?}]",
+                input_coord, output_coord
+            );
             return None;
         }
 

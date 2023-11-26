@@ -322,13 +322,11 @@ impl Graph {
     /// Returns an iterator overr graph connections with the format:
     /// (from_nid, to_nid, connection).
     pub fn iter_conns(&self) -> impl Iterator<Item = (NId, NId, Connection)> + '_ {
-        self.adjacency
-            .iter()
-            .flat_map(|(from_nid, to_vec)| {
-                to_vec
-                    .iter()
-                    .map(|(to_nid, conn)| (from_nid.to_owned(), to_nid.to_owned(), conn.clone()))
-            })
+        self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
+            to_vec
+                .iter()
+                .map(|(to_nid, conn)| (from_nid.to_owned(), to_nid.to_owned(), conn.clone()))
+        })
     }
 
     /// Get connections pointing away from the node

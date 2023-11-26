@@ -1,2 +1,5 @@
 #!/bin/sh
-cargo fmt --manifest-path chef-lang/Cargo.toml || exit 1
+cargo fmt --check --manifest-path chef-lang/Cargo.toml || {
+    echo -e "\nPlease format your files."
+    exit 1
+}
