@@ -2,16 +2,19 @@
 
 mod placement;
 
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display, num::NonZeroUsize};
 
 use factorio_blueprint as fb;
 use fb::{
-    objects::{EntityNumber, Position},
+    objects::{
+        self as fbo, ArithmeticConditions, Blueprint, ControlBehavior, Entity, EntityNumber,
+        OneBasedIndex, Position, SignalID, EntityConnections, SignalIDType, DeciderConditions, ControlFilter,
+    },
     Container,
 };
 use noisy_float::types::R64;
 
-use crate::compiler::graph::{self, Connection, Graph};
+use crate::{compiler::graph::{self, ArithmeticOperation, Connection, Graph, IOType, DeciderOperation}, utils::BASE_SIGNALS};
 use placement::Placer;
 
 use self::{graph::NId, placement::TurdMaster2000};
@@ -49,11 +52,7 @@ impl Display for CombinatorPosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (x1, y1) = self.input;
         let (x2, y2) = self.output;
-        write!(
-            f,
-            "{{({}, {}) -> ({}, {})}}",
-            x1, y1, x2, y2
-        )
+        write!(f, "{{({}, {}) -> ({}, {})}}", x1, y1, x2, y2)
     }
 }
 
@@ -66,6 +65,233 @@ pub struct Combinator {
     pub operation: Operation,
     pub output_entities: Vec<EntityNumber>,
     pub position: CombinatorPosition,
+}
+
+impl Combinator {
+    pub fn to_blueprint_entity(&self) -> Entity {
+        // let mut connections: HashMap<EntityNumber, fbo::Connection> = HashMap::new();
+
+        let input_connection_point = 1;
+        let output_connection_point = 2;
+
+        let output_connections: Vec<fbo::ConnectionData> = self
+            .output_entities
+            .iter()
+            .map(|out_en| fbo::ConnectionData {
+                entity_id: out_en.clone(),
+                circuit_id: Some(input_connection_point),
+            })
+            .collect();
+
+        let mut connections: HashMap<EntityNumber, fbo::Connection> = HashMap::new();
+        connections.insert(
+            OneBasedIndex::new(output_connection_point).unwrap(),
+            fbo::Connection {
+                red: None,
+                green: Some(output_connections),
+            },
+        );
+
+        let control_behavior = self.get_control_behavior();
+
+        // Internal factorio name of combinator
+        let name = match &self.operation {
+            graph::Connection::Arithmetic(_) => "arithmetic-combinator",
+            graph::Connection::Decider(_) => "decider-combinator",
+            graph::Connection::Gate(_) => "decider-combinator",
+            graph::Connection::Constant(_) => "constant-combinator",
+        }
+        .to_string();
+
+        Entity {
+            entity_number: self.entity_number,
+            name,
+            position: self.position.factorio_pos(),
+            direction: None,
+            orientation: None,
+            connections: Some(EntityConnections::NumberIdx(connections)),
+            control_behavior: Some(control_behavior),
+            items: None,
+            recipe: None,
+            bar: None,
+            inventory: None,
+            infinity_settings: None,
+            type_: None,
+            input_priority: None,
+            output_priority: None,
+            filter: None,
+            filters: None,
+            filter_mode: None,
+            override_stack_size: None,
+            drop_position: None,
+            pickup_position: None,
+            request_filters: None,
+            request_from_buffers: None,
+            parameters: None,
+            alert_parameters: None,
+            auto_launch: None,
+            variation: None,
+            color: None,
+            station: None,
+        }
+    }
+
+    fn get_control_behavior(&self) -> ControlBehavior {
+        match &self.operation {
+            graph::Connection::Arithmetic(ac) => {
+                let (first_constant, first_signal) = Self::iotype_to_const_signal_pair(&ac.left);
+                let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&ac.right);
+                let (_, output_signal) = Self::iotype_to_const_signal_pair(&ac.output);
+                let operation = Self::arithmetic_operation_to_op_string(&ac.operation);
+
+                ControlBehavior {
+                    arithmetic_conditions: Some(ArithmeticConditions {
+                        first_constant,
+                        first_signal,
+                        second_constant,
+                        second_signal,
+                        operation,
+                        output_signal,
+                    }),
+                    decider_conditions: None,
+                    filters: None,
+                    is_on: None,
+                }
+            }
+            graph::Connection::Decider(dc) => {
+                let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&dc.left);
+                let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&dc.right);
+                let (_, output_signal) = Self::iotype_to_const_signal_pair(&dc.output);
+                let operation = Self::decider_operation_to_op_string(&dc.operation);
+
+                ControlBehavior {
+                    arithmetic_conditions: None,
+                    decider_conditions: Some(DeciderConditions {
+                        first_signal,
+                        second_signal,
+                        constant: second_constant,
+                        comparator: operation,
+                        output_signal,
+                        copy_count_from_input: Some(false),
+                    }),
+                    filters: None,
+                    is_on: None,
+                }
+            }
+            graph::Connection::Gate(gc) => {
+                let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&gc.left);
+                let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&gc.right);
+                let (_, gate_signal) = Self::iotype_to_const_signal_pair(&gc.gate_type);
+                let operation = Self::decider_operation_to_op_string(&gc.operation);
+
+                ControlBehavior {
+                    arithmetic_conditions: None,
+                    decider_conditions: Some(DeciderConditions {
+                        first_signal,
+                        second_signal,
+                        constant: second_constant,
+                        comparator: operation,
+                        output_signal: gate_signal,
+                        copy_count_from_input: Some(true),
+                    }),
+                    filters: None,
+                    is_on: None,
+                }
+            }
+            graph::Connection::Constant(cc) => {
+                let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
+                ControlBehavior {
+                    arithmetic_conditions: None,
+                    decider_conditions: None,
+                    filters: {
+                        Some(vec![ControlFilter {
+                            signal: SignalID {
+                                name: signal,
+                                type_,
+                            },
+                            index: NonZeroUsize::new(1).unwrap(),
+                            count: cc.count,
+                        }])
+                    },
+                    is_on: Some(true),
+                }
+            }
+        }
+    }
+
+    fn arithmetic_operation_to_op_string(op: &ArithmeticOperation) -> String {
+        match op {
+            ArithmeticOperation::Add => "+",
+            ArithmeticOperation::Subtract => "-",
+            ArithmeticOperation::Multiply => "*",
+            ArithmeticOperation::Divide => "/",
+        }
+        .to_string()
+    }
+
+    fn decider_operation_to_op_string(op: &DeciderOperation) -> String {
+        match op {
+            DeciderOperation::LargerThan => ">",
+            DeciderOperation::LargerThanOrEqual => ">=",
+            DeciderOperation::LessThan => "<",
+            DeciderOperation::LessThanOrEqual => "<=",
+            DeciderOperation::Equals => "=",
+            DeciderOperation::NotEquals => "!=",
+        }
+        .to_string()
+    }
+
+    /// Returns (first_constant, first_signal)
+    fn iotype_to_const_signal_pair(t: &graph::IOType) -> (Option<i32>, Option<SignalID>) {
+        match t {
+            graph::IOType::Signal(s) => {
+                let type_ = Self::get_signal_type(s.as_str());
+                (
+                    None,
+                    Some(SignalID {
+                        name: s.clone(),
+                        type_, // TODO
+                    }),
+                )
+            }
+            graph::IOType::ConstantSignal(_) => todo!(),
+            graph::IOType::Constant(n) => (Some(*n), None),
+            graph::IOType::All => todo!(),
+            graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
+        }
+    }
+
+    // Get the corresponding (signal_type, signal_string) pair
+    fn iotype_to_signal_pair(t: IOType) -> (SignalIDType, String) {
+        match t {
+            IOType::Signal(s) => (Self::get_signal_type(s.as_str()), s),
+            IOType::Constant(_) => todo!(),
+            IOType::ConstantSignal(_) => todo!(),
+            IOType::All => todo!(),
+            graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
+        }
+    }
+
+    fn get_signal_type(s: &str) -> SignalIDType {
+        for line in BASE_SIGNALS.lines() {
+            let (type_, sig) = line
+                .split_once(':')
+                .expect("Eact line in signale files should be formattet like this: type:signal");
+            if s == sig {
+                return match type_ {
+                    "item" => SignalIDType::Item,
+                    "fluid" => SignalIDType::Fluid,
+                    "virtual" => SignalIDType::Virtual,
+                    _ => panic!("Invalid signal type in signal file: `{}`.", type_),
+                };
+            }
+        }
+        panic!(
+            "Could not find signal: {}. The typechecker should have prevented this.",
+            s
+        );
+    }
+
 }
 
 impl Display for Combinator {
@@ -102,6 +328,23 @@ fn place_combinators(placer: impl Placer) -> Vec<Combinator> {
     placer.place()
 }
 
+/// Create a [Blueprint] from a list of combinators
 fn combinators_to_blueprint(combinators: Vec<Combinator>) -> Container {
-    todo!()
+    let entities: Vec<Entity> = combinators.iter().map(|c| c.to_blueprint_entity()).collect();
+    let blueprint = create_blueprint(entities);
+    Container::Blueprint(blueprint)
+}
+
+/// Create a [Blueprint] containing some entities
+fn create_blueprint(entities: Vec<Entity>) -> Blueprint {
+    Blueprint {
+        item: "Blueprint".to_string(),
+        label: "Circuit".to_string(),
+        label_color: None,
+        entities,
+        tiles: vec![],
+        icons: vec![],
+        schedules: vec![],
+        version: 0,
+    }
 }
