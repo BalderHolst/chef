@@ -1,10 +1,10 @@
 use std::{cmp, collections::HashSet};
 
-use factorio_blueprint::objects::{EntityNumber, EntityType};
+use factorio_blueprint::objects::{EntityNumber};
 
 use crate::{
     blueprint_converter::{NetworkId, Operation},
-    compiler::graph::{Connection, Graph, NId},
+    compiler::graph::{Graph},
 };
 
 use super::{Combinator, CombinatorPosition, CoordSet, WIRE_RANGE};
@@ -133,7 +133,7 @@ impl TurdMaster2000 {
 
         // Update input combinator
         if let Some(com) = input_combinator {
-            com.output_entities.push(this_entity_number.clone());
+            com.output_entities.push(this_entity_number);
         }
 
         let output_entities = match output_combinator {

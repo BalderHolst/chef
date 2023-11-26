@@ -76,7 +76,7 @@ pub enum IOType {
     Signal(String),
     AnySignal(u64),
     Constant(i32),
-    ConstantSignal((String, i32)),
+    _ConstantSignal((String, i32)), // TODO: Add constant signals
     All,
 }
 
@@ -86,7 +86,7 @@ impl Display for IOType {
             IOType::Signal(s) => format!("Sig({})", s),
             IOType::AnySignal(n) => format!("Any({})", n),
             IOType::Constant(n) => format!("({})", n),
-            IOType::ConstantSignal((sig, n)) => format!("({}, {})", sig, n),
+            IOType::_ConstantSignal((sig, n)) => format!("({}, {})", sig, n),
             IOType::All => "ALL".to_string(),
         };
         write!(f, "{}", s)
@@ -324,23 +324,23 @@ impl Graph {
     pub fn iter_conns(&self) -> impl Iterator<Item = (NId, NId, Connection)> + '_ {
         self.adjacency
             .iter()
-            .map(|(from_nid, to_vec)| {
+            .flat_map(|(from_nid, to_vec)| {
                 to_vec
                     .iter()
                     .map(|(to_nid, conn)| (from_nid.to_owned(), to_nid.to_owned(), conn.clone()))
             })
-            .flatten()
     }
 
     /// Get connections pointing away from the node
-    pub fn get_from_connections(&self, nid: &NId) -> Vec<(NId, Connection)> {
+    pub fn _get_from_connections(&self, nid: &NId) -> Vec<(NId, Connection)> {
         self.adjacency.get(nid).unwrap_or(&vec![]).clone()
     }
 
     /// Returns 'to' (incomming), 'from' (outgoing) and 'loop'
     /// connections and the nodes they are connected to (to, from, loop).
     /// 'loop' connections are connections where both from and to nodes are this node.
-    pub fn get_connections(
+    #[allow(clippy::type_complexity)]
+    pub fn _get_connections(
         &self,
         nid: &NId,
     ) -> (
@@ -562,7 +562,7 @@ impl Graph {
                         Connection::Arithmetic(ArithmeticConnection::new_pick(new_type)),
                     );
                 }
-                IOType::ConstantSignal(_) => todo!(),
+                IOType::_ConstantSignal(_) => todo!(),
                 IOType::Constant(_) => {
                     panic!("Compiler Error: Inputs to a block should not be constants.")
                 }

@@ -970,7 +970,7 @@ fn parse_binary_expression() {
                 kind: BinaryOperatorKind::Add,
             },
         }),
-        span: TextSpan::new(0, 7, text.clone()),
+        span: TextSpan::new(0, 7, text),
     };
 
     let opts = crate::cli::Opts::new_test();

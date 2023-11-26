@@ -78,7 +78,7 @@ impl Combinator {
             .output_entities
             .iter()
             .map(|out_en| fbo::ConnectionData {
-                entity_id: out_en.clone(),
+                entity_id: *out_en,
                 circuit_id: Some(input_connection_point),
             })
             .collect();
@@ -254,7 +254,7 @@ impl Combinator {
                     }),
                 )
             }
-            graph::IOType::ConstantSignal(_) => todo!(),
+            graph::IOType::_ConstantSignal(_) => todo!(),
             graph::IOType::Constant(n) => (Some(*n), None),
             graph::IOType::All => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
@@ -266,7 +266,7 @@ impl Combinator {
         match t {
             IOType::Signal(s) => (Self::get_signal_type(s.as_str()), s),
             IOType::Constant(_) => todo!(),
-            IOType::ConstantSignal(_) => todo!(),
+            IOType::_ConstantSignal(_) => todo!(),
             IOType::All => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
         }
