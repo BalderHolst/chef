@@ -66,7 +66,11 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
         exit(0);
     }
 
-    let blueprint_str = blueprint_converter::convert_to_graph_to_blueprint_string(graph).unwrap();
+    let blueprint_str = blueprint_converter::convert_to_graph_to_blueprint_string(
+        graph,
+        opts.verbose || cook_opts.verbose,
+    )
+    .unwrap();
     println!("{blueprint_str}");
     eprintln!();
 }

@@ -26,6 +26,7 @@ impl Opts {
             dot: false,
             graph: None,
             fgraph: None,
+            verbose: false,
         });
         Self {
             no_advice: true,
@@ -63,6 +64,10 @@ pub struct CookOpts {
     /// Output an svg to visualize the factorio circuit connections.
     #[arg(short('G'), long)]
     pub(crate) fgraph: Option<String>,
+
+    /// Be verbose
+    #[arg(short('v'), long)]
+    pub(crate) verbose: bool,
 }
 
 impl CookOpts {
@@ -72,6 +77,7 @@ impl CookOpts {
             files,
             graph: None,
             fgraph: None,
+            verbose: false,
         }
     }
 }

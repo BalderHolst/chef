@@ -319,8 +319,15 @@ impl Display for Combinator {
 /// The maxinum distanct a wire can connect two points in factorio.
 const WIRE_RANGE: f64 = 9.0;
 
-pub fn convert_to_graph_to_blueprint_string(graph: Graph) -> fb::Result<String> {
+pub fn convert_to_graph_to_blueprint_string(graph: Graph, verbose: bool) -> fb::Result<String> {
     let combinators = place_combinators(TurdMaster2000::new(graph));
+    if verbose {
+        println!("Combinators:");
+        for c in &combinators {
+            println!("\t{c}")
+        }
+        println!()
+    }
     let container = combinators_to_blueprint(combinators);
     fb::BlueprintCodec::encode_string(&container)
 }

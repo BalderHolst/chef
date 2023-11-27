@@ -20,6 +20,8 @@ pub(crate) fn is_in_range(p1: &CoordSet, p2: &CoordSet) -> bool {
     dist <= WIRE_RANGE
 }
 
+// TODO: Create more placers
+
 /// Tries to arrange combinators in a horrizontal line facing north.
 ///
 /// ### Steps for finding the location of a combinator.
@@ -92,10 +94,10 @@ impl TurdMaster2000 {
         let output_coord = (x, y * 2 + 1);
 
         if self.coordset_is_occupied(&input_coord) || self.coordset_is_occupied(&output_coord) {
-            println!(
-                "Coordset was occupied: [{:?}, {:?}]",
-                input_coord, output_coord
-            );
+            // println!(
+            //     "Coordset was occupied: [{:?}, {:?}]",
+            //     input_coord, output_coord
+            // );
             return None;
         }
 
@@ -111,18 +113,17 @@ impl TurdMaster2000 {
         // TODO: This can result in skipped entity numbers. Make this that this is ok.
         let this_entity_number = self.get_next_entity_number();
 
+        // TODOOOOOOOOOO: Handle multipule input combinators
         // Check that wire can reach the nessecery placed combinators in this position
         for com in &mut self.placed_combinators {
             if input_combinator.is_none() && com.output_network == input_network {
                 input_network_exists = true;
                 if is_in_range(&input_coord, &com.position.output) {
-                    println!("Found INPUT combinator in range: [{}]", com.entity_number);
                     input_combinator = Some(com);
                 }
             } else if output_combinator.is_none() && com.input_network == output_network {
                 output_network_exists = true;
                 if is_in_range(&output_coord, &com.position.input) {
-                    println!("Found OUTPUT combinator in range: [{}]", com.entity_number);
                     output_combinator = Some(com);
                 }
             }
@@ -161,7 +162,7 @@ impl TurdMaster2000 {
                 output: output_coord,
             },
         };
-        println!("Placing combinator: {}", &c);
+        // println!("Placing combinator: {}", &c);
         Some(c)
     }
 
