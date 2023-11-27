@@ -76,7 +76,11 @@ impl Combinator {
         // let mut connections: HashMap<EntityNumber, fbo::Connection> = HashMap::new();
 
         let input_connection_point = 1;
-        let output_connection_point = 2;
+        let output_connection_point = if let Connection::Constant(_) = self.operation {
+            1
+        } else {
+            2
+        };
 
         let output_connections: Vec<fbo::ConnectionData> = self
             .output_entities
