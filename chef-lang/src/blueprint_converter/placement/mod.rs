@@ -130,8 +130,6 @@ impl TurdMaster2000 {
             return None; // Could not connect to the input or output network from this position
         }
 
-        dbg!(this_entity_number, &input_combinators);
-
         // Update input combinator
         for com in input_combinators {
             com.output_entities.push(this_entity_number);
