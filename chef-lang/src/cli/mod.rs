@@ -1,71 +1,75 @@
 //! The chef cli.
 
-use gumdrop::Options;
+use clap::{Parser, Subcommand};
 use terminal_size::Width;
 
 /// Command line options for chef
-#[derive(Debug, Options, Default)]
+#[derive(Debug, Parser)]
 pub struct Opts {
-    #[options(help = "print help message")]
-    pub(crate) help: bool,
 
-    #[options(short = "q", help = "do not give cooking advice")]
+    /// Do not give cooking advice
+    #[arg(short, long)]
     pub(crate) no_advice: bool,
 
-    #[options(short = "v", help = "be verbose")]
+    /// Be verbose
+    #[arg(short, long)]
     pub(crate) verbose: bool,
 
-    #[options(command)]
-    pub(crate) command: Option<Command>,
+    #[command(subcommand)]
+    pub(crate) command: Command,
 }
 
 #[cfg(test)]
 impl Opts {
     pub fn new_test() -> Self {
+        let command = Command::Cook(CookOpts {
+            files: vec![],
+            dot: false,
+            graph: None,
+            fgraph: None,
+        });
         Self {
-            help: false,
             no_advice: true,
             verbose: true,
-            command: None,
+            command,
         }
     }
 }
 
 /// Chef cli subcommands
-#[derive(Debug, Options)]
+#[derive(Debug, Subcommand)]
 pub enum Command {
-    #[options(help = "compile source code")]
+    /// Compile source code
     Cook(CookOpts),
-    #[options(help = "add signals to your project")]
+
+    /// Add signals to your project
     Add(AddOpts),
 }
 
 /// Options for the cli `cook` subcommand.
-#[derive(Debug, Options)]
+#[derive(Debug, clap::Args)]
 pub struct CookOpts {
-    #[options(help = "print help message")]
-    pub(crate) help: bool,
 
-    #[options(free)]
+    /// Files to compile.
+    #[arg(required = true)]
     pub(crate) files: Vec<String>,
 
-    #[options(help = "output only a graph version of the output in 'dot' format.")]
+    /// Output only a graph version of the output in 'dot' format.
+    #[arg(short, long)]
     pub(crate) dot: bool,
 
-    #[options(short = "g", help = "output an svg to visualize the circuit.")]
+    /// Output an svg to visualize the circuit.
+    #[arg(short, long)]
     pub(crate) graph: Option<String>,
 
-    #[options(
-        short = "G",
-        help = "output an svg to visualize the factorio circuit connections."
-    )]
+    /// Output an svg to visualize the factorio circuit connections.
+    #[arg(short('G'), long)]
     pub(crate) fgraph: Option<String>,
 }
 
 impl CookOpts {
     pub fn from_files(files: Vec<String>) -> Self {
         Self {
-            help: false,
             dot: false,
             files,
             graph: None,
@@ -75,21 +79,21 @@ impl CookOpts {
 }
 
 /// Options for the cli `add` subcommand.
-#[derive(Debug, Options)]
+#[derive(Debug, clap::Args)]
 pub struct AddOpts {
-    #[options(command)]
-    pub(crate) command: Option<AddCommand>,
+    #[command(subcommand)]
+    pub(crate) command: AddCommand,
 }
 
 /// The cli `add` subcommand, used for adding signal files to the project.
-#[derive(Debug, Options)]
+#[derive(Debug, Subcommand)]
 pub enum AddCommand {
-    #[options(help = "add signals exported from game with the factorio mod")]
+    /// Add signals exported from game with the factorio mod
     Signals(AddSignalOpts),
 }
 
 /// TODO
-#[derive(Debug, Options)]
+#[derive(Debug, clap::Args)]
 pub struct AddSignalOpts {}
 
 /// Get the size of the current terminal that chef is running in.

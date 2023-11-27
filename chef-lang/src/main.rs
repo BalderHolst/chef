@@ -3,9 +3,9 @@ use std::rc::Rc;
 use std::{env, io};
 
 use ast::AST;
+use clap::Parser;
 use cli::{AddCommand, Command, CookOpts, Opts};
 use diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
-use gumdrop::Options;
 use text::SourceText;
 use utils::VisualizerError;
 
@@ -72,45 +72,23 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
 }
 
 fn main() -> Result<(), io::Error> {
-    let opts = Rc::new(Opts::parse_args_default_or_exit());
+    let opts = Rc::new(Opts::parse());
 
     match &opts.command {
-        Some(Command::Cook(cook_opts)) => {
-            if cook_opts.files.is_empty() {
-                eprintln!("{}", cook_opts.self_usage());
-                exit(1);
-            } else if cook_opts.files.len() != 1 {
-                eprintln!(
-                    "`chef cook` only accepts one file as an entry point. Found {}.",
-                    cook_opts.files.len()
-                );
-                exit(1);
-            }
-
+        Command::Cook(cook_opts) => {
             compile(opts.clone(), cook_opts);
 
             eprintln!("Enjoy!");
             Ok(())
         }
-        Some(Command::Add(c)) => {
+        Command::Add(c) => {
             match c.command {
-                Some(AddCommand::Signals(_)) => {
+                AddCommand::Signals(_) => {
                     let cwd = env::current_dir().expect("Could not find current dir");
                     utils::import_signals::import_signal_file(cwd);
                     Ok(())
                 }
-                None => {
-                    eprintln!("Only `signals` subcommand works for now"); // TODO
-                    exit(1);
-                }
             }
-        }
-        None => {
-            eprintln!("{}", opts.self_usage());
-            if let Some(command_list) = opts.self_command_list() {
-                eprintln!("\nSubcommands:\n{}", command_list);
-            }
-            exit(1);
         }
     }
 }
@@ -126,7 +104,7 @@ mod tests {
         for file in fs::read_dir(example_dir).unwrap() {
             let file = file.unwrap().path().to_str().unwrap().to_owned();
             println!("Compiling: \'{}\'... ", file);
-            compile(Rc::new(Opts::default()), &CookOpts::from_files(vec![file]));
+            compile(Rc::new(Opts::new_test()), &CookOpts::from_files(vec![file]));
         }
     }
 
@@ -145,7 +123,7 @@ mod tests {
             let expected_dot = fs::read_to_string(output_file).unwrap();
 
             let text = Rc::new(SourceText::from_file(file.to_str().unwrap()).unwrap());
-            let opts = Rc::new(Opts::default());
+            let opts = Rc::new(Opts::new_test());
             let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
             let ast = AST::from_source(text.clone(), bag.clone(), opts);
             bag.borrow_mut().exit_if_errored();

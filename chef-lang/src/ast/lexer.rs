@@ -277,7 +277,7 @@ impl Lexer {
         let text = Rc::new(SourceText::from_str(s));
         let diagnostics_bag = Rc::new(std::cell::RefCell::new(
             crate::diagnostics::DiagnosticsBag::new(
-                Rc::new(crate::cli::Opts::default()),
+                Rc::new(crate::cli::Opts::new_test()),
                 text.clone(),
             ),
         ));
