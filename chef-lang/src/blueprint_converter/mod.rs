@@ -316,13 +316,7 @@ impl Display for Combinator {
 const WIRE_RANGE: f64 = 9.0;
 
 pub fn convert_to_graph_to_blueprint_string(graph: Graph) -> fb::Result<String> {
-    graph.print();
-    println!();
     let combinators = place_combinators(TurdMaster2000::new(graph));
-    println!("\nCombinators:");
-    for c in &combinators {
-        println!("\t{c}");
-    }
     let container = combinators_to_blueprint(combinators);
     fb::BlueprintCodec::encode_string(&container)
 }
