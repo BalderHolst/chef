@@ -6,7 +6,6 @@ use terminal_size::Width;
 /// Command line options for chef
 #[derive(Debug, Parser)]
 pub struct Opts {
-
     /// Do not give cooking advice
     #[arg(short, long)]
     pub(crate) no_advice: bool,
@@ -49,7 +48,6 @@ pub enum Command {
 /// Options for the cli `cook` subcommand.
 #[derive(Debug, clap::Args)]
 pub struct CookOpts {
-
     /// Files to compile.
     #[arg(required = true)]
     pub(crate) files: Vec<String>,

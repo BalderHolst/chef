@@ -81,15 +81,13 @@ fn main() -> Result<(), io::Error> {
             eprintln!("Enjoy!");
             Ok(())
         }
-        Command::Add(c) => {
-            match c.command {
-                AddCommand::Signals(_) => {
-                    let cwd = env::current_dir().expect("Could not find current dir");
-                    utils::import_signals::import_signal_file(cwd);
-                    Ok(())
-                }
+        Command::Add(c) => match c.command {
+            AddCommand::Signals(_) => {
+                let cwd = env::current_dir().expect("Could not find current dir");
+                utils::import_signals::import_signal_file(cwd);
+                Ok(())
             }
-        }
+        },
     }
 }
 
