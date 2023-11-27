@@ -94,10 +94,6 @@ impl TurdMaster2000 {
         let output_coord = (x, y * 2 + 1);
 
         if self.coordset_is_occupied(&input_coord) || self.coordset_is_occupied(&output_coord) {
-            // println!(
-            //     "Coordset was occupied: [{:?}, {:?}]",
-            //     input_coord, output_coord
-            // );
             return None;
         }
 
@@ -107,44 +103,49 @@ impl TurdMaster2000 {
         let mut input_network_exists = false;
         let mut output_network_exists = false;
 
-        let mut input_combinator = None;
-        let mut output_combinator = None;
+        let mut input_combinators = vec![];
+        let mut output_combinators = vec![];
 
         // TODO: This can result in skipped entity numbers. Make this that this is ok.
         let this_entity_number = self.get_next_entity_number();
 
-        // TODOOOOOOOOOO: Handle multipule input combinators
         // Check that wire can reach the nessecery placed combinators in this position
         for com in &mut self.placed_combinators {
-            if input_combinator.is_none() && com.output_network == input_network {
+            if com.output_network == input_network {
                 input_network_exists = true;
                 if is_in_range(&input_coord, &com.position.output) {
-                    input_combinator = Some(com);
+                    input_combinators.push(com);
                 }
-            } else if output_combinator.is_none() && com.input_network == output_network {
+            } else if com.input_network == output_network {
                 output_network_exists = true;
                 if is_in_range(&output_coord, &com.position.input) {
-                    output_combinator = Some(com);
+                    output_combinators.push(com);
                 }
             }
         }
 
-        if (input_network_exists && input_combinator.is_none())
-            || (output_network_exists && output_combinator.is_none())
+        if (input_network_exists && input_combinators.is_empty())
+            || (output_network_exists && output_combinators.is_empty())
         {
             return None; // Could not connect to the input or output network from this position
         }
 
+        dbg!(this_entity_number, &input_combinators);
+
         // Update input combinator
-        if let Some(com) = input_combinator {
+        for com in input_combinators {
             com.output_entities.push(this_entity_number);
         }
 
-        let output_entities = match output_combinator {
-            Some(com) => vec![com.entity_number],
-            None if input_network == output_network => vec![this_entity_number], // loopback
-            None => vec![],
-        };
+        let mut output_entities: Vec<EntityNumber> = output_combinators
+            .iter()
+            .map(|com| com.entity_number)
+            .collect();
+
+        // Add itself as output if outpu and input networks are the same
+        if input_network == output_network {
+            output_entities.push(this_entity_number) // loopback
+        }
 
         self.placed_positions.insert(input_coord);
         self.placed_positions.insert(output_coord);
