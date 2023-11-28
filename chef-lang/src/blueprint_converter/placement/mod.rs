@@ -20,6 +20,18 @@ pub(crate) fn is_in_range(p1: &CoordSet, p2: &CoordSet) -> bool {
     dist <= WIRE_RANGE
 }
 
+#[test]
+fn test_is_in_range() {
+    assert!(is_in_range(&(0, 0), &(0, WIRE_RANGE as i64)));
+    assert!(is_in_range(&(0, 0), &(WIRE_RANGE as i64, 0)));
+    assert!(!is_in_range(&(0, 0), &(WIRE_RANGE as i64, 1)));
+    assert!(!is_in_range(&(0, 0), &(WIRE_RANGE as i64, -1)));
+    assert!(is_in_range(&(0, WIRE_RANGE as i64), &(0, 0)));
+    assert!(is_in_range(&(WIRE_RANGE as i64, 0), &(0, 0)));
+    assert!(!is_in_range(&(WIRE_RANGE as i64, 1), &(0, 0)));
+    assert!(!is_in_range(&(WIRE_RANGE as i64, -1), &(0, 0)));
+}
+
 // TODO: Create more placers
 
 /// Tries to arrange combinators in a horrizontal line facing north.
@@ -123,6 +135,8 @@ impl TurdMaster2000 {
                 }
             }
         }
+
+        // TODO: Connect with input network
 
         if (input_network_exists && input_combinators.is_empty())
             || (output_network_exists && output_combinators.is_empty())
