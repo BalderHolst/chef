@@ -54,6 +54,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
                 }
                 VisualizerError::GraphvizIoError(_e) => {
                     eprintln!("Error calling graphviz. Do you have it installed?");
+                    exit(1);
                 }
                 VisualizerError::GraphvizError(e) => eprintln!("Error creating graph: `{}`", e),
             };
