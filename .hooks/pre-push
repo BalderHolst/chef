@@ -16,7 +16,7 @@ cargo clippy --manifest-path "$manifest" -- --deny warnings 2> /dev/null || {
 
 echo "PASSED: Clippy"
 
-cargo test --manifest-path "$manifest" -q 2> /dev/null || {
+cargo test --manifest-path "$manifest" > /dev/null 2> /dev/null || {
     echo -e "\nSome tests have failed"
     exit 1
 }
