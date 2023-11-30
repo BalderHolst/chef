@@ -122,16 +122,16 @@ impl TurdMaster2000 {
         let this_entity_number = self.get_next_entity_number();
 
         // Check that wire can reach the nessecery placed combinators in this position
-        for com in &mut self.placed_combinators {
-            if com.output_network == input_network {
+        for other in &mut self.placed_combinators {
+            if other.output_network == input_network {
                 input_network_exists = true;
-                if is_in_range(&input_coord, &com.position.output) {
-                    input_combinators.push(com);
+                if is_in_range(&input_coord, &other.position.output) {
+                    input_combinators.push(other);
                 }
-            } else if com.input_network == output_network {
+            } else if other.input_network == output_network {
                 output_network_exists = true;
-                if is_in_range(&output_coord, &com.position.input) {
-                    output_combinators.push(com);
+                if is_in_range(&output_coord, &other.position.input) {
+                    output_combinators.push(other);
                 }
             }
         }
@@ -143,6 +143,8 @@ impl TurdMaster2000 {
         {
             return None; // Could not connect to the input or output network from this position
         }
+
+        dbg!(&input_combinators);
 
         // Update input combinator
         for com in input_combinators {
@@ -184,84 +186,4 @@ impl TurdMaster2000 {
         self.next_entity_number = self.next_entity_number.checked_add(1).unwrap();
         en
     }
-
-    // fn place_combinator(&self, input_loc: CoordSet, output_loc: CoordSet, com_index: usize) {
-    // // Reserve space for the combinator.
-    // if !self.placed_positions.insert(input_loc) || !self.placed_positions.insert(output_loc) {
-    //     panic!("You cannot place a combinator on top of another.")
-    // }
-    // let com = self.graph.combinators.get_mut(com_index).unwrap();
-
-    // com.position = Some(CombinatorPosition {
-    //     input: input_loc,
-    //     output: output_loc,
-    // });
-    // }
-
-    // fn try_place_combinator(
-    // &mut self,
-    // input_loc: CoordSet,
-    // output_loc: CoordSet,
-    // com_index: usize,
-    // ) -> bool {
-    // // See if the position if occupied.
-    // if self.placed_positions.get(&input_loc).is_some()
-    //     || self.placed_positions.get(&output_loc).is_some()
-    // {
-    //     return false;
-    // }
-
-    // let com = self.unplaced_combinators[com_index].clone();
-
-    // self.graph.get_inputs(vid);
-    // let input_nodes = self.graph.get_other_nodes_in_wire_network(&com.input_node);
-    // let output_nodes = self.graph.get_other_nodes_in_wire_network(&com.output_node);
-
-    // // Check if the input_loc allows for connecting to the combinator inputs,
-    // // and connect if so.
-    // let mut any_placed = false;
-    // let mut connected = false;
-    // for input_nid in input_nodes {
-    //     if let Some(placed_com_pos) =
-    //         &self.graph.get_corresponding_combinator(input_nid).position
-    //     {
-    //         any_placed = true;
-    //         if is_in_range(input_loc, placed_com_pos.output) {
-    //             connected = true;
-    //             self.graph.push_wire(input_nid, com.input_node);
-    //         }
-    //     }
-    // }
-    // // If some input combinator(s) were found, but none could be connected to, the placement
-    // // position is invalid.
-    // if any_placed && !connected {
-    //     return false;
-    // }
-
-    // // Check if the input_loc allows for connecting to the combinator inputs,
-    // // and connect if so.
-    // let mut any_placed = false;
-    // let mut connected = false;
-    // for output_nid in output_nodes {
-    //     if let Some(placed_com_pos) =
-    //         &self.graph.get_corresponding_combinator(output_nid).position
-    //     {
-    //         any_placed = true;
-    //         if is_in_range(input_loc, placed_com_pos.output) {
-    //             connected = true;
-    //             self.graph.push_wire(output_nid, com.output_node);
-    //         }
-    //     }
-    // }
-    // // If some input combinator(s) were found, but none could be connected to, the placement
-    // // position is invalid.
-    // if any_placed && !connected {
-    //     return false;
-    // }
-
-    // self.place_combinator(input_loc, output_loc, com_index);
-
-    // true
-    // todo!()
-    // }
 }
