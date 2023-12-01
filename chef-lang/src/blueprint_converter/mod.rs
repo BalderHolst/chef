@@ -71,23 +71,39 @@ pub struct Combinator {
     pub position: CombinatorPosition,
 }
 
+impl Operation {
+    fn get_output_connection_point(&self) -> usize {
+        match self {
+            Connection::Arithmetic(_) => 2,
+            Connection::Decider(_) => 2,
+            Connection::Gate(_) => 2,
+            Connection::Constant(_) => 1,
+        }
+    }
+
+    fn get_input_connection_point(&self) -> usize {
+        match self {
+            Connection::Arithmetic(_) => 1,
+            Connection::Decider(_) => 1,
+            Connection::Gate(_) => 1,
+            Connection::Constant(_) => 1,
+        }
+    }
+}
+
 impl Combinator {
     pub fn to_blueprint_entity(&self) -> Entity {
         // let mut connections: HashMap<EntityNumber, fbo::Connection> = HashMap::new();
 
-        let input_connection_point = 1;
-        let output_connection_point = if let Connection::Constant(_) = self.operation {
-            1
-        } else {
-            2
-        };
+        let input_connection_point = self.operation.get_input_connection_point();
+        let output_connection_point = self.operation.get_output_connection_point();
 
         let output_connections: Vec<fbo::ConnectionData> = self
             .output_entities
             .iter()
             .map(|out_en| fbo::ConnectionData {
                 entity_id: *out_en,
-                circuit_id: Some(input_connection_point),
+                circuit_id: Some(input_connection_point.try_into().unwrap()),
             })
             .collect();
 
