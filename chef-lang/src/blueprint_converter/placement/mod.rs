@@ -10,7 +10,7 @@ use crate::{
     compiler::graph::Graph,
 };
 
-use super::{Combinator, CombinatorPosition, CoordSet, WIRE_RANGE};
+use super::{Combinator, CombinatorPosition, ConnectionPointType, CoordSet, WIRE_RANGE};
 
 pub trait Placer {
     fn place(self) -> Vec<Combinator>;
@@ -135,7 +135,13 @@ impl TurdMaster2000 {
             } else if other.input_network == output_network {
                 output_network_exists = true;
                 if is_in_range(&output_coord, &other.position.input) {
-                    output_combinators.push(other);
+                    output_combinators.push((other, ConnectionPointType::Input));
+                }
+            } else if other.output_network == output_network {
+                println!("HERE! {}", this_entity_number);
+                output_network_exists = true;
+                if is_in_range(&output_coord, &other.position.output) {
+                    output_combinators.push((other, ConnectionPointType::Output));
                 }
             }
         }
@@ -150,20 +156,24 @@ impl TurdMaster2000 {
 
         // Update input combinator
         for input_com in input_combinators {
-            input_com.output_entities.push((this_entity_number, 1)); // TODO
+            input_com.output_entities.push((
+                this_entity_number,
+                operation.get_input_connection_point().try_into().unwrap(),
+            ));
         }
 
         let mut output_entities: Vec<(EntityNumber, ConnectionPoint)> = output_combinators
             .iter()
-            .map(|output_com| {
-                (
-                    output_com.entity_number,
-                    output_com
-                        .operation
-                        .get_input_connection_point()
-                        .try_into()
-                        .unwrap(),
-                )
+            .map(|(output_com, point_type)| {
+                let point = match point_type {
+                    ConnectionPointType::Input => output_com.operation.get_input_connection_point(),
+                    ConnectionPointType::Output => {
+                        output_com.operation.get_output_connection_point()
+                    }
+                }
+                .try_into()
+                .unwrap();
+                (output_com.entity_number, point)
             })
             .collect();
 

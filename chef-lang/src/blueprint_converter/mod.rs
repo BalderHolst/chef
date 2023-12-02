@@ -62,6 +62,11 @@ impl Display for CombinatorPosition {
 
 type ConnectionPoint = i32;
 
+enum ConnectionPointType {
+    Input,
+    Output,
+}
+
 /// Placed Factorio Combinator
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
