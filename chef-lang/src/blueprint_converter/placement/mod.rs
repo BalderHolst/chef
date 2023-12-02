@@ -1,9 +1,12 @@
-use std::{cmp, collections::HashSet};
+use std::{
+    cmp,
+    collections::{HashMap, HashSet},
+};
 
 use factorio_blueprint::objects::EntityNumber;
 
 use crate::{
-    blueprint_converter::{NetworkId, Operation},
+    blueprint_converter::{ConnectionPoint, NetworkId, Operation},
     compiler::graph::Graph,
 };
 
@@ -45,7 +48,7 @@ fn test_is_in_range() {
 /// 6. When placed, connect wires to the other combinators that were placed.
 pub struct TurdMaster2000 {
     graph: Graph,
-    placed_combinators: Vec<Combinator>,
+    placed_combinators: HashMap<EntityNumber, Combinator>,
     placed_positions: HashSet<CoordSet>,
     max_x: i64,
     min_x: i64,
@@ -64,7 +67,8 @@ impl Placer for TurdMaster2000 {
                     if let Some(combinator) =
                         self.try_place_combinator(x, y, input_network, output_network, &operation)
                     {
-                        self.placed_combinators.push(combinator);
+                        self.placed_combinators
+                            .insert(combinator.entity_number, combinator);
                         continue 'next_combinator;
                     }
                 }
@@ -72,7 +76,7 @@ impl Placer for TurdMaster2000 {
             todo!("COULD NOT PLACE COMBINATOR");
         }
 
-        self.placed_combinators
+        self.placed_combinators.into_values().collect()
     }
 }
 
@@ -80,7 +84,7 @@ impl TurdMaster2000 {
     pub fn new(graph: Graph) -> Self {
         Self {
             graph,
-            placed_combinators: vec![],
+            placed_combinators: HashMap::new(),
             placed_positions: HashSet::new(),
             max_x: 0,
             min_x: 1,
@@ -122,7 +126,7 @@ impl TurdMaster2000 {
         let this_entity_number = self.get_next_entity_number();
 
         // Check that wire can reach the nessecery placed combinators in this position
-        for other in &mut self.placed_combinators {
+        for other in &mut self.placed_combinators.values_mut() {
             if other.output_network == input_network {
                 input_network_exists = true;
                 if is_in_range(&input_coord, &other.position.output) {
@@ -144,21 +148,31 @@ impl TurdMaster2000 {
             return None; // Could not connect to the input or output network from this position
         }
 
-        dbg!(&input_combinators);
-
         // Update input combinator
-        for com in input_combinators {
-            com.output_entities.push(this_entity_number);
+        for input_com in input_combinators {
+            input_com.output_entities.push((this_entity_number, 1)); // TODO
         }
 
-        let mut output_entities: Vec<EntityNumber> = output_combinators
+        let mut output_entities: Vec<(EntityNumber, ConnectionPoint)> = output_combinators
             .iter()
-            .map(|com| com.entity_number)
+            .map(|output_com| {
+                (
+                    output_com.entity_number,
+                    output_com
+                        .operation
+                        .get_input_connection_point()
+                        .try_into()
+                        .unwrap(),
+                )
+            })
             .collect();
 
         // Add itself as output if outpu and input networks are the same
         if input_network == output_network {
-            output_entities.push(this_entity_number) // loopback
+            output_entities.push((
+                this_entity_number,
+                operation.get_input_connection_point().try_into().unwrap(),
+            )) // loopback
         }
 
         self.placed_positions.insert(input_coord);
@@ -166,7 +180,7 @@ impl TurdMaster2000 {
         self.max_x = cmp::max(self.max_x, x);
         self.max_y = cmp::max(self.max_y, y);
 
-        let c = Combinator {
+        Some(Combinator {
             entity_number: this_entity_number,
             input_network,
             output_network,
@@ -176,9 +190,7 @@ impl TurdMaster2000 {
                 input: input_coord,
                 output: output_coord,
             },
-        };
-        // println!("Placing combinator: {}", &c);
-        Some(c)
+        })
     }
 
     fn get_next_entity_number(&mut self) -> EntityNumber {

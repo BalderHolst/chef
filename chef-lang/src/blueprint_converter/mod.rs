@@ -60,6 +60,8 @@ impl Display for CombinatorPosition {
     }
 }
 
+type ConnectionPoint = i32;
+
 /// Placed Factorio Combinator
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
@@ -67,7 +69,7 @@ pub struct Combinator {
     pub input_network: NetworkId,
     pub output_network: NetworkId,
     pub operation: Operation,
-    pub output_entities: Vec<EntityNumber>,
+    pub output_entities: Vec<(EntityNumber, ConnectionPoint)>,
     pub position: CombinatorPosition,
 }
 
@@ -95,15 +97,14 @@ impl Combinator {
     pub fn to_blueprint_entity(&self) -> Entity {
         // let mut connections: HashMap<EntityNumber, fbo::Connection> = HashMap::new();
 
-        let input_connection_point = self.operation.get_input_connection_point();
         let output_connection_point = self.operation.get_output_connection_point();
 
         let output_connections: Vec<fbo::ConnectionData> = self
             .output_entities
             .iter()
-            .map(|out_en| fbo::ConnectionData {
+            .map(|(out_en, to_conn_point)| fbo::ConnectionData {
                 entity_id: *out_en,
-                circuit_id: Some(input_connection_point.try_into().unwrap()),
+                circuit_id: Some(*to_conn_point),
             })
             .collect();
 
