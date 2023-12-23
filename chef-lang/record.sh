@@ -1,4 +1,4 @@
 #!/bin/sh
-cargo run -- cook "examples/$1.rcp" --dot > "example_outputs/$1.dot" &&
+cargo run -- cook "examples/$1.rcp" --dot > "examples/$1.output.dot" &&
     echo "recorded."
 cargo test
