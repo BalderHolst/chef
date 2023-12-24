@@ -19,6 +19,38 @@ fn functionify(name: String) -> String {
 #[proc_macro]
 pub fn make_example_tests(_item: TokenStream) -> TokenStream {
     let mut stream = TokenStream::new();
+
+    let generic_test_function: TokenStream = r#"
+        fn compile_example(file: &str, output_file: &str) {
+            println!("Expected output file: {}", output_file);
+            let file = std::path::PathBuf::from(file);
+            let expected_dot = fs::read_to_string(output_file).unwrap();
+            let text = Rc::new(SourceText::from_file(file.to_str().unwrap()).unwrap());
+            let opts = Rc::new(Opts::new_test());
+            let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
+            let ast = AST::from_source(text.clone(), bag.clone(), opts);
+            bag.borrow_mut().exit_if_errored();
+            let graph = compiler::compile(ast, bag.clone()).unwrap();
+            bag.borrow_mut().exit_if_errored();
+            let compiled_dot = graph.dot_repr() + "\n";
+
+            // Fail test with fancy diff output
+            if expected_dot != compiled_dot {
+                let diff = prettydiff::diff_chars(&expected_dot, &compiled_dot).set_highlight_whitespace(true);
+                cli::print_label("CODE");
+                println!("{}\n", text.text());
+                cli::print_label("DIFF");
+                println!("{diff}\n");
+                panic!(
+                      "Compiled dot is different from expected in \"{}\".",
+                      file.display()
+                )
+            }
+        }
+    "#.parse().unwrap();
+
+    stream.extend(generic_test_function);
+
     for file in fs::read_dir(EXAMPLE_DIR).unwrap() {
         let file = file.unwrap().path();
 
@@ -34,34 +66,9 @@ pub fn make_example_tests(_item: TokenStream) -> TokenStream {
         let test_name = functionify(test_name);
 
         let test_body = format!(
-             "
-             let file = std::path::PathBuf::from(\"{file}\");
-             println!(\"Expected output file: {{}}\", \"{output_file}\");
-             let expected_dot = fs::read_to_string(\"{output_file}\").unwrap();
-             let text = Rc::new(SourceText::from_file(file.to_str().unwrap()).unwrap());
-             let opts = Rc::new(Opts::new_test());
-             let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
-             let ast = AST::from_source(text.clone(), bag.clone(), opts);
-             bag.borrow_mut().exit_if_errored();
-             let graph = compiler::compile(ast, bag.clone()).unwrap();
-             bag.borrow_mut().exit_if_errored();
-             let compiled_dot = graph.dot_repr() + \"\\n\";
-
-             // Fail test with fancy diff output
-             if expected_dot != compiled_dot {{
-                 let diff = prettydiff::diff_chars(&expected_dot, &compiled_dot).set_highlight_whitespace(true);
-                 cli::print_label(\"CODE\");
-                 println!(\"{{}}\\n\", text.text());
-                 cli::print_label(\"DIFF\");
-                 println!(\"{{diff}}\\n\");
-                 panic!(
-                       \"Compiled dot is different from expected in \\\"{{}}\\\".\",
-                       file.display()
-                 )
-             }}
-            ",
+            "compile_example(\"{file}\", \"{output_file}\");",
             file = file.as_os_str().to_str().unwrap(),
-             output_file = output_file.as_os_str().to_str().unwrap()
+            output_file = output_file.as_os_str().to_str().unwrap()
         );
 
         let test = [
