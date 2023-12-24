@@ -278,13 +278,12 @@ impl InnerNode {
 /// Index of a node in a [Graph].
 pub type NId = u64;
 
-// TODO: vid -> nid
 /// A graph for storing connection and nodes representing factorio combinators.
 #[derive(Clone)]
 pub struct Graph {
     pub vertices: FnvHashMap<NId, Node>,
     pub adjacency: FnvHashMap<NId, Vec<(NId, Connection)>>,
-    pub next_vid: NId,
+    pub next_nid: NId,
 }
 
 impl Graph {
@@ -293,12 +292,12 @@ impl Graph {
         Graph {
             vertices: FnvHashMap::default(),
             adjacency: FnvHashMap::default(),
-            next_vid: 0,
+            next_nid: 0,
         }
     }
 
-    pub fn get_input_iotypes(&self, vid: &NId) -> Vec<IOType> {
-        match self.vertices.get(vid) {
+    pub fn get_input_iotypes(&self, nid: &NId) -> Vec<IOType> {
+        match self.vertices.get(nid) {
             Some(Node::Input(input_node)) => {
                 return vec![input_node.input.clone()];
             }
@@ -310,8 +309,8 @@ impl Graph {
         let mut inputs: Vec<IOType> = vec![];
 
         for to_vec in self.adjacency.values() {
-            for (to_vid, conn) in to_vec {
-                if to_vid == vid {
+            for (to_nid, conn) in to_vec {
+                if to_nid == nid {
                     inputs.push(conn.get_output_iotype());
                 }
             }
@@ -364,28 +363,28 @@ impl Graph {
     }
 
     /// Get a graph node by id.
-    pub fn get_node(&self, vid: &NId) -> Option<&Node> {
-        self.vertices.get(vid)
+    pub fn get_node(&self, nid: &NId) -> Option<&Node> {
+        self.vertices.get(nid)
     }
 
     /// Get a mutable graph node by id.
-    pub fn _get_mut_node(&mut self, vid: &NId) -> Option<&mut Node> {
-        self.vertices.get_mut(vid)
+    pub fn _get_mut_node(&mut self, nid: &NId) -> Option<&mut Node> {
+        self.vertices.get_mut(nid)
     }
 
     /// Add a node to the graph. Returns the new node's given id.
     pub fn push_node(&mut self, node: Node) -> NId {
-        let vid = self.next_vid;
-        if self.vertices.insert(vid, node).is_some() {
+        let nid = self.next_nid;
+        if self.vertices.insert(nid, node).is_some() {
             panic!("Could not insert node into graph")
         }
-        self.next_vid += 1;
-        vid
+        self.next_nid += 1;
+        nid
     }
 
     /// Override a node at a given id.
-    pub fn override_node(&mut self, vid: NId, node: Node) -> Option<Node> {
-        self.vertices.insert(vid, node)
+    pub fn override_node(&mut self, nid: NId, node: Node) -> Option<Node> {
+        self.vertices.insert(nid, node)
     }
 
     /// Push a node of type [InputNode].
@@ -430,8 +429,8 @@ impl Graph {
     /// Remove a connection between two nodes.
     pub fn _remove_connection(&mut self, from: &NId, to: &NId) {
         let from_vertex_connections = self.adjacency.get_mut(from).unwrap();
-        for (i, (to_vid, _from_conn)) in from_vertex_connections.iter().enumerate() {
-            if to_vid == to {
+        for (i, (to_nid, _from_conn)) in from_vertex_connections.iter().enumerate() {
+            if to_nid == to {
                 from_vertex_connections.remove(i);
                 break;
             }
@@ -439,12 +438,12 @@ impl Graph {
     }
 
     /// Remove a node and all of its connections.
-    pub fn remove_node_with_connections(&mut self, vid: &NId) {
-        self.adjacency.remove(vid);
-        self.vertices.remove(vid);
+    pub fn remove_node_with_connections(&mut self, nid: &NId) {
+        self.adjacency.remove(nid);
+        self.vertices.remove(nid);
         for (_, to_vec) in self.adjacency.iter_mut() {
-            for (i, (to_vid, _)) in to_vec.clone().iter().enumerate() {
-                if to_vid == vid {
+            for (i, (to_nid, _)) in to_vec.clone().iter().enumerate() {
+                if to_nid == nid {
                     to_vec.remove(i);
                 }
             }
@@ -454,17 +453,17 @@ impl Graph {
     /// Get all nodes of type [InputNode].
     pub fn get_input_nodes(&self) -> Vec<NId> {
         let mut inputs: Vec<NId> = vec![];
-        for (vid, node) in &self.vertices {
+        for (nid, node) in &self.vertices {
             if let Node::Input(_) = node {
-                inputs.push(*vid);
+                inputs.push(*nid);
             }
         }
         inputs
     }
 
     /// Check if a node is of type [Node::Output].
-    fn is_output(&self, vid: NId) -> bool {
-        if let Some(Node::Output(_)) = self.get_node(&vid) {
+    fn is_output(&self, nid: NId) -> bool {
+        if let Some(Node::Output(_)) = self.get_node(&nid) {
             return true;
         }
         false
@@ -478,24 +477,24 @@ impl Graph {
         other: &Graph,
         inputs: Vec<(NId, IOType)>,
     ) -> Result<Vec<(NId, IOType)>, String> {
-        let mut vid_converter: fnv::FnvHashMap<NId, NId> = fnv::FnvHashMap::default();
+        let mut nid_converter: fnv::FnvHashMap<NId, NId> = fnv::FnvHashMap::default();
 
         let mut outputs: FnvHashMap<NId, IOType> = FnvHashMap::default();
 
         // copy nodes
-        for (old_vid, node) in other.vertices.clone() {
-            let new_vid = self.push_node(node);
-            vid_converter.insert(old_vid, new_vid);
+        for (old_nid, node) in other.vertices.clone() {
+            let new_nid = self.push_node(node);
+            nid_converter.insert(old_nid, new_nid);
         }
 
         // copy connections
-        for (old_from_vid, to_vec) in other.adjacency.clone() {
-            for (old_to_vid, conn) in to_vec {
-                let new_from_vid = vid_converter[&old_from_vid];
-                let new_to_vid = vid_converter[&old_to_vid];
-                self.push_connection(new_from_vid, new_to_vid, conn.clone());
-                if self.is_output(new_to_vid) {
-                    outputs.insert(new_to_vid, conn.get_output_iotype());
+        for (old_from_nid, to_vec) in other.adjacency.clone() {
+            for (old_to_nid, conn) in to_vec {
+                let new_from_nid = nid_converter[&old_from_nid];
+                let new_to_nid = nid_converter[&old_to_nid];
+                self.push_connection(new_from_nid, new_to_nid, conn.clone());
+                if self.is_output(new_to_nid) {
+                    outputs.insert(new_to_nid, conn.get_output_iotype());
                 }
             }
         }
@@ -510,14 +509,14 @@ impl Graph {
             ));
         }
 
-        for (i, (block_input_vid, block_input_type)) in inputs.iter().enumerate() {
+        for (i, (block_input_nid, block_input_type)) in inputs.iter().enumerate() {
             let other_t = &other_graph_inputs[i];
-            let to_vid = vid_converter[&other_t.0];
+            let to_nid = nid_converter[&other_t.0];
 
             // Get the input type, and convert inputs to inner nodes
             let signal = match &other_t.1 {
                 Node::Input(n) => {
-                    self.override_node(to_vid, Node::Inner(InnerNode::new()));
+                    self.override_node(to_nid, Node::Inner(InnerNode::new()));
                     n.input.clone()
                 }
                 _ => panic!("There should only be input nodes here..."),
@@ -526,14 +525,14 @@ impl Graph {
             match signal {
                 IOType::Signal(_) => {
                     let middle_node = self.push_node(Node::Inner(InnerNode::new()));
-                    let input_types = self.get_input_iotypes(block_input_vid);
+                    let input_types = self.get_input_iotypes(block_input_nid);
 
                     debug_assert!(input_types.len() == 1);
 
                     let input_type = input_types[0].clone();
 
                     self.push_connection(
-                        *block_input_vid,
+                        *block_input_nid,
                         middle_node,
                         Connection::Arithmetic(ArithmeticConnection::new_convert(
                             input_type,
@@ -543,7 +542,7 @@ impl Graph {
 
                     self.push_connection(
                         middle_node,
-                        to_vid,
+                        to_nid,
                         Connection::Arithmetic(ArithmeticConnection::new_convert(
                             block_input_type.clone(),
                             signal,
@@ -552,11 +551,11 @@ impl Graph {
                 }
                 IOType::AnySignal(_) => {
                     // TODO : Something is wrong here
-                    let new_type = self.get_single_input(block_input_vid).unwrap();
+                    let new_type = self.get_single_input(block_input_nid).unwrap();
                     self.replace_iotype(signal, &new_type);
                     self.push_connection(
-                        *block_input_vid,
-                        to_vid,
+                        *block_input_nid,
+                        to_nid,
                         Connection::Arithmetic(ArithmeticConnection::new_pick(new_type)),
                     );
                 }
@@ -567,9 +566,9 @@ impl Graph {
                 IOType::All => todo!(),
             }
 
-            match self.vertices.get_mut(block_input_vid) {
+            match self.vertices.get_mut(block_input_nid) {
                 Some(Node::Output(_)) => {
-                    self.override_node(*block_input_vid, Node::Inner(InnerNode::new()));
+                    self.override_node(*block_input_nid, Node::Inner(InnerNode::new()));
                 }
                 _ => {}
             }
@@ -577,12 +576,12 @@ impl Graph {
 
         Ok(outputs
             .iter()
-            .map(|(vid, type_o)| (*vid, type_o.clone()))
+            .map(|(nid, type_o)| (*nid, type_o.clone()))
             .collect())
     }
 
-    pub fn get_single_input(&self, vid: &NId) -> Result<IOType, String> {
-        let inputs = self.get_input_iotypes(vid);
+    pub fn get_single_input(&self, nid: &NId) -> Result<IOType, String> {
+        let inputs = self.get_input_iotypes(nid);
         if inputs.len() != 1 {
             return Err("Could not get single input".to_string());
         }
@@ -592,8 +591,8 @@ impl Graph {
     /// Replace an [IOType] with another throughout the whole graph. This is usefull when assigning
     /// `IOType::Any` actual factorio signals.
     fn replace_iotype(&mut self, old_type: IOType, new_type: &IOType) {
-        for (_from_vid, to_vec) in self.adjacency.iter_mut() {
-            for (_to_vid, conn) in to_vec {
+        for (_from_nid, to_vec) in self.adjacency.iter_mut() {
+            for (_to_nid, conn) in to_vec {
                 match conn {
                     Connection::Arithmetic(ac) => {
                         if ac.left == old_type {
@@ -641,9 +640,9 @@ impl Graph {
     fn _get_final_outputs(&self) -> Vec<(NId, Node)> {
         self.vertices
             .iter()
-            .filter(|(vid, node)| {
+            .filter(|(nid, node)| {
                 if let Node::Output(_) = node {
-                    match self.adjacency.get(vid) {
+                    match self.adjacency.get(nid) {
                         Some(v) => v.is_empty(),
                         None => true,
                     }
@@ -651,7 +650,7 @@ impl Graph {
                     false
                 }
             })
-            .map(|(vid, node)| (*vid, node.clone()))
+            .map(|(nid, node)| (*nid, node.clone()))
             .collect()
     }
 
@@ -659,14 +658,14 @@ impl Graph {
     fn get_non_constant_inputs(&self) -> Vec<(NId, Node)> {
         self.vertices
             .iter()
-            .filter(|(_vid, node)| {
+            .filter(|(_nid, node)| {
                 if let Node::Input(n) = node {
                     !matches!(n.input, IOType::Constant(_))
                 } else {
                     false
                 }
             })
-            .map(|(vid, node)| (*vid, node.clone()))
+            .map(|(nid, node)| (*nid, node.clone()))
             .collect()
     }
 
@@ -678,28 +677,28 @@ impl Graph {
     pub fn print(&self) {
         println!("Graph:");
         println!("\tVertecies:");
-        for (vid, node) in &self.vertices {
-            if self.vertices.get(vid).is_none() {
-                println!("Could not find vertex: {}", vid);
+        for (nid, node) in &self.vertices {
+            if self.vertices.get(nid).is_none() {
+                println!("Could not find vertex: {}", nid);
                 return;
             }
             match node {
                 Node::Inner(_) => {
-                    println!("\t\t{} : INNER : {:?}", vid, self.get_input_iotypes(vid))
+                    println!("\t\t{} : INNER : {:?}", nid, self.get_input_iotypes(nid))
                 }
                 Node::Input(_) => {
-                    println!("\t\t{} : INPUT : {:?}", vid, self.get_input_iotypes(vid))
+                    println!("\t\t{} : INPUT : {:?}", nid, self.get_input_iotypes(nid))
                 }
                 Node::Output(_n) => {
-                    println!("\t\t{} : OUTPUT : {:?}", vid, self.get_input_iotypes(vid))
+                    println!("\t\t{} : OUTPUT : {:?}", nid, self.get_input_iotypes(nid))
                 }
-                Node::None => println!("\t\t{} : NONE : {:?}", vid, self.get_input_iotypes(vid)),
+                Node::None => println!("\t\t{} : NONE : {:?}", nid, self.get_input_iotypes(nid)),
             }
         }
         println!("\n\tConnections:");
-        for (vid, to) in &self.adjacency {
+        for (nid, to) in &self.adjacency {
             for (k, v) in to {
-                println!("\t\t{} -> {} : {}", vid, k, v);
+                println!("\t\t{} -> {} : {}", nid, k, v);
             }
         }
     }
