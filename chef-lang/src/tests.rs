@@ -1,6 +1,9 @@
 extern crate make_tests;
 
-use crate::simulator::{Item, Simulator};
+use crate::{
+    compiler::graph::IOType,
+    simulator::{Item, Simulator},
+};
 
 use super::*;
 use std::fs;
@@ -16,9 +19,14 @@ fn simulate_arithmetic() {
     bag.borrow_mut().exit_if_errored();
     let graph = compiler::compile(ast, bag.clone()).unwrap();
 
-    let mut sim = Simulator::new(graph, vec![vec![Item::new("signal-B", 0)]]);
+    let mut sim = Simulator::new(graph, vec![vec![Item::new_signal("signal-B", 100)]]);
 
     sim.simulate(10);
 
-    todo!()
+    let outputs = sim.get_output();
+
+    assert_eq!(
+        outputs,
+        vec![vec![Item::new(IOType::Signal("inserter".to_string()), 116)]]
+    )
 }

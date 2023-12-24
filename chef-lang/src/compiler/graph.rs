@@ -70,7 +70,7 @@ impl Display for ArithmeticOperation {
     }
 }
 
-/// Type if inputs/outputs of combinators
+/// Type of inputs/outputs of combinators
 #[derive(Clone, Debug, PartialEq)]
 pub enum IOType {
     Signal(String),
@@ -459,6 +459,17 @@ impl Graph {
             }
         }
         inputs
+    }
+
+    /// Get all nodes of type [OutputNode].
+    pub fn get_output_nodes(&self) -> Vec<NId> {
+        let mut outputs: Vec<NId> = vec![];
+        for (nid, node) in &self.vertices {
+            if let Node::Output(_) = node {
+                outputs.push(*nid);
+            }
+        }
+        outputs
     }
 
     /// Check if a node is of type [Node::Output].
