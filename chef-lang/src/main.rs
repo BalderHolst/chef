@@ -14,6 +14,7 @@ mod blueprint_converter;
 mod cli;
 mod compiler;
 mod diagnostics;
+mod simulator;
 mod text;
 mod the_chef;
 mod utils;
