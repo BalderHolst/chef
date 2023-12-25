@@ -1,5 +1,3 @@
-extern crate make_tests;
-
 use crate::{
     compiler::graph::IOType,
     simulator::{Item, Simulator},
@@ -8,7 +6,7 @@ use crate::{
 use super::*;
 use std::fs;
 
-make_tests::make_example_tests!();
+proc_macros::make_example_tests!();
 
 #[test]
 fn simulate_arithmetic() {
