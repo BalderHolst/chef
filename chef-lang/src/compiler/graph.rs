@@ -317,13 +317,12 @@ impl Graph {
         };
         let mut inputs: Vec<IOType> = vec![];
 
-        for to_vec in self.adjacency.values() {
-            for (to_nid, conn) in to_vec {
-                if to_nid == nid {
-                    inputs.push(conn.get_output_iotype());
-                }
+        for (_from_nid, to_nid, conn) in self.iter_conns() {
+            if &to_nid == nid {
+                inputs.push(conn.get_output_iotype());
             }
         }
+
         inputs
     }
 
@@ -611,8 +610,8 @@ impl Graph {
     /// Replace an [IOType] with another throughout the whole graph. This is usefull when assigning
     /// `IOType::Any` actual factorio signals.
     fn replace_iotype(&mut self, old_type: IOType, new_type: &IOType) {
-        for (_from_nid, to_vec) in self.adjacency.iter_mut() {
-            for (_to_nid, conn) in to_vec {
+        for (_, to_vec) in self.adjacency.iter_mut() {
+            for (_, conn) in to_vec {
                 match conn {
                     Connection::Arithmetic(ac) => {
                         if ac.left == old_type {
@@ -716,10 +715,8 @@ impl Graph {
             }
         }
         println!("\n\tConnections:");
-        for (nid, to) in &self.adjacency {
-            for (k, v) in to {
-                println!("\t\t{} -> {} : {}", nid, k, v);
-            }
+        for (from_nid, to_nid, conn) in self.iter_conns() {
+            println!("\t\t{} -> {} : {}", from_nid, to_nid, conn);
         }
     }
 
