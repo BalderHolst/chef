@@ -358,7 +358,7 @@ impl Parser {
                     if let VariableType::Bool(_) = variable.type_ {
                         VariableType::ConstBool(*v)
                     } else {
-                        return Err(CompilationError::new(
+                        return Err(CompilationError::new_localized(
                             format!("Can not assign variable `{}` of type `{}` to expression returning `bool` type.",
                                     variable.name,
                                     variable.type_
@@ -371,7 +371,7 @@ impl Parser {
                     if let VariableType::Int(_) = variable.type_ {
                         VariableType::ConstInt(v.number)
                     } else {
-                        return Err(CompilationError::new(
+                        return Err(CompilationError::new_localized(
                             format!("Can not assign variable `{}` of type `{}` to expression returning `int` type.",
                                     variable.name,
                                     variable.type_
@@ -404,7 +404,7 @@ impl Parser {
         match token.kind.clone() {
             TokenKind::PlusEquals => Ok(MutationOperator::Add),
             TokenKind::MinusEquals => Ok(MutationOperator::Subtract),
-            k => Err(CompilationError::new(
+            k => Err(CompilationError::new_localized(
                 format!("Expected mutation operator, found `{}`.", k),
                 token.span.clone(),
             )),
@@ -484,10 +484,12 @@ impl Parser {
         self.consume(); // Consume name
 
         if self.current().kind != TokenKind::Colon {
-            let var = self.search_scope(name).ok_or(CompilationError::new(
-                format!("Variable `{}` not defined.", name),
-                start_token.span.clone(),
-            ))?;
+            let var = self
+                .search_scope(name)
+                .ok_or(CompilationError::new_localized(
+                    format!("Variable `{}` not defined.", name),
+                    start_token.span.clone(),
+                ))?;
             return Ok(ParsedVariable::Ref(VariableRef::new(var, start_token.span)));
         }
 
@@ -515,7 +517,7 @@ impl Parser {
                     let type_ = if let TokenKind::Word(t) = &sig_token.kind {
                         VariableSignalType::Signal(t.clone())
                     } else {
-                        return Err(CompilationError::new(
+                        return Err(CompilationError::new_localized(
                             format!("Expected signal for counter, found: `{}`", sig_token.kind),
                             sig_token.span.clone(),
                         ));
@@ -526,12 +528,12 @@ impl Parser {
                     Ok(VariableType::Counter((type_, Box::new(limit_expr))))
                 }
                 "all" => Ok(VariableType::All),
-                w => Err(CompilationError::new(
+                w => Err(CompilationError::new_localized(
                     format!("Unknown type `{}`.", w),
                     token.span.clone(),
                 )),
             },
-            _ => Err(CompilationError::new(
+            _ => Err(CompilationError::new_localized(
                 format!("Expected variable type to be word, not `{}`", token.kind),
                 token.span.clone(),
             )),
@@ -546,7 +548,7 @@ impl Parser {
                 ParsedVariable::Def(v) => Ok(v),
 
                 // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
-                ParsedVariable::Ref(v) => Err(CompilationError::new(
+                ParsedVariable::Ref(v) => Err(CompilationError::new_localized(
                     "Please give variable a type.".to_string(),
                     v.span.clone(),
                 )),
@@ -592,7 +594,7 @@ impl Parser {
         if !statements.is_empty() {
             for statement in &statements[..statements.len() - 1] {
                 if let StatementKind::Out(_) = statement.kind {
-                    return Err(CompilationError::new(
+                    return Err(CompilationError::new_localized(
                         "Output statements have to be last.".to_string(),
                         statement.span.clone(),
                     ));
@@ -636,7 +638,7 @@ impl Parser {
             Some(s) => match s.kind {
                 StatementKind::Out(e) => e,
                 _ => {
-                    return Err(CompilationError::new(
+                    return Err(CompilationError::new_localized(
                         "A `block` must contain an output statement as its last statement."
                             .to_string(),
                         self.get_span_from(&start_token.span),
@@ -644,7 +646,7 @@ impl Parser {
                 }
             },
             _ => {
-                return Err(CompilationError::new(
+                return Err(CompilationError::new_localized(
                     "A `block` must contain an output statement.".to_string(),
                     self.get_span_from(&start_token.span),
                 ))
@@ -653,7 +655,7 @@ impl Parser {
 
         for statement in &statements {
             if let StatementKind::Out(_) = &statement.kind {
-                return Err(CompilationError::new(
+                return Err(CompilationError::new_localized(
                     "Only the last statement in a `block` can be an output statement.".to_string(),
                     statement.span.clone(),
                 ));
@@ -866,7 +868,7 @@ impl Parser {
                 self.consume_and_check(TokenKind::RightParen)?;
                 Ok(expr)
             }
-            _ => Err(CompilationError::new(
+            _ => Err(CompilationError::new_localized(
                 format!(
                     "Primary expressions can not start with `{}`.",
                     start_token.kind

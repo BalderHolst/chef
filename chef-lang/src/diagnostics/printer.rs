@@ -2,7 +2,7 @@ use std::cmp::max;
 use termion::color::{self, Bg, Fg};
 
 use crate::diagnostics::Diagnostic;
-use crate::text::SourceText;
+use crate::text::{SourceText, TextSpan};
 
 const PREFIX_LEN: usize = 16;
 const MAX_CODE_LEN: usize = 20;
@@ -35,10 +35,30 @@ impl<'a> DiagnosticsPrinter<'a> {
     /// \[ERROR\] (file:ll:cc) This is the code in question     - Error message
     /// ```
     fn stringify_diagnostic(&self, d: &Diagnostic) -> String {
-        let (line_nr, line_pos) = self.source_text.get_line_nr_and_position(d.span.start);
-        let line = self.source_text.get_line(line_nr).unwrap();
+        let s = match d {
+            Diagnostic::General { message } => self.stringify_general_diagnostic(message),
+            Diagnostic::Localized { message, span } => {
+                self.stringify_localized_diagnostic(message, span)
+            }
+        };
 
-        // Im sorry...
+        format!(
+            "{red}[E]{reset} {s}",
+            red = Fg(color::Red),
+            reset = Fg(color::Reset),
+            s = s
+        )
+    }
+
+    fn stringify_general_diagnostic(&self, message: &String) -> String {
+        message.to_string()
+    }
+
+    fn stringify_localized_diagnostic(&self, message: &String, span: &TextSpan) -> String {
+        // i'm sorry...
+
+        let (line_nr, line_pos) = self.source_text.get_line_nr_and_position(span.start);
+        let line = self.source_text.get_line(line_nr).unwrap();
 
         let code: String = {
             let code_prefix = {
@@ -63,12 +83,12 @@ impl<'a> DiagnosticsPrinter<'a> {
                     )
                 }
             };
-            let mut actual_code = d.span.text();
+            let mut actual_code = span.text();
             if actual_code.len() > MAX_CODE_LEN {
                 actual_code = &actual_code[0..MAX_CODE_LEN];
             }
             let code_sufix = {
-                let start = line_pos as isize + d.span.text_len() as isize;
+                let start = line_pos as isize + span.text_len() as isize;
                 let end = line.len() as isize - 1;
                 if start >= end {
                     ""
@@ -94,15 +114,8 @@ impl<'a> DiagnosticsPrinter<'a> {
             .collect()
         };
 
-        let location = match d.span.text.file() {
-            Some(file) => format!(
-                "{}[E]{} {}:{}:{}\t",
-                Fg(color::Red),
-                Fg(color::Reset),
-                file,
-                line_nr + 1,
-                line_pos + 1
-            ),
+        let location = match span.text.file() {
+            Some(file) => format!("{}:{}:{}\t", file, line_nr + 1, line_pos + 1),
             None => format!(
                 "{}[E]{} {}:{}\t",
                 Fg(color::Red),
@@ -112,7 +125,7 @@ impl<'a> DiagnosticsPrinter<'a> {
             ),
         };
 
-        let message = format!("{}{}{}", Fg(color::Blue), d.message, Fg(color::Reset));
+        let message = format!("{}{}{}", Fg(color::Blue), message, Fg(color::Reset));
         format!("{} {} \t-> {}", location, code, message)
     }
 }

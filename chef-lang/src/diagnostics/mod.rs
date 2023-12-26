@@ -15,20 +15,33 @@ use std::rc::Rc;
 #[derive(Debug, Clone)]
 pub struct CompilationError {
     pub desctiption: String,
-    pub span: TextSpan,
+    pub span: Option<TextSpan>,
 }
 
 impl CompilationError {
-    pub fn new(desctiption: String, span: TextSpan) -> Self {
-        Self { desctiption, span }
+    pub fn new_localized<S>(desctiption: S, span: TextSpan) -> Self
+    where
+        S: ToString,
+    {
+        Self {
+            desctiption: desctiption.to_string(),
+            span: Some(span),
+        }
+    }
+
+    pub fn new_generic<S>(desctiption: S) -> Self
+    where
+        S: ToString,
+    {
+        Self {
+            desctiption: desctiption.to_string(),
+            span: None,
+        }
     }
 
     pub fn new_unexpected_token(token: Token, expected: TokenKind) -> Self {
         let desctiption = format!("Expected `{}` but found `{}`.", expected, token.kind);
-        Self {
-            desctiption,
-            span: token.span,
-        }
+        Self::new_localized(desctiption, token.span)
     }
 }
 
@@ -76,14 +89,26 @@ impl Display for TokenKind {
 
 /// A chef diagnostic
 #[derive(Debug, Clone)]
-pub struct Diagnostic {
-    message: String,
-    span: TextSpan,
+pub enum Diagnostic {
+    General { message: String },
+    Localized { message: String, span: TextSpan },
 }
 
 impl Diagnostic {
-    fn new(message: String, span: TextSpan) -> Self {
-        Self { message, span }
+    fn new_localized(message: String, span: TextSpan) -> Self {
+        Self::Localized { message, span }
+    }
+
+    fn from_compilation_error(e: CompilationError) -> Self {
+        match e.span {
+            Some(span) => Self::Localized {
+                message: e.desctiption,
+                span,
+            },
+            None => Self::General {
+                message: e.desctiption,
+            },
+        }
     }
 }
 
@@ -122,19 +147,19 @@ impl DiagnosticsBag {
     /// Report an error.
     pub fn report_error(&mut self, span: &TextSpan, message: &str) {
         self.diagnostics
-            .push(Diagnostic::new(message.to_string(), span.clone()))
+            .push(Diagnostic::new_localized(message.to_string(), span.clone()))
     }
 
     /// Report unexpected token error.
     pub fn report_unexpected_token(&mut self, token: &Token, expected: TokenKind) {
         let message = format!("Expected `{}` but found `{}`.", expected, token.kind);
         self.diagnostics
-            .push(Diagnostic::new(message, token.span.clone()))
+            .push(Diagnostic::new_localized(message, token.span.clone()))
     }
 
     /// Report bad token error.
     pub fn report_bad_token(&mut self, token: &Token) {
-        self.diagnostics.push(Diagnostic::new(
+        self.diagnostics.push(Diagnostic::new_localized(
             "Bad token.".to_string(),
             token.span.clone(),
         ))
@@ -142,7 +167,7 @@ impl DiagnosticsBag {
 
     pub fn report_compilation_error(&mut self, error: CompilationError) {
         self.diagnostics
-            .push(Diagnostic::new(error.desctiption, error.span))
+            .push(Diagnostic::from_compilation_error(error))
     }
 
     /// Print the accumulated diagnostics.

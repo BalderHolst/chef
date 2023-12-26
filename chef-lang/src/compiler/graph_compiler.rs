@@ -38,7 +38,7 @@ impl GraphCompiler {
                 _ => todo!("Only block statements implemented for now."),
             }
         }
-        Ok(self.get_graph())
+        self.get_graph()
     }
 
     fn compile_block(&mut self, block: &Block) -> Result<Graph, CompilationError> {
@@ -337,7 +337,7 @@ impl GraphCompiler {
             );
             Ok((picked_vid, out_type))
         } else {
-            Err(CompilationError::new(
+            Err(CompilationError::new_localized(
                 format!("No variable with the name \'{}\', ", var_ref.var.name),
                 var_ref.span,
             ))
@@ -534,8 +534,16 @@ impl GraphCompiler {
         }
     }
 
-    pub fn get_graph(&self) -> Graph {
-        self.block_graphs.get("main").unwrap().clone() // TODO handle error
+    pub fn get_graph(&self) -> Result<Graph, CompilationError> {
+        match self.block_graphs.get("main") {
+            Some(g) => Ok(g.clone()),
+            None => match self.ast.statements.is_empty() {
+                true => Err(CompilationError::new_generic("No statements in program.")),
+                false => Err(CompilationError::new_generic(
+                    "No `main` block found. All chef programs must have a `main` block.",
+                )),
+            },
+        }
     }
 
     fn add_block_graph(&mut self, name: String, graph: Graph) {
