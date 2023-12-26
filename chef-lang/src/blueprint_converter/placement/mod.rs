@@ -138,7 +138,6 @@ impl TurdMaster2000 {
                     output_combinators.push((other, ConnectionPointType::Input));
                 }
             } else if other.output_network == output_network {
-                println!("HERE! {}", this_entity_number);
                 output_network_exists = true;
                 if is_in_range(&output_coord, &other.position.output) {
                     output_combinators.push((other, ConnectionPointType::Output));
