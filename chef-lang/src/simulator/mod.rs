@@ -1,6 +1,8 @@
 #![allow(dead_code)] // TODO: Remove
 
-use crate::compiler::graph::{ArithmeticOperation, Connection, Graph, IOType, NId};
+use crate::compiler::graph::{
+    ArithmeticOperation, Connection, DeciderOperation, Graph, IOType, NId,
+};
 use fnv::FnvHashMap;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -63,8 +65,8 @@ impl Simulator {
 
             let output = match conn {
                 Connection::Arithmetic(c) => {
-                    let left = get_count(&conn_inputs, c.left);
-                    let right = get_count(&conn_inputs, c.right);
+                    let left = get_count(&conn_inputs, &c.left);
+                    let right = get_count(&conn_inputs, &c.right);
                     let result = match c.operation {
                         ArithmeticOperation::Add => left + right,
                         ArithmeticOperation::Subtract => left - right,
@@ -73,9 +75,39 @@ impl Simulator {
                     };
                     Item::new(c.output, result)
                 }
-                Connection::Decider(_c) => todo!(),
-                Connection::Gate(_c) => todo!(),
-                Connection::Constant(_c) => todo!(),
+                Connection::Decider(c) => {
+                    let left = get_count(&conn_inputs, &c.left);
+                    let right = get_count(&conn_inputs, &c.right);
+                    let result = match c.operation {
+                        DeciderOperation::LargerThan => left > right,
+                        DeciderOperation::LargerThanOrEqual => left >= right,
+                        DeciderOperation::LessThan => left < right,
+                        DeciderOperation::LessThanOrEqual => left <= right,
+                        DeciderOperation::Equals => left == right,
+                        DeciderOperation::NotEquals => left != right,
+                    } as i32;
+                    Item::new(c.output, result)
+                }
+                Connection::Gate(c) => {
+                    let left = get_count(&conn_inputs, &c.left);
+                    let right = get_count(&conn_inputs, &c.right);
+                    let should_pass = match c.operation {
+                        DeciderOperation::LargerThan => left > right,
+                        DeciderOperation::LargerThanOrEqual => left >= right,
+                        DeciderOperation::LessThan => left < right,
+                        DeciderOperation::LessThanOrEqual => left <= right,
+                        DeciderOperation::Equals => left == right,
+                        DeciderOperation::NotEquals => left != right,
+                    };
+
+                    let count = match should_pass {
+                        true => get_count(&conn_inputs, &c.gate_type),
+                        false => 0,
+                    };
+
+                    Item::new(c.gate_type, count)
+                }
+                Connection::Constant(c) => Item::new(c.type_, c.count),
             };
 
             new_contents
@@ -83,6 +115,8 @@ impl Simulator {
                 .and_modify(|v: &mut Vec<Item>| v.push(output.clone()))
                 .or_insert(vec![output]);
         }
+
+        dbg!(&new_contents);
 
         self.contents = new_contents;
     }
@@ -107,13 +141,13 @@ impl Simulator {
     }
 }
 
-fn get_count(items: &Vec<Item>, iotype: IOType) -> i32 {
+fn get_count(items: &Vec<Item>, iotype: &IOType) -> i32 {
     if let IOType::Constant(n) = iotype {
-        return n;
+        return *n;
     }
 
     for item in items {
-        if item.kind == iotype {
+        if &item.kind == iotype {
             return item.count;
         }
     }

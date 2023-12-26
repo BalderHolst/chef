@@ -28,12 +28,15 @@ proc_macros::make_example_tests!();
 
 #[test]
 fn simulate_arithmetic() {
-    let text = Rc::new(SourceText::from_file("./examples/arithmetic.rcp").unwrap());
-    let opts = Rc::new(Opts::new_test());
-    let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
-    let ast = AST::from_source(text.clone(), bag.clone(), opts);
-    bag.borrow_mut().exit_if_errored();
-    let graph = compiler::compile(ast, bag.clone());
+    let graph = compile_code(
+        "
+
+block main(input: all) -> int(inserter) {
+    out input[signal-B] * 3 + 4;
+}
+
+",
+    );
 
     let mut sim = Simulator::new(graph, vec![vec![Item::new_signal("signal-B", 100)]]);
 
@@ -43,6 +46,35 @@ fn simulate_arithmetic() {
 
     assert_eq!(
         outputs,
-        vec![vec![Item::new(IOType::Signal("inserter".to_string()), 116)]]
+        vec![vec![Item::new(IOType::Signal("inserter".to_string()), 304)]]
     )
 }
+
+// #[test]
+// fn simulate_counter() {
+//     let graph = compile_code("
+
+// block main() -> int(tank) {
+//     c: counter(signal-T : 50);
+//     v: var(signal-V);
+//     when (c == 5) {
+//         v += 1;
+//     };
+//     out v;
+// }
+
+// ");
+
+//     graph.print();
+
+//     let mut sim = Simulator::new(graph, vec![vec![]]);
+
+//     sim.simulate(5);
+
+//     let outputs = sim.get_output();
+
+//     assert_eq!(
+//         outputs,
+//         vec![vec![Item::new(IOType::new_signal("tank"), 2)]]
+//     )
+// }

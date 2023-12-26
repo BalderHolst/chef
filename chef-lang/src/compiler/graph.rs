@@ -80,6 +80,15 @@ pub enum IOType {
     All,
 }
 
+impl IOType {
+    pub fn new_signal<S>(signal: S) -> Self
+    where
+        S: ToString,
+    {
+        Self::Signal(signal.to_string())
+    }
+}
+
 impl Display for IOType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
