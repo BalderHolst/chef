@@ -30,7 +30,7 @@ pub fn make_example_tests(_item: TokenStream) -> TokenStream {
             let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
             let ast = AST::from_source(text.clone(), bag.clone(), opts);
             bag.borrow_mut().exit_if_errored();
-            let graph = compiler::compile(ast, bag.clone()).unwrap();
+            let graph = compiler::compile(ast, bag.clone());
             bag.borrow_mut().exit_if_errored();
             let compiled_dot = graph.dot_repr() + "\n";
 
