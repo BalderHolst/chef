@@ -22,7 +22,7 @@ pub struct Opts {
 impl Opts {
     pub fn new_test() -> Self {
         let command = Command::Cook(CookOpts {
-            files: vec![],
+            file: "dummy_file.rcp".to_string(),
             dot: false,
             graph: None,
             fgraph: None,
@@ -42,6 +42,9 @@ pub enum Command {
     /// Compile source code
     Cook(CookOpts),
 
+    /// Simulate a chef program
+    Simulate(SimulateOpts),
+
     /// Add signals to your project
     Add(AddOpts),
 }
@@ -49,9 +52,9 @@ pub enum Command {
 /// Options for the cli `cook` subcommand.
 #[derive(Debug, clap::Args)]
 pub struct CookOpts {
-    /// Files to compile.
+    /// File to compile.
     #[arg(required = true)]
-    pub(crate) files: Vec<String>,
+    pub(crate) file: String,
 
     /// Output only a graph version of the output in 'dot' format.
     #[arg(short, long)]
@@ -71,15 +74,27 @@ pub struct CookOpts {
 }
 
 impl CookOpts {
-    pub fn from_files(files: Vec<String>) -> Self {
+    pub fn from_files(file: String) -> Self {
         Self {
             dot: false,
-            files,
+            file,
             graph: None,
             fgraph: None,
             verbose: false,
         }
     }
+}
+
+/// Options for the cli `add` subcommand.
+#[derive(Debug, clap::Args, Clone)]
+pub struct SimulateOpts {
+    /// File to compile.
+    #[arg(required = true)]
+    pub(crate) file: String,
+
+    /// Directory to output frames
+    #[arg(short, long)]
+    pub(crate) output: Option<String>,
 }
 
 /// Options for the cli `add` subcommand.

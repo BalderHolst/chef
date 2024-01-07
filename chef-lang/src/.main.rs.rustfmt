@@ -4,9 +4,8 @@ use std::{env, io};
 
 use ast::AST;
 use clap::Parser;
-use cli::{AddCommand, Command, CookOpts, Opts, SimulateOpts};
+use cli::{AddCommand, Command, CookOpts, Opts};
 use diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
-use simulator::Simulator;
 use text::SourceText;
 use utils::VisualizerError;
 
@@ -24,7 +23,7 @@ mod utils;
 mod tests;
 
 pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
-    let path = &cook_opts.file;
+    let path = cook_opts.files.get(0).unwrap();
     let text = Rc::new(SourceText::from_file(path).unwrap());
     let diagnostics_bag: DiagnosticsBagRef = DiagnosticsBag::new_ref(opts.clone(), text.clone());
     let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
@@ -76,21 +75,6 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
     eprintln!();
 }
 
-fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) {
-    let path = &sim_opts.file;
-    let text = Rc::new(SourceText::from_file(&path).unwrap());
-    let diagnostics_bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
-    let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
-
-    diagnostics_bag.borrow().exit_if_errored();
-
-    let graph = compiler::compile(ast, diagnostics_bag.clone());
-
-    diagnostics_bag.borrow().exit_if_errored();
-
-    let mut sim = Simulator::new(graph, vec![]);
-}
-
 fn main() -> Result<(), io::Error> {
     let opts = Rc::new(Opts::parse());
 
@@ -102,9 +86,9 @@ fn main() -> Result<(), io::Error> {
             Ok(())
         }
         Command::Simulate(sim_opts) => {
-            simulate(opts.clone(), sim_opts);
+            println!("Simulating!");
             Ok(())
-        }
+        },
         Command::Add(c) => match c.command {
             AddCommand::Signals(_) => {
                 let cwd = env::current_dir().expect("Could not find current dir");

@@ -1,5 +1,7 @@
 #![allow(dead_code)] // TODO: Remove
 
+use std::io;
+
 use crate::compiler::graph::{
     ArithmeticOperation, Connection, DeciderOperation, Graph, IOType, NId,
 };
@@ -138,6 +140,18 @@ impl Simulator {
             .iter()
             .map(|nid| self.get_node_contents(nid))
             .collect()
+    }
+
+    fn dump_state(&self, out_file: &str) -> io::Result<()> {
+        todo!()
+    }
+
+    pub fn dump_simulation(&mut self, steps: usize, our_dir: &str) {
+        for step in 0..steps {
+            let file = our_dir.to_string() + "/" + step.to_string().as_str() + ".svg";
+            self.dump_simulation(steps, file.as_str());
+            self.step();
+        }
     }
 }
 
