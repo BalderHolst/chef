@@ -883,8 +883,14 @@ impl Parser {
         &mut self,
         block: Rc<Block>,
     ) -> Result<BlockLinkExpression, CompilationError> {
+        let start = self.peak(-1).span.clone();
         let inputs = self.parse_block_link_arguments()?;
-        Ok(BlockLinkExpression::new(block, inputs))
+        let end = &self.current().span;
+        Ok(BlockLinkExpression::new(
+            block,
+            inputs,
+            TextSpan::from_spans(&start, end),
+        ))
     }
 
     fn get_span_from(&self, start_span: &TextSpan) -> TextSpan {

@@ -452,11 +452,16 @@ impl PickExpression {
 pub struct BlockLinkExpression {
     pub block: Rc<Block>,
     pub inputs: Vec<Expression>,
+    pub span: TextSpan,
 }
 
 impl BlockLinkExpression {
-    pub fn new(block: Rc<Block>, inputs: Vec<Expression>) -> Self {
-        Self { block, inputs }
+    pub fn new(block: Rc<Block>, inputs: Vec<Expression>, span: TextSpan) -> Self {
+        Self {
+            block,
+            inputs,
+            span,
+        }
     }
 
     fn return_type(&self) -> ExpressionReturnType {
