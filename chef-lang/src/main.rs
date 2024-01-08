@@ -89,6 +89,8 @@ fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) {
     diagnostics_bag.borrow().exit_if_errored();
 
     let mut sim = Simulator::new(graph, vec![]);
+
+    sim.dump_simulation(10, "./test")
 }
 
 fn main() -> Result<(), io::Error> {

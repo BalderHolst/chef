@@ -100,10 +100,6 @@ impl Operation {
 
 impl Combinator {
     pub fn to_blueprint_entity(&self) -> Entity {
-        // let mut connections: HashMap<EntityNumber, fbo::Connection> = HashMap::new();
-
-        let output_connection_point = self.operation.get_output_connection_point();
-
         let output_connections: Vec<fbo::ConnectionData> = self
             .output_entities
             .iter()
@@ -113,6 +109,7 @@ impl Combinator {
             })
             .collect();
 
+        let output_connection_point = self.operation.get_output_connection_point();
         let mut connections: HashMap<EntityNumber, fbo::Connection> = HashMap::new();
         connections.insert(
             OneBasedIndex::new(output_connection_point).unwrap(),

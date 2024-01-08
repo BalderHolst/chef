@@ -1,11 +1,15 @@
 #![allow(dead_code)] // TODO: Remove
 
-use std::io;
+mod visualizer;
+
+use std::{fmt::Display, io};
 
 use crate::compiler::graph::{
     ArithmeticOperation, Connection, DeciderOperation, Graph, IOType, NId,
 };
 use fnv::FnvHashMap;
+
+use self::visualizer::visualize_simulator;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {
@@ -29,6 +33,12 @@ impl Item {
     }
 }
 
+impl Display for Item {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "<{}:{}>", self.kind, self.count)
+    }
+}
+
 pub struct Simulator {
     graph: Graph,
     constant_inputs: FnvHashMap<NId, Vec<Item>>,
@@ -37,10 +47,21 @@ pub struct Simulator {
 }
 
 impl Simulator {
-    pub fn new(graph: Graph, inputs: Vec<Vec<Item>>) -> Self {
+    pub fn new(graph: Graph, mut inputs: Vec<Vec<Item>>) -> Self {
         let input_nodes = graph.get_input_nodes();
         let mut constant_inputs = FnvHashMap::default();
-        assert_eq!(inputs.len(), input_nodes.len());
+
+        // fill inputs with nothing, if nothing was specified
+        while inputs.len() < input_nodes.len() {
+            inputs.push(vec![])
+        }
+
+        assert_eq!(
+            inputs.len(),
+            input_nodes.len(),
+            "Too many inputs were provided."
+        );
+
         for i in 0..inputs.len() {
             let vid = input_nodes[i];
             let input = inputs[i].clone();
@@ -118,8 +139,6 @@ impl Simulator {
                 .or_insert(vec![output]);
         }
 
-        dbg!(&new_contents);
-
         self.contents = new_contents;
     }
 
@@ -143,13 +162,14 @@ impl Simulator {
     }
 
     fn dump_state(&self, out_file: &str) -> io::Result<()> {
-        todo!()
+        visualize_simulator(&self, out_file)?;
+        io::Result::Ok(())
     }
 
     pub fn dump_simulation(&mut self, steps: usize, our_dir: &str) {
         for step in 0..steps {
             let file = our_dir.to_string() + "/" + step.to_string().as_str() + ".svg";
-            self.dump_simulation(steps, file.as_str());
+            self.dump_state(file.as_str()).unwrap();
             self.step();
         }
     }
