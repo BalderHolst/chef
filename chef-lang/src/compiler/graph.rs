@@ -247,9 +247,12 @@ impl Display for Connection {
 pub enum Node {
     Inner(InnerNode),
     Input(InputNode),
+
+    // TODO: This can probably be removed, as output nodes and their output types can be derived
+    // from the graph structure itself.
     Output(OutputNode),
 
-    // A `None` used when reperesenting a constant combinator. As the graph reperesents all
+    // A `None` is used when reperesenting a constant combinator. As the graph reperesents all
     // combinators as connections, the constant combinator must also be. The constant combinator
     // does however not take any input, therefore its input is connected to a `None` node.
     None,
