@@ -50,31 +50,32 @@ block main(input: all) -> int(inserter) {
     )
 }
 
-// #[test]
-// fn simulate_counter() {
-//     let graph = compile_code("
+#[test]
+fn simulate_counter() {
+    let graph = compile_code(
+        "
+block main() -> int(tank) {
+    c: counter(signal-T : 5);
+    v: var(signal-V);
+    when (c == 5) {
+        v += 1;
+    };
+    out v;
+}
 
-// block main() -> int(tank) {
-//     c: counter(signal-T : 50);
-//     v: var(signal-V);
-//     when (c == 5) {
-//         v += 1;
-//     };
-//     out v;
-// }
+",
+    );
 
-// ");
+    graph.print();
 
-//     graph.print();
+    let mut sim = Simulator::new(graph, vec![vec![]]);
 
-//     let mut sim = Simulator::new(graph, vec![vec![]]);
+    sim.simulate(14);
 
-//     sim.simulate(5);
+    let outputs = sim.get_output();
 
-//     let outputs = sim.get_output();
-
-//     assert_eq!(
-//         outputs,
-//         vec![vec![Item::new(IOType::new_signal("tank"), 2)]]
-//     )
-// }
+    assert_eq!(
+        vec![outputs.last().unwrap().clone()],
+        vec![vec![Item::new(IOType::new_signal("tank"), 2)]]
+    )
+}
