@@ -81,7 +81,6 @@ impl Simulator {
     }
 
     fn step(&mut self) {
-        println!("STEP!");
         let mut new_contents = self.constant_inputs.clone();
 
         for (from_nid, to_nid, conn) in self.graph.iter_conns() {
