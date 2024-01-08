@@ -883,14 +883,24 @@ impl Parser {
         &mut self,
         block: Rc<Block>,
     ) -> Result<BlockLinkExpression, CompilationError> {
-        let start = self.peak(-1).span.clone();
+        let start = self.peak(-1).span.start;
         let inputs = self.parse_block_link_arguments()?;
-        let end = &self.current().span;
-        Ok(BlockLinkExpression::new(
-            block,
-            inputs,
-            TextSpan::from_spans(&start, end),
-        ))
+        let end = self.current().span.clone();
+
+        if inputs.len() != block.inputs.len() {
+            self.diagnostics_bag.borrow_mut().report_error(
+                &TextSpan::new(start, end.end, end.text),
+                &format!(
+                    // TODO: Maybe report function signiture instead of just name
+                    "Expected {} arguments for function '{}'. Found {}.",
+                    block.inputs.len(),
+                    block.name,
+                    inputs.len(),
+                ),
+            )
+        }
+
+        Ok(BlockLinkExpression::new(block, inputs))
     }
 
     fn get_span_from(&self, start_span: &TextSpan) -> TextSpan {
