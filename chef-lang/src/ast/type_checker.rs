@@ -1,5 +1,7 @@
 //! Chef type checker.
 
+// TODO: Check that blocks are called with the correct arguments
+
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
 use super::{

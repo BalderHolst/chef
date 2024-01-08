@@ -452,6 +452,7 @@ impl GraphCompiler {
             }
         };
         if outputs.len() != 1 {
+            dbg!(&outputs);
             todo!("Blocks with multipule outputs are not implemented yet");
         }
         Ok(outputs[0].clone())

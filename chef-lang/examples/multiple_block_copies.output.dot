@@ -5,7 +5,7 @@ strict digraph {
 	0	[style=filled fillcolor=lightgreen label="ALL"]
 	13	[style=filled fillcolor=white label="Sig(wooden-chest)"]
 	14	[style=filled fillcolor=white label="Sig(rail) | Sig(pipe)"]
-	10	[style=filled fillcolor=orange label="Sig(iron-chest)"]
+	10	[style=filled fillcolor=white label="Sig(iron-chest)"]
 	23	[style=filled fillcolor=white label="Sig(wooden-chest)"]
 	16	[style=filled fillcolor=white label="Sig(iron-chest) | Sig(steel-chest)"]
 	25	[style=filled fillcolor=white label="Sig(iron-chest) | Sig(storage-tank)"]

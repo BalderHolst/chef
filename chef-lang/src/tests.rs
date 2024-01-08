@@ -75,6 +75,7 @@ block main() -> int(tank) {
     let outputs = sim.get_output();
 
     assert_eq!(
+        // TODO: remove `last` when banishing multiple outputs
         vec![outputs.last().unwrap().clone()],
         vec![vec![Item::new(IOType::new_signal("tank"), 2)]]
     )

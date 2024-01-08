@@ -1,5 +1,7 @@
 //! Implementation of [Graph]. A graph for representing a network of factorio combinators.
 
+#![allow(dead_code)] // TODO: remove
+
 use fnv::FnvHashMap;
 use std::{collections::HashSet, fmt::Display, usize};
 
@@ -488,67 +490,82 @@ impl Graph {
         false
     }
 
-    /// Compine two graphs by stitching them togeather.
-    /// TODO: Order of inputs vec matter
+    /// Stitch another graph into this one. Resuts a vector of outputs os the newly stitched in
+    /// graph.
+    /// NOTE: Order of inputs vec matter. The first input is the first argument to the block.
     #[allow(clippy::single_match)]
     pub fn stitch_graph(
         &mut self,
         other: &Graph,
-        inputs: Vec<(NId, IOType)>,
+        inputs: Vec<(NId, IOType)>, // Inputs to the other graph
     ) -> Result<Vec<(NId, IOType)>, String> {
+        // Hashmap containing mappings from old to new node ids
         let mut nid_converter: fnv::FnvHashMap<NId, NId> = fnv::FnvHashMap::default();
 
-        let mut outputs: FnvHashMap<NId, IOType> = FnvHashMap::default();
+        let mut other_graph_outputs: FnvHashMap<NId, IOType> = FnvHashMap::default();
 
-        // copy nodes
+        // Copy nodes from the other graph and assign them new ids.
         for (old_nid, node) in other.vertices.clone() {
-            let new_nid = self.push_node(node);
+            let new_nid = self.push_node(Node::Inner(InnerNode::new()));
             nid_converter.insert(old_nid, new_nid);
+
+            // Note this node as output
+            if let Node::Output(output_node) = node {
+                other_graph_outputs.insert(new_nid, output_node.output_type);
+            }
         }
 
-        // copy connections
-        for (old_from_nid, to_vec) in other.adjacency.clone() {
-            for (old_to_nid, conn) in to_vec {
-                let new_from_nid = nid_converter[&old_from_nid];
-                let new_to_nid = nid_converter[&old_to_nid];
-                self.push_connection(new_from_nid, new_to_nid, conn.clone());
-                if self.is_output(new_to_nid) {
-                    outputs.insert(new_to_nid, conn.get_output_iotype());
-                }
-            }
+        // Copy connections
+        for (old_from_nid, old_to_nid, conn) in other.iter_conns() {
+            let new_from_nid = nid_converter[&old_from_nid];
+            let new_to_nid = nid_converter[&old_to_nid];
+            self.push_connection(new_from_nid, new_to_nid, conn.clone());
         }
 
         let other_graph_inputs = other.get_non_constant_inputs();
 
+        // This should not errror. It should have been checked by the type checker.
         if other_graph_inputs.len() != inputs.len() {
-            return Err(format!(
-                "Number of arguments does not match with block definition: Expected {}, found {}.",
+            panic!(
+                "Number of arguments does not match with block definition: Expected {}, found {}. This is probably a bug in the typechecker.",
                 other_graph_inputs.len(),
                 inputs.len()
-            ));
+            );
         }
 
         for (i, (block_input_nid, block_input_type)) in inputs.iter().enumerate() {
-            let other_t = &other_graph_inputs[i];
-            let to_nid = nid_converter[&other_t.0];
+            let (old_other_input_nid, other_input_node) = &other_graph_inputs[i];
 
-            // Get the input type, and convert inputs to inner nodes
-            let signal = match &other_t.1 {
+            // Translate input nid to id in this graph
+            let other_input_nid = nid_converter[old_other_input_nid];
+
+            // Get the input type and convert inputs to inner nodes
+            let other_input_type = match &other_input_node {
                 Node::Input(n) => {
-                    self.override_node(to_nid, Node::Inner(InnerNode::new()));
+                    self.override_node(other_input_nid, Node::Inner(InnerNode::new()));
                     n.input.clone()
                 }
                 _ => panic!("There should only be input nodes here..."),
             };
 
-            match signal {
+            match other_input_type {
                 IOType::Signal(_) => {
-                    let middle_node = self.push_node(Node::Inner(InnerNode::new()));
+                    // The input types for the (output) node on THIS graph, that is to be stitched togeather
+                    // with the input of the other graph.
                     let input_types = self.get_input_iotypes(block_input_nid);
 
-                    debug_assert!(input_types.len() == 1);
+                    // TODO: There should definetly be a better way to get the input type.
+                    debug_assert!(
+                        input_types.len() == 1,
+                        "Block inputs can only have one type. NOTE: This type may be `All`."
+                    );
 
                     let input_type = input_types[0].clone();
+
+                    // This node is the transition point from this graph to the other graph, now
+                    // stitched inside this one. The middle node contains signals of the type
+                    // specified in the block arguments.
+                    let middle_node = self.push_node(Node::Inner(InnerNode::new()));
 
                     self.push_connection(
                         *block_input_nid,
@@ -561,20 +578,22 @@ impl Graph {
 
                     self.push_connection(
                         middle_node,
-                        to_nid,
+                        other_input_nid,
                         Connection::Arithmetic(ArithmeticConnection::new_convert(
                             block_input_type.clone(),
-                            signal,
+                            other_input_type,
                         )),
                     );
                 }
                 IOType::AnySignal(_) => {
-                    // TODO : Something is wrong here
+                    // TODO : Something is wrong here. Maybe we need a `middle` node? Then we could
+                    // merge with the `Signal(_)` case.
+
                     let new_type = self.get_single_input(block_input_nid).unwrap();
-                    self.replace_iotype(signal, &new_type);
+                    self.replace_iotype(other_input_type, &new_type);
                     self.push_connection(
                         *block_input_nid,
-                        to_nid,
+                        other_input_nid,
                         Connection::Arithmetic(ArithmeticConnection::new_pick(new_type)),
                     );
                 }
@@ -593,7 +612,7 @@ impl Graph {
             }
         }
 
-        Ok(outputs
+        Ok(other_graph_outputs
             .iter()
             .map(|(nid, type_o)| (*nid, type_o.clone()))
             .collect())
