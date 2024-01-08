@@ -6,6 +6,6 @@ strict digraph {
 	3	[style=filled fillcolor=white label="Sig(pump)"]
 	5 -> 6	[label="CONVERT: Sig(signal-D) -> Sig(signal-B)" color=blue fontcolor=blue]
 	0 -> 3	[label="PICK: Sig(pump)" color=red fontcolor=red]
-	3 -> 5	[label="NOTEQUALS: Sig(pump), (10)" color=purple fontcolor=purple]
+	3 -> 5	[label="NOT_EQUALS: Sig(pump), (10)" color=purple fontcolor=purple]
 }
 

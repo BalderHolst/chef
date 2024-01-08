@@ -22,12 +22,12 @@ pub enum DeciderOperation {
 impl Display for DeciderOperation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            DeciderOperation::LargerThan => "LARGERTHAN",
-            DeciderOperation::LargerThanOrEqual => "LARGERTHANOREQUAL",
-            DeciderOperation::LessThan => "LESSTHAN",
-            DeciderOperation::LessThanOrEqual => "LESSTHANOREQUAL",
+            DeciderOperation::LargerThan => "LARGER_THAN",
+            DeciderOperation::LargerThanOrEqual => "LARGER_THAN_OR_EQUAL",
+            DeciderOperation::LessThan => "LESS_THAN",
+            DeciderOperation::LessThanOrEqual => "LESS_THAN_OR_EQUAL",
             DeciderOperation::Equals => "EQUALS",
-            DeciderOperation::NotEquals => "NOTEQUALS",
+            DeciderOperation::NotEquals => "NOT_EQUALS",
         };
         write!(f, "{s}")
     }

@@ -10,12 +10,12 @@ strict digraph {
 	5 -> 8	[label="EQUALS: Sig(signal-T), (5)" color=purple fontcolor=purple]
 	7 -> 8	[label="CONVERT: (1) -> Sig(signal-V)" color=blue fontcolor=blue]
 	1 -> 1	[label="GATE: Sig(signal-T)
-LESSTHAN: Sig(signal-T), (50)" color=teal fontcolor=teal]
+LESS_THAN: Sig(signal-T), (50)" color=teal fontcolor=teal]
 	1 -> 5	[label="PICK: Sig(signal-T)" color=red fontcolor=red]
 	3 -> 3	[label="PICK: Sig(signal-V)" color=red fontcolor=red]
 	3 -> 9	[label="CONVERT: Sig(signal-V) -> Sig(tank)" color=blue fontcolor=blue]
 	2 -> 1	[label="CONSTANT : Sig(signal-T) = 1" color=green fontcolor=green]
 	8 -> 3	[label="GATE: Sig(signal-V)
-LARGERTHAN: Sig(wooden-chest), (0)" color=teal fontcolor=teal]
+LARGER_THAN: Sig(wooden-chest), (0)" color=teal fontcolor=teal]
 }
 

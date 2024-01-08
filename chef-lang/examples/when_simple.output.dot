@@ -10,10 +10,10 @@ strict digraph {
 	7 -> 8	[label="ADD: (100), Sig(signal-blue)" color=black fontcolor=black]
 	0 -> 3	[label="PICK: Sig(signal-red)" color=red fontcolor=red]
 	0 -> 7	[label="PICK: Sig(signal-blue)" color=red fontcolor=red]
-	3 -> 8	[label="LARGERTHAN: Sig(signal-red), (5)" color=purple fontcolor=purple]
+	3 -> 8	[label="LARGER_THAN: Sig(signal-red), (5)" color=purple fontcolor=purple]
 	9 -> 10	[label="CONVERT: Sig(wooden-chest) -> Sig(pipe)" color=blue fontcolor=blue]
 	8 -> 9	[label="GATE: Sig(wooden-chest)
-LARGERTHAN: Sig(iron-chest), (0)" color=teal fontcolor=teal]
+LARGER_THAN: Sig(iron-chest), (0)" color=teal fontcolor=teal]
 	10 -> 11	[label="CONVERT: Sig(pipe) -> Sig(signal-blue)" color=blue fontcolor=blue]
 }
 

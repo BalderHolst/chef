@@ -4,7 +4,7 @@ strict digraph {
 	3	[style=filled fillcolor=orange label="Sig(tank)"]
 	2	[style=filled fillcolor=lightgray label="CONST"]
 	1 -> 1	[label="GATE: Sig(signal-T)
-LESSTHAN: Sig(signal-T), (50)" color=teal fontcolor=teal]
+LESS_THAN: Sig(signal-T), (50)" color=teal fontcolor=teal]
 	1 -> 3	[label="CONVERT: Sig(signal-T) -> Sig(tank)" color=blue fontcolor=blue]
 	2 -> 1	[label="CONSTANT : Sig(signal-T) = 1" color=green fontcolor=green]
 }
