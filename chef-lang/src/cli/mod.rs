@@ -95,6 +95,10 @@ pub struct SimulateOpts {
     /// Directory to output frames
     #[arg(short, long)]
     pub(crate) output: Option<String>,
+
+    /// Number of iterations default is 10
+    #[arg(short, long, default_value = "10")]
+    pub(crate) iterations: usize,
 }
 
 /// Options for the cli `add` subcommand.

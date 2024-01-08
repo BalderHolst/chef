@@ -78,7 +78,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
 
 fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) {
     let path = &sim_opts.file;
-    let text = Rc::new(SourceText::from_file(&path).unwrap());
+    let text = Rc::new(SourceText::from_file(path).unwrap());
     let diagnostics_bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
     let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
 
@@ -90,7 +90,7 @@ fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) {
 
     let mut sim = Simulator::new(graph, vec![]);
 
-    sim.dump_simulation(10, "./test")
+    sim.dump_simulation(sim_opts.iterations, "./test")
 }
 
 fn main() -> Result<(), io::Error> {

@@ -81,6 +81,7 @@ impl Simulator {
     }
 
     fn step(&mut self) {
+        println!("STEP!");
         let mut new_contents = self.constant_inputs.clone();
 
         for (from_nid, to_nid, conn) in self.graph.iter_conns() {
@@ -127,7 +128,6 @@ impl Simulator {
                         true => get_count(&conn_inputs, &c.gate_type),
                         false => 0,
                     };
-
                     Item::new(c.gate_type, count)
                 }
                 Connection::Constant(c) => Item::new(c.type_, c.count),
@@ -135,7 +135,16 @@ impl Simulator {
 
             new_contents
                 .entry(to_nid)
-                .and_modify(|v: &mut Vec<Item>| v.push(output.clone()))
+                .and_modify(|v: &mut Vec<Item>| {
+                    // Check if the item exists in node
+                    for item in v.iter_mut() {
+                        if output.kind == item.kind {
+                            item.count += output.count;
+                            return;
+                        }
+                    }
+                    v.push(output.clone())
+                })
                 .or_insert(vec![output]);
         }
 
@@ -162,7 +171,7 @@ impl Simulator {
     }
 
     fn dump_state(&self, out_file: &str) -> io::Result<()> {
-        visualize_simulator(&self, out_file)?;
+        visualize_simulator(self, out_file)?;
         io::Result::Ok(())
     }
 
