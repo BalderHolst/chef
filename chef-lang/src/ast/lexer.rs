@@ -1,5 +1,6 @@
 //! The lexer module converts the raw text into tokens.
 
+use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::diagnostics::DiagnosticsBagRef;
@@ -24,10 +25,13 @@ pub enum TokenKind {
     RightSquare,
     LeftCurly,
     RightCurly,
+    SingleQuote,
+    DoubleQuote,
     Equals,
     Comma,
     Period,
     Colon,
+    Hashtag,
     Semicolon,
     DoubleEquals,
     RightArrow,
@@ -39,6 +43,48 @@ pub enum TokenKind {
     Whitespace,
     Bad,
     End,
+}
+
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string_rep = match self {
+            TokenKind::Number(_) => "number",
+            TokenKind::Word(_) => "word",
+            TokenKind::Plus => "+",
+            TokenKind::PlusEquals => "+=",
+            TokenKind::Minus => "-",
+            TokenKind::MinusEquals => "-=",
+            TokenKind::Asterisk => "*",
+            TokenKind::AsteriskEquals => "*=",
+            TokenKind::Slash => "/",
+            TokenKind::SlashEquals => "/=",
+            TokenKind::LeftParen => "(",
+            TokenKind::RightParen => ")",
+            TokenKind::LeftSquare => "[",
+            TokenKind::RightSquare => "]",
+            TokenKind::LeftCurly => "{",
+            TokenKind::RightCurly => "}",
+            TokenKind::SingleQuote => "'",
+            TokenKind::DoubleQuote => "\"",
+            TokenKind::Equals => "=",
+            TokenKind::Comma => ",",
+            TokenKind::Period => ".",
+            TokenKind::Colon => ":",
+            TokenKind::Semicolon => ";",
+            TokenKind::Hashtag => "#",
+            TokenKind::DoubleEquals => "==",
+            TokenKind::RightArrow => "->",
+            TokenKind::LargerThan => ">",
+            TokenKind::LargerThanEquals => ">=",
+            TokenKind::LessThan => "<",
+            TokenKind::LessThanEquals => "<=",
+            TokenKind::BangEquals => "!=",
+            TokenKind::Whitespace => "whitespace",
+            TokenKind::Bad => "bad-token",
+            TokenKind::End => "end-of-program",
+        };
+        write!(f, "{}", string_rep)
+    }
 }
 
 /// A lexer token.
@@ -181,6 +227,8 @@ impl Lexer {
             Some(']') => TokenKind::RightSquare,
             Some('{') => TokenKind::LeftCurly,
             Some('}') => TokenKind::RightCurly,
+            Some('\'') => TokenKind::SingleQuote,
+            Some('"') => TokenKind::DoubleQuote,
             Some('=') => match self.consume() {
                 Some('=') => TokenKind::DoubleEquals,
                 _ => {
@@ -192,6 +240,7 @@ impl Lexer {
             Some('.') => TokenKind::Period,
             Some(':') => TokenKind::Colon,
             Some(';') => TokenKind::Semicolon,
+            Some('#') => TokenKind::Hashtag,
             Some('>') => match self.consume() {
                 Some('=') => TokenKind::LargerThanEquals,
                 _ => {

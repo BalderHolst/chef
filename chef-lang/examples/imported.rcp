@@ -1,0 +1,3 @@
+block imported_function() -> int {
+    out 10;
+}

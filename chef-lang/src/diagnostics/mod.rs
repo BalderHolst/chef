@@ -9,7 +9,6 @@ use crate::text::{SourceText, TextSpan};
 use crate::the_chef;
 
 use std::cell::RefCell;
-use std::fmt::Display;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -47,45 +46,6 @@ impl CompilationError {
 
 /// Reference to the [DiagnosticsBag] allowing interior mutability.
 pub type DiagnosticsBagRef = Rc<RefCell<DiagnosticsBag>>;
-
-impl Display for TokenKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let string_rep = match self {
-            TokenKind::Number(_) => "number",
-            TokenKind::Word(_) => "word",
-            TokenKind::Plus => "+",
-            TokenKind::PlusEquals => "+=",
-            TokenKind::Minus => "-",
-            TokenKind::MinusEquals => "-=",
-            TokenKind::Asterisk => "*",
-            TokenKind::AsteriskEquals => "*=",
-            TokenKind::Slash => "/",
-            TokenKind::SlashEquals => "/=",
-            TokenKind::LeftParen => "(",
-            TokenKind::RightParen => ")",
-            TokenKind::LeftSquare => "[",
-            TokenKind::RightSquare => "]",
-            TokenKind::LeftCurly => "{",
-            TokenKind::RightCurly => "}",
-            TokenKind::Equals => "=",
-            TokenKind::Comma => ",",
-            TokenKind::Period => ".",
-            TokenKind::Colon => ":",
-            TokenKind::Semicolon => ";",
-            TokenKind::DoubleEquals => "==",
-            TokenKind::RightArrow => "->",
-            TokenKind::LargerThan => ">",
-            TokenKind::LargerThanEquals => ">=",
-            TokenKind::LessThan => "<",
-            TokenKind::LessThanEquals => "<=",
-            TokenKind::BangEquals => "!=",
-            TokenKind::Whitespace => "whitespace",
-            TokenKind::Bad => "bad-token",
-            TokenKind::End => "end-of-program",
-        };
-        write!(f, "{}", string_rep)
-    }
-}
 
 /// A chef diagnostic
 #[derive(Debug, Clone)]
