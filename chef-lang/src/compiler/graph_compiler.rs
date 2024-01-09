@@ -183,18 +183,23 @@ impl GraphCompiler {
         mutation_statement: Mutation,
         gate: Option<(NId, IOType)>,
     ) -> Result<(), CompilationError> {
+        // TODO: Create test for expect
         let var_nid = self.search_scope(mutation_statement.var_ref.var.name.clone()).expect("The parser should make sure that mutation statements only happen on defined variables.");
         let var_type = mutation_statement.var_ref.var.type_.clone();
         let var_iotype = self.variable_type_to_iotype(&var_type);
+
         let (expr_out_nid, expr_out_type) =
             self.compile_expression(graph, &mutation_statement.expression, None)?;
 
-        assert_ne!(&var_iotype, &expr_out_type); // TODO: catch
+        // TODO: convert expr_out_type if this happens
+        assert_ne!(&var_iotype, &expr_out_type);
 
         let conn = match mutation_statement.operator {
             crate::ast::MutationOperator::Add => {
                 Connection::new_convert(expr_out_type.clone(), var_iotype.clone())
             }
+
+            // Multiply by -1 if subtracting
             crate::ast::MutationOperator::Subtract => {
                 Connection::Arithmetic(ArithmeticConnection::new(
                     expr_out_type.clone(),
@@ -207,7 +212,8 @@ impl GraphCompiler {
 
         match gate {
             Some((condition_nid, condition_type)) => {
-                assert_ne!(&condition_type, &var_iotype); // TODO: catch
+                // TODO: convert one if this happens
+                assert_ne!(&condition_type, &var_iotype);
 
                 let expr_out_nid = {
                     let new_out_nid = graph.push_inner_node();
