@@ -1,6 +1,6 @@
 strict digraph {
 	nodesep=1
-	1	[style=filled fillcolor=orange label="Sig(signal-T) | Sig(signal-T)"]
+	1	[style=filled fillcolor=lightblue label="Sig(signal-T) | Sig(signal-T)"]
 	3	[style=filled fillcolor=orange label="Sig(tank)"]
 	2	[style=filled fillcolor=lightgray label="CONST"]
 	1 -> 1	[label="GATE: Sig(signal-T)

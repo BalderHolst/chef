@@ -122,7 +122,7 @@ impl GraphCompiler {
         match &assignment.kind {
             AssignmentKind::Sig => {}
             AssignmentKind::Var => {
-                let var_nid = graph.push_output_node(var_type.clone());
+                let var_nid = graph.push_var_node(var_type.clone());
                 graph.push_connection(var_nid, var_nid, Connection::new_pick(var_type));
                 self.add_to_scope(var.name.clone(), var_nid);
                 return Ok(());
@@ -134,7 +134,7 @@ impl GraphCompiler {
                     } else {
                         panic!("Counter assignment should be to counter variabls.")
                     };
-                let var_nid = graph.push_output_node(var_type.clone());
+                let var_nid = graph.push_var_node(var_type.clone());
 
                 // Connect up the memory cell
                 let if_less_than_limit = Connection::Gate(GateConnection {
@@ -166,12 +166,12 @@ impl GraphCompiler {
         let output_node = graph.get_node(&expr_out_vid).unwrap().clone();
 
         // TODO: refactor
-        // NOTICE: Var nodes should always be output nodes.
+        // NOTICE: Var nodes should always be `Variable` nodes.
         let var_vid = match output_node {
             Node::Inner => {
                 // Connect expr output to var_vid and convert iotype.
                 let expr_out_type = graph.get_single_input(&expr_out_vid).unwrap();
-                let var_node_vid = graph.push_node(Node::Output(var_type.clone()));
+                let var_node_vid = graph.push_node(Node::Variable(var_type.clone()));
                 graph.push_connection(
                     expr_out_vid,
                     var_node_vid,
@@ -182,9 +182,21 @@ impl GraphCompiler {
                 );
                 var_node_vid
             }
-            Node::Input(output_type) => {
+            Node::InputVariable(output_type) => {
                 // Make var node and connect the input to it.
-                let var_node_vid = graph.push_node(Node::Output(var_type.clone()));
+                let var_node_vid = graph.push_node(Node::Variable(var_type.clone()));
+                graph.push_connection(
+                    expr_out_vid,
+                    var_node_vid,
+                    Connection::Arithmetic(ArithmeticConnection::new_convert(
+                        output_type,
+                        var_type,
+                    )),
+                );
+                var_node_vid
+            }
+            Node::Variable(output_type) => {
+                let var_node_vid = graph.push_node(Node::Variable(var_type.clone()));
                 graph.push_connection(
                     expr_out_vid,
                     var_node_vid,
@@ -196,7 +208,7 @@ impl GraphCompiler {
                 var_node_vid
             }
             Node::Output(output_type) => {
-                let var_node_vid = graph.push_node(Node::Output(var_type.clone()));
+                let var_node_vid = graph.push_node(Node::Variable(var_type.clone()));
                 graph.push_connection(
                     expr_out_vid,
                     var_node_vid,
@@ -278,7 +290,7 @@ impl GraphCompiler {
         match &expr.kind {
             ExpressionKind::Int(n) => self.compile_constant(graph, n.number),
             ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32),
-            // TODO use out_type in all compilation functions
+            // TODO: use out_type in all compilation functions
             ExpressionKind::VariableRef(var_ref) => self.compile_variable_ref_expression(graph, var_ref), // 
             ExpressionKind::Pick(pick_expr) => self.compile_pick_expression(graph, pick_expr),
             ExpressionKind::Parenthesized(expr) => self.compile_expression(graph, &expr.expression, out_type),
@@ -309,17 +321,16 @@ impl GraphCompiler {
         let var_node_nid = self
             .search_scope(var.name.clone())
             .expect("Variable references should always point to defined variables");
-        let var_node = graph.get_node(&var_node_nid).unwrap().clone();
+        let var_node = graph.get_node(&var_node_nid).unwrap();
 
         // Get the signal type of the var node.
-        let var_signal = match var_node {
-            Node::Input(input_type) => input_type,
-            Node::Output(output_type) => output_type,
-            Node::Inner => panic!("Var nodes should be output or input nodes"),
-            Node::None => panic!("Var nodes should be output or input nodes"),
+        let var_type = match var_node {
+            Node::InputVariable(input_type) => input_type,
+            Node::Variable(var_type) => var_type,
+            _ => panic!("Var nodes should be `Variable` or `InputVariable` nodes"),
         };
 
-        Ok((var_node_nid, var_signal))
+        Ok((var_node_nid, var_type.clone()))
     }
 
     fn compile_pick_expression(

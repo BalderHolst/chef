@@ -2,8 +2,8 @@ strict digraph {
 	nodesep=1
 	5	[style=filled fillcolor=white label="Sig(signal-T)"]
 	7	[style=filled fillcolor=lightgreen label="(1)"]
-	1	[style=filled fillcolor=orange label="Sig(signal-T) | Sig(signal-T)"]
-	3	[style=filled fillcolor=orange label="Sig(signal-V) | Sig(signal-V)"]
+	1	[style=filled fillcolor=lightblue label="Sig(signal-T) | Sig(signal-T)"]
+	3	[style=filled fillcolor=lightblue label="Sig(signal-V) | Sig(signal-V)"]
 	2	[style=filled fillcolor=lightgray label="CONST"]
 	9	[style=filled fillcolor=orange label="Sig(tank)"]
 	8	[style=filled fillcolor=white label="Sig(wooden-chest) | Sig(signal-V)"]

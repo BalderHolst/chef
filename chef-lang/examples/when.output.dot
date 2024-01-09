@@ -3,7 +3,7 @@ strict digraph {
 	4	[style=filled fillcolor=white label="Sig(signal-red)"]
 	7	[style=filled fillcolor=white label="Sig(wooden-chest) | Sig(signal-green)"]
 	6	[style=filled fillcolor=lightgreen label="(10)"]
-	1	[style=filled fillcolor=orange label="Sig(signal-green) | Sig(signal-green)"]
+	1	[style=filled fillcolor=lightblue label="Sig(signal-green) | Sig(signal-green)"]
 	0	[style=filled fillcolor=lightgreen label="ALL"]
 	8	[style=filled fillcolor=orange label="Sig(signal-blue)"]
 	4 -> 7	[label="LARGER_THAN: Sig(signal-red), (5)" color=purple fontcolor=purple]

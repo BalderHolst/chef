@@ -4,7 +4,7 @@ strict digraph {
 	6	[style=filled fillcolor=white label="Sig(wooden-chest) | Sig(inserter)"]
 	0	[style=filled fillcolor=lightgreen label="ALL"]
 	9	[style=filled fillcolor=orange label="Sig(water)"]
-	8	[style=filled fillcolor=orange label="Sig(iron-chest)"]
+	8	[style=filled fillcolor=lightblue label="Sig(iron-chest)"]
 	4 -> 6	[label="MULTIPLY: (7), Sig(pump)" color=black fontcolor=black]
 	6 -> 8	[label="ADD: Sig(inserter), Sig(wooden-chest)" color=black fontcolor=black]
 	0 -> 6	[label="PICK: Sig(inserter)" color=red fontcolor=red]

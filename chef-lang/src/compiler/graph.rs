@@ -246,8 +246,14 @@ impl Display for Connection {
 #[derive(Clone, Debug)]
 pub enum Node {
     Inner,
-    Input(IOType),
 
+    /// Variable node that is an input to the graph
+    InputVariable(IOType),
+
+    /// Variable node that is integrated in the graph
+    Variable(IOType),
+
+    /// An output of the entire graph
     // TODO: This can probably be removed, as output nodes and their output types can be derived
     // from the graph structure itself.
     Output(IOType),
@@ -281,7 +287,7 @@ impl Graph {
 
     pub fn get_input_iotypes(&self, nid: &NId) -> Vec<IOType> {
         match self.vertices.get(nid) {
-            Some(Node::Input(input_node)) => {
+            Some(Node::InputVariable(input_node)) => {
                 return vec![input_node.clone()];
             }
             None => {
@@ -371,7 +377,7 @@ impl Graph {
 
     /// Push a node of type [InputNode].
     pub fn push_input_node(&mut self, input: IOType) -> NId {
-        self.push_node(Node::Input(input))
+        self.push_node(Node::InputVariable(input))
     }
 
     /// Push a node of type [InnerNode].
@@ -381,6 +387,10 @@ impl Graph {
 
     pub fn push_output_node(&mut self, output_type: IOType) -> NId {
         self.push_node(Node::Output(output_type))
+    }
+
+    pub fn push_var_node(&mut self, variable_type: IOType) -> NId {
+        self.push_node(Node::Variable(variable_type))
     }
 
     /// Push a connection between two nodes. Connections represent combinator operations.
@@ -436,7 +446,7 @@ impl Graph {
     pub fn get_input_nodes(&self) -> Vec<NId> {
         let mut inputs: Vec<NId> = vec![];
         for (nid, node) in &self.vertices {
-            if let Node::Input(_) = node {
+            if let Node::InputVariable(_) = node {
                 inputs.push(*nid);
             }
         }
@@ -513,7 +523,7 @@ impl Graph {
 
             // Get the input type and convert inputs to inner nodes
             let other_input_type = match &other_input_node {
-                Node::Input(input_type) => {
+                Node::InputVariable(input_type) => {
                     self.override_node(other_input_nid, Node::Inner);
                     input_type.clone()
                 }
@@ -669,7 +679,7 @@ impl Graph {
         self.vertices
             .iter()
             .filter(|(_nid, node)| {
-                if let Node::Input(input_type) = node {
+                if let Node::InputVariable(input_type) = node {
                     !matches!(input_type, IOType::Constant(_))
                 } else {
                     false
@@ -692,18 +702,14 @@ impl Graph {
                 println!("Could not find vertex: {}", nid);
                 return;
             }
-            match node {
-                Node::Inner => {
-                    println!("\t\t{} : INNER : {:?}", nid, self.get_input_iotypes(nid))
-                }
-                Node::Input(_) => {
-                    println!("\t\t{} : INPUT : {:?}", nid, self.get_input_iotypes(nid))
-                }
-                Node::Output(_n) => {
-                    println!("\t\t{} : OUTPUT : {:?}", nid, self.get_input_iotypes(nid))
-                }
-                Node::None => println!("\t\t{} : NONE : {:?}", nid, self.get_input_iotypes(nid)),
-            }
+            let repr = match node {
+                Node::Inner => "INNER",
+                Node::InputVariable(_) => "INPUT_VAR",
+                Node::Variable(_) => "VAR",
+                Node::Output(_) => "OUTPUT",
+                Node::None => "NONE",
+            };
+            println!("\t\t{} : {} : {:?}", nid, repr, self.get_input_iotypes(nid))
         }
         println!("\n\tConnections:");
         for (from_nid, to_nid, conn) in self.iter_conns() {
