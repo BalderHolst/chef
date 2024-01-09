@@ -20,4 +20,5 @@ termion = "2.0.1"
 
 [dev-dependencies]
 prettydiff = "0.6.4"
+pretty_assertions = "1.4.0"
 proc_macros = { path = "./proc_macros" }

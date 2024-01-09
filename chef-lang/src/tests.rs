@@ -1,3 +1,5 @@
+use pretty_assertions::assert_eq;
+
 use crate::{
     compiler::graph::{Graph, IOType},
     simulator::{Item, Simulator},
