@@ -24,22 +24,22 @@ pub fn make_example_tests(_item: TokenStream) -> TokenStream {
         fn compile_example(file: &str, output_file: &str) {
             println!("Expected output file: {}", output_file);
             let file = std::path::PathBuf::from(file);
-            let expected_dot = fs::read_to_string(output_file).unwrap();
-            let text = Rc::new(SourceText::from_file(file.to_str().unwrap()).unwrap());
-            let opts = Rc::new(Opts::new_test());
-            let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
-            let ast = AST::from_source(text.clone(), bag.clone(), opts);
+            let expected_dot = std::fs::read_to_string(output_file).unwrap();
+            let text = std::rc::Rc::new(crate::text::SourceText::from_file(file.to_str().unwrap()).unwrap());
+            let opts = std::rc::Rc::new(crate::cli::Opts::new_test());
+            let bag = crate::diagnostics::DiagnosticsBag::new_ref(opts.clone(), text.clone());
+            let ast = crate::ast::AST::from_source(text.clone(), bag.clone(), opts);
             bag.borrow_mut().exit_if_errored();
-            let graph = compiler::compile(ast, bag.clone());
+            let graph = crate::compiler::compile(ast, bag.clone());
             bag.borrow_mut().exit_if_errored();
             let compiled_dot = graph.dot_repr() + "\n";
 
             // Fail test with fancy diff output
             if expected_dot != compiled_dot {
                 let diff = prettydiff::diff_chars(&expected_dot, &compiled_dot).set_highlight_whitespace(true);
-                cli::print_label("CODE");
+                crate::cli::print_label("CODE");
                 println!("{}\n", text.text());
-                cli::print_label("DIFF");
+                crate::cli::print_label("DIFF");
                 println!("{diff}\n");
                 panic!(
                       "Compiled dot is different from expected in \"{}\".",
@@ -85,13 +85,3 @@ pub fn make_example_tests(_item: TokenStream) -> TokenStream {
 
     stream
 }
-
-// #[test]
-// fn compile_examples() {
-//     let example_dir = "examples";
-//     for file in fs::read_dir(example_dir).unwrap() {
-//         let file = file.unwrap().path().to_str().unwrap().to_owned();
-//         println!("Compiling: \'{}\'... ", file);
-//         compile(Rc::new(Opts::new_test()), &CookOpts::from_files(vec![file]));
-//     }
-// }

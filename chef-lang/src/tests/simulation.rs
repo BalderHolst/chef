@@ -1,12 +1,18 @@
 use pretty_assertions::assert_eq;
 
-use crate::{
-    compiler::graph::{Graph, IOType},
-    simulator::{Item, Simulator},
-};
+use std::rc::Rc;
 
-use super::*;
-use std::fs;
+use crate::{
+    ast::AST,
+    cli::Opts,
+    compiler::{
+        self,
+        graph::{Graph, IOType},
+    },
+    diagnostics::DiagnosticsBag,
+    simulator::{Item, Simulator},
+    text::SourceText,
+};
 
 fn compile_source(source_text: SourceText) -> Graph {
     let text = Rc::new(source_text);
@@ -25,8 +31,6 @@ where
     let text = SourceText::from_str(code.as_str());
     compile_source(text)
 }
-
-proc_macros::make_example_tests!();
 
 #[test]
 fn simulate_arithmetic() {
@@ -77,30 +81,7 @@ block main() -> int(tank) {
     let outputs = sim.get_output();
 
     assert_eq!(
-        // TODO: remove `last` when banishing multiple outputs
-        vec![outputs.last().unwrap().clone()],
+        vec![outputs[0].clone()],
         vec![vec![Item::new(IOType::new_signal("tank"), 2)]]
     )
-}
-
-#[test]
-fn report_incorrect_block_arguments() {
-    let code = Rc::new(SourceText::from_str(
-        "
-    block other(a: int, b: int) -> int {
-        a + b
-    }
-
-    block main() -> int(tank) {
-        var: int = 5;
-        other(var)
-    }
-",
-    ));
-
-    let opts = Rc::new(Opts::new_test());
-    let bag = DiagnosticsBag::new_ref(opts.clone(), code.clone());
-    AST::from_source(code, bag.clone(), opts);
-    bag.borrow().print();
-    assert_eq!(bag.borrow().error_count(), 1);
 }
