@@ -246,47 +246,16 @@ impl Display for Connection {
 #[derive(Clone, Debug)]
 pub enum Node {
     Inner,
-    Input(InputNode),
+    Input(IOType),
 
     // TODO: This can probably be removed, as output nodes and their output types can be derived
     // from the graph structure itself.
-    Output(OutputNode),
+    Output(IOType),
 
     // A `None` is used when reperesenting a constant combinator. As the graph reperesents all
     // combinators as connections, the constant combinator must also be. The constant combinator
     // does however not take any input, therefore its input is connected to a `None` node.
     None,
-}
-
-#[derive(Clone, Debug)]
-pub struct OutputNode {
-    pub output_type: IOType,
-}
-
-impl OutputNode {
-    pub fn new(output_type: IOType) -> Self {
-        Self { output_type }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct InputNode {
-    pub input: IOType,
-}
-
-impl InputNode {
-    pub fn new(input: IOType) -> Self {
-        Self { input }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct InnerNode {}
-
-impl InnerNode {
-    pub fn new() -> Self {
-        Self {}
-    }
 }
 
 /// Index of a node in a [Graph].
@@ -313,7 +282,7 @@ impl Graph {
     pub fn get_input_iotypes(&self, nid: &NId) -> Vec<IOType> {
         match self.vertices.get(nid) {
             Some(Node::Input(input_node)) => {
-                return vec![input_node.input.clone()];
+                return vec![input_node.clone()];
             }
             None => {
                 return vec![];
@@ -402,7 +371,7 @@ impl Graph {
 
     /// Push a node of type [InputNode].
     pub fn push_input_node(&mut self, input: IOType) -> NId {
-        self.push_node(Node::Input(InputNode::new(input)))
+        self.push_node(Node::Input(input))
     }
 
     /// Push a node of type [InnerNode].
@@ -411,7 +380,7 @@ impl Graph {
     }
 
     pub fn push_output_node(&mut self, output_type: IOType) -> NId {
-        self.push_node(Node::Output(OutputNode::new(output_type)))
+        self.push_node(Node::Output(output_type))
     }
 
     /// Push a connection between two nodes. Connections represent combinator operations.
@@ -513,8 +482,8 @@ impl Graph {
             nid_converter.insert(old_nid, new_nid);
 
             // Note this node as output
-            if let Node::Output(output_node) = node {
-                other_graph_outputs.insert(new_nid, output_node.output_type);
+            if let Node::Output(output_type) = node {
+                other_graph_outputs.insert(new_nid, output_type);
             }
         }
 
@@ -544,9 +513,9 @@ impl Graph {
 
             // Get the input type and convert inputs to inner nodes
             let other_input_type = match &other_input_node {
-                Node::Input(n) => {
+                Node::Input(input_type) => {
                     self.override_node(other_input_nid, Node::Inner);
-                    n.input.clone()
+                    input_type.clone()
                 }
                 _ => panic!("There should only be input nodes here..."),
             };
@@ -700,8 +669,8 @@ impl Graph {
         self.vertices
             .iter()
             .filter(|(_nid, node)| {
-                if let Node::Input(n) = node {
-                    !matches!(n.input, IOType::Constant(_))
+                if let Node::Input(input_type) = node {
+                    !matches!(input_type, IOType::Constant(_))
                 } else {
                     false
                 }

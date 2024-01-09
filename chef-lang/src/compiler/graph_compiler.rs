@@ -171,9 +171,7 @@ impl GraphCompiler {
             Node::Inner => {
                 // Connect expr output to var_vid and convert iotype.
                 let expr_out_type = graph.get_single_input(&expr_out_vid).unwrap();
-                let var_node_vid = graph.push_node(Node::Output(OutputNode {
-                    output_type: var_type.clone(),
-                }));
+                let var_node_vid = graph.push_node(Node::Output(var_type.clone()));
                 graph.push_connection(
                     expr_out_vid,
                     var_node_vid,
@@ -184,23 +182,26 @@ impl GraphCompiler {
                 );
                 var_node_vid
             }
-            Node::Input(n) => {
+            Node::Input(output_type) => {
                 // Make var node and connect the input to it.
-                let var_node_vid = graph.push_node(Node::Output(OutputNode::new(var_type.clone())));
-                graph.push_connection(
-                    expr_out_vid,
-                    var_node_vid,
-                    Connection::Arithmetic(ArithmeticConnection::new_convert(n.input, var_type)),
-                );
-                var_node_vid
-            }
-            Node::Output(n) => {
-                let var_node_vid = graph.push_node(Node::Output(OutputNode::new(var_type.clone())));
+                let var_node_vid = graph.push_node(Node::Output(var_type.clone()));
                 graph.push_connection(
                     expr_out_vid,
                     var_node_vid,
                     Connection::Arithmetic(ArithmeticConnection::new_convert(
-                        n.output_type,
+                        output_type,
+                        var_type,
+                    )),
+                );
+                var_node_vid
+            }
+            Node::Output(output_type) => {
+                let var_node_vid = graph.push_node(Node::Output(var_type.clone()));
+                graph.push_connection(
+                    expr_out_vid,
+                    var_node_vid,
+                    Connection::Arithmetic(ArithmeticConnection::new_convert(
+                        output_type,
                         var_type,
                     )),
                 );
@@ -312,8 +313,8 @@ impl GraphCompiler {
 
         // Get the signal type of the var node.
         let var_signal = match var_node {
-            Node::Input(var_output_node) => var_output_node.input,
-            Node::Output(o) => o.output_type,
+            Node::Input(input_type) => input_type,
+            Node::Output(output_type) => output_type,
             Node::Inner => panic!("Var nodes should be output or input nodes"),
             Node::None => panic!("Var nodes should be output or input nodes"),
         };
