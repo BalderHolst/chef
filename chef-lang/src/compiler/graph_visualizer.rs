@@ -9,7 +9,7 @@ pub fn create_dot(graph: &Graph) -> String {
 
     for (vid, node) in &graph.vertices {
         let color = match node {
-            super::graph::Node::Inner(_n) => "white",
+            super::graph::Node::Inner => "white",
             super::graph::Node::Input(_n) => "lightgreen",
             super::graph::Node::Output(_n) => "orange",
             super::graph::Node::None => "lightgray",

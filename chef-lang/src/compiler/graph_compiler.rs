@@ -168,7 +168,7 @@ impl GraphCompiler {
         // TODO: refactor
         // NOTICE: Var nodes should always be output nodes.
         let var_vid = match output_node {
-            Node::Inner(_n) => {
+            Node::Inner => {
                 // Connect expr output to var_vid and convert iotype.
                 let expr_out_type = graph.get_single_input(&expr_out_vid).unwrap();
                 let var_node_vid = graph.push_node(Node::Output(OutputNode {
@@ -314,7 +314,7 @@ impl GraphCompiler {
         let var_signal = match var_node {
             Node::Input(var_output_node) => var_output_node.input,
             Node::Output(o) => o.output_type,
-            Node::Inner(_) => panic!("Var nodes should be output or input nodes"),
+            Node::Inner => panic!("Var nodes should be output or input nodes"),
             Node::None => panic!("Var nodes should be output or input nodes"),
         };
 

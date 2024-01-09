@@ -245,7 +245,7 @@ impl Display for Connection {
 
 #[derive(Clone, Debug)]
 pub enum Node {
-    Inner(InnerNode),
+    Inner,
     Input(InputNode),
 
     // TODO: This can probably be removed, as output nodes and their output types can be derived
@@ -407,7 +407,7 @@ impl Graph {
 
     /// Push a node of type [InnerNode].
     pub fn push_inner_node(&mut self) -> NId {
-        self.push_node(Node::Inner(InnerNode::new()))
+        self.push_node(Node::Inner)
     }
 
     pub fn push_output_node(&mut self, output_type: IOType) -> NId {
@@ -509,7 +509,7 @@ impl Graph {
 
         // Copy nodes from the other graph and assign them new ids.
         for (old_nid, node) in other.vertices.clone() {
-            let new_nid = self.push_node(Node::Inner(InnerNode::new()));
+            let new_nid = self.push_node(Node::Inner);
             nid_converter.insert(old_nid, new_nid);
 
             // Note this node as output
@@ -545,7 +545,7 @@ impl Graph {
             // Get the input type and convert inputs to inner nodes
             let other_input_type = match &other_input_node {
                 Node::Input(n) => {
-                    self.override_node(other_input_nid, Node::Inner(InnerNode::new()));
+                    self.override_node(other_input_nid, Node::Inner);
                     n.input.clone()
                 }
                 _ => panic!("There should only be input nodes here..."),
@@ -568,7 +568,7 @@ impl Graph {
                     // This node is the transition point from this graph to the other graph, now
                     // stitched inside this one. The middle node contains signals of the type
                     // specified in the block arguments.
-                    let middle_node = self.push_node(Node::Inner(InnerNode::new()));
+                    let middle_node = self.push_node(Node::Inner);
 
                     self.push_connection(
                         *block_input_nid,
@@ -609,7 +609,7 @@ impl Graph {
 
             match self.vertices.get_mut(block_input_nid) {
                 Some(Node::Output(_)) => {
-                    self.override_node(*block_input_nid, Node::Inner(InnerNode::new()));
+                    self.override_node(*block_input_nid, Node::Inner);
                 }
                 _ => {}
             }
@@ -724,7 +724,7 @@ impl Graph {
                 return;
             }
             match node {
-                Node::Inner(_) => {
+                Node::Inner => {
                     println!("\t\t{} : INNER : {:?}", nid, self.get_input_iotypes(nid))
                 }
                 Node::Input(_) => {

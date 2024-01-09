@@ -32,7 +32,7 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
     for (vid, node) in &sim.graph.vertices {
         // Node color
         let color = match node {
-            Node::Inner(_) => "white",
+            Node::Inner => "white",
             Node::Input(_) => "lightgreen",
             Node::Output(_) => "orange",
             Node::None => "lightgray",
