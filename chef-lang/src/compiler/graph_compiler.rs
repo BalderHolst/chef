@@ -132,7 +132,7 @@ impl GraphCompiler {
                     if let VariableType::Counter((_, limit_expr)) = &var.type_ {
                         self.compile_expression(graph, limit_expr, None)?
                     } else {
-                        panic!("Counter assignment should be to counter variabls.")
+                        panic!("Counter assignment should be to counter variables.")
                     };
                 let var_nid = graph.push_var_node(var_type.clone());
 
@@ -161,67 +161,19 @@ impl GraphCompiler {
             }
         }
 
-        let (expr_out_vid, _) =
+        let (expr_out_vid, expr_out_type) =
             self.compile_expression(graph, &assignment.expression, Some(var_type.clone()))?;
-        let output_node = graph.get_node(&expr_out_vid).unwrap().clone();
 
-        // TODO: refactor
-        // NOTICE: Var nodes should always be `Variable` nodes.
-        let var_vid = match output_node {
-            Node::Inner => {
-                // Connect expr output to var_vid and convert iotype.
-                let expr_out_type = graph.get_single_input(&expr_out_vid).unwrap();
-                let var_node_vid = graph.push_node(Node::Variable(var_type.clone()));
-                graph.push_connection(
-                    expr_out_vid,
-                    var_node_vid,
-                    Connection::Arithmetic(ArithmeticConnection::new_convert(
-                        expr_out_type,
-                        var_type,
-                    )),
-                );
-                var_node_vid
-            }
-            Node::InputVariable(output_type) => {
-                // Make var node and connect the input to it.
-                let var_node_vid = graph.push_node(Node::Variable(var_type.clone()));
-                graph.push_connection(
-                    expr_out_vid,
-                    var_node_vid,
-                    Connection::Arithmetic(ArithmeticConnection::new_convert(
-                        output_type,
-                        var_type,
-                    )),
-                );
-                var_node_vid
-            }
-            Node::Variable(output_type) => {
-                let var_node_vid = graph.push_node(Node::Variable(var_type.clone()));
-                graph.push_connection(
-                    expr_out_vid,
-                    var_node_vid,
-                    Connection::Arithmetic(ArithmeticConnection::new_convert(
-                        output_type,
-                        var_type,
-                    )),
-                );
-                var_node_vid
-            }
-            Node::Output(output_type) => {
-                let var_node_vid = graph.push_node(Node::Variable(var_type.clone()));
-                graph.push_connection(
-                    expr_out_vid,
-                    var_node_vid,
-                    Connection::Arithmetic(ArithmeticConnection::new_convert(
-                        output_type,
-                        var_type,
-                    )),
-                );
-                var_node_vid
-            }
-            Node::None => panic!("Expressions should never output `None` nodes"),
-        };
-        self.add_to_scope(assignment.variable.name.clone(), var_vid);
+        let var_node_vid = graph.push_var_node(var_type.clone());
+
+        // Connect the output of the expression to the input of the variable
+        graph.push_connection(
+            expr_out_vid,
+            var_node_vid,
+            Connection::Arithmetic(ArithmeticConnection::new_convert(expr_out_type, var_type)),
+        );
+
+        self.add_to_scope(assignment.variable.name.clone(), var_node_vid);
         Ok(())
     }
 
