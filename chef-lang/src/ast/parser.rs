@@ -3,15 +3,15 @@
 use std::cmp::min;
 use std::rc::Rc;
 
-use crate::ast::lexer::{Token, TokenKind};
+use crate::ast::lexer::{self, Token, TokenKind};
 use crate::ast::{
     BinaryExpression, BinaryOperator, BinaryOperatorKind, Expression, ExpressionKind,
     IntExpression, Mutation, ParenthesizedExpression, Statement, StatementKind, Variable,
     VariableType,
 };
 use crate::cli::Opts;
-use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBagRef};
-use crate::text::TextSpan;
+use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
+use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
 use super::{
@@ -649,10 +649,23 @@ impl Parser {
     fn parse_import(&mut self) -> CompilationResult<Vec<CompoundStatement>> {
         self.consume(); // Consume "block" word
 
-        let file_token = self.consume();
+        let file_token = self.consume().clone();
 
         let res = if let TokenKind::Literal(file) = &file_token.kind {
-            todo!("Compile imported file: {}", file)
+            let text = match SourceText::from_file(file.as_str()) {
+                Ok(text) => Rc::new(text),
+                Err(e) => {
+                    return Err(CompilationError::new_localized(
+                        format!("Could not read imported file '{}': {}", file, e),
+                        file_token.span,
+                    ))
+                }
+            };
+            let diagnostics_bag = DiagnosticsBag::new_ref(self.options.clone(), text.clone());
+            let tokens = Lexer::from_source(diagnostics_bag.clone(), text).collect();
+            let import_parser = Parser::new(tokens, diagnostics_bag, self.options.clone());
+            let compound_statements = import_parser.collect();
+            Ok(compound_statements)
         } else {
             Err(CompilationError::new_unexpected_token(
                 file_token.clone(),
