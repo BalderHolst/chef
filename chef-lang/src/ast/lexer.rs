@@ -11,6 +11,7 @@ use crate::text::{SourceText, TextSpan};
 pub enum TokenKind {
     Number(u32),
     Word(String),
+    Literal(String),
     Plus,
     PlusEquals,
     Minus,
@@ -50,6 +51,7 @@ impl Display for TokenKind {
         let string_rep = match self {
             TokenKind::Number(_) => "number",
             TokenKind::Word(_) => "word",
+            TokenKind::Literal(_) => "literal",
             TokenKind::Plus => "+",
             TokenKind::PlusEquals => "+=",
             TokenKind::Minus => "-",
@@ -266,6 +268,21 @@ impl Lexer {
         };
         Some(kind)
     }
+
+    fn consume_literal(&mut self) -> TokenKind {
+        self.consume(); // Consume '"'
+
+        let mut text = String::new();
+
+        while let Some(c) = self.consume() {
+            if c == '"' {
+                break;
+            }
+            text.push(c)
+        }
+
+        TokenKind::Literal(text)
+    }
 }
 
 impl Iterator for Lexer {
@@ -289,6 +306,8 @@ impl Iterator for Lexer {
         let kind = if Self::is_number_start(current_char) {
             let n = self.consume_number()?;
             TokenKind::Number(n)
+        } else if current_char == '"' {
+            self.consume_literal()
         } else if Self::is_whitespace(current_char) {
             while let Some(c) = self.current() {
                 if !Self::is_whitespace(c) {
@@ -365,6 +384,29 @@ fn lex_string() {
         TokenKind::End,
     ];
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
+    let lexed_tokens: Vec<TokenKind> = lexer.map(|t| t.kind).collect();
+    assert_eq!(lexed_tokens, expected_tokens);
+}
+
+#[test]
+fn lex_literal() {
+    let c = r#"
+this is a "literal"
+        "#;
+
+    let expected_tokens = vec![
+        TokenKind::Whitespace,
+        TokenKind::Word("this".to_string()),
+        TokenKind::Whitespace,
+        TokenKind::Word("is".to_string()),
+        TokenKind::Whitespace,
+        TokenKind::Word("a".to_string()),
+        TokenKind::Whitespace,
+        TokenKind::Literal("literal".to_string()),
+        TokenKind::Whitespace,
+        TokenKind::End,
+    ];
+    let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(c);
     let lexed_tokens: Vec<TokenKind> = lexer.map(|t| t.kind).collect();
     assert_eq!(lexed_tokens, expected_tokens);
 }
