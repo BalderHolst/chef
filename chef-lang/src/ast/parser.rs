@@ -156,6 +156,10 @@ impl Parser {
     }
 
     fn next_compound_statement(&mut self) -> Option<CompoundStatement> {
+        if self.current().is_end() {
+            return None;
+        }
+
         if self.options.verbose {
             println!("New compound statement!");
         }

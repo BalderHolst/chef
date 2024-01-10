@@ -100,6 +100,13 @@ impl Token {
     fn new(kind: TokenKind, span: TextSpan) -> Self {
         Self { kind, span }
     }
+
+    pub(crate) fn is_end(&self) -> bool {
+        match self.kind {
+            TokenKind::End => true,
+            _ => false,
+        }
+    }
 }
 
 /// The lexer. Tokens can be extracting by iterating over it.
