@@ -72,6 +72,13 @@ impl Diagnostic {
             },
         }
     }
+
+    pub(crate) fn message(&self) -> &String {
+        match self {
+            Diagnostic::General { message } => message,
+            Diagnostic::Localized { message, span: _ } => message,
+        }
+    }
 }
 
 /// A bag holding all the diagnostics with utility functions for reporting and printing errors.

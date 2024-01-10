@@ -1,9 +1,0 @@
-// Import other file 
-import "./examples/imported.rcp";
-
-block main() -> int(signal-B) {
-
-    // Call function from 'imported.rcp'
-    imported_function()
-
-}

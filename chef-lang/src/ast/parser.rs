@@ -210,7 +210,8 @@ impl Parser {
     }
 
     /// Parse next statement. Return `None` of none are left.
-    fn next_statement(&mut self) -> Option<Statement> {
+    // TODO: Simplify type if possible
+    fn parse_statement(&mut self) -> Option<CompilationResult<Statement>> {
         if self.options.verbose {
             println!("New statement!");
         }
@@ -257,36 +258,31 @@ impl Parser {
                             Ok(expr) => Ok(StatementKind::Expression(expr)),
                         }
                     }
-                    _ => {
-                        if self.is_at_assignment_statment() {
-                            self.parse_assignment_statement()
-                        } else if self.is_at_mutation_statment() {
-                            self.parse_mutation_statement()
-                        } else {
-                            match self.parse_expression() {
-                                Ok(expr) => Ok(StatementKind::Out(expr)),
-                                Err(e) => Err(e),
-                            }
-                        }
-                    }
+                    _ if self.is_at_assignment_statment() => self.parse_assignment_statement(),
+                    _ if self.is_at_mutation_statment() => self.parse_mutation_statement(),
+                    _ => match self.parse_expression() {
+                        Ok(expr) => Ok(StatementKind::Out(expr)),
+                        Err(e) => Err(e),
+                    },
                 };
                 let kind = match kind {
                     Ok(k) => k,
                     Err(e) => {
+                        self.consume_bad_statement();
                         self.diagnostics_bag
                             .borrow_mut()
                             .report_compilation_error(e);
                         return None;
                     }
                 };
-                Some(Statement::new(
+                Some(Ok(Statement::new(
                     kind,
                     TextSpan::new(
                         start_token.span.start,
                         self.peak(-1).span.end,
                         start_token.span.text.clone(),
                     ),
-                ))
+                )))
             }
             TokenKind::End => None,
             TokenKind::RightCurly => None,
@@ -301,10 +297,10 @@ impl Parser {
                         return None;
                     }
                 };
-                Some(Statement::new(
+                Some(Ok(Statement::new(
                     StatementKind::Out(out_expr),
                     self.get_span_from(&start_token.span),
-                ))
+                )))
             }
         }
     }
@@ -629,10 +625,11 @@ impl Parser {
         self.consume_and_check(TokenKind::LeftCurly)?;
 
         let mut statements: Vec<Statement> = vec![];
-        while let Some(statement) = self.next_statement() {
-            statements.push(statement);
+        while let Some(statement) = self.parse_statement() {
+            statements.push(statement?)
         }
 
+        // Make sure output statements are last
         if !statements.is_empty() {
             for statement in &statements[..statements.len() - 1] {
                 if let StatementKind::Out(_) = statement.kind {

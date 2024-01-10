@@ -19,7 +19,7 @@ mod visitors;
 
 /// A chunk of code, that holds statements or other compound statements.
 // TODO: This may not be the correct term for it but i don't care right now...
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum CompoundStatement {
     Block(Block),
     Import(Vec<CompoundStatement>),

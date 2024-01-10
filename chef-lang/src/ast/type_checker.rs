@@ -130,12 +130,23 @@ impl Visitor for TypeChecker {
             }
         }
 
-        if let Some(s) = block.output_type.signal() {
-            self.report_if_invalid_signal(s.as_str(), &block.span)
+        if let Some(output_signal) = block.output_type.signal() {
+            // Make sure output signal is a valid factorio signal
+            self.report_if_invalid_signal(output_signal.as_str(), &block.span);
         }
 
-        if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &block.output_type {
-            self.report_if_invalid_signal(signal, &block.span);
+        let block_return_type = block.output_type.return_type();
+        let block_out_expr_type = block.output.return_type();
+        if block_out_expr_type != block_return_type {
+            self.diagnostics_bag.borrow_mut()
+                .report_error(
+                    &block.output.span,
+                    &format!(
+                        "Block output expression type '{}' does not correspond to defined block output type '{}'.",
+                        block_out_expr_type,
+                        block_return_type
+                        )
+                    )
         }
 
         self.do_visit_block(block);
@@ -145,23 +156,56 @@ impl Visitor for TypeChecker {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn check_return_types() {
+        let (_, bag) = AST::from_str(
+            "
+            block main() -> bool {
+                10
+            }
+            ",
+        );
+        let m_bag = bag.borrow_mut();
+        m_bag.print();
+        assert_eq!(m_bag.error_count(), 1);
+        let message = format!("{:?}", m_bag.diagnostics()[0].message());
+        dbg!(&message);
+        assert_eq!(message,"\"Block output expression type 'int' does not correspond to defined block output type 'bool'.\"");
+    }
 
     #[test]
     fn check_assignment_types() {
-        let (_, bag) = AST::from_str("a:int = false;");
+        let (_, bag) = AST::from_str(
+            "
+            block main() -> bool {
+                a: int = false;
+                a
+            }
+            ",
+        );
         let m_bag = bag.borrow_mut();
-        assert_eq!(m_bag.error_count(), 1);
-        let message = &format!("{:?}", m_bag.diagnostics()[0]);
         m_bag.print();
-        assert_eq!(message, "Localized { message: \"Can not assign variable `a` of type `Int(Any)` to expression returning `bool` type.\", span: TextSpan { start: 0, end: 13, text: SourceText { file: None, text: \"a:int = false;\", lines: [0] } } }");
+        assert_eq!(m_bag.error_count(), 2);
+        let message = &format!("{:?}", m_bag.diagnostics()[1]);
+        assert_eq!(message, "Localized { message: \"Expected `}` but found `word`.\", span: TextSpan { start: 84, end: 85, text: SourceText { file: None, text: \"\\n            block main() -> bool {\\n                a: int = false;\\n                a\\n            }\\n            \", lines: [0, 0, 1, 36, 68, 86, 100] } } }");
     }
 
     #[test]
     fn check_expression_types() {
-        let (_, bag) = AST::from_str("b:int = 5 + false * 10;");
+        let (_, bag) = AST::from_str(
+            "
+        block main() -> int {
+            b: int = 5 + false * 10;
+            b
+        }
+        ",
+        );
         let m_bag = bag.borrow_mut();
+        m_bag.print();
         assert!(m_bag.error_count() == 1);
         let message = &format!("{:?}", m_bag.diagnostics()[0]);
-        assert_eq!(message, "Localized { message: \"Left side of expression must be `int` not `bool`.\", span: TextSpan { start: 12, end: 22, text: SourceText { file: None, text: \"b:int = 5 + false * 10;\", lines: [0] } } }");
+        assert_eq!(message,"Localized { message: \"Left side of expression must be `int` not `bool`.\", span: TextSpan { start: 56, end: 66, text: SourceText { file: None, text: \"\\n        block main() -> int {\\n            b: int = 5 + false * 10;\\n            b\\n        }\\n        \", lines: [0, 0, 1, 31, 68, 82, 92] } } }");
     }
 }
