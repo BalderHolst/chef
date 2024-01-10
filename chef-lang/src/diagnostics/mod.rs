@@ -11,6 +11,8 @@ use crate::the_chef;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+pub type CompilationResult<T> = std::result::Result<T, CompilationError>;
+
 #[derive(Debug, Clone)]
 pub struct CompilationError {
     pub desctiption: String,

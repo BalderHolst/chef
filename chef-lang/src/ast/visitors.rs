@@ -6,9 +6,9 @@
 // even solve this. Suggestions very welcome!
 
 use super::{
-    Assignment, BinaryExpression, Block, BlockLinkExpression, Expression, ExpressionKind,
-    IntExpression, Mutation, ParenthesizedExpression, PickExpression, Statement, StatementKind,
-    VariableRef, WhenExpression,
+    Assignment, BinaryExpression, Block, BlockLinkExpression, CompoundStatement, Expression,
+    ExpressionKind, IntExpression, Mutation, ParenthesizedExpression, PickExpression, Statement,
+    StatementKind, VariableRef, WhenExpression,
 };
 
 // For documentation references
@@ -17,13 +17,22 @@ use super::AST;
 
 /// Trait allowing for traversal of an immutable [AST].
 pub trait Visitor {
+    fn do_visit_compound_statement(&mut self, compound_statement: &CompoundStatement) {
+        match compound_statement {
+            CompoundStatement::Block(block) => self.visit_block(block),
+            CompoundStatement::Import(compound_statements) => {
+                for compound_statement in compound_statements {
+                    self.visit_compound_statement(compound_statement)
+                }
+            }
+            CompoundStatement::Unknown => {}
+        }
+    }
+
     fn do_visit_statement(&mut self, statement: &Statement) {
         match &statement.kind {
             StatementKind::Expression(expr) => {
                 self.visit_expression_statement(expr);
-            }
-            StatementKind::Block(block) => {
-                self.visit_block(block);
             }
             StatementKind::Out(expr) => {
                 self.visit_out(expr);
@@ -86,6 +95,10 @@ pub trait Visitor {
     fn do_visit_mutation(&mut self, mutation: &Mutation) {
         self.visit_variable_ref(&mutation.var_ref);
         self.visit_expression(&mutation.expression);
+    }
+
+    fn visit_compound_statement(&mut self, compound_statement: &CompoundStatement) {
+        self.do_visit_compound_statement(compound_statement);
     }
 
     fn visit_statement(&mut self, statement: &Statement) {
@@ -151,13 +164,22 @@ pub trait Visitor {
 
 /// Trait allowing for traversal of a mutable [AST].
 pub trait MutVisitor {
+    fn do_visit_compound_statement(&mut self, compound_statement: &mut CompoundStatement) {
+        match compound_statement {
+            CompoundStatement::Block(block) => self.visit_block(block),
+            CompoundStatement::Import(compound_statements) => {
+                for compound_statement in compound_statements {
+                    self.visit_compound_statement(compound_statement)
+                }
+            }
+            CompoundStatement::Unknown => {}
+        }
+    }
+
     fn do_visit_statement(&mut self, statement: &mut Statement) {
         match &mut statement.kind {
             StatementKind::Expression(expr) => {
                 self.visit_expression_statement(expr);
-            }
-            StatementKind::Block(block) => {
-                self.visit_block(block);
             }
             StatementKind::Out(expr) => {
                 self.visit_out(expr);
@@ -220,6 +242,10 @@ pub trait MutVisitor {
     fn do_visit_mutation(&mut self, mutation: &mut Mutation) {
         self.visit_variable_ref(&mutation.var_ref);
         self.visit_expression(&mut mutation.expression);
+    }
+
+    fn visit_compound_statement(&mut self, compound_statement: &mut CompoundStatement) {
+        self.do_visit_compound_statement(compound_statement);
     }
 
     fn visit_statement(&mut self, statement: &mut Statement) {

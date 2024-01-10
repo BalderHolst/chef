@@ -5,7 +5,7 @@ use crate::ast::{
     Expression, ExpressionKind, Mutation, PickExpression, VariableRef, VariableSignalType,
     WhenExpression, AST,
 };
-use crate::ast::{Statement, StatementKind, VariableType};
+use crate::ast::{CompoundStatement, Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
 use crate::diagnostics::{CompilationError, DiagnosticsBagRef};
 
@@ -29,13 +29,13 @@ impl GraphCompiler {
     }
 
     pub fn compile(&mut self) -> Result<Graph, CompilationError> {
-        for statement in self.ast.statements.clone() {
-            match &statement.kind {
-                StatementKind::Block(block) => {
-                    let block_graph = self.compile_block(block)?;
+        for compound_statement in self.ast.compound_statements.clone() {
+            match compound_statement {
+                CompoundStatement::Block(block) => {
+                    let block_graph = self.compile_block(&block)?;
                     self.add_block_graph(block.name.clone(), block_graph);
                 }
-                _ => todo!("Only block statements implemented for now."),
+                _ => panic!("Inknown compound statements should have been caught by the parser."),
             }
         }
         self.get_graph()
@@ -75,12 +75,6 @@ impl GraphCompiler {
         gate: Option<(NId, IOType)>,
     ) -> Result<(), CompilationError> {
         match statement.kind.clone() {
-            StatementKind::Block(_) => {
-                self.diagnostics_bag.borrow_mut().report_error(
-                    &statement.span,
-                    "A `block` cannot be defined within another block.",
-                );
-            }
             StatementKind::Expression(expr) => {
                 self.compile_expression(graph, &expr, None)?;
             }
@@ -508,7 +502,7 @@ impl GraphCompiler {
     pub fn get_graph(&self) -> Result<Graph, CompilationError> {
         match self.block_graphs.get("main") {
             Some(g) => Ok(g.clone()),
-            None => match self.ast.statements.is_empty() {
+            None => match self.ast.compound_statements.is_empty() {
                 true => Err(CompilationError::new_generic("No statements in program.")),
                 false => Err(CompilationError::new_generic(
                     "No `main` block found. All chef programs must have a `main` block.",

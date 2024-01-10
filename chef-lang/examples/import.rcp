@@ -1,5 +1,5 @@
 // Import other file 
-#import "./imported.rcp";
+import "./imported.rcp";
 
 block main() -> int(signal-B) {
 

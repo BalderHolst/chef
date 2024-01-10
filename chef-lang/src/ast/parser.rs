@@ -5,18 +5,18 @@ use std::rc::Rc;
 
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
-    BinaryExpression, BinaryOperator, BinaryOperatorKind, Block, Expression, ExpressionKind,
+    BinaryExpression, BinaryOperator, BinaryOperatorKind, Expression, ExpressionKind,
     IntExpression, Mutation, ParenthesizedExpression, Statement, StatementKind, Variable,
     VariableType,
 };
 use crate::cli::Opts;
-use crate::diagnostics::{CompilationError, DiagnosticsBagRef};
+use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBagRef};
 use crate::text::TextSpan;
 
 use super::lexer::Lexer;
 use super::{
-    Assignment, AssignmentKind, BlockLinkExpression, MutationOperator, PickExpression, VariableRef,
-    VariableSignalType, WhenExpression,
+    Assignment, AssignmentKind, Block, BlockLinkExpression, CompoundStatement, MutationOperator,
+    PickExpression, VariableRef, VariableSignalType, WhenExpression,
 };
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
@@ -155,6 +155,56 @@ impl Parser {
         self.scopes.last_mut().unwrap().push(var);
     }
 
+    fn next_compound_statement(&mut self) -> Option<CompoundStatement> {
+        if self.options.verbose {
+            println!("New compound statement!");
+        }
+
+        let compound_statement = self.parse_compound_statement();
+
+        match compound_statement {
+            Ok(k) => Some(k),
+            Err(e) => {
+                self.diagnostics_bag
+                    .borrow_mut()
+                    .report_compilation_error(e);
+                None
+            }
+        }
+    }
+
+    fn parse_compound_statement(&mut self) -> CompilationResult<CompoundStatement> {
+        let start_token = self.current().clone();
+        match &start_token.kind {
+            TokenKind::Word(word) => match word.as_str() {
+                "block" => {
+                    let block = self.parse_block()?;
+                    self.blocks.push(Rc::new(block.clone()));
+                    Ok(CompoundStatement::Block(block))
+                }
+                "import" => {
+                    let compound_statements = self.parse_import()?;
+                    Ok(CompoundStatement::Import(compound_statements))
+                }
+                _ => {
+                    let token = self.consume();
+                    Err(CompilationError::new_localized(
+                        format!("Unknown keyword '{}'.", word),
+                        token.span.clone(),
+                    ))
+                }
+            },
+            _ => {
+                self.diagnostics_bag.borrow_mut().report_error(
+                    &start_token.span,
+                    &format!("Unknown keyword '{}'", start_token.kind),
+                );
+                self.consume();
+                Ok(CompoundStatement::Unknown)
+            }
+        }
+    }
+
     /// Parse next statement. Return `None` of none are left.
     fn next_statement(&mut self) -> Option<Statement> {
         if self.options.verbose {
@@ -164,18 +214,6 @@ impl Parser {
         match &start_token.kind {
             TokenKind::Word(word) => {
                 let kind = match word.as_str() {
-                    "block" => match self.parse_block() {
-                        Ok(block) => {
-                            self.blocks.push(Rc::new(block.clone()));
-                            Ok(StatementKind::Block(block))
-                        }
-                        Err(e) => {
-                            self.diagnostics_bag
-                                .borrow_mut()
-                                .report_compilation_error(e);
-                            return None;
-                        }
-                    },
                     "out" => {
                         self.consume();
                         let statement_start = self.current().span.start;
@@ -607,8 +645,28 @@ impl Parser {
         Ok(statements)
     }
 
+    /// Parse chef `import`
+    fn parse_import(&mut self) -> CompilationResult<Vec<CompoundStatement>> {
+        self.consume(); // Consume "block" word
+
+        let file_token = self.consume();
+
+        let res = if let TokenKind::Literal(file) = &file_token.kind {
+            todo!("Compile imported file: {}", file)
+        } else {
+            Err(CompilationError::new_unexpected_token(
+                file_token.clone(),
+                TokenKind::Literal("path".to_string()),
+            ))
+        }?;
+
+        self.consume_and_check(TokenKind::Semicolon)?;
+
+        Ok(res)
+    }
+
     /// Parse chef `block`.
-    fn parse_block(&mut self) -> Result<Block, CompilationError> {
+    fn parse_block(&mut self) -> CompilationResult<Block> {
         let start_token = self.consume().clone(); // Consume "block" word
         debug_assert_eq!(start_token.kind, TokenKind::Word("block".to_string()));
 
@@ -909,9 +967,9 @@ impl Parser {
 }
 
 impl Iterator for Parser {
-    type Item = Statement;
+    type Item = CompoundStatement;
     fn next(&mut self) -> Option<Self::Item> {
-        self.next_statement()
+        self.next_compound_statement()
     }
 }
 

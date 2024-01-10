@@ -17,10 +17,51 @@ pub mod parser;
 mod type_checker;
 mod visitors;
 
+/// A chunk of code, that holds statements or other compound statements.
+// TODO: This may not be the correct term for it but i don't care right now...
+#[derive(Clone)]
+pub enum CompoundStatement {
+    Block(Block),
+    Import(Vec<CompoundStatement>),
+    Unknown,
+}
+
+/// [AST] representation of chef `block`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Block {
+    pub name: String,
+    pub inputs: Vec<Rc<Variable>>,
+    pub output_type: VariableType,
+    pub statements: Vec<Statement>,
+    pub output: Expression,
+    pub span: TextSpan,
+}
+
+impl Block {
+    /// Instantiate a new [Block].
+    fn new(
+        name: String,
+        inputs: Vec<Rc<Variable>>,
+        output_type: VariableType,
+        statements: Vec<Statement>,
+        output: Expression,
+        span: TextSpan,
+    ) -> Self {
+        Self {
+            name,
+            inputs,
+            output_type,
+            statements,
+            output,
+            span,
+        }
+    }
+}
+
 /// The abstract syntax tree.
 #[allow(clippy::upper_case_acronyms)]
 pub struct AST {
-    pub statements: Vec<Statement>,
+    pub compound_statements: Vec<CompoundStatement>,
     diagnostics_bag: DiagnosticsBagRef,
 }
 
@@ -28,7 +69,7 @@ impl AST {
     /// Instantiate a new [AST].
     pub fn new(diagnostics_bag: DiagnosticsBagRef) -> Self {
         Self {
-            statements: vec![],
+            compound_statements: vec![],
             diagnostics_bag,
         }
     }
@@ -45,7 +86,7 @@ impl AST {
         let parser = Parser::new(tokens, diagnostics_bag.clone(), opts);
         let mut ast = AST::new(diagnostics_bag);
         for statement in parser {
-            ast.add_statement(statement);
+            ast.add_compound_statement(statement);
         }
 
         // Check types first to make sure that bool constants are evaluated as int constants and
@@ -56,15 +97,15 @@ impl AST {
     }
 
     /// Add a statement to the [AST].
-    pub fn add_statement(&mut self, statement: Statement) {
-        self.statements.push(statement);
+    pub fn add_compound_statement(&mut self, compound_statement: CompoundStatement) {
+        self.compound_statements.push(compound_statement);
     }
 
     /// Print the [AST] to stout.
     pub fn print(&self) {
         let mut printer = Printer::new();
-        for statement in &self.statements {
-            printer.visit_statement(statement);
+        for compound_statement in &self.compound_statements {
+            printer.visit_compound_statement(compound_statement);
         }
     }
 
@@ -117,7 +158,6 @@ pub enum StatementKind {
     Expression(Expression),
     Assignment(Assignment),
     Mutation(Mutation),
-    Block(Block),
     Out(Expression),
     Error,
 }
@@ -255,38 +295,6 @@ impl Mutation {
             var_ref: variable,
             expression,
             operator,
-        }
-    }
-}
-
-/// [AST] representation of chef `block`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Block {
-    pub name: String,
-    pub inputs: Vec<Rc<Variable>>,
-    pub output_type: VariableType,
-    pub statements: Vec<Statement>,
-    pub output: Expression,
-    pub span: TextSpan,
-}
-
-impl Block {
-    /// Instantiate a new [Block].
-    fn new(
-        name: String,
-        inputs: Vec<Rc<Variable>>,
-        output_type: VariableType,
-        statements: Vec<Statement>,
-        output: Expression,
-        span: TextSpan,
-    ) -> Self {
-        Self {
-            name,
-            inputs,
-            output_type,
-            statements,
-            output,
-            span,
         }
     }
 }
@@ -649,6 +657,13 @@ impl Display for Variable {
 }
 
 impl Visitor for Printer {
+    fn visit_compound_statement(&mut self, compound_statement: &CompoundStatement) {
+        self.print("Statement:");
+        self.indent();
+        self.do_visit_compound_statement(compound_statement);
+        self.unindent();
+    }
+
     fn visit_statement(&mut self, statement: &Statement) {
         self.print("Statement:");
         self.indent();

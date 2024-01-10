@@ -22,8 +22,8 @@ impl ConstantEvaluator {
         // Run the evaluator through the tree until is cannot evaluate any more.
         loop {
             self.did_work = false;
-            for statement in &mut ast.statements.iter_mut() {
-                self.visit_statement(statement);
+            for compound_statement in &mut ast.compound_statements.iter_mut() {
+                self.visit_compound_statement(compound_statement);
             }
             if !self.did_work {
                 break;
