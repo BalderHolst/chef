@@ -1,7 +1,7 @@
 //! Module for compiling abstract syntax trees to a graph. The graph contains information about
 //! how factorio combinators should be connected, and what operations they should do.
 
-use crate::{ast::AST, diagnostics::DiagnosticsBagRef};
+use crate::ast::AST;
 
 use self::{graph::Graph, graph_compiler::GraphCompiler, graph_optimizer::GraphOptimizer};
 
@@ -11,14 +11,11 @@ mod graph_optimizer;
 pub mod graph_visualizer;
 
 /// Compile and abstract syntax tree in to a graph and report errors.
-pub fn compile(ast: AST, diagnostics_bag: DiagnosticsBagRef) -> Graph {
-    let mut graph_compiler = GraphCompiler::new(ast, diagnostics_bag.clone());
+pub fn compile(ast: AST) -> Graph {
+    let mut graph_compiler = GraphCompiler::new(ast);
     let mut graph = match graph_compiler.compile() {
         Ok(g) => g,
-        Err(e) => {
-            diagnostics_bag.borrow_mut().report_compilation_error(e);
-            Graph::new()
-        }
+        Err(e) => panic!("{e:?}"),
     };
     let mut graph_optimizer = GraphOptimizer::new(&mut graph);
     graph_optimizer.optimize();

@@ -102,10 +102,7 @@ impl Token {
     }
 
     pub(crate) fn is_end(&self) -> bool {
-        match self.kind {
-            TokenKind::End => true,
-            _ => false,
-        }
+        matches!(self.kind, TokenKind::End)
     }
 }
 

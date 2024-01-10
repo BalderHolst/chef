@@ -38,7 +38,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
 
     diagnostics_bag.borrow().exit_if_errored();
 
-    let graph = compiler::compile(ast, diagnostics_bag.clone());
+    let graph = compiler::compile(ast);
 
     diagnostics_bag.borrow().exit_if_errored();
 
@@ -84,7 +84,7 @@ fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) {
 
     diagnostics_bag.borrow().exit_if_errored();
 
-    let graph = compiler::compile(ast, diagnostics_bag.clone());
+    let graph = compiler::compile(ast);
 
     diagnostics_bag.borrow().exit_if_errored();
 

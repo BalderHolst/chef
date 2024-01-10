@@ -20,7 +20,7 @@ fn compile_source(source_text: SourceText) -> Graph {
     let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
     let ast = AST::from_source(text.clone(), bag.clone(), opts);
     bag.borrow_mut().exit_if_errored();
-    compiler::compile(ast, bag.clone())
+    compiler::compile(ast)
 }
 
 fn compile_code<S>(code: S) -> Graph

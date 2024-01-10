@@ -73,6 +73,7 @@ impl Diagnostic {
         }
     }
 
+    #[allow(unused)]
     pub(crate) fn message(&self) -> &String {
         match self {
             Diagnostic::General { message } => message,

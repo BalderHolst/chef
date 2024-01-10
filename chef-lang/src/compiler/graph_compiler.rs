@@ -7,21 +7,19 @@ use crate::ast::{
 };
 use crate::ast::{CompoundStatement, Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
-use crate::diagnostics::{CompilationError, DiagnosticsBagRef};
+use crate::diagnostics::CompilationError;
 
 pub struct GraphCompiler {
     ast: AST,
     next_anysignal: u64,
     block_graphs: HashMap<String, Graph>,
     scopes: Vec<HashMap<String, NId>>,
-    diagnostics_bag: DiagnosticsBagRef,
 }
 
 impl GraphCompiler {
-    pub fn new(ast: AST, diagnostics_bag: DiagnosticsBagRef) -> Self {
+    pub fn new(ast: AST) -> Self {
         Self {
             ast,
-            diagnostics_bag,
             next_anysignal: 0,
             block_graphs: HashMap::new(),
             scopes: vec![HashMap::new()],

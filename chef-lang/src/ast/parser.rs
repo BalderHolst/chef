@@ -3,7 +3,7 @@
 use std::cmp::min;
 use std::rc::Rc;
 
-use crate::ast::lexer::{self, Token, TokenKind};
+use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
     BinaryExpression, BinaryOperator, BinaryOperatorKind, Expression, ExpressionKind,
     IntExpression, Mutation, ParenthesizedExpression, Statement, StatementKind, Variable,
