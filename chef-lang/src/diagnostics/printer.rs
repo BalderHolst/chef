@@ -116,13 +116,7 @@ impl<'a> DiagnosticsPrinter<'a> {
 
         let location = match span.text.file() {
             Some(file) => format!("{}:{}:{}\t", file, line_nr + 1, line_pos + 1),
-            None => format!(
-                "{}[E]{} {}:{}\t",
-                Fg(color::Red),
-                Fg(color::Reset),
-                line_nr + 1,
-                line_pos + 1
-            ),
+            None => format!("{}:{}\t", line_nr + 1, line_pos + 1),
         };
 
         let message = format!("{}{}{}", Fg(color::Blue), message, Fg(color::Reset));
