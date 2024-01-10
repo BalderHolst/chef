@@ -310,31 +310,34 @@ impl Iterator for Lexer {
             return None;
         };
 
-        let kind = if Self::is_number_start(current_char) {
-            let n = self.consume_number()?;
-            TokenKind::Number(n)
-        } else if current_char == '"' {
-            self.consume_literal()
-        } else if Self::is_whitespace(current_char) {
-            while let Some(c) = self.current() {
-                if !Self::is_whitespace(c) {
-                    break;
+        let kind = match current_char {
+            '"' => self.consume_literal(),
+            c if Self::is_number_start(c) => {
+                let n = self.consume_number()?;
+                TokenKind::Number(n)
+            }
+            c if Self::is_whitespace(c) => {
+                while let Some(c) = self.current() {
+                    if !Self::is_whitespace(c) {
+                        break;
+                    }
+                    self.consume().unwrap();
                 }
-                self.consume().unwrap();
+                TokenKind::Whitespace
             }
-            TokenKind::Whitespace
-        } else if Self::is_word_char(current_char) && current_char != '-' {
-            let mut word = "".to_string();
-            while self.current().is_some() && Self::is_word_char(self.current().unwrap()) {
-                word += self.consume().unwrap().to_string().as_str();
+            c if Self::is_word_char(c) && c != '-' => {
+                let mut word = "".to_string();
+                while self.current().is_some() && Self::is_word_char(self.current().unwrap()) {
+                    word += self.consume().unwrap().to_string().as_str();
+                }
+                TokenKind::Word(word)
             }
-            TokenKind::Word(word)
-        } else {
-            match self.consume_punctuation() {
+            _ => match self.consume_punctuation() {
                 Some(kind) => kind,
                 None => return self.next(), // Ignore and get next if punktuation was a comment
-            }
+            },
         };
+
         let end = self.cursor;
         let token = Token::new(kind, TextSpan::new(start, end, self.source.clone()));
 
