@@ -652,7 +652,7 @@ impl Parser {
 
         let file_token = self.consume().clone();
 
-        let res = if let TokenKind::Literal(file) = &file_token.kind {
+        if let TokenKind::Literal(file) = &file_token.kind {
             let text = match SourceText::from_file(file.as_str()) {
                 Ok(text) => Rc::new(text),
                 Err(e) => {
@@ -672,11 +672,7 @@ impl Parser {
                 file_token.clone(),
                 TokenKind::Literal("path".to_string()),
             ))
-        }?;
-
-        self.consume_and_check(TokenKind::Semicolon)?;
-
-        Ok(res)
+        }
     }
 
     /// Parse chef `block`.
