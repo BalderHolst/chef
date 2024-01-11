@@ -168,8 +168,12 @@ impl Lexer {
         c.is_ascii_digit()
     }
 
+    fn is_word_start_char(c: char) -> bool {
+        c.is_alphabetic() || c == '_'
+    }
+
     fn is_word_char(c: char) -> bool {
-        c.is_alphabetic() || c == '_' || c == '-'
+        Self::is_word_start_char(c) || c.is_numeric() || c == '-'
     }
 
     fn is_whitespace(c: char) -> bool {
@@ -287,6 +291,14 @@ impl Lexer {
 
         TokenKind::Literal(text)
     }
+
+    fn consume_word(&mut self) -> TokenKind {
+        let mut word = String::new();
+        while self.current().is_some() && Self::is_word_char(self.current().unwrap()) {
+            word += self.consume().unwrap().to_string().as_str();
+        }
+        TokenKind::Word(word)
+    }
 }
 
 impl Iterator for Lexer {
@@ -322,13 +334,7 @@ impl Iterator for Lexer {
                 }
                 TokenKind::Whitespace
             }
-            c if Self::is_word_char(c) && c != '-' => {
-                let mut word = "".to_string();
-                while self.current().is_some() && Self::is_word_char(self.current().unwrap()) {
-                    word += self.consume().unwrap().to_string().as_str();
-                }
-                TokenKind::Word(word)
-            }
+            c if Self::is_word_start_char(c) => self.consume_word(),
             _ => match self.consume_punctuation() {
                 Some(kind) => kind,
                 None => return self.next(), // Ignore and get next if punktuation was a comment
@@ -460,6 +466,18 @@ fn lex_all_tokens() {
         TokenKind::RightArrow,
         TokenKind::Whitespace,
         TokenKind::Bad,
+        TokenKind::End,
+    ];
+    let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
+    let lexed_tokens: Vec<TokenKind> = lexer.map(|t| t.kind).collect();
+    assert_eq!(lexed_tokens, expected_tokens);
+}
+
+#[test]
+fn lex_words_with_numbers() {
+    let code = "th1s_is_0ne_single_w0rd42_7";
+    let expected_tokens = vec![
+        TokenKind::Word("th1s_is_0ne_single_w0rd42_7".to_string()),
         TokenKind::End,
     ];
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
