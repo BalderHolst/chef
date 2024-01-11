@@ -33,7 +33,9 @@ impl GraphCompiler {
                     let block_graph = self.compile_block(&block)?;
                     self.add_block_graph(block.name.clone(), block_graph);
                 }
-                CompoundStatement::Unknown => panic!("Unknown compound statements should have been caught by the parser."),
+                CompoundStatement::Unknown => {
+                    panic!("Unknown compound statements should have been caught by the parser.")
+                }
             }
         }
         self.get_graph()
