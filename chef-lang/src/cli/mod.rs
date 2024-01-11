@@ -115,7 +115,7 @@ pub enum AddCommand {
     Signals(AddSignalOpts),
 }
 
-/// TODO
+/// TODO:
 #[derive(Debug, clap::Args)]
 pub struct AddSignalOpts {}
 

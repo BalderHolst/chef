@@ -253,7 +253,7 @@ impl Parser {
                             self.diagnostics_bag.borrow_mut().report_error(
                                 &TextSpan::new(statement_start, statement_end, text),
                                 "Bad output expression",
-                            ); // TODO use error message here
+                            ); // TODO: use error message here
                             Ok(StatementKind::Error)
                         }
                     }
@@ -921,7 +921,7 @@ impl Parser {
                         Ok({
                             let span = self.get_span_from(&start_token.span);
                             let var_ref = VariableRef::new(var, span.clone());
-                            let kind = ExpressionKind::VariableRef(var_ref); // TODO
+                            let kind = ExpressionKind::VariableRef(var_ref);
                             Expression { kind, span }
                         })
                     }

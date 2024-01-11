@@ -407,7 +407,7 @@ impl GraphCompiler {
             Some(block_graph) => match graph.stitch_graph(block_graph, vars) {
                 Ok(v) => v,
                 Err(e) => {
-                    panic!("Errored in stitch_graph: {}.", e) // TODO handle correctly
+                    panic!("Errored in stitch_graph: {}.", e) // TODO: handle correctly
                                                               // return Err(CompilationError::new(e, expr.span.clone()))
                 }
             },

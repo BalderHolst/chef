@@ -568,7 +568,7 @@ impl Graph {
                     );
                 }
                 IOType::AnySignal(_) => {
-                    // TODO : Something is wrong here. Maybe we need a `middle` node? Then we could
+                    // TODO: Something is wrong here. Maybe we need a `middle` node? Then we could
                     // merge with the `Signal(_)` case.
 
                     let new_type = self.get_single_input(block_input_nid).unwrap();

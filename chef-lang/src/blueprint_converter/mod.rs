@@ -277,7 +277,7 @@ impl Combinator {
                     None,
                     Some(SignalID {
                         name: s.clone(),
-                        type_, // TODO
+                        type_,
                     }),
                 )
             }

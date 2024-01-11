@@ -44,7 +44,7 @@ fn test_is_in_range() {
 /// 2. If they have, choose an end of the turd and check if the inputs/outputs are in range.
 /// 3. If not try the other end.
 /// 4. Lastly try placing on top of the turd.
-/// 5. If nothing works, backtrack. We will just panic for now... // TODO
+/// 5. If nothing works, backtrack. We will just panic for now...
 /// 6. When placed, connect wires to the other combinators that were placed.
 pub struct TurdMaster2000 {
     graph: Graph,
