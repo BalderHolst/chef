@@ -22,7 +22,6 @@ mod visitors;
 #[derive(Clone, Debug)]
 pub enum CompoundStatement {
     Block(Block),
-    Import(Vec<CompoundStatement>),
     Unknown,
 }
 

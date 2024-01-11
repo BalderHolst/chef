@@ -20,11 +20,6 @@ pub trait Visitor {
     fn do_visit_compound_statement(&mut self, compound_statement: &CompoundStatement) {
         match compound_statement {
             CompoundStatement::Block(block) => self.visit_block(block),
-            CompoundStatement::Import(compound_statements) => {
-                for compound_statement in compound_statements {
-                    self.visit_compound_statement(compound_statement)
-                }
-            }
             CompoundStatement::Unknown => {}
         }
     }
@@ -167,11 +162,6 @@ pub trait MutVisitor {
     fn do_visit_compound_statement(&mut self, compound_statement: &mut CompoundStatement) {
         match compound_statement {
             CompoundStatement::Block(block) => self.visit_block(block),
-            CompoundStatement::Import(compound_statements) => {
-                for compound_statement in compound_statements {
-                    self.visit_compound_statement(compound_statement)
-                }
-            }
             CompoundStatement::Unknown => {}
         }
     }

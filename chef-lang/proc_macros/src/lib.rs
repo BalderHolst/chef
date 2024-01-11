@@ -24,8 +24,8 @@ pub fn make_example_tests(_item: TokenStream) -> TokenStream {
         fn compile_example(file: &str, output_file: &str) {
             println!("Expected output file: {}", output_file);
             let file = std::path::PathBuf::from(file);
-            let expected_dot = std::fs::read_to_string(output_file).unwrap();
-            let text = std::rc::Rc::new(crate::text::SourceText::from_file(file.to_str().unwrap()).unwrap());
+            let expected_dot = std::fs::read_to_string(output_file).expect("Could not find output dot-file.");
+            let text = std::rc::Rc::new(crate::text::SourceText::from_file(file.to_str().unwrap()).expect("Could not read example file"));
             let opts = std::rc::Rc::new(crate::cli::Opts::new_test());
             let bag = crate::diagnostics::DiagnosticsBag::new_ref(opts.clone(), text.clone());
             let ast = crate::ast::AST::from_source(text.clone(), bag.clone(), opts);

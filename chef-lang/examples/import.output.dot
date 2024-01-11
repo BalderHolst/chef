@@ -1,0 +1,9 @@
+strict digraph {
+	nodesep=1
+	1	[style=filled fillcolor=white label="CONST"]
+	0	[style=filled fillcolor=white label="Sig(wooden-chest)"]
+	2	[style=filled fillcolor=orange label="Sig(iron-chest)"]
+	1 -> 0	[label="CONVERT: (10) -> Sig(wooden-chest)" color=blue fontcolor=blue]
+	0 -> 2	[label="CONVERT: Sig(wooden-chest) -> Sig(iron-chest)" color=blue fontcolor=blue]
+}
+

@@ -1,6 +1,7 @@
 //! Module for parsing a token stream into an abstract syntax tree.
 
 use std::cmp::min;
+use std::collections::VecDeque;
 use std::rc::Rc;
 
 use crate::ast::lexer::{Token, TokenKind};
@@ -27,6 +28,7 @@ pub struct Parser {
     blocks: Vec<Rc<Block>>,
     diagnostics_bag: DiagnosticsBagRef,
     options: Rc<Opts>,
+    next_compound_statement: VecDeque<CompoundStatement>,
 }
 
 impl Parser {
@@ -43,6 +45,7 @@ impl Parser {
             blocks: vec![],
             diagnostics_bag,
             options,
+            next_compound_statement: VecDeque::new(),
         }
     }
 
@@ -60,6 +63,7 @@ impl Parser {
             blocks: vec![],
             diagnostics_bag,
             options,
+            next_compound_statement: VecDeque::new(),
         }
     }
 
@@ -188,7 +192,13 @@ impl Parser {
                 }
                 "import" => {
                     let compound_statements = self.parse_import()?;
-                    Ok(CompoundStatement::Import(compound_statements))
+                    self.next_compound_statement.extend(compound_statements);
+                    self.next_compound_statement
+                        .pop_front()
+                        .ok_or(CompilationError::new_localized(
+                            "Imported file is empty.",
+                            start_token.span,
+                        ))
                 }
                 _ => {
                     let token = self.consume();
@@ -664,8 +674,12 @@ impl Parser {
             };
             let diagnostics_bag = DiagnosticsBag::new_ref(self.options.clone(), text.clone());
             let tokens = Lexer::from_source(diagnostics_bag.clone(), text).collect();
-            let import_parser = Parser::new(tokens, diagnostics_bag, self.options.clone());
-            let compound_statements = import_parser.collect();
+            let mut import_parser = Parser::new(tokens, diagnostics_bag, self.options.clone());
+            let mut compound_statements = vec![];
+            for cs in &mut import_parser {
+                compound_statements.push(cs);
+            }
+            self.blocks.extend(import_parser.blocks);
             Ok(compound_statements)
         } else {
             Err(CompilationError::new_unexpected_token(

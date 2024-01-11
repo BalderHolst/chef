@@ -1,0 +1,5 @@
+import "./examples/imported.ing"
+
+block main() -> int {
+    imported_block()
+}
