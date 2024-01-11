@@ -869,13 +869,12 @@ impl Parser {
                 ))
             }
             TokenKind::Word(word) => {
-                // TODO remove all the `return statements`
                 self.consume();
 
                 if word == "true" {
-                    return Ok(Expression::bool(true, self.peak(-1).span.clone()));
+                    Ok(Expression::bool(true, self.peak(-1).span.clone()))
                 } else if word == "false" {
-                    return Ok(Expression::bool(false, self.peak(-1).span.clone()));
+                    Ok(Expression::bool(false, self.peak(-1).span.clone()))
                 }
                 // If is defined variable
                 else if let Some(var) = self.search_scope(word) {
@@ -883,45 +882,47 @@ impl Parser {
                         self.consume();
                         if let TokenKind::Word(signal) = self.consume().kind.clone() {
                             self.consume_and_check(TokenKind::RightSquare)?;
-                            return Ok({
+                            Ok({
                                 let kind = ExpressionKind::Pick(PickExpression::new(
                                     signal,
                                     VariableRef::new(var, self.get_span_from(&start_token.span)),
                                 ));
                                 let span = self.get_span_from(&start_token.span);
                                 Expression { kind, span }
-                            });
+                            })
+                        } else {
+                            Ok({
+                                let kind = ExpressionKind::Error;
+                                let span = self.get_span_from(&start_token.span);
+                                Expression { kind, span }
+                            })
                         }
-                        return Ok({
-                            let kind = ExpressionKind::Error;
+                    } else {
+                        Ok({
                             let span = self.get_span_from(&start_token.span);
+                            let var_ref = VariableRef::new(var, span.clone());
+                            let kind = ExpressionKind::VariableRef(var_ref); // TODO
                             Expression { kind, span }
-                        });
+                        })
                     }
-                    return Ok({
-                        let span = self.get_span_from(&start_token.span);
-                        let var_ref = VariableRef::new(var, span.clone());
-                        let kind = ExpressionKind::VariableRef(var_ref); // TODO
-                        Expression { kind, span }
-                    });
                 } else if let Some(block) = self.search_blocks(word) {
                     let block_link_expr = self.parse_block_link(block)?;
-                    return Ok({
+                    Ok({
                         let kind = ExpressionKind::BlockLink(block_link_expr);
                         let span = self.get_span_from(&start_token.span);
                         Expression { kind, span }
-                    });
+                    })
                 } else {
                     self.diagnostics_bag.borrow_mut().report_error(
                         &start_token.span,
                         &format!("Variable `{}` not defined.", word),
                     );
-                    return Ok({
+                    Ok({
                         let kind = ExpressionKind::Error;
                         let span = self.get_span_from(&start_token.span);
                         Expression { kind, span }
-                    });
-                };
+                    })
+                }
             }
             TokenKind::LeftParen => {
                 self.consume();
