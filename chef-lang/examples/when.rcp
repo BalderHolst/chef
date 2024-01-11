@@ -1,3 +1,5 @@
+// TODO: `else`
+// TODO: WHEN AS EXPRESSION!
 block main(input: all) -> int(signal-blue) {
     i: var(signal-green);
     when input[signal-red] > 5 {

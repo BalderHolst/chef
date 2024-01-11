@@ -85,3 +85,48 @@ block main() -> int(tank) {
         vec![vec![Item::new(IOType::new_signal("tank"), 2)]]
     )
 }
+
+// TODO: Fix and turn back on
+#[test]
+#[ignore]
+fn simulate_when() {
+    let graph = compile_code(
+        "
+        block main(a: int(signal-A), b: int(signal-B)) -> int(signal-0) {
+            out when (a == b) {
+                100
+            };
+        }
+",
+    );
+
+    // a = 0 and b = 0
+    let mut sim = Simulator::new(graph.clone(), vec![]);
+    sim.simulate(10);
+    let expected = vec![vec![Item::new_signal("signal-0", 100)]];
+    assert_eq!(sim.get_output(), expected);
+
+    // a = 10 and b = 0
+    let mut sim = Simulator::new(
+        graph.clone(),
+        vec![
+            vec![Item::new(IOType::new_signal("signal-A"), 10)],
+            vec![Item::new(IOType::new_signal("signal-B"), 0)],
+        ],
+    );
+    sim.simulate(10);
+    let expected = vec![vec![Item::new_signal("signal-0", 0)]];
+    assert_eq!(sim.get_output(), expected);
+
+    // a = 10 and b = 10
+    let mut sim = Simulator::new(
+        graph.clone(),
+        vec![
+            vec![Item::new(IOType::new_signal("signal-A"), 10)],
+            vec![Item::new(IOType::new_signal("signal-B"), 10)],
+        ],
+    );
+    sim.simulate(10);
+    let expected = vec![vec![Item::new_signal("signal-0", 100)]];
+    assert_eq!(sim.get_output(), expected);
+}
