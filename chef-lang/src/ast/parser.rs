@@ -160,6 +160,12 @@ impl Parser {
     }
 
     fn next_compound_statement(&mut self) -> Option<CompoundStatement> {
+        // Return queued compound statements if any
+        if let Some(cs) = self.next_compound_statement.pop_front() {
+            return Some(cs);
+        }
+
+        // Stop if at the end of token stream
         if self.current().is_end() {
             return None;
         }
