@@ -19,6 +19,7 @@ macro_rules! inputs {
             $($crate::items![$( $name : $count ),+]),+
         ]
     };
+    [] => {vec![]};
     [$($all:tt)*] => {
         vec![$crate::items![$($all)*]]
     };

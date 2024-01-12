@@ -122,3 +122,140 @@ fn simulate_when_as_expression() {
 
     assert_eq!(sim.get_output(), expected);
 }
+
+#[test]
+fn constant_int_blocks() {
+    let out = compile_code(
+        "
+    
+    block main() -> int(rail) {
+        out 100;
+    }
+
+",
+    );
+
+    let no_out = compile_code(
+        "
+    
+    block main() -> int(rail) {
+        100
+    }
+
+",
+    );
+
+    let mut sim_out = Simulator::new(out, inputs![]);
+    let mut sim_no_out = Simulator::new(no_out, inputs![]);
+
+    for _ in 0..20 {
+        assert_eq!(sim_out.get_output(), sim_no_out.get_output());
+        sim_out.simulate(1);
+        sim_no_out.simulate(1);
+    }
+
+    assert_eq!(sim_out.get_output(), outputs!["rail": 100])
+}
+
+#[test]
+fn constant_bool_blocks() {
+    let out = compile_code(
+        "
+    
+    block main() -> bool(rail) {
+        out true;
+    }
+
+",
+    );
+
+    let no_out = compile_code(
+        "
+    
+    block main() -> bool(rail) {
+        true
+    }
+
+",
+    );
+
+    let mut sim_out = Simulator::new(out, inputs![]);
+    let mut sim_no_out = Simulator::new(no_out, inputs![]);
+
+    for _ in 0..20 {
+        assert_eq!(sim_out.get_output(), sim_no_out.get_output());
+        sim_out.simulate(1);
+        sim_no_out.simulate(1);
+    }
+
+    assert_eq!(sim_out.get_output(), outputs!["rail": 1])
+}
+
+#[test]
+fn multiple_blocks() {
+    let g = compile_code(
+        "
+
+    block over1000(a: int) -> bool {
+        a > 1000
+    }
+
+    block add(a: int, b: int) -> int {
+        a + b
+    }
+    
+    block main(input: all) -> bool(rail) {
+        over1000(add(input[signal-A], input[signal-B]))
+    }
+
+",
+    );
+
+    let mut sim = Simulator::new(
+        g.clone(),
+        inputs![
+                                 "signal-A": 10,
+                                 "signal-B": 100,
+                                 "signal-C": 1000 // Should be ignored
+        ],
+    );
+    sim.simulate(10);
+
+    assert_eq!(sim.get_output(), outputs!["rail": 0]);
+
+    let mut sim = Simulator::new(
+        g.clone(),
+        inputs![
+                                 "signal-A": 900,
+                                 "signal-B": 100,
+                                 "signal-C": -1000
+        ],
+    );
+    sim.simulate(10);
+
+    assert_eq!(sim.get_output(), outputs!["rail": 0]);
+
+    let mut sim = Simulator::new(
+        g.clone(),
+        inputs![
+                                 "signal-A": 900,
+                                 "signal-B": 101,
+                                 "signal-C": -10000
+        ],
+    );
+    sim.simulate(10);
+
+    assert_eq!(sim.get_output(), outputs!["rail": 1]);
+
+    let mut sim = Simulator::new(
+        g,
+        inputs![
+                                 "signal-A": 501,
+                                 "signal-B": 500,
+                                 "signal-C": 10000
+        ],
+    );
+    sim.simulate(10);
+
+    assert_eq!(sim.get_output(), outputs!["rail": 1]);
+}
