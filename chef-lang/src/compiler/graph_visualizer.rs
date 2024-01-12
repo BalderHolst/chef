@@ -13,7 +13,7 @@ pub fn create_dot(graph: &Graph) -> String {
             super::graph::Node::InputVariable(_) => "lightgreen",
             super::graph::Node::Variable(_) => "lightblue",
             super::graph::Node::Output(_) => "orange",
-            super::graph::Node::None => "lightgray",
+            super::graph::Node::Constant(_) => "lightgray",
         };
         let inputs = &graph.get_input_iotypes(vid);
         let input = if inputs.is_empty() {

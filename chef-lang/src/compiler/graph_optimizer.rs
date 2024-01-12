@@ -48,6 +48,7 @@ impl<'a> GraphOptimizer<'a> {
         None
     }
 
+    // TODO: Constant are no longer input nodes. But they should probably be integrated anyways.
     fn integrate_constant_input(&mut self, vid: NId) {
         let inputs = self.graph.get_input_iotypes(&vid);
 

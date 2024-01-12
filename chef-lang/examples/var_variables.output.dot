@@ -2,13 +2,15 @@ strict digraph {
 	nodesep=1
 	5	[style=filled fillcolor=orange label="Sig(automation-science-pack)"]
 	4	[style=filled fillcolor=white label="Sig(wooden-chest)"]
-	1	[style=filled fillcolor=lightgreen label="(300)"]
+	1	[style=filled fillcolor=lightgray label="(300)"]
 	0	[style=filled fillcolor=lightblue label="Sig(signal-A) | Sig(signal-A)"]
-	3	[style=filled fillcolor=white label="Sig(signal-A)"]
+	3	[style=filled fillcolor=white label="Sig(signal-A) | (10)"]
+	2	[style=filled fillcolor=lightgray label="(10)"]
 	4 -> 5	[label="CONVERT: Sig(wooden-chest) -> Sig(automation-science-pack)" color=blue fontcolor=blue]
 	1 -> 0	[label="CONVERT: (300) -> Sig(signal-A)" color=blue fontcolor=blue]
 	0 -> 0	[label="PICK: Sig(signal-A)" color=red fontcolor=red]
 	0 -> 3	[label="PICK: Sig(signal-A)" color=red fontcolor=red]
 	3 -> 4	[label="DIVIDE: Sig(signal-A), (10)" color=black fontcolor=black]
+	2 -> 3	[label="PICK: (10)" color=red fontcolor=red]
 }
 

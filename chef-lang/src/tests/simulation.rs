@@ -57,7 +57,7 @@ block main(input: all) -> int(inserter) {
 }
 
 #[test]
-fn simulate_counter() {
+fn simulate_counter_with_when() {
     let graph = compile_code(
         "
 block main() -> int(tank) {
@@ -74,7 +74,7 @@ block main() -> int(tank) {
 
     graph.print();
 
-    let mut sim = Simulator::new(graph, vec![vec![]]);
+    let mut sim = Simulator::new(graph, vec![]);
 
     sim.simulate(14);
 
@@ -86,14 +86,12 @@ block main() -> int(tank) {
     )
 }
 
-// TODO: Fix and turn back on
 #[test]
-#[ignore]
-fn simulate_when() {
+fn simulate_when_as_expression() {
     let graph = compile_code(
         "
         block main(a: int(signal-A), b: int(signal-B)) -> int(signal-0) {
-            when (a == b) {
+            out when (a == b) {
                 out 100;
             };
         }
@@ -110,8 +108,8 @@ fn simulate_when() {
     let mut sim = Simulator::new(
         graph.clone(),
         vec![
-            vec![Item::new(IOType::new_signal("signal-A"), 10)],
-            vec![Item::new(IOType::new_signal("signal-B"), 0)],
+            vec![Item::new(IOType::new_signal("signal-B"), 10)],
+            vec![Item::new(IOType::new_signal("signal-A"), 0)],
         ],
     );
     sim.simulate(10);
@@ -122,8 +120,8 @@ fn simulate_when() {
     let mut sim = Simulator::new(
         graph.clone(),
         vec![
-            vec![Item::new(IOType::new_signal("signal-A"), 10)],
             vec![Item::new(IOType::new_signal("signal-B"), 10)],
+            vec![Item::new(IOType::new_signal("signal-A"), 10)],
         ],
     );
     sim.simulate(10);

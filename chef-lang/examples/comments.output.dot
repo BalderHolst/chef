@@ -1,14 +1,16 @@
 strict digraph {
 	nodesep=1
-	4	[style=filled fillcolor=white label="Sig(pump)"]
+	4	[style=filled fillcolor=white label="Sig(pump) | (7)"]
 	6	[style=filled fillcolor=white label="Sig(wooden-chest) | Sig(inserter)"]
 	0	[style=filled fillcolor=lightgreen label="ALL"]
+	2	[style=filled fillcolor=lightgray label="(7)"]
 	9	[style=filled fillcolor=orange label="Sig(water)"]
 	8	[style=filled fillcolor=lightblue label="Sig(iron-chest)"]
 	4 -> 6	[label="MULTIPLY: (7), Sig(pump)" color=black fontcolor=black]
 	6 -> 8	[label="ADD: Sig(inserter), Sig(wooden-chest)" color=black fontcolor=black]
 	0 -> 6	[label="PICK: Sig(inserter)" color=red fontcolor=red]
 	0 -> 4	[label="PICK: Sig(pump)" color=red fontcolor=red]
+	2 -> 4	[label="PICK: (7)" color=red fontcolor=red]
 	8 -> 9	[label="CONVERT: Sig(iron-chest) -> Sig(water)" color=blue fontcolor=blue]
 }
 

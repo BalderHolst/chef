@@ -1,16 +1,20 @@
 strict digraph {
 	nodesep=1
-	7	[style=filled fillcolor=white label="Sig(signal-blue)"]
+	5	[style=filled fillcolor=lightgray label="(100)"]
+	7	[style=filled fillcolor=white label="(100) | Sig(signal-blue)"]
 	0	[style=filled fillcolor=lightgreen label="ALL"]
-	3	[style=filled fillcolor=white label="Sig(signal-red)"]
+	3	[style=filled fillcolor=white label="Sig(signal-red) | (5)"]
+	2	[style=filled fillcolor=lightgray label="(5)"]
 	9	[style=filled fillcolor=white label="Sig(wooden-chest)"]
 	8	[style=filled fillcolor=white label="Sig(wooden-chest) | Sig(iron-chest)"]
 	11	[style=filled fillcolor=orange label="Sig(signal-blue)"]
 	10	[style=filled fillcolor=lightblue label="Sig(pipe)"]
+	5 -> 7	[label="PICK: (100)" color=red fontcolor=red]
 	7 -> 8	[label="ADD: (100), Sig(signal-blue)" color=black fontcolor=black]
 	0 -> 3	[label="PICK: Sig(signal-red)" color=red fontcolor=red]
 	0 -> 7	[label="PICK: Sig(signal-blue)" color=red fontcolor=red]
 	3 -> 8	[label="LARGER_THAN: Sig(signal-red), (5)" color=purple fontcolor=purple]
+	2 -> 3	[label="PICK: (5)" color=red fontcolor=red]
 	9 -> 10	[label="CONVERT: Sig(wooden-chest) -> Sig(pipe)" color=blue fontcolor=blue]
 	8 -> 9	[label="GATE: Sig(wooden-chest)
 LARGER_THAN: Sig(iron-chest), (0)" color=teal fontcolor=teal]

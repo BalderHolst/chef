@@ -261,7 +261,7 @@ pub enum Node {
     // A `None` is used when reperesenting a constant combinator. As the graph reperesents all
     // combinators as connections, the constant combinator must also be. The constant combinator
     // does however not take any input, therefore its input is connected to a `None` node.
-    None,
+    Constant(IOType),
 }
 
 /// Index of a node in a [Graph].
@@ -289,6 +289,9 @@ impl Graph {
         match self.vertices.get(nid) {
             Some(Node::InputVariable(input_node)) => {
                 return vec![input_node.clone()];
+            }
+            Some(Node::Constant(const_node)) => {
+                return vec![const_node.clone()];
             }
             None => {
                 return vec![];
@@ -521,12 +524,9 @@ impl Graph {
             // Translate input nid to id in this graph
             let other_input_nid = nid_converter[old_other_input_nid];
 
-            // Get the input type and convert inputs to inner nodes
+            // Get the input type
             let other_input_type = match &other_input_node {
-                Node::InputVariable(input_type) => {
-                    self.override_node(other_input_nid, Node::Inner);
-                    input_type.clone()
-                }
+                Node::InputVariable(input_type) => input_type.clone(),
                 _ => panic!("There should only be input nodes here..."),
             };
 
@@ -707,7 +707,7 @@ impl Graph {
                 Node::InputVariable(_) => "INPUT_VAR",
                 Node::Variable(_) => "VAR",
                 Node::Output(_) => "OUTPUT",
-                Node::None => "NONE",
+                Node::Constant(_) => "CONST",
             };
             println!("\t\t{} : {} : {:?}", nid, repr, self.get_input_iotypes(nid))
         }

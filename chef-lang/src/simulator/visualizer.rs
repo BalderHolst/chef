@@ -36,7 +36,7 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
             Node::InputVariable(_) => "lightgreen",
             Node::Variable(_) => "lightblue",
             Node::Output(_) => "orange",
-            Node::None => "lightgray",
+            Node::Constant(_) => "lightgray",
         };
 
         // Node text

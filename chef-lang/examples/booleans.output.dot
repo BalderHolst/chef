@@ -3,9 +3,11 @@ strict digraph {
 	5	[style=filled fillcolor=lightblue label="Sig(signal-D)"]
 	6	[style=filled fillcolor=orange label="Sig(signal-B)"]
 	0	[style=filled fillcolor=lightgreen label="ALL"]
-	3	[style=filled fillcolor=white label="Sig(pump)"]
+	3	[style=filled fillcolor=white label="Sig(pump) | (10)"]
+	2	[style=filled fillcolor=lightgray label="(10)"]
 	5 -> 6	[label="CONVERT: Sig(signal-D) -> Sig(signal-B)" color=blue fontcolor=blue]
 	0 -> 3	[label="PICK: Sig(pump)" color=red fontcolor=red]
 	3 -> 5	[label="NOT_EQUALS: Sig(pump), (10)" color=purple fontcolor=purple]
+	2 -> 3	[label="PICK: (10)" color=red fontcolor=red]
 }
 

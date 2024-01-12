@@ -143,7 +143,7 @@ impl GraphCompiler {
                 graph.push_connection(limit_nid, var_nid, Connection::new_pick(limit_type));
 
                 // Push constant node, to drive the counter.
-                let driver_nid = graph.push_node(Node::None);
+                let driver_nid = graph.push_node(Node::Constant(var_type.clone()));
                 let conn = Connection::Constant(ConstantConnection {
                     type_: var_type,
                     count: 1,
@@ -259,7 +259,7 @@ impl GraphCompiler {
         number: i32,
     ) -> Result<(NId, IOType), CompilationError> {
         let iotype = IOType::Constant(number);
-        let const_nid = graph.push_input_node(iotype.clone());
+        let const_nid = graph.push_node(Node::Constant(iotype.clone()));
         Ok((const_nid, iotype))
     }
 
@@ -437,20 +437,36 @@ impl GraphCompiler {
             self.compile_statement(graph, statement, Some(cond_pair.clone()))?;
         }
 
-        // If the there is no output, we can skip creating the gate. In this case we just return
-        // the condition output node.
-        if when.out.is_none() {
-            return Ok(cond_pair);
-        }
-
-        let (cond_out_nid, cond_out_type) = cond_pair;
+        let out_expr = match &when.out {
+            Some(e) => e,
+            None => {
+                // If the there is no output, we can skip creating the gate. In this case we just return
+                // the condition output node.
+                return Ok(cond_pair);
+            }
+        };
 
         // Compile output expression, we will attatch a gate to the output of this.
-        let (gated_input_nid, gated_type) =
-            self.compile_expression(graph, &when.out.clone().unwrap(), None)?;
+        let (gated_input_nid, mut gated_type) = self.compile_expression(graph, out_expr, None)?;
+
+        // If the gated type is a constant, convert it as we can not gate a constant value
+        if let IOType::Constant(count) = gated_type {
+            let convertion_node = graph.push_inner_node();
+            gated_type = self.get_new_anysignal();
+            graph.push_connection(
+                convertion_node,
+                gated_input_nid,
+                Connection::Constant(ConstantConnection {
+                    type_: gated_type.clone(),
+                    count,
+                }),
+            )
+        }
 
         // Output of the gate. This output will be turned on and off by the condition statement.
         let out_nid = graph.push_inner_node();
+
+        let (cond_out_nid, cond_out_type) = cond_pair;
 
         // We make sure that the cond type is not the same as the gated type
         assert_ne!(gated_type, cond_out_type); // TODO: catch
