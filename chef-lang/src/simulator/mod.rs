@@ -11,11 +11,35 @@ use fnv::FnvHashMap;
 
 use self::visualizer::visualize_simulator;
 
+/// Create inputs for a graph ergonomically
+#[macro_export]
+macro_rules! inputs {
+    {$([$($name:literal:$count:expr),+];)+} => {
+        vec![
+            $($crate::items![$( $name : $count ),+]),+
+        ]
+    };
+    [$($all:tt)*] => {
+        vec![$crate::items![$($all)*]]
+    };
+}
+
+/// The exact same as `inputs!` but i like it better for outputs.
+#[macro_export]
+macro_rules! outputs {
+    {$($x:tt)*} => {
+        $crate::inputs!{$($x)*}
+    }
+}
+
+/// Create node items contents ergonomically
 #[macro_export]
 macro_rules! items {
     [$($name:literal:$count:expr),+] => {
         vec![
-            $(crate::simulator::Item::new(IOType::signal($name), $count)),+
+            $($crate::simulator::Item::new(
+                    $crate::compiler::graph::IOType::signal($name), $count
+                    )),+
         ]
     };
 }
