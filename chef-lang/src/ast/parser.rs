@@ -17,8 +17,16 @@ use crate::text::{SourceText, TextSpan};
 use super::lexer::Lexer;
 use super::{
     Assignment, AssignmentKind, Block, BlockLinkExpression, CompoundStatement, MutationOperator,
-    PickExpression, StatementListExpression, VariableRef, VariableSignalType, WhenExpression,
+    PickExpression, VariableRef, VariableSignalType, WhenExpression,
 };
+
+// TODO: Add example
+/// A list of statements with an optional return expression at its end.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StatementList {
+    pub statements: Vec<Statement>,
+    pub out: Option<Box<Expression>>,
+}
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
 pub struct Parser {
@@ -440,7 +448,6 @@ impl Parser {
             ExpressionKind::VariableRef(_) => {}
             ExpressionKind::BlockLink(_) => {}
             ExpressionKind::When(_) => {}
-            ExpressionKind::StatementList(_) => {}
             ExpressionKind::Error => {}
         }
 
@@ -639,9 +646,7 @@ impl Parser {
         Ok(inputs)
     }
 
-    fn parse_statement_list_expression(
-        &mut self,
-    ) -> Result<StatementListExpression, CompilationError> {
+    fn parse_statement_list_expression(&mut self) -> Result<StatementList, CompilationError> {
         self.consume_and_check(TokenKind::LeftCurly)?;
 
         let mut statements: Vec<Statement> = vec![];
@@ -668,7 +673,7 @@ impl Parser {
 
         self.consume_and_check(TokenKind::RightCurly)?;
 
-        Ok(StatementListExpression { statements, out })
+        Ok(StatementList { statements, out })
     }
 
     /// Parse chef `import`

@@ -320,7 +320,6 @@ impl Expression {
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(),
             ExpressionKind::When(e) => e.return_type(),
-            ExpressionKind::StatementList(e) => e.return_type(),
             ExpressionKind::Error => ExpressionReturnType::Int,
         }
     }
@@ -391,24 +390,7 @@ pub enum ExpressionKind {
     VariableRef(VariableRef),
     BlockLink(BlockLinkExpression),
     When(WhenExpression),
-    StatementList(StatementListExpression),
     Error,
-}
-
-/// A list of statements with an optional return expression at its end.
-#[derive(Debug, Clone, PartialEq)]
-pub struct StatementListExpression {
-    statements: Vec<Statement>,
-    pub out: Option<Box<Expression>>,
-}
-
-impl StatementListExpression {
-    pub fn return_type(&self) -> ExpressionReturnType {
-        match &self.out {
-            Some(out) => out.return_type(),
-            None => ExpressionReturnType::None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

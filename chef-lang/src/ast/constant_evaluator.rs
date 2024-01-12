@@ -43,7 +43,6 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
     match &expr.kind {
         ExpressionKind::Int(n) => Some(n.number),
         ExpressionKind::Parenthesized(p) => get_constant_int(&p.expression),
-        ExpressionKind::StatementList(sl) => sl.out.clone().and_then(|e| get_constant_int(&e)),
         ExpressionKind::Bool(_) => None,
         ExpressionKind::Binary(_) => None,
         ExpressionKind::Pick(_) => None,

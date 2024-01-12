@@ -6,9 +6,9 @@
 // even solve this. Suggestions very welcome!
 
 use super::{
-    Assignment, BinaryExpression, Block, BlockLinkExpression, CompoundStatement, Expression,
-    ExpressionKind, IntExpression, Mutation, ParenthesizedExpression, PickExpression, Statement,
-    StatementKind, StatementListExpression, VariableRef, WhenExpression,
+    parser::StatementList, Assignment, BinaryExpression, Block, BlockLinkExpression,
+    CompoundStatement, Expression, ExpressionKind, IntExpression, Mutation,
+    ParenthesizedExpression, PickExpression, Statement, StatementKind, VariableRef, WhenExpression,
 };
 
 // For documentation references
@@ -69,9 +69,6 @@ pub trait Visitor {
             }
             ExpressionKind::When(when) => {
                 self.visit_when_expression(when);
-            }
-            ExpressionKind::StatementList(statment_list) => {
-                self.visit_statement_list(statment_list);
             }
             ExpressionKind::Error => {
                 self.visit_error_expression();
@@ -152,7 +149,7 @@ pub trait Visitor {
         }
     }
 
-    fn visit_statement_list(&mut self, sl: &StatementListExpression) {
+    fn visit_statement_list(&mut self, sl: &StatementList) {
         for s in &sl.statements {
             self.visit_statement(s);
         }
@@ -223,9 +220,6 @@ pub trait MutVisitor {
             }
             ExpressionKind::When(when) => {
                 self.visit_when_expression(when);
-            }
-            ExpressionKind::StatementList(statment_list) => {
-                self.visit_statement_list(statment_list);
             }
             ExpressionKind::Error => {
                 self.visit_error_expression();
@@ -306,7 +300,7 @@ pub trait MutVisitor {
         }
     }
 
-    fn visit_statement_list(&mut self, sl: &mut StatementListExpression) {
+    fn visit_statement_list(&mut self, sl: &mut StatementList) {
         for s in &mut sl.statements {
             self.visit_statement(s);
         }

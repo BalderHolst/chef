@@ -243,7 +243,6 @@ impl GraphCompiler {
             ExpressionKind::Int(n) => self.compile_constant(graph, n.number),
             ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32),
             // TODO: use out_type in all compilation functions
-            ExpressionKind::StatementList(_) => todo!(),
             ExpressionKind::VariableRef(var_ref) => self.compile_variable_ref_expression(graph, var_ref), // 
             ExpressionKind::Pick(pick_expr) => self.compile_pick_expression(graph, pick_expr),
             ExpressionKind::Parenthesized(expr) => self.compile_expression(graph, &expr.expression, out_type),
