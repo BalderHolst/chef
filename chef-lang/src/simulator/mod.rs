@@ -11,6 +11,15 @@ use fnv::FnvHashMap;
 
 use self::visualizer::visualize_simulator;
 
+#[macro_export]
+macro_rules! items {
+    [$($name:literal:$count:expr),+] => {
+        vec![
+            $(crate::simulator::Item::new(IOType::signal($name), $count)),+
+        ]
+    };
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {
     kind: IOType,

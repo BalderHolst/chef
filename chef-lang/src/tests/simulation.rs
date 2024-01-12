@@ -10,6 +10,7 @@ use crate::{
         graph::{Graph, IOType},
     },
     diagnostics::DiagnosticsBag,
+    items,
     simulator::{Item, Simulator},
     text::SourceText,
 };
@@ -44,16 +45,13 @@ block main(input: all) -> int(inserter) {
 ",
     );
 
-    let mut sim = Simulator::new(graph, vec![vec![Item::new_signal("signal-B", 100)]]);
+    let mut sim = Simulator::new(graph, vec![items!["signal-B": 100]]);
 
     sim.simulate(10);
 
     let outputs = sim.get_output();
 
-    assert_eq!(
-        outputs,
-        vec![vec![Item::new(IOType::Signal("inserter".to_string()), 304)]]
-    )
+    assert_eq!(outputs, vec![items!["inserter":304]])
 }
 
 #[test]
@@ -80,10 +78,7 @@ block main() -> int(tank) {
 
     let outputs = sim.get_output();
 
-    assert_eq!(
-        vec![outputs[0].clone()],
-        vec![vec![Item::new(IOType::signal("tank"), 2)]]
-    )
+    assert_eq!(vec![outputs[0].clone()], vec![items!["tank":2]])
 }
 
 #[test]
@@ -104,13 +99,10 @@ fn simulate_when_as_expression() {
     let expected = vec![vec![Item::new_signal("signal-0", 100)]];
     assert_eq!(sim.get_output(), expected);
 
-    // a = 10 and b = 0
+    // a = 0 and b = 10
     let mut sim = Simulator::new(
         graph.clone(),
-        vec![
-            vec![Item::new(IOType::signal("signal-B"), 10)],
-            vec![Item::new(IOType::signal("signal-A"), 0)],
-        ],
+        vec![items!["signal-B": 10], items!["signal-A": 0]],
     );
     sim.simulate(10);
     let expected = vec![vec![Item::new_signal("signal-0", 0)]];
@@ -119,10 +111,7 @@ fn simulate_when_as_expression() {
     // a = 10 and b = 10
     let mut sim = Simulator::new(
         graph.clone(),
-        vec![
-            vec![Item::new(IOType::signal("signal-B"), 10)],
-            vec![Item::new(IOType::signal("signal-A"), 10)],
-        ],
+        vec![items!["signal-B": 10], items!["signal-A": 10]],
     );
     sim.simulate(10);
     let expected = vec![vec![Item::new_signal("signal-0", 100)]];
