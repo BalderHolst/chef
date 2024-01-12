@@ -17,7 +17,7 @@ use crate::text::{SourceText, TextSpan};
 use super::lexer::Lexer;
 use super::{
     Assignment, AssignmentKind, Block, BlockLinkExpression, CompoundStatement, MutationOperator,
-    PickExpression, VariableRef, VariableSignalType, WhenExpression,
+    PickExpression, StatementListExpression, VariableRef, VariableSignalType, WhenExpression,
 };
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
@@ -406,6 +406,7 @@ impl Parser {
 
         let expr = self.parse_expression()?;
 
+        // TODO: This check should probably be done by the type checker
         match &expr.kind {
             ExpressionKind::Bool(v) => {
                 variable.type_ = {
@@ -439,6 +440,7 @@ impl Parser {
             ExpressionKind::VariableRef(_) => {}
             ExpressionKind::BlockLink(_) => {}
             ExpressionKind::When(_) => {}
+            ExpressionKind::StatementList(_) => {}
             ExpressionKind::Error => {}
         }
 
@@ -637,29 +639,36 @@ impl Parser {
         Ok(inputs)
     }
 
-    fn parse_statement_list_expression(&mut self) -> Result<Vec<Statement>, CompilationError> {
+    fn parse_statement_list_expression(
+        &mut self,
+    ) -> Result<StatementListExpression, CompilationError> {
         self.consume_and_check(TokenKind::LeftCurly)?;
 
         let mut statements: Vec<Statement> = vec![];
+        let mut out = None;
+
         while let Some(statement) = self.parse_statement() {
             statements.push(statement?)
         }
 
-        // Make sure output statements are last
-        if !statements.is_empty() {
-            for statement in &statements[..statements.len() - 1] {
-                if let StatementKind::Out(_) = statement.kind {
-                    return Err(CompilationError::new_localized(
-                        "Output statements have to be last.".to_string(),
-                        statement.span.clone(),
-                    ));
-                }
+        if let Some(StatementKind::Out(out_expr)) = statements.last().map(|s| &s.kind) {
+            out = Some(Box::new(out_expr.clone()));
+            statements.pop();
+        }
+
+        // Make sure no output statements are left
+        for statement in &statements {
+            if let StatementKind::Out(_) = statement.kind {
+                return Err(CompilationError::new_localized(
+                    "Output statements have to be last.".to_string(),
+                    statement.span.clone(),
+                ));
             }
         }
 
         self.consume_and_check(TokenKind::RightCurly)?;
 
-        Ok(statements)
+        Ok(StatementListExpression { statements, out })
     }
 
     /// Parse chef `import`
@@ -720,35 +729,14 @@ impl Parser {
 
         let output_type = self.parse_block_outputs()?;
 
-        let mut statements = self.parse_statement_list_expression()?;
+        let statement_list = self.parse_statement_list_expression()?;
 
-        let out_expr = match statements.pop() {
-            Some(s) => match s.kind {
-                StatementKind::Out(e) => e,
-                _ => {
-                    return Err(CompilationError::new_localized(
-                        "A `block` must contain an output statement as its last statement."
-                            .to_string(),
-                        self.get_span_from(&start_token.span),
-                    ))
-                }
-            },
-            _ => {
-                return Err(CompilationError::new_localized(
-                    "A `block` must contain an output statement.".to_string(),
-                    self.get_span_from(&start_token.span),
-                ))
-            }
-        };
-
-        for statement in &statements {
-            if let StatementKind::Out(_) = &statement.kind {
-                return Err(CompilationError::new_localized(
-                    "Only the last statement in a `block` can be an output statement.".to_string(),
-                    statement.span.clone(),
-                ));
-            }
-        }
+        let out_expr = statement_list.out.ok_or({
+            CompilationError::new_localized(
+                "A `block` must contain an output statement.".to_string(),
+                self.get_span_from(&start_token.span),
+            )
+        })?;
 
         self.exit_scope();
 
@@ -756,8 +744,8 @@ impl Parser {
             name,
             inputs,
             output_type,
-            statements,
-            out_expr,
+            statement_list.statements,
+            *out_expr,
             TextSpan {
                 start: start_token.span.start,
                 end: self.peak(-1).span.end,
@@ -781,25 +769,13 @@ impl Parser {
         let start_token = self.consume().clone(); // Consume "when" token
         let condition = self.parse_expression()?;
 
-        let mut statements = self.parse_statement_list_expression()?;
-
-        let out_expr = match statements.last() {
-            Some(last_statement) => match &last_statement.kind {
-                StatementKind::Out(e) => Some(Box::new(e.clone())),
-                _ => None,
-            },
-            None => None,
-        };
-
-        if out_expr.is_some() {
-            statements.pop().unwrap();
-        }
+        let statements_list = self.parse_statement_list_expression()?;
 
         Ok(Expression::new(
             ExpressionKind::When(WhenExpression {
                 condition: Box::new(condition),
-                statements,
-                out: out_expr,
+                statements: statements_list.statements,
+                out: statements_list.out,
             }),
             self.get_span_from(&start_token.span),
         ))

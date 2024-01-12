@@ -93,8 +93,8 @@ fn simulate_when() {
     let graph = compile_code(
         "
         block main(a: int(signal-A), b: int(signal-B)) -> int(signal-0) {
-            out when (a == b) {
-                100
+            when (a == b) {
+                out 100;
             };
         }
 ",

@@ -8,7 +8,7 @@
 use super::{
     Assignment, BinaryExpression, Block, BlockLinkExpression, CompoundStatement, Expression,
     ExpressionKind, IntExpression, Mutation, ParenthesizedExpression, PickExpression, Statement,
-    StatementKind, VariableRef, WhenExpression,
+    StatementKind, StatementListExpression, VariableRef, WhenExpression,
 };
 
 // For documentation references
@@ -69,6 +69,9 @@ pub trait Visitor {
             }
             ExpressionKind::When(when) => {
                 self.visit_when_expression(when);
+            }
+            ExpressionKind::StatementList(statment_list) => {
+                self.visit_statement_list(statment_list);
             }
             ExpressionKind::Error => {
                 self.visit_error_expression();
@@ -149,6 +152,15 @@ pub trait Visitor {
         }
     }
 
+    fn visit_statement_list(&mut self, sl: &StatementListExpression) {
+        for s in &sl.statements {
+            self.visit_statement(s);
+        }
+        if let Some(out_expr) = &sl.out {
+            self.visit_expression(out_expr);
+        }
+    }
+
     fn visit_pick_expression(&mut self, expr: &PickExpression);
     fn visit_error_statement(&mut self);
     fn visit_number(&mut self, number: &IntExpression);
@@ -211,6 +223,9 @@ pub trait MutVisitor {
             }
             ExpressionKind::When(when) => {
                 self.visit_when_expression(when);
+            }
+            ExpressionKind::StatementList(statment_list) => {
+                self.visit_statement_list(statment_list);
             }
             ExpressionKind::Error => {
                 self.visit_error_expression();
@@ -288,6 +303,15 @@ pub trait MutVisitor {
         }
         if let Some(out) = &mut when.out {
             self.visit_expression(out);
+        }
+    }
+
+    fn visit_statement_list(&mut self, sl: &mut StatementListExpression) {
+        for s in &mut sl.statements {
+            self.visit_statement(s);
+        }
+        if let Some(out_expr) = &mut sl.out {
+            self.visit_expression(out_expr);
         }
     }
 

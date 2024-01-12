@@ -68,6 +68,7 @@ impl Visitor for TypeChecker {
             ExpressionKind::VariableRef(_) => {}
             ExpressionKind::BlockLink(_) => {}
             ExpressionKind::Error => {}
+            ExpressionKind::StatementList(_) => {}
             ExpressionKind::Pick(e) => {
                 self.report_if_invalid_signal(e.pick_signal.as_str(), &expression.span)
             }
