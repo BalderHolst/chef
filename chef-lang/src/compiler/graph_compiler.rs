@@ -292,7 +292,7 @@ impl GraphCompiler {
     ) -> Result<(NId, IOType), CompilationError> {
         let var_ref = pick_expr.from.clone();
         if let Some(var_out_vid) = self.search_scope(var_ref.var.name.clone()) {
-            let out_type = IOType::new_signal(pick_expr.pick_signal.clone());
+            let out_type = IOType::signal(pick_expr.pick_signal.clone());
             let picked_vid = graph.push_inner_node();
             graph.push_connection(
                 var_out_vid,

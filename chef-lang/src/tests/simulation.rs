@@ -82,7 +82,7 @@ block main() -> int(tank) {
 
     assert_eq!(
         vec![outputs[0].clone()],
-        vec![vec![Item::new(IOType::new_signal("tank"), 2)]]
+        vec![vec![Item::new(IOType::signal("tank"), 2)]]
     )
 }
 
@@ -108,8 +108,8 @@ fn simulate_when_as_expression() {
     let mut sim = Simulator::new(
         graph.clone(),
         vec![
-            vec![Item::new(IOType::new_signal("signal-B"), 10)],
-            vec![Item::new(IOType::new_signal("signal-A"), 0)],
+            vec![Item::new(IOType::signal("signal-B"), 10)],
+            vec![Item::new(IOType::signal("signal-A"), 0)],
         ],
     );
     sim.simulate(10);
@@ -120,8 +120,8 @@ fn simulate_when_as_expression() {
     let mut sim = Simulator::new(
         graph.clone(),
         vec![
-            vec![Item::new(IOType::new_signal("signal-B"), 10)],
-            vec![Item::new(IOType::new_signal("signal-A"), 10)],
+            vec![Item::new(IOType::signal("signal-B"), 10)],
+            vec![Item::new(IOType::signal("signal-A"), 10)],
         ],
     );
     sim.simulate(10);

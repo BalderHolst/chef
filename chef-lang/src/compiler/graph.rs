@@ -83,7 +83,7 @@ pub enum IOType {
 }
 
 impl IOType {
-    pub fn new_signal<S>(signal: S) -> Self
+    pub fn signal<S>(signal: S) -> Self
     where
         S: ToString,
     {
