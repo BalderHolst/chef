@@ -9,7 +9,7 @@ use crate::text::{SourceText, TextSpan};
 /// Kinds of lexer tokens.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
-    Number(u32),
+    Number(i32),
     Word(String),
     Literal(String),
     Plus,
@@ -132,7 +132,7 @@ impl Lexer {
         }
     }
 
-    fn _peak(&self, offset: isize) -> Option<char> {
+    fn peak(&self, offset: isize) -> Option<char> {
         let index = self.cursor as isize + offset;
         self.source.text().chars().nth((index) as usize)
     }
@@ -151,21 +151,28 @@ impl Lexer {
         self.cursor -= n;
     }
 
-    fn consume_number(&mut self) -> Option<u32> {
-        let mut n: u32 = 0;
-        while let Some(c) = self.current() {
+    fn consume_number(&mut self, negative: bool) -> Option<i32> {
+        let mut n_str = String::new();
+        while let Some(c) = self.consume() {
             if c.is_ascii_digit() {
-                self.consume().unwrap();
-                n = n * 10 + c.to_digit(10).unwrap();
+                n_str.push(c);
             } else {
                 break;
             }
         }
+        self.backtrack(1);
+        let mut n = n_str.parse().unwrap();
+        if negative {
+            n *= -1;
+        }
         Some(n)
     }
 
-    fn is_number_start(c: char) -> bool {
-        c.is_ascii_digit()
+    fn is_number_start(c: Option<char>) -> bool {
+        match c {
+            Some(c) => c.is_ascii_digit(),
+            None => false,
+        }
     }
 
     fn is_word_start_char(c: char) -> bool {
@@ -321,8 +328,15 @@ impl Iterator for Lexer {
 
         let kind = match current_char {
             '"' => self.consume_literal(),
-            c if Self::is_number_start(c) => {
-                let n = self.consume_number()?;
+            // Positive numbers
+            c if Self::is_number_start(Some(c)) => {
+                let n = self.consume_number(false)?;
+                TokenKind::Number(n)
+            }
+            // Negative numbers
+            '-' if Self::is_number_start(self.peak(1)) => {
+                self.consume();
+                let n = self.consume_number(true)?;
                 TokenKind::Number(n)
             }
             c if Self::is_whitespace(c) => {
@@ -478,6 +492,24 @@ fn lex_words_with_numbers() {
     let code = "th1s_is_0ne_single_w0rd42_7";
     let expected_tokens = vec![
         TokenKind::Word("th1s_is_0ne_single_w0rd42_7".to_string()),
+        TokenKind::End,
+    ];
+    let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
+    let lexed_tokens: Vec<TokenKind> = lexer.map(|t| t.kind).collect();
+    assert_eq!(lexed_tokens, expected_tokens);
+}
+
+#[test]
+fn lex_negative_numbers() {
+    let code = "30 -30 1234 -1234";
+    let expected_tokens = vec![
+        TokenKind::Number(30),
+        TokenKind::Whitespace,
+        TokenKind::Number(-30),
+        TokenKind::Whitespace,
+        TokenKind::Number(1234),
+        TokenKind::Whitespace,
+        TokenKind::Number(-1234),
         TokenKind::End,
     ];
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
