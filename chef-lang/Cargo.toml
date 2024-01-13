@@ -10,13 +10,12 @@ clap = { version = "4.4.8", features = ["derive"]}
 cli-clipboard = "0.4.0"
 directories = "5.0.1"
 factorio-blueprint = "0.3.0"
+noisy_float = "0.1" # We need this lower version to interact with 'factorio-blueprint'
 fnv = "1.0.7"
-graphviz-rust = "0.6.2"
+graphviz-rust = "0.7.0"
 lazy_static = "1.4.0"
-noisy_float = "0.1"
 rand = "0.8.5"
-terminal_size = "0.2.6"
-termion = "2.0.1"
+termion = "3.0.0"
 
 [dev-dependencies]
 prettydiff = "0.6.4"

@@ -1,7 +1,7 @@
 //! The chef cli.
 
 use clap::{Parser, Subcommand};
-use terminal_size::Width;
+use termion::terminal_size;
 
 /// Command line options for chef
 #[derive(Debug, Parser)]
@@ -121,7 +121,7 @@ pub struct AddSignalOpts {}
 
 /// Get the size of the current terminal that chef is running in.
 fn get_term_width() -> Option<usize> {
-    if let Some((Width(w), _)) = terminal_size::terminal_size() {
+    if let Ok((w, _)) = terminal_size() {
         Some(w as usize)
     } else {
         None

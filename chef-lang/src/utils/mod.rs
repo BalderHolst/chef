@@ -28,7 +28,7 @@ pub fn dot_to_svg(dot: String) -> VisualizerResult {
         &mut PrinterContext::default(),
         vec![Format::Svg.into()],
     ) {
-        Ok(s) => Ok(s),
+        Ok(s) => Ok(String::from_utf8(s).unwrap()),
         Err(e) => Err(VisualizerError::GraphvizIoError(e)),
     }
 }
