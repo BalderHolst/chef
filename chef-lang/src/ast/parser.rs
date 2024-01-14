@@ -767,12 +767,15 @@ impl Parser {
         }
     }
 
-    // TODO: Enter scope
     fn parse_when_expression(&mut self) -> Result<Expression, CompilationError> {
         let start_token = self.consume().clone(); // Consume "when" token
         let condition = self.parse_expression()?;
 
+        self.enter_scope();
+
         let statements_list = self.parse_statement_list_expression()?;
+
+        self.exit_scope();
 
         Ok(Expression::new(
             ExpressionKind::When(WhenExpression {
