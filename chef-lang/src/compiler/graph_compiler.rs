@@ -211,11 +211,7 @@ impl GraphCompiler {
 
                 let expr_out_nid = {
                     let new_out_nid = graph.push_inner_node();
-                    graph.push_connection(
-                        expr_out_nid,
-                        new_out_nid,
-                        Connection::new_convert(expr_out_type, var_iotype.clone()),
-                    );
+                    graph.push_connection(expr_out_nid, new_out_nid, conn);
                     new_out_nid
                 };
 

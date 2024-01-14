@@ -290,7 +290,6 @@ fn order_of_operations_factorio_time() {
 
 ",
     );
-    g.print();
     let mut sim = Simulator::new(g, inputs![]);
     sim.simulate(10);
     assert_eq!(sim.get_output(), outputs!["rail": 11]);
@@ -308,4 +307,32 @@ fn return_when() {
 
 ",
     );
+    let mut sim = Simulator::new(g.clone(), inputs![]);
+    sim.simulate(10);
+    assert_eq!(sim.get_output(), outputs!["rail": 0]);
+    let mut sim = Simulator::new(g, inputs!["signal-I": 100]);
+    sim.simulate(10);
+    assert_eq!(sim.get_output(), outputs!["rail": -200]);
+}
+
+#[test]
+fn var_mutiation_with_clock() {
+    let g = compile_code(
+        "
+    block main() -> int(signal-O) {
+        total: var(signal-T);
+        c: counter(signal-C : 10);
+        when c == 1 {
+            total += 2;
+        };
+        when c == 5 {
+            total -= 1;
+        };
+        total
+    }
+",
+    );
+    let mut sim = Simulator::new(g, inputs![]);
+    sim.simulate(50);
+    assert_eq!(sim.get_output(), outputs!["signal-O": 5]);
 }
