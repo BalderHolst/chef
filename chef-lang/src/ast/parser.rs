@@ -178,10 +178,6 @@ impl Parser {
             return None;
         }
 
-        if self.options.verbose {
-            println!("New compound statement!");
-        }
-
         let compound_statement = self.parse_compound_statement();
 
         match compound_statement {
@@ -236,9 +232,6 @@ impl Parser {
     /// Parse next statement. Return `None` of none are left.
     // TODO: Simplify type if possible
     fn parse_statement(&mut self) -> Option<CompilationResult<Statement>> {
-        if self.options.verbose {
-            println!("New statement!");
-        }
         let start_token = self.current().clone();
         match &start_token.kind {
             TokenKind::Word(word) => {
@@ -273,13 +266,17 @@ impl Parser {
                         Ok(StatementKind::Error)
                     }
                     "when" => {
-                        match || -> Result<Expression, CompilationError> {
-                            let expr = self.parse_when_expression()?;
-                            self.consume_and_check(TokenKind::Semicolon)?;
-                            Ok(expr)
-                        }() {
-                            Err(e) => Err(e),
-                            Ok(expr) => Ok(StatementKind::Expression(expr)),
+                        let when_expr = match self.parse_when_expression() {
+                            Ok(expr) => expr,
+                            Err(e) => return Some(Err(e)),
+                        };
+
+                        match &self.current().kind {
+                            TokenKind::Semicolon => {
+                                self.consume();
+                                Ok(StatementKind::Expression(when_expr))
+                            }
+                            _ => Ok(StatementKind::Out(when_expr)),
                         }
                     }
                     _ if self.is_at_assignment_statment() => self.parse_assignment_statement(),
@@ -770,6 +767,7 @@ impl Parser {
         }
     }
 
+    // TODO: Enter scope
     fn parse_when_expression(&mut self) -> Result<Expression, CompilationError> {
         let start_token = self.consume().clone(); // Consume "when" token
         let condition = self.parse_expression()?;
@@ -988,82 +986,4 @@ impl Iterator for Parser {
 enum ParsedVariable {
     Def(Variable),
     Ref(VariableRef),
-}
-
-#[test]
-fn parse_binary_expression() {
-    use super::*;
-
-    let code = "1+2*3-4";
-    let (text, bag, lexer) = Lexer::new_bundle(code);
-
-    let expected_expr = Expression {
-        kind: ExpressionKind::Binary(BinaryExpression {
-            return_type: ExpressionReturnType::Int,
-            left: Box::new(Expression {
-                kind: ExpressionKind::Int(IntExpression { number: 1 }),
-                span: TextSpan::new(0, 1, text.clone()),
-            }),
-            right: Box::new(Expression {
-                kind: ExpressionKind::Binary(BinaryExpression {
-                    return_type: ExpressionReturnType::Int,
-                    left: Box::new(Expression {
-                        kind: ExpressionKind::Binary(BinaryExpression {
-                            return_type: ExpressionReturnType::Int,
-                            left: Box::new(Expression {
-                                kind: ExpressionKind::Int(IntExpression { number: 2 }),
-                                span: TextSpan {
-                                    start: 2,
-                                    end: 3,
-                                    text: text.clone(),
-                                },
-                            }),
-                            right: Box::new(Expression {
-                                kind: ExpressionKind::Int(IntExpression { number: 3 }),
-                                span: TextSpan {
-                                    start: 4,
-                                    end: 5,
-                                    text: text.clone(),
-                                },
-                            }),
-                            operator: BinaryOperator {
-                                kind: BinaryOperatorKind::Multiply,
-                            },
-                        }),
-                        span: TextSpan {
-                            start: 2,
-                            end: 5,
-                            text: text.clone(),
-                        },
-                    }),
-                    right: Box::new(Expression {
-                        kind: ExpressionKind::Int(IntExpression { number: 4 }),
-                        span: TextSpan {
-                            start: 6,
-                            end: 7,
-                            text: text.clone(),
-                        },
-                    }),
-                    operator: BinaryOperator {
-                        kind: BinaryOperatorKind::Subtract,
-                    },
-                }),
-                span: TextSpan {
-                    start: 2,
-                    end: 7,
-                    text: text.clone(),
-                },
-            }),
-            operator: BinaryOperator {
-                kind: BinaryOperatorKind::Add,
-            },
-        }),
-        span: TextSpan::new(0, 7, text),
-    };
-
-    let opts = crate::cli::Opts::new_test();
-    let mut parser = Parser::_from_lexer(lexer, bag, Rc::new(opts));
-    let parsed_expr = parser.parse_binary_expression(None).unwrap();
-
-    assert_eq!(parsed_expr, expected_expr);
 }

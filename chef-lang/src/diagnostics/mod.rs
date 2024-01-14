@@ -82,12 +82,12 @@ impl Diagnostic {
     }
 }
 
-/// A bag holding all the diagnostics with utility functions for reporting and printing errors.
+/// A bag holding all the diagnostics with utility functions for reporting and printing errors
+/// within a file.
 pub struct DiagnosticsBag {
     diagnostics: Vec<Diagnostic>,
     options: Rc<Opts>,
-    source: Rc<SourceText>, // TODO: textspans should hold this pointer, not the bag itself, to
-                            // allow for multipule files.
+    source: Rc<SourceText>,
 }
 
 impl DiagnosticsBag {

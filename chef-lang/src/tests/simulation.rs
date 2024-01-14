@@ -259,3 +259,53 @@ fn multiple_blocks() {
 
     assert_eq!(sim.get_output(), outputs!["rail": 1]);
 }
+
+#[test]
+fn order_of_operations_compile_time() {
+    let g = compile_code(
+        "
+    block main(input: all) -> int(rail) {
+        1+2*3+4
+    }
+
+",
+    );
+    g.print();
+    let mut sim = Simulator::new(g, inputs![]);
+    sim.simulate(10);
+    assert_eq!(sim.get_output(), outputs!["rail": 11]);
+}
+
+#[test]
+fn order_of_operations_factorio_time() {
+    let g = compile_code(
+        "
+    block main(input: all) -> int(rail) {
+        a: int = 1;
+        b: int = 2;
+        c: int = 3;
+        d: int = 4;
+        a+b*c+d
+    }
+
+",
+    );
+    g.print();
+    let mut sim = Simulator::new(g, inputs![]);
+    sim.simulate(10);
+    assert_eq!(sim.get_output(), outputs!["rail": 11]);
+}
+
+#[test]
+fn return_when() {
+    let g = compile_code(
+        "
+    block main(input: all) -> int(rail) {
+        when input[signal-I] == 100 {
+            -200
+        }
+    }
+
+",
+    );
+}
