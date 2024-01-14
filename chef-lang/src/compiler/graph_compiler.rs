@@ -5,7 +5,7 @@ use crate::ast::{
     Expression, ExpressionKind, Mutation, PickExpression, VariableRef, VariableSignalType,
     WhenExpression, AST,
 };
-use crate::ast::{CompoundStatement, Statement, StatementKind, VariableType};
+use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
 use crate::diagnostics::CompilationError;
 
@@ -27,16 +27,9 @@ impl GraphCompiler {
     }
 
     pub fn compile(&mut self) -> Result<Graph, CompilationError> {
-        for compound_statement in self.ast.compound_statements.clone() {
-            match compound_statement {
-                CompoundStatement::Block(block) => {
-                    let block_graph = self.compile_block(&block)?;
-                    self.add_block_graph(block.name.clone(), block_graph);
-                }
-                CompoundStatement::Unknown => {
-                    panic!("Unknown compound statements should have been caught by the parser.")
-                }
-            }
+        for block in self.ast.blocks.clone() {
+            let block_graph = self.compile_block(&block)?;
+            self.add_block_graph(block.name.clone(), block_graph);
         }
         self.get_graph()
     }
@@ -514,7 +507,7 @@ impl GraphCompiler {
     pub fn get_graph(&self) -> Result<Graph, CompilationError> {
         match self.block_graphs.get("main") {
             Some(g) => Ok(g.clone()),
-            None => match self.ast.compound_statements.is_empty() {
+            None => match self.ast.blocks.is_empty() {
                 true => Err(CompilationError::new_generic("No statements in program.")),
                 false => Err(CompilationError::new_generic(
                     "No `main` block found. All chef programs must have a `main` block.",

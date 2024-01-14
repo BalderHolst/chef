@@ -17,14 +17,6 @@ pub mod parser;
 mod type_checker;
 mod visitors;
 
-/// A chunk of code, that holds statements or other compound statements.
-// TODO: This may not be the correct term for it but i don't care right now...
-#[derive(Clone, Debug)]
-pub enum CompoundStatement {
-    Block(Block),
-    Unknown,
-}
-
 /// [AST] representation of chef `block`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
@@ -60,7 +52,7 @@ impl Block {
 /// The abstract syntax tree.
 #[allow(clippy::upper_case_acronyms)]
 pub struct AST {
-    pub compound_statements: Vec<CompoundStatement>,
+    pub blocks: Vec<Block>,
     diagnostics_bag: DiagnosticsBagRef,
 }
 
@@ -68,7 +60,7 @@ impl AST {
     /// Instantiate a new [AST].
     pub fn new(diagnostics_bag: DiagnosticsBagRef) -> Self {
         Self {
-            compound_statements: vec![],
+            blocks: vec![],
             diagnostics_bag,
         }
     }
@@ -84,8 +76,8 @@ impl AST {
         let tokens: Vec<Token> = lexer.collect();
         let parser = Parser::new(tokens, diagnostics_bag.clone(), opts);
         let mut ast = AST::new(diagnostics_bag);
-        for statement in parser {
-            ast.add_compound_statement(statement);
+        for block in parser {
+            ast.add_block(block);
         }
 
         // Check types first to make sure that bool constants are evaluated as int constants and
@@ -96,15 +88,15 @@ impl AST {
     }
 
     /// Add a statement to the [AST].
-    pub fn add_compound_statement(&mut self, compound_statement: CompoundStatement) {
-        self.compound_statements.push(compound_statement);
+    pub fn add_block(&mut self, block: Block) {
+        self.blocks.push(block);
     }
 
     /// Print the [AST] to stout.
     pub fn print(&self) {
         let mut printer = Printer::new();
-        for compound_statement in &self.compound_statements {
-            printer.visit_compound_statement(compound_statement);
+        for block in &self.blocks {
+            printer.visit_block(block);
         }
     }
 
@@ -656,13 +648,6 @@ impl Display for Variable {
 }
 
 impl Visitor for Printer {
-    fn visit_compound_statement(&mut self, compound_statement: &CompoundStatement) {
-        self.print("Statement:");
-        self.indent();
-        self.do_visit_compound_statement(compound_statement);
-        self.unindent();
-    }
-
     fn visit_statement(&mut self, statement: &Statement) {
         self.print("Statement:");
         self.indent();

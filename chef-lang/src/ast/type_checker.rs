@@ -11,8 +11,8 @@ use super::{
 /// Type check an [AST].
 pub fn check(ast: &AST, diagnostics_bag: DiagnosticsBagRef) {
     let mut checker = TypeChecker { diagnostics_bag };
-    for compound_statement in &ast.compound_statements {
-        checker.visit_compound_statement(compound_statement);
+    for block in &ast.blocks {
+        checker.visit_block(block);
     }
 }
 

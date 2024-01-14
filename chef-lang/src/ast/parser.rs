@@ -16,8 +16,8 @@ use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
 use super::{
-    Assignment, AssignmentKind, Block, BlockLinkExpression, CompoundStatement, MutationOperator,
-    PickExpression, VariableRef, VariableSignalType, WhenExpression,
+    Assignment, AssignmentKind, Block, BlockLinkExpression, MutationOperator, PickExpression,
+    VariableRef, VariableSignalType, WhenExpression,
 };
 
 // TODO: Add example
@@ -28,6 +28,13 @@ pub struct StatementList {
     pub out: Option<Box<Expression>>,
 }
 
+enum Directive {
+    Block(Block),
+    ConstantInt((String, i32)),
+    ConstantBool((String, bool)),
+    Unknown,
+}
+
 /// The parser. The parser can be used as an iterator to get statements one at a time.
 pub struct Parser {
     tokens: Vec<Token>,
@@ -36,7 +43,7 @@ pub struct Parser {
     blocks: Vec<Rc<Block>>,
     diagnostics_bag: DiagnosticsBagRef,
     options: Rc<Opts>,
-    next_compound_statement: VecDeque<CompoundStatement>,
+    next_blocks: VecDeque<Block>,
 }
 
 impl Parser {
@@ -53,7 +60,7 @@ impl Parser {
             blocks: vec![],
             diagnostics_bag,
             options,
-            next_compound_statement: VecDeque::new(),
+            next_blocks: VecDeque::new(),
         }
     }
 
@@ -71,7 +78,7 @@ impl Parser {
             blocks: vec![],
             diagnostics_bag,
             options,
-            next_compound_statement: VecDeque::new(),
+            next_blocks: VecDeque::new(),
         }
     }
 
@@ -167,10 +174,10 @@ impl Parser {
         self.scopes.last_mut().unwrap().push(var);
     }
 
-    fn next_compound_statement(&mut self) -> Option<CompoundStatement> {
+    fn next_compound_statement(&mut self) -> Option<Directive> {
         // Return queued compound statements if any
-        if let Some(cs) = self.next_compound_statement.pop_front() {
-            return Some(cs);
+        if let Some(b) = self.next_blocks.pop_front() {
+            return Some(Directive::Block(b));
         }
 
         // Stop if at the end of token stream
@@ -178,10 +185,10 @@ impl Parser {
             return None;
         }
 
-        let compound_statement = self.parse_compound_statement();
+        let directive = self.parse_compound_statement();
 
-        match compound_statement {
-            Ok(k) => Some(k),
+        match directive {
+            Ok(d) => Some(d),
             Err(e) => {
                 self.diagnostics_bag
                     .borrow_mut()
@@ -191,24 +198,25 @@ impl Parser {
         }
     }
 
-    fn parse_compound_statement(&mut self) -> CompilationResult<CompoundStatement> {
+    fn parse_compound_statement(&mut self) -> CompilationResult<Directive> {
         let start_token = self.current().clone();
         match &start_token.kind {
             TokenKind::Word(word) => match word.as_str() {
                 "block" => {
                     let block = self.parse_block()?;
                     self.blocks.push(Rc::new(block.clone()));
-                    Ok(CompoundStatement::Block(block))
+                    Ok(Directive::Block(block))
                 }
                 "import" => {
-                    let compound_statements = self.parse_import()?;
-                    self.next_compound_statement.extend(compound_statements);
-                    self.next_compound_statement
-                        .pop_front()
-                        .ok_or(CompilationError::new_localized(
+                    let blocks = self.parse_import()?;
+                    self.next_blocks.extend(blocks);
+                    match self.next_blocks.pop_front() {
+                        Some(b) => Ok(Directive::Block(b)),
+                        None => Err(CompilationError::new_localized(
                             "Imported file is empty.",
                             start_token.span,
-                        ))
+                        )),
+                    }
                 }
                 _ => {
                     let token = self.consume();
@@ -224,7 +232,7 @@ impl Parser {
                     &format!("Unknown keyword '{}'", start_token.kind),
                 );
                 self.consume();
-                Ok(CompoundStatement::Unknown)
+                Ok(Directive::Unknown)
             }
         }
     }
@@ -673,8 +681,9 @@ impl Parser {
         Ok(StatementList { statements, out })
     }
 
+    // TODO: Constants should be able to be imported
     /// Parse chef `import`
-    fn parse_import(&mut self) -> CompilationResult<Vec<CompoundStatement>> {
+    fn parse_import(&mut self) -> CompilationResult<Vec<Block>> {
         self.consume(); // Consume "block" word
 
         let file_token = self.consume().clone();
@@ -980,9 +989,13 @@ impl Parser {
 }
 
 impl Iterator for Parser {
-    type Item = CompoundStatement;
+    type Item = Block;
     fn next(&mut self) -> Option<Self::Item> {
-        self.next_compound_statement()
+        match self.next_compound_statement() {
+            Some(Directive::Block(block)) => Some(block),
+            Some(_) => self.next(),
+            None => None,
+        }
     }
 }
 
