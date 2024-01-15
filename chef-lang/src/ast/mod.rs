@@ -318,7 +318,7 @@ impl Expression {
 
     fn number(n: i32, span: TextSpan) -> Self {
         Self {
-            kind: ExpressionKind::Int(IntExpression::new(n)),
+            kind: ExpressionKind::Int(n),
             span,
         }
     }
@@ -375,7 +375,7 @@ impl Display for ExpressionReturnType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExpressionKind {
     Bool(bool),
-    Int(IntExpression),
+    Int(i32),
     Binary(BinaryExpression),
     Parenthesized(ParenthesizedExpression),
     Pick(PickExpression),
@@ -398,18 +398,6 @@ impl WhenExpression {
             Some(o) => o.return_type(),
             None => ExpressionReturnType::None,
         }
-    }
-}
-
-/// An expression containing only a single number.
-#[derive(Debug, Clone, PartialEq)]
-pub struct IntExpression {
-    pub number: i32,
-}
-
-impl IntExpression {
-    fn new(number: i32) -> Self {
-        Self { number }
     }
 }
 
@@ -715,8 +703,8 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_number(&mut self, number: &IntExpression) {
-        self.print(&format!("Number: {}", number.number));
+    fn visit_number(&mut self, number: &i32) {
+        self.print(&format!("Number: {}", number));
     }
 
     fn visit_bool(&mut self, bool: &bool) {

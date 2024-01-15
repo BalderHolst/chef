@@ -6,9 +6,8 @@ use std::rc::Rc;
 
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
-    BinaryExpression, BinaryOperator, BinaryOperatorKind, Expression, ExpressionKind,
-    IntExpression, Mutation, ParenthesizedExpression, Statement, StatementKind, Variable,
-    VariableType,
+    BinaryExpression, BinaryOperator, BinaryOperatorKind, Expression, ExpressionKind, Mutation,
+    ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
 };
 use crate::cli::Opts;
 use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
@@ -55,7 +54,6 @@ pub struct Parser {
     diagnostics_bag: DiagnosticsBagRef,
     options: Rc<Opts>,
     next_blocks: VecDeque<Block>,
-    constants: HashMap<String, Constant>,
 }
 
 impl Parser {
@@ -73,7 +71,6 @@ impl Parser {
             diagnostics_bag,
             options,
             next_blocks: VecDeque::new(),
-            constants: HashMap::new(),
         }
     }
 
@@ -92,7 +89,6 @@ impl Parser {
             diagnostics_bag,
             options,
             next_blocks: VecDeque::new(),
-            constants: HashMap::new(),
         }
     }
 
@@ -473,7 +469,7 @@ impl Parser {
             ExpressionKind::Int(v) => {
                 variable.type_ = {
                     if let VariableType::Int(_) = variable.type_ {
-                        VariableType::ConstInt(v.number)
+                        VariableType::ConstInt(*v)
                     } else {
                         return Err(CompilationError::new_localized(
                             format!("Can not assign variable `{}` of type `{}` to expression returning `int` type.",
@@ -945,7 +941,7 @@ impl Parser {
             TokenKind::Number(number) => {
                 self.consume();
                 Ok(Expression::new(
-                    ExpressionKind::Int(IntExpression::new(*number)),
+                    ExpressionKind::Int(*number),
                     self.get_span_from(&start_token.span),
                 ))
             }
@@ -995,10 +991,9 @@ impl Parser {
                                 })
                             }
                         }
-                        ScopedItem::Const(Constant::Int(n)) => Ok(Expression::new(
-                            ExpressionKind::Int(IntExpression::new(n)),
-                            item_span,
-                        )),
+                        ScopedItem::Const(Constant::Int(n)) => {
+                            Ok(Expression::new(ExpressionKind::Int(n), item_span))
+                        }
                         ScopedItem::Const(Constant::Bool(b)) => {
                             Ok(Expression::new(ExpressionKind::Bool(b), item_span))
                         }

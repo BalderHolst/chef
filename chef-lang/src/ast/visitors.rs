@@ -7,8 +7,8 @@
 
 use super::{
     parser::StatementList, Assignment, BinaryExpression, Block, BlockLinkExpression, Expression,
-    ExpressionKind, IntExpression, Mutation, ParenthesizedExpression, PickExpression, Statement,
-    StatementKind, VariableRef, WhenExpression,
+    ExpressionKind, Mutation, ParenthesizedExpression, PickExpression, Statement, StatementKind,
+    VariableRef, WhenExpression,
 };
 
 // For documentation references
@@ -149,7 +149,7 @@ pub trait Visitor {
 
     fn visit_pick_expression(&mut self, expr: &PickExpression);
     fn visit_error_statement(&mut self);
-    fn visit_number(&mut self, number: &IntExpression);
+    fn visit_number(&mut self, number: &i32);
     fn visit_bool(&mut self, value: &bool);
     fn visit_variable_ref(&mut self, var: &VariableRef);
     fn visit_error_expression(&mut self);
@@ -290,7 +290,7 @@ pub trait MutVisitor {
     fn visit_pick_expression(&mut self, expr: &mut PickExpression);
     fn visit_error_statement(&mut self);
     fn visit_bool(&mut self, bool: &mut bool);
-    fn visit_number(&mut self, number: &mut IntExpression);
+    fn visit_number(&mut self, number: &mut i32);
     fn visit_variable_ref(&mut self, var: &VariableRef);
     fn visit_error_expression(&mut self);
 }

@@ -1,6 +1,6 @@
 //! Evaluates constant expressions in the [AST]. Use the public [evaluate_constants] function.
 
-use super::{visitors::MutVisitor, Expression, ExpressionKind, IntExpression, AST};
+use super::{visitors::MutVisitor, Expression, ExpressionKind, AST};
 
 /// Evaluate constant expressions in the [AST] and substitutes them for their results.
 pub fn evaluate_constants(ast: &mut AST) {
@@ -41,7 +41,7 @@ enum EvaluatorResult {
 /// Return the constant integer value of an expression if it is constant
 fn get_constant_int(expr: &Expression) -> Option<i32> {
     match &expr.kind {
-        ExpressionKind::Int(n) => Some(n.number),
+        ExpressionKind::Int(n) => Some(*n),
         ExpressionKind::Parenthesized(p) => get_constant_int(&p.expression),
         ExpressionKind::Bool(_) => None,
         ExpressionKind::Binary(_) => None,
@@ -56,7 +56,7 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
 impl MutVisitor for ConstantEvaluator {
     fn visit_pick_expression(&mut self, _expr: &mut super::PickExpression) {}
     fn visit_error_statement(&mut self) {}
-    fn visit_number(&mut self, _number: &mut super::IntExpression) {}
+    fn visit_number(&mut self, _number: &mut i32) {}
     fn visit_bool(&mut self, _bool: &mut bool) {}
     fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
     fn visit_error_expression(&mut self) {}
@@ -103,7 +103,7 @@ impl MutVisitor for ConstantEvaluator {
         };
 
         expression.kind = match result {
-            EvaluatorResult::Int(val) => ExpressionKind::Int(IntExpression::new(val)),
+            EvaluatorResult::Int(val) => ExpressionKind::Int(val),
             EvaluatorResult::Bool(val) => ExpressionKind::Bool(val),
         };
         self.did_work = true;

@@ -229,7 +229,7 @@ impl GraphCompiler {
         out_type: Option<IOType>,
     ) -> Result<(NId, IOType), CompilationError> {
         match &expr.kind {
-            ExpressionKind::Int(n) => self.compile_constant(graph, n.number),
+            ExpressionKind::Int(n) => self.compile_constant(graph, *n),
             ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32),
             // TODO: use out_type in all compilation functions
             ExpressionKind::VariableRef(var_ref) => self.compile_variable_ref_expression(graph, var_ref), // 
