@@ -659,7 +659,7 @@ impl Parser {
                 )),
 
                 ParsedVariable::Const(_) => Err(CompilationError::new_localized(
-                    format!("Constants cannot be block inputs."),
+                    "Constants cannot be block inputs.".to_string(),
                     var_span,
                 )),
             }?;
@@ -769,7 +769,7 @@ impl Parser {
         let value_token = self.consume();
 
         let constant = match &value_token.kind {
-            TokenKind::Number(n) => Constant::Int(n.clone()),
+            TokenKind::Number(n) => Constant::Int(*n),
             TokenKind::Word(s) if s.as_str() == "true" => Constant::Bool(true),
             TokenKind::Word(s) if s.as_str() == "false" => Constant::Bool(false),
             _ => {
@@ -958,7 +958,7 @@ impl Parser {
                 Ok(Expression::bool(false, self.peak(-1).span.clone()))
             }
             TokenKind::Word(word) => {
-                self.consume();
+                let item_span = self.consume().span.clone();
 
                 // If is defined variable
                 if let Some(item) = self.search_scope(word) {
@@ -995,7 +995,13 @@ impl Parser {
                                 })
                             }
                         }
-                        ScopedItem::Const(_) => todo!(),
+                        ScopedItem::Const(Constant::Int(n)) => Ok(Expression::new(
+                            ExpressionKind::Int(IntExpression::new(n)),
+                            item_span,
+                        )),
+                        ScopedItem::Const(Constant::Bool(b)) => {
+                            Ok(Expression::new(ExpressionKind::Bool(b), item_span))
+                        }
                     }
                 } else if let Some(block) = self.search_blocks(word) {
                     let block_link_expr = self.parse_block_link(block)?;

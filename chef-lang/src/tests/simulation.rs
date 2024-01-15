@@ -276,7 +276,6 @@ fn order_of_operations_compile_time() {
     assert_eq!(sim.get_output(), outputs!["rail": 11]);
 }
 
-#[ignore]
 #[test]
 fn order_of_operations_constants() {
     let g = compile_code(
