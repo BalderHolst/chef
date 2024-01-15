@@ -557,16 +557,9 @@ impl Parser {
         match self.current().kind {
             TokenKind::LeftParen => {
                 self.consume();
-                let type_token = self.consume().clone();
+                let word = self.consume_word()?.to_string();
                 self.consume_and_expect(TokenKind::RightParen)?;
-                if let TokenKind::Word(word) = type_token.kind.clone() {
-                    Ok(VariableSignalType::Signal(word))
-                } else {
-                    Err(CompilationError::new_unexpected_token(
-                        type_token,
-                        TokenKind::Word("".to_string()),
-                    ))
-                }
+                Ok(VariableSignalType::Signal(word))
             }
             _ => Ok(VariableSignalType::Any),
         }
@@ -960,29 +953,25 @@ impl Parser {
                 if let Some(item) = self.search_scope(word) {
                     match item {
                         ScopedItem::Var(var) => {
+                            // If pick
                             if self.current().kind == TokenKind::LeftSquare {
                                 self.consume();
-                                if let TokenKind::Word(signal) = self.consume().kind.clone() {
-                                    self.consume_and_expect(TokenKind::RightSquare)?;
-                                    Ok({
-                                        let kind = ExpressionKind::Pick(PickExpression::new(
-                                            signal,
-                                            VariableRef::new(
-                                                var,
-                                                self.get_span_from(&start_token.span),
-                                            ),
-                                        ));
-                                        let span = self.get_span_from(&start_token.span);
-                                        Expression { kind, span }
-                                    })
-                                } else {
-                                    Ok({
-                                        let kind = ExpressionKind::Error;
-                                        let span = self.get_span_from(&start_token.span);
-                                        Expression { kind, span }
-                                    })
-                                }
-                            } else {
+                                let signal = self.consume_word()?.to_string();
+                                self.consume_and_expect(TokenKind::RightSquare)?;
+                                Ok({
+                                    let kind = ExpressionKind::Pick(PickExpression::new(
+                                        signal,
+                                        VariableRef::new(
+                                            var,
+                                            self.get_span_from(&start_token.span),
+                                        ),
+                                    ));
+                                    let span = self.get_span_from(&start_token.span);
+                                    Expression { kind, span }
+                                })
+                            }
+                            // otherwise variable reference
+                            else {
                                 Ok({
                                     let span = self.get_span_from(&start_token.span);
                                     let var_ref = VariableRef::new(var, span.clone());
