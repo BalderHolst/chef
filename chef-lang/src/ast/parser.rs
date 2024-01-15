@@ -1,7 +1,7 @@
 //! Module for parsing a token stream into an abstract syntax tree.
 
 use std::cmp::min;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 
 use crate::ast::lexer::{Token, TokenKind};
@@ -28,10 +28,14 @@ pub struct StatementList {
     pub out: Option<Box<Expression>>,
 }
 
+enum Constant {
+    Int(i32),
+    Bool(bool),
+}
+
 enum Directive {
     Block(Block),
-    ConstantInt((String, i32)),
-    ConstantBool((String, bool)),
+    Constant,
     Unknown,
 }
 
@@ -44,6 +48,7 @@ pub struct Parser {
     diagnostics_bag: DiagnosticsBagRef,
     options: Rc<Opts>,
     next_blocks: VecDeque<Block>,
+    constants: HashMap<String, Constant>,
 }
 
 impl Parser {
@@ -61,6 +66,7 @@ impl Parser {
             diagnostics_bag,
             options,
             next_blocks: VecDeque::new(),
+            constants: HashMap::new(),
         }
     }
 
@@ -79,6 +85,7 @@ impl Parser {
             diagnostics_bag,
             options,
             next_blocks: VecDeque::new(),
+            constants: HashMap::new(),
         }
     }
 
@@ -115,6 +122,23 @@ impl Parser {
         self.peak(-1)
     }
 
+    /// Comsume a token and expect it to be a word. Return the word as a slice.
+    fn consume_word(&mut self) -> CompilationResult<&str> {
+        let token = self.consume();
+        if let TokenKind::Word(word) = &token.kind {
+            Ok(word.as_str())
+        } else {
+            Err(CompilationError::new_localized(
+                format!(
+                    "Exprected {}. Found {}.",
+                    TokenKind::Word("".to_string()),
+                    token.kind
+                ),
+                token.span.clone(),
+            ))
+        }
+    }
+
     /// Consume only if the token is of a certain kind.
     fn consume_if(&mut self, token_kind: TokenKind) {
         if self.current().kind == token_kind {
@@ -123,7 +147,7 @@ impl Parser {
     }
 
     /// Consume and error if the token is not what was expected.
-    fn consume_and_check(&mut self, expected: TokenKind) -> Result<TokenKind, CompilationError> {
+    fn consume_and_expect(&mut self, expected: TokenKind) -> Result<TokenKind, CompilationError> {
         let token = self.consume().clone();
         let is_correct = token.kind == expected;
         if !is_correct {
@@ -174,8 +198,8 @@ impl Parser {
         self.scopes.last_mut().unwrap().push(var);
     }
 
-    fn next_compound_statement(&mut self) -> Option<Directive> {
-        // Return queued compound statements if any
+    fn next_directive(&mut self) -> Option<Directive> {
+        // Return queued blocks first if any
         if let Some(b) = self.next_blocks.pop_front() {
             return Some(Directive::Block(b));
         }
@@ -185,7 +209,7 @@ impl Parser {
             return None;
         }
 
-        let directive = self.parse_compound_statement();
+        let directive = self.parse_directive();
 
         match directive {
             Ok(d) => Some(d),
@@ -198,7 +222,7 @@ impl Parser {
         }
     }
 
-    fn parse_compound_statement(&mut self) -> CompilationResult<Directive> {
+    fn parse_directive(&mut self) -> CompilationResult<Directive> {
         let start_token = self.current().clone();
         match &start_token.kind {
             TokenKind::Word(word) => match word.as_str() {
@@ -218,6 +242,7 @@ impl Parser {
                         )),
                     }
                 }
+                "const" => self.parse_constant(),
                 _ => {
                     let token = self.consume();
                     Err(CompilationError::new_localized(
@@ -248,7 +273,7 @@ impl Parser {
                         self.consume();
                         let statement_start = self.current().span.start;
                         if let Ok(expr) = self.parse_expression() {
-                            if let Err(e) = self.consume_and_check(TokenKind::Semicolon) {
+                            if let Err(e) = self.consume_and_expect(TokenKind::Semicolon) {
                                 self.diagnostics_bag
                                     .borrow_mut()
                                     .report_compilation_error(e);
@@ -365,7 +390,7 @@ impl Parser {
     /// Parse variable assignment statement.
     fn parse_assignment_statement(&mut self) -> Result<StatementKind, CompilationError> {
         let start_span = self.current().span.clone();
-        let mut variable = if let ParsedVariable::Def(v) = self.parse_variable()? {
+        let mut variable = if let ParsedVariable::Def(v) = self.parse_variable_or_const()? {
             v
         } else {
             self.diagnostics_bag.borrow_mut().report_error(
@@ -378,7 +403,7 @@ impl Parser {
 
         match &variable.type_ {
             VariableType::Var(_) => {
-                self.consume_and_check(TokenKind::Semicolon)?;
+                self.consume_and_expect(TokenKind::Semicolon)?;
 
                 // `var` type variable is always zero initialized, because memory cells in factorio
                 // cannot be assigned values.
@@ -392,7 +417,7 @@ impl Parser {
                 )));
             }
             VariableType::Counter(_) => {
-                self.consume_and_check(TokenKind::Semicolon)?;
+                self.consume_and_expect(TokenKind::Semicolon)?;
 
                 // `counter` type variable is always zero initialized, because memory cells in factorio
                 // cannot be assigned values.
@@ -459,7 +484,7 @@ impl Parser {
         let var_ref = Rc::new(variable);
         self.add_to_scope(var_ref.clone());
 
-        self.consume_and_check(TokenKind::Semicolon)?;
+        self.consume_and_expect(TokenKind::Semicolon)?;
         Ok(StatementKind::Assignment(Assignment::new(
             var_ref,
             expr,
@@ -482,7 +507,7 @@ impl Parser {
     /// Parse variable mutation statement.
     fn parse_mutation_statement(&mut self) -> Result<StatementKind, CompilationError> {
         let start_span = self.current().span.clone();
-        let var_ref = if let ParsedVariable::Ref(v) = self.parse_variable()? {
+        let var_ref = if let ParsedVariable::Ref(v) = self.parse_variable_or_const()? {
             v
         } else {
             self.diagnostics_bag.borrow_mut().report_error(
@@ -509,7 +534,7 @@ impl Parser {
 
         let op = self.consume_mutation_operator()?;
         let expr = self.parse_expression()?;
-        self.consume_and_check(TokenKind::Semicolon)?;
+        self.consume_and_expect(TokenKind::Semicolon)?;
 
         Ok(StatementKind::Mutation(Mutation::new(var, op, expr)))
     }
@@ -526,7 +551,7 @@ impl Parser {
             TokenKind::LeftParen => {
                 self.consume();
                 let type_token = self.consume().clone();
-                self.consume_and_check(TokenKind::RightParen)?;
+                self.consume_and_expect(TokenKind::RightParen)?;
                 if let TokenKind::Word(word) = type_token.kind.clone() {
                     Ok(VariableSignalType::Signal(word))
                 } else {
@@ -540,20 +565,15 @@ impl Parser {
         }
     }
 
-    fn parse_variable(&mut self) -> Result<ParsedVariable, CompilationError> {
+    fn parse_variable_or_const(&mut self) -> Result<ParsedVariable, CompilationError> {
         let start_token = self.current().clone();
-        let name = match &start_token.kind {
-            TokenKind::Word(w) => Ok(w),
-            _ => Err(CompilationError::new_unexpected_token(
-                start_token.clone(),
-                TokenKind::Word("".to_string()),
-            )),
-        }?;
-        self.consume(); // Consume name
 
+        let name = self.consume_word()?.to_string();
+
+        // If variable reference
         if self.current().kind != TokenKind::Colon {
             let var = self
-                .search_scope(name)
+                .search_scope(&name)
                 .ok_or(CompilationError::new_localized(
                     format!("Variable `{}` not defined.", name),
                     start_token.span.clone(),
@@ -561,7 +581,9 @@ impl Parser {
             return Ok(ParsedVariable::Ref(VariableRef::new(var, start_token.span)));
         }
 
-        self.consume_and_check(TokenKind::Colon)?;
+        // If variable definition
+        self.consume_and_expect(TokenKind::Colon)?;
+
         let type_ = self.parse_variable_type()?;
 
         Ok(ParsedVariable::Def(Variable::new(
@@ -580,7 +602,7 @@ impl Parser {
                 "int" => Ok(VariableType::Int(self.parse_variable_type_signal()?)),
                 "var" => Ok(VariableType::Var(self.parse_variable_type_signal()?)),
                 "counter" => {
-                    self.consume_and_check(TokenKind::LeftParen)?;
+                    self.consume_and_expect(TokenKind::LeftParen)?;
                     let sig_token = self.consume();
                     let type_ = if let TokenKind::Word(t) = &sig_token.kind {
                         VariableSignalType::Signal(t.clone())
@@ -590,9 +612,9 @@ impl Parser {
                             sig_token.span.clone(),
                         ));
                     };
-                    self.consume_and_check(TokenKind::Colon)?;
+                    self.consume_and_expect(TokenKind::Colon)?;
                     let limit_expr = self.parse_expression()?;
-                    self.consume_and_check(TokenKind::RightParen)?;
+                    self.consume_and_expect(TokenKind::RightParen)?;
                     Ok(VariableType::Counter((type_, Box::new(limit_expr))))
                 }
                 "all" => Ok(VariableType::All),
@@ -612,7 +634,7 @@ impl Parser {
     fn parse_block_arguments(&mut self) -> Result<Vec<Rc<Variable>>, CompilationError> {
         let mut arguments: Vec<Rc<Variable>> = vec![];
         while self.current().kind != TokenKind::RightParen {
-            let var = match self.parse_variable()? {
+            let var = match self.parse_variable_or_const()? {
                 ParsedVariable::Def(v) => Ok(v),
 
                 // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
@@ -637,7 +659,7 @@ impl Parser {
     /// Parse arguments for `block` links.
     fn parse_block_link_arguments(&mut self) -> Result<Vec<Expression>, CompilationError> {
         let mut inputs: Vec<Expression> = vec![];
-        self.consume_and_check(TokenKind::LeftParen)?;
+        self.consume_and_expect(TokenKind::LeftParen)?;
         loop {
             if self.current().kind == TokenKind::Comma {
                 self.consume();
@@ -647,12 +669,12 @@ impl Parser {
             }
             inputs.push(self.parse_expression()?);
         }
-        self.consume_and_check(TokenKind::RightParen)?;
+        self.consume_and_expect(TokenKind::RightParen)?;
         Ok(inputs)
     }
 
     fn parse_statement_list_expression(&mut self) -> Result<StatementList, CompilationError> {
-        self.consume_and_check(TokenKind::LeftCurly)?;
+        self.consume_and_expect(TokenKind::LeftCurly)?;
 
         let mut statements: Vec<Statement> = vec![];
         let mut out = None;
@@ -676,7 +698,7 @@ impl Parser {
             }
         }
 
-        self.consume_and_check(TokenKind::RightCurly)?;
+        self.consume_and_expect(TokenKind::RightCurly)?;
 
         Ok(StatementList { statements, out })
     }
@@ -701,18 +723,46 @@ impl Parser {
             let diagnostics_bag = DiagnosticsBag::new_ref(self.options.clone(), text.clone());
             let tokens = Lexer::from_source(diagnostics_bag.clone(), text).collect();
             let mut import_parser = Parser::new(tokens, diagnostics_bag, self.options.clone());
-            let mut compound_statements = vec![];
+            let mut blocks = vec![];
             for cs in &mut import_parser {
-                compound_statements.push(cs);
+                blocks.push(cs);
             }
             self.blocks.extend(import_parser.blocks);
-            Ok(compound_statements)
+            Ok(blocks)
         } else {
             Err(CompilationError::new_unexpected_token(
                 file_token.clone(),
                 TokenKind::Literal("path".to_string()),
             ))
         }
+    }
+
+    fn parse_constant(&mut self) -> CompilationResult<Directive> {
+        // Consume 'const' keyword
+        let start_token = self.consume();
+        debug_assert_eq!(start_token.kind, TokenKind::Word("const".to_string()));
+
+        let name = self.consume_word()?.to_string();
+
+        self.consume_and_expect(TokenKind::Equals)?;
+
+        let value_token = self.consume();
+
+        let constant = match &value_token.kind {
+            TokenKind::Number(n) => Constant::Int(n.clone()),
+            TokenKind::Word(s) if s.as_str() == "true" => Constant::Bool(true),
+            TokenKind::Word(s) if s.as_str() == "false" => Constant::Bool(false),
+            _ => {
+                return Err(CompilationError::new_localized(
+                    "Constants must be numbers or a boolean value.",
+                    value_token.span.clone(),
+                ))
+            }
+        };
+
+        self.constants.insert(name.to_string(), constant);
+
+        Ok(Directive::Constant)
     }
 
     /// Parse chef `block`.
@@ -731,12 +781,12 @@ impl Parser {
             "".to_string()
         };
 
-        self.consume_and_check(TokenKind::LeftParen)?;
+        self.consume_and_expect(TokenKind::LeftParen)?;
 
         let inputs = self.parse_block_arguments()?;
 
-        self.consume_and_check(TokenKind::RightParen)?;
-        self.consume_and_check(TokenKind::RightArrow)?;
+        self.consume_and_expect(TokenKind::RightParen)?;
+        self.consume_and_expect(TokenKind::RightArrow)?;
 
         let output_type = self.parse_block_outputs()?;
 
@@ -892,7 +942,7 @@ impl Parser {
                     if self.current().kind == TokenKind::LeftSquare {
                         self.consume();
                         if let TokenKind::Word(signal) = self.consume().kind.clone() {
-                            self.consume_and_check(TokenKind::RightSquare)?;
+                            self.consume_and_expect(TokenKind::RightSquare)?;
                             Ok({
                                 let kind = ExpressionKind::Pick(PickExpression::new(
                                     signal,
@@ -945,7 +995,7 @@ impl Parser {
                     let span = self.get_span_from(&start_token.span);
                     Expression { kind, span }
                 };
-                self.consume_and_check(TokenKind::RightParen)?;
+                self.consume_and_expect(TokenKind::RightParen)?;
                 Ok(expr)
             }
             _ => Err(CompilationError::new_localized(
@@ -991,7 +1041,7 @@ impl Parser {
 impl Iterator for Parser {
     type Item = Block;
     fn next(&mut self) -> Option<Self::Item> {
-        match self.next_compound_statement() {
+        match self.next_directive() {
             Some(Directive::Block(block)) => Some(block),
             Some(_) => self.next(),
             None => None,

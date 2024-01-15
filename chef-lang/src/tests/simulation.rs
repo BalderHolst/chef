@@ -276,6 +276,27 @@ fn order_of_operations_compile_time() {
     assert_eq!(sim.get_output(), outputs!["rail": 11]);
 }
 
+#[ignore]
+#[test]
+fn order_of_operations_constants() {
+    let g = compile_code(
+        "
+    const A = 1
+    const B = 2
+    const C = 3
+    const D = 4
+
+    block main() -> int(rail) {
+        A+B*C+D
+    }
+
+",
+    );
+    let mut sim = Simulator::new(g, inputs![]);
+    sim.simulate(10);
+    assert_eq!(sim.get_output(), outputs!["rail": 11]);
+}
+
 #[test]
 fn order_of_operations_factorio_time() {
     let g = compile_code(
