@@ -28,6 +28,13 @@ pub struct StatementList {
     pub out: Option<Box<Expression>>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum ScopedItem {
+    Var(Rc<Variable>),
+    Const(Constant),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 enum Constant {
     Int(i32),
     Bool(bool),
@@ -43,7 +50,7 @@ enum Directive {
 pub struct Parser {
     tokens: Vec<Token>,
     cursor: usize,
-    scopes: Vec<Vec<Rc<Variable>>>,
+    scopes: Vec<HashMap<String, ScopedItem>>,
     blocks: Vec<Rc<Block>>,
     diagnostics_bag: DiagnosticsBagRef,
     options: Rc<Opts>,
@@ -61,7 +68,7 @@ impl Parser {
                 .cloned()
                 .collect(),
             cursor: 0,
-            scopes: vec![vec![]],
+            scopes: vec![HashMap::new()],
             blocks: vec![],
             diagnostics_bag,
             options,
@@ -80,7 +87,7 @@ impl Parser {
                 .filter(|token| token.kind != TokenKind::Whitespace)
                 .collect(),
             cursor: 0,
-            scopes: vec![vec![]],
+            scopes: vec![HashMap::new()],
             blocks: vec![],
             diagnostics_bag,
             options,
@@ -158,13 +165,13 @@ impl Parser {
     }
 
     /// Search the current scope for a variable.
-    fn search_scope(&self, name: &str) -> Option<Rc<Variable>> {
+    fn search_scope(&self, name: &str) -> Option<ScopedItem> {
         let mut rev_scopes = self.scopes.clone();
         rev_scopes.reverse();
         for scope in rev_scopes {
-            for var in scope {
-                if var.name == name {
-                    return Some(var);
+            for (item_name, item) in scope {
+                if item_name == name {
+                    return Some(item);
                 }
             }
         }
@@ -183,7 +190,7 @@ impl Parser {
 
     /// Enter a new scope.
     fn enter_scope(&mut self) {
-        self.scopes.push(vec![]);
+        self.scopes.push(HashMap::new());
     }
 
     /// Exit the current scope.
@@ -193,9 +200,13 @@ impl Parser {
         }
     }
 
-    /// Add a variable to the current scope.
-    fn add_to_scope(&mut self, var: Rc<Variable>) {
-        self.scopes.last_mut().unwrap().push(var);
+    /// Add a scope item to the current scope.
+    fn add_to_scope(&mut self, name: String, item: ScopedItem) {
+        self.scopes.last_mut().unwrap().insert(name, item);
+    }
+
+    fn add_var_to_scope(&mut self, var: Rc<Variable>) {
+        self.add_to_scope(var.name.clone(), ScopedItem::Var(var))
     }
 
     fn next_directive(&mut self) -> Option<Directive> {
@@ -390,7 +401,7 @@ impl Parser {
     /// Parse variable assignment statement.
     fn parse_assignment_statement(&mut self) -> Result<StatementKind, CompilationError> {
         let start_span = self.current().span.clone();
-        let mut variable = if let ParsedVariable::Def(v) = self.parse_variable_or_const()? {
+        let mut variable = if let ParsedVariable::Def(v) = self.parse_variable()? {
             v
         } else {
             self.diagnostics_bag.borrow_mut().report_error(
@@ -408,7 +419,7 @@ impl Parser {
                 // `var` type variable is always zero initialized, because memory cells in factorio
                 // cannot be assigned values.
                 let var_ref = Rc::new(variable);
-                self.add_to_scope(var_ref.clone());
+                self.add_var_to_scope(var_ref.clone());
                 let zero_expr = Expression::number(0, self.get_span_from(&start_span));
                 return Ok(StatementKind::Assignment(Assignment::new(
                     var_ref,
@@ -422,7 +433,7 @@ impl Parser {
                 // `counter` type variable is always zero initialized, because memory cells in factorio
                 // cannot be assigned values.
                 let var_ref = Rc::new(variable);
-                self.add_to_scope(var_ref.clone());
+                self.add_var_to_scope(var_ref.clone());
                 let zero_expr = Expression::number(0, self.get_span_from(&start_span));
                 return Ok(StatementKind::Assignment(Assignment::new(
                     var_ref,
@@ -482,7 +493,7 @@ impl Parser {
         }
 
         let var_ref = Rc::new(variable);
-        self.add_to_scope(var_ref.clone());
+        self.add_var_to_scope(var_ref.clone());
 
         self.consume_and_expect(TokenKind::Semicolon)?;
         Ok(StatementKind::Assignment(Assignment::new(
@@ -507,7 +518,7 @@ impl Parser {
     /// Parse variable mutation statement.
     fn parse_mutation_statement(&mut self) -> Result<StatementKind, CompilationError> {
         let start_span = self.current().span.clone();
-        let var_ref = if let ParsedVariable::Ref(v) = self.parse_variable_or_const()? {
+        let var_ref = if let ParsedVariable::Ref(v) = self.parse_variable()? {
             v
         } else {
             self.diagnostics_bag.borrow_mut().report_error(
@@ -565,32 +576,35 @@ impl Parser {
         }
     }
 
-    fn parse_variable_or_const(&mut self) -> Result<ParsedVariable, CompilationError> {
+    fn parse_variable(&mut self) -> Result<ParsedVariable, CompilationError> {
         let start_token = self.current().clone();
 
         let name = self.consume_word()?.to_string();
 
         // If variable reference
         if self.current().kind != TokenKind::Colon {
-            let var = self
+            let item = self
                 .search_scope(&name)
                 .ok_or(CompilationError::new_localized(
                     format!("Variable `{}` not defined.", name),
                     start_token.span.clone(),
                 ))?;
-            return Ok(ParsedVariable::Ref(VariableRef::new(var, start_token.span)));
+            Ok(match item {
+                ScopedItem::Var(v) => ParsedVariable::Ref(VariableRef::new(v, start_token.span)),
+                ScopedItem::Const(c) => ParsedVariable::Const(c),
+            })
+        } else {
+            // If variable definition
+            self.consume_and_expect(TokenKind::Colon)?;
+
+            let type_ = self.parse_variable_type()?;
+
+            Ok(ParsedVariable::Def(Variable::new(
+                name.to_owned(),
+                type_,
+                self.get_span_from(&start_token.span),
+            )))
         }
-
-        // If variable definition
-        self.consume_and_expect(TokenKind::Colon)?;
-
-        let type_ = self.parse_variable_type()?;
-
-        Ok(ParsedVariable::Def(Variable::new(
-            name.to_owned(),
-            type_,
-            self.get_span_from(&start_token.span),
-        )))
     }
 
     /// Parse variable type.
@@ -634,17 +648,23 @@ impl Parser {
     fn parse_block_arguments(&mut self) -> Result<Vec<Rc<Variable>>, CompilationError> {
         let mut arguments: Vec<Rc<Variable>> = vec![];
         while self.current().kind != TokenKind::RightParen {
-            let var = match self.parse_variable_or_const()? {
+            let var_span = self.current().span.clone();
+            let var = match self.parse_variable()? {
                 ParsedVariable::Def(v) => Ok(v),
 
                 // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
-                ParsedVariable::Ref(v) => Err(CompilationError::new_localized(
+                ParsedVariable::Ref(_) => Err(CompilationError::new_localized(
                     "Please give variable a type.".to_string(),
-                    v.span.clone(),
+                    var_span,
+                )),
+
+                ParsedVariable::Const(_) => Err(CompilationError::new_localized(
+                    format!("Constants cannot be block inputs."),
+                    var_span,
                 )),
             }?;
             let var_ref = Rc::new(var);
-            self.add_to_scope(var_ref.clone());
+            self.add_var_to_scope(var_ref.clone());
             arguments.push(var_ref);
             self.consume_if(TokenKind::Comma);
         }
@@ -760,7 +780,7 @@ impl Parser {
             }
         };
 
-        self.constants.insert(name.to_string(), constant);
+        self.add_to_scope(name, ScopedItem::Const(constant));
 
         Ok(Directive::Constant)
     }
@@ -929,42 +949,53 @@ impl Parser {
                     self.get_span_from(&start_token.span),
                 ))
             }
+            TokenKind::Word(word) if word == "true" => {
+                self.consume();
+                Ok(Expression::bool(true, self.peak(-1).span.clone()))
+            }
+            TokenKind::Word(word) if word == "false" => {
+                self.consume();
+                Ok(Expression::bool(false, self.peak(-1).span.clone()))
+            }
             TokenKind::Word(word) => {
                 self.consume();
 
-                if word == "true" {
-                    Ok(Expression::bool(true, self.peak(-1).span.clone()))
-                } else if word == "false" {
-                    Ok(Expression::bool(false, self.peak(-1).span.clone()))
-                }
                 // If is defined variable
-                else if let Some(var) = self.search_scope(word) {
-                    if self.current().kind == TokenKind::LeftSquare {
-                        self.consume();
-                        if let TokenKind::Word(signal) = self.consume().kind.clone() {
-                            self.consume_and_expect(TokenKind::RightSquare)?;
-                            Ok({
-                                let kind = ExpressionKind::Pick(PickExpression::new(
-                                    signal,
-                                    VariableRef::new(var, self.get_span_from(&start_token.span)),
-                                ));
-                                let span = self.get_span_from(&start_token.span);
-                                Expression { kind, span }
-                            })
-                        } else {
-                            Ok({
-                                let kind = ExpressionKind::Error;
-                                let span = self.get_span_from(&start_token.span);
-                                Expression { kind, span }
-                            })
+                if let Some(item) = self.search_scope(word) {
+                    match item {
+                        ScopedItem::Var(var) => {
+                            if self.current().kind == TokenKind::LeftSquare {
+                                self.consume();
+                                if let TokenKind::Word(signal) = self.consume().kind.clone() {
+                                    self.consume_and_expect(TokenKind::RightSquare)?;
+                                    Ok({
+                                        let kind = ExpressionKind::Pick(PickExpression::new(
+                                            signal,
+                                            VariableRef::new(
+                                                var,
+                                                self.get_span_from(&start_token.span),
+                                            ),
+                                        ));
+                                        let span = self.get_span_from(&start_token.span);
+                                        Expression { kind, span }
+                                    })
+                                } else {
+                                    Ok({
+                                        let kind = ExpressionKind::Error;
+                                        let span = self.get_span_from(&start_token.span);
+                                        Expression { kind, span }
+                                    })
+                                }
+                            } else {
+                                Ok({
+                                    let span = self.get_span_from(&start_token.span);
+                                    let var_ref = VariableRef::new(var, span.clone());
+                                    let kind = ExpressionKind::VariableRef(var_ref);
+                                    Expression { kind, span }
+                                })
+                            }
                         }
-                    } else {
-                        Ok({
-                            let span = self.get_span_from(&start_token.span);
-                            let var_ref = VariableRef::new(var, span.clone());
-                            let kind = ExpressionKind::VariableRef(var_ref);
-                            Expression { kind, span }
-                        })
+                        ScopedItem::Const(_) => todo!(),
                     }
                 } else if let Some(block) = self.search_blocks(word) {
                     let block_link_expr = self.parse_block_link(block)?;
@@ -1052,4 +1083,5 @@ impl Iterator for Parser {
 enum ParsedVariable {
     Def(Variable),
     Ref(VariableRef),
+    Const(Constant),
 }
