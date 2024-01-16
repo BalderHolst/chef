@@ -14,6 +14,7 @@ use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, Di
 use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
+use super::python_macro;
 use super::{
     Assignment, AssignmentKind, Block, BlockLinkExpression, MutationOperator, PickExpression,
     VariableRef, VariableSignalType, WhenExpression,
@@ -238,10 +239,7 @@ impl Parser {
                     self.next_blocks.extend(blocks);
                     match self.next_blocks.pop_front() {
                         Some(b) => Ok(Directive::Block(b)),
-                        None => Err(CompilationError::new_localized(
-                            "Imported file is empty.",
-                            start_token.span,
-                        )),
+                        None => self.parse_directive(),
                     }
                 }
                 "const" => self.parse_constant(),
@@ -732,20 +730,29 @@ impl Parser {
     // TODO: Constants should be able to be imported
     /// Parse chef `import`
     fn parse_import(&mut self) -> CompilationResult<Vec<Block>> {
-        self.consume(); // Consume "block" word
+        self.consume(); // Consume "import" word
 
         let file_token = self.consume().clone();
 
         if let TokenKind::Literal(file) = &file_token.kind {
-            let text = match SourceText::from_file(file.as_str()) {
-                Ok(text) => Rc::new(text),
-                Err(e) => {
-                    return Err(CompilationError::new_localized(
+            let text = if file.ends_with(".py") {
+                python_macro::run_python_import(
+                    self.options.clone(),
+                    file_token.span,
+                    file.as_str(),
+                )?
+            } else {
+                match SourceText::from_file(file.as_str()) {
+                    Ok(text) => Ok(text),
+                    Err(e) => Err(CompilationError::new_localized(
                         format!("Could not read imported file '{}': {}", file, e),
                         file_token.span,
-                    ))
-                }
+                    )),
+                }?
             };
+
+            let text = Rc::new(text);
+
             let diagnostics_bag = DiagnosticsBag::new_ref(self.options.clone(), text.clone());
             let tokens = Lexer::from_source(diagnostics_bag.clone(), text).collect();
             let mut import_parser = Parser::new(tokens, diagnostics_bag, self.options.clone());

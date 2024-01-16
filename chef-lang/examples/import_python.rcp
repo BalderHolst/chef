@@ -1,0 +1,5 @@
+import "./examples/lib.py"
+
+block main() -> int {
+    answer()
+}
