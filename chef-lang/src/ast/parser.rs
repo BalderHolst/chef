@@ -755,18 +755,14 @@ impl Parser {
 
         self.consume_and_expect(TokenKind::Equals)?;
 
-        let value_token = self.consume();
+        // let value_token = self.consume();
 
-        let constant = match &value_token.kind {
-            TokenKind::Number(n) => Constant::Int(*n),
-            TokenKind::Word(s) if s.as_str() == "true" => Constant::Bool(true),
-            TokenKind::Word(s) if s.as_str() == "false" => Constant::Bool(false),
-            _ => {
-                return Err(CompilationError::new_localized(
-                    "Constants must be numbers or a boolean value.",
-                    value_token.span.clone(),
-                ))
-            }
+        let const_expr = self.parse_expression()?;
+        let value = crate::ast::constant_evaluator::evaluate_constant_expression(const_expr)?;
+
+        let constant = match value {
+            crate::ast::constant_evaluator::ConstantValue::Int(i) => Constant::Int(i),
+            crate::ast::constant_evaluator::ConstantValue::Bool(b) => Constant::Bool(b),
         };
 
         self.add_to_scope(name, ScopedItem::Const(constant));
@@ -877,6 +873,7 @@ impl Parser {
         }
     }
 
+    // TODO: `1+2*3+4==9` does not work correctly
     /// Parse a binary expression.
     fn parse_binary_expression(
         &mut self,

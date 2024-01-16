@@ -28,3 +28,24 @@ fn report_incorrect_block_arguments() {
     bag.borrow().print();
     assert_eq!(bag.borrow().error_count(), 1);
 }
+
+#[test]
+fn compile_constant_expressions() {
+    let code = Rc::new(SourceText::from_str(
+        "
+    const A = 5
+    const B = 2
+    const C = 2+A*B
+
+    block main() -> int(landfill) {
+        C
+    }
+",
+    ));
+
+    let opts = Rc::new(Opts::new_test());
+    let bag = DiagnosticsBag::new_ref(opts.clone(), code.clone());
+    AST::from_source(code, bag.clone(), opts);
+    bag.borrow().print();
+    assert_eq!(bag.borrow().error_count(), 0);
+}

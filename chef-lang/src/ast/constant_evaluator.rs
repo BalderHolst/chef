@@ -1,5 +1,7 @@
 //! Evaluates constant expressions in the [AST]. Use the public [evaluate_constants] function.
 
+use crate::diagnostics::{CompilationError, CompilationResult};
+
 use super::{visitors::MutVisitor, Expression, ExpressionKind, AST};
 
 /// Evaluate constant expressions in the [AST] and substitutes them for their results.
@@ -32,8 +34,35 @@ impl ConstantEvaluator {
     }
 }
 
+pub(crate) fn evaluate_constant_expression(
+    mut expr: Expression,
+) -> CompilationResult<ConstantValue> {
+    let mut evaluator = ConstantEvaluator::new();
+
+    let expr_span = expr.span.clone();
+
+    let expr = &mut expr;
+
+    evaluator.did_work = true;
+    while evaluator.did_work {
+        evaluator.did_work = false;
+        evaluator.visit_expression(expr);
+    }
+
+    dbg!(&expr.kind);
+
+    match expr.kind {
+        ExpressionKind::Bool(b) => Ok(ConstantValue::Bool(b)),
+        ExpressionKind::Int(i) => Ok(ConstantValue::Int(i)),
+        _ => Err(CompilationError::new_localized(
+            "Could not evaluate constant expression.",
+            expr_span,
+        )),
+    }
+}
+
 #[derive(Debug)]
-enum EvaluatorResult {
+pub(crate) enum ConstantValue {
     Int(i32),
     Bool(bool),
 }
@@ -75,25 +104,25 @@ impl MutVisitor for ConstantEvaluator {
                 let right = right.unwrap();
 
                 match binary_expression.operator.kind {
-                    super::BinaryOperatorKind::Add => EvaluatorResult::Int(left + right),
-                    super::BinaryOperatorKind::Subtract => EvaluatorResult::Int(left - right),
-                    super::BinaryOperatorKind::Multiply => EvaluatorResult::Int(left * right),
-                    super::BinaryOperatorKind::Divide => EvaluatorResult::Int(left / right),
-                    super::BinaryOperatorKind::LargerThan => EvaluatorResult::Bool(left > right),
+                    super::BinaryOperatorKind::Add => ConstantValue::Int(left + right),
+                    super::BinaryOperatorKind::Subtract => ConstantValue::Int(left - right),
+                    super::BinaryOperatorKind::Multiply => ConstantValue::Int(left * right),
+                    super::BinaryOperatorKind::Divide => ConstantValue::Int(left / right),
+                    super::BinaryOperatorKind::LargerThan => ConstantValue::Bool(left > right),
                     super::BinaryOperatorKind::LargerThanOrEqual => {
-                        EvaluatorResult::Bool(left >= right)
+                        ConstantValue::Bool(left >= right)
                     }
-                    super::BinaryOperatorKind::LessThan => EvaluatorResult::Bool(left < right),
+                    super::BinaryOperatorKind::LessThan => ConstantValue::Bool(left < right),
                     super::BinaryOperatorKind::LessThanOrEqual => {
-                        EvaluatorResult::Bool(left <= right)
+                        ConstantValue::Bool(left <= right)
                     }
-                    super::BinaryOperatorKind::Equals => EvaluatorResult::Bool(left == right),
-                    super::BinaryOperatorKind::NotEquals => EvaluatorResult::Bool(left != right),
+                    super::BinaryOperatorKind::Equals => ConstantValue::Bool(left == right),
+                    super::BinaryOperatorKind::NotEquals => ConstantValue::Bool(left != right),
                 }
             }
             ExpressionKind::VariableRef(var_ref) => match var_ref.var.type_ {
-                super::VariableType::ConstInt(i) => EvaluatorResult::Int(i),
-                super::VariableType::ConstBool(b) => EvaluatorResult::Bool(b),
+                super::VariableType::ConstInt(i) => ConstantValue::Int(i),
+                super::VariableType::ConstBool(b) => ConstantValue::Bool(b),
                 _ => return,
             },
             _ => {
@@ -103,8 +132,8 @@ impl MutVisitor for ConstantEvaluator {
         };
 
         expression.kind = match result {
-            EvaluatorResult::Int(val) => ExpressionKind::Int(val),
-            EvaluatorResult::Bool(val) => ExpressionKind::Bool(val),
+            ConstantValue::Int(val) => ExpressionKind::Int(val),
+            ConstantValue::Bool(val) => ExpressionKind::Bool(val),
         };
         self.did_work = true;
     }

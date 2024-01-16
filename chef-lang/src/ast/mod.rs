@@ -510,12 +510,12 @@ impl BinaryOperator {
     /// Get the operator's precedence. Operations with highter precedence will be evaluated first.
     fn precedence(&self) -> u8 {
         match self.kind {
-            BinaryOperatorKind::LargerThan => 1,
-            BinaryOperatorKind::LargerThanOrEqual => 1,
-            BinaryOperatorKind::LessThan => 1,
-            BinaryOperatorKind::LessThanOrEqual => 1,
-            BinaryOperatorKind::Equals => 1,
-            BinaryOperatorKind::NotEquals => 1,
+            BinaryOperatorKind::LargerThan => 0,
+            BinaryOperatorKind::LargerThanOrEqual => 0,
+            BinaryOperatorKind::LessThan => 0,
+            BinaryOperatorKind::LessThanOrEqual => 0,
+            BinaryOperatorKind::Equals => 0,
+            BinaryOperatorKind::NotEquals => 0,
             BinaryOperatorKind::Add => 2,
             BinaryOperatorKind::Subtract => 2,
             BinaryOperatorKind::Multiply => 3,
