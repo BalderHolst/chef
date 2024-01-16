@@ -1,0 +1,10 @@
+block main() -> int(signal-S) {
+    a: counter(signal-0: 10);
+    b: counter(signal-1: 50);
+
+    reg_input: all = a & b;
+
+    r: reg(8) = reg_input;
+
+    (r[0] + r[1] + r[2] + r[3] + r[4] + r[5] + r[6] + r[7]) / 8
+}

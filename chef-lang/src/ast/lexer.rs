@@ -35,6 +35,8 @@ pub enum TokenKind {
     Hashtag,
     Semicolon,
     DoubleEquals,
+    And,
+    DoubleAnd,
     RightArrow,
     LargerThan,
     LargerThanEquals,
@@ -75,6 +77,8 @@ impl Display for TokenKind {
             TokenKind::Semicolon => ";",
             TokenKind::Hashtag => "#",
             TokenKind::DoubleEquals => "==",
+            TokenKind::And => "&",
+            TokenKind::DoubleAnd => "&&",
             TokenKind::RightArrow => "->",
             TokenKind::LargerThan => ">",
             TokenKind::LargerThanEquals => ">=",
@@ -274,6 +278,13 @@ impl Lexer {
                 _ => {
                     self.backtrack(1);
                     TokenKind::Bad
+                }
+            },
+            Some('&') => match self.consume() {
+                Some('&') => TokenKind::DoubleAnd,
+                _ => {
+                    self.backtrack(1);
+                    TokenKind::And
                 }
             },
             _ => TokenKind::Bad,
