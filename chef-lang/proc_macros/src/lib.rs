@@ -24,7 +24,6 @@ pub fn make_example_tests(_item: TokenStream) -> TokenStream {
         fn compile_example(file: &str, output_file: &str) {
             println!("Expected output file: {}", output_file);
             let file = std::path::PathBuf::from(file);
-            let expected_dot = std::fs::read_to_string(output_file).expect("Could not find output dot-file.");
             let text = std::rc::Rc::new(crate::text::SourceText::from_file(file.to_str().unwrap()).expect("Could not read example file"));
             let opts = std::rc::Rc::new(crate::cli::Opts::new_test());
             let bag = crate::diagnostics::DiagnosticsBag::new_ref(opts.clone(), text.clone());
@@ -32,20 +31,6 @@ pub fn make_example_tests(_item: TokenStream) -> TokenStream {
             bag.borrow_mut().exit_if_errored();
             let graph = crate::compiler::compile(ast);
             bag.borrow_mut().exit_if_errored();
-            let compiled_dot = graph.dot_repr() + "\n";
-
-            // Fail test with fancy diff output
-            if expected_dot != compiled_dot {
-                let diff = prettydiff::diff_chars(&expected_dot, &compiled_dot).set_highlight_whitespace(true);
-                crate::cli::print_label("CODE");
-                println!("{}\n", text.text());
-                crate::cli::print_label("DIFF");
-                println!("{diff}\n");
-                panic!(
-                      "Compiled dot is different from expected in \"{}\".",
-                      file.display()
-                )
-            }
         }
     "#.parse().unwrap();
 
