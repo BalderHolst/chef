@@ -110,11 +110,6 @@ impl Parser {
         self.peak(0)
     }
 
-    /// Set the cursor position.
-    fn rewind_to(&mut self, cursor_position: usize) {
-        self.cursor = cursor_position;
-    }
-
     /// Return the current token and move to the next token.
     fn consume(&mut self) -> &Token {
         if self.options.verbose {
@@ -825,9 +820,9 @@ impl Parser {
         match &self.current().kind {
             TokenKind::Word(word) => match word.as_str() {
                 "when" => self.parse_when_expression(),
-                _ => self.parse_binary_expression(None),
+                _ => self.parse_binary_expression(None, 0),
             },
-            _ => self.parse_binary_expression(None),
+            _ => self.parse_binary_expression(None, 0),
         }
     }
 
@@ -873,62 +868,49 @@ impl Parser {
         }
     }
 
-    // TODO: `1+2*3+4==9` does not work correctly
     /// Parse a binary expression.
+    /// https://en.wikipedia.org/wiki/Operator-precedence_parser
     fn parse_binary_expression(
         &mut self,
         left: Option<Expression>,
+        min_precedence: u8,
     ) -> Result<Expression, CompilationError> {
-        let left = match left {
-            Some(expr) => expr,
+        let mut left = match left {
+            Some(e) => e,
             None => self.parse_primary_expression()?,
         };
 
-        let left_operator = if let Some(op) = self.get_binary_operator() {
-            self.consume();
-            op
-        } else {
-            return Ok(left);
-        };
-
-        // Store the current cursor position in case we need to jump back and parse the right
-        // expression differently.
-        let cursor_pos = self.cursor;
-        let mut right = self.parse_primary_expression()?;
-
-        // Check if the expression has more parts.
-        // 1 + 2 +
-        //       ^
-        if let Some(right_operator) = self.get_binary_operator() {
-            // If this next operator has precedence over the current one, parse the rest of the
-            // exprssion from there and then add the left part of expression.
-            if right_operator.precedence() > left_operator.precedence() {
-                self.rewind_to(cursor_pos);
-                right = self.parse_binary_expression(None)?;
+        while let Some(op) = self.get_binary_operator() {
+            if op.precedence() < min_precedence {
+                break;
             }
+
+            self.consume(); // advance to next token
+            let mut right = self.parse_primary_expression()?;
+
+            while let Some(right_op) = self.get_binary_operator() {
+                if right_op.precedence() <= op.precedence() {
+                    break;
+                }
+                right = self.parse_binary_expression(Some(right), right_op.precedence())?;
+            }
+
+            left = Expression::new(
+                ExpressionKind::Binary(BinaryExpression {
+                    left: Box::new(left.clone()),
+                    right: Box::new(right.clone()),
+                    operator: op.clone(),
+                    return_type: op.return_type(),
+                }),
+                TextSpan {
+                    start: left.span.clone().start,
+                    end: right.span.end,
+                    text: left.span.clone().text,
+                },
+            );
         }
 
-        // New left expression
-        let left = Expression::new(
-            ExpressionKind::Binary(BinaryExpression {
-                left: Box::new(left.clone()),
-                right: Box::new(right.clone()),
-                operator: left_operator.clone(),
-                return_type: left_operator.return_type(),
-            }),
-            TextSpan {
-                start: left.clone().span.start,
-                end: right.span.end,
-                text: left.span.text,
-            },
-        );
-
-        // If the next token is a binary operator, we are not done yet.
-        if self.get_binary_operator().is_some() {
-            self.parse_binary_expression(Some(left))
-        } else {
-            Ok(left)
-        }
+        Ok(left)
     }
 
     /// Parse a primary expression.

@@ -30,6 +30,22 @@ fn report_incorrect_block_arguments() {
 }
 
 #[test]
+fn boolean_expressions() {
+    let code = Rc::new(SourceText::from_str(
+        "
+    block main() -> bool(landfill) {
+        1+2*3+4==9
+    }
+",
+    ));
+    let opts = Rc::new(Opts::new_test());
+    let bag = DiagnosticsBag::new_ref(opts.clone(), code.clone());
+    AST::from_source(code, bag.clone(), opts);
+    bag.borrow().print();
+    assert_eq!(bag.borrow().error_count(), 0);
+}
+
+#[test]
 fn compile_constant_expressions() {
     let code = Rc::new(SourceText::from_str(
         "
