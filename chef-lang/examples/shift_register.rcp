@@ -2,7 +2,7 @@ block main() -> int(signal-S) {
     a: counter(signal-0: 10);
     b: counter(signal-1: 50);
 
-    reg_input: all = a & b;
+    reg_input: all = a @ b;
 
     r: reg(8) = reg_input;
 

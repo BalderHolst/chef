@@ -30,6 +30,7 @@ pub enum TokenKind {
     DoubleQuote,
     Equals,
     Comma,
+    At,
     Period,
     Colon,
     Hashtag,
@@ -76,6 +77,7 @@ impl Display for TokenKind {
             TokenKind::Colon => ":",
             TokenKind::Semicolon => ";",
             TokenKind::Hashtag => "#",
+            TokenKind::At => "@",
             TokenKind::DoubleEquals => "==",
             TokenKind::And => "&",
             TokenKind::DoubleAnd => "&&",
@@ -259,6 +261,7 @@ impl Lexer {
             Some(':') => TokenKind::Colon,
             Some(';') => TokenKind::Semicolon,
             Some('#') => TokenKind::Hashtag,
+            Some('@') => TokenKind::At,
             Some('>') => match self.consume() {
                 Some('=') => TokenKind::LargerThanEquals,
                 _ => {
