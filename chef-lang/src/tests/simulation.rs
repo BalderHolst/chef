@@ -377,3 +377,20 @@ fn var_mutiation_with_clock() {
     sim.simulate(50);
     assert_eq!(sim.get_output(), outputs!["signal-O": 5]);
 }
+
+#[test]
+fn negative_numbers() {
+    let g = compile_code(
+        "
+    const A = -5+8-5        // = -2
+    
+    block main() -> int(pump) {
+        b: int = -4-5+1;    // = -8
+        A + b
+    }
+",
+    );
+    let mut sim = Simulator::new(g, inputs![]);
+    sim.simulate(5);
+    assert_eq!(sim.get_output(), outputs!["pump": -10]);
+}

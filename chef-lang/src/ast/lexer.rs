@@ -9,7 +9,7 @@ use crate::text::{SourceText, TextSpan};
 /// Kinds of lexer tokens.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
-    Number(i32),
+    Number(u16),
     Word(String),
     Literal(String),
     Plus,
@@ -132,7 +132,7 @@ impl Lexer {
         }
     }
 
-    fn peak(&self, offset: isize) -> Option<char> {
+    fn _peak(&self, offset: isize) -> Option<char> {
         let index = self.cursor as isize + offset;
         self.source.text().chars().nth((index) as usize)
     }
@@ -151,7 +151,7 @@ impl Lexer {
         self.cursor -= n;
     }
 
-    fn consume_number(&mut self, negative: bool) -> Option<i32> {
+    fn consume_number(&mut self) -> Option<u16> {
         let mut n_str = String::new();
         while let Some(c) = self.consume() {
             if c.is_ascii_digit() {
@@ -161,10 +161,7 @@ impl Lexer {
             }
         }
         self.backtrack(1);
-        let mut n = n_str.parse().unwrap();
-        if negative {
-            n *= -1;
-        }
+        let n = n_str.parse().unwrap();
         Some(n)
     }
 
@@ -328,15 +325,8 @@ impl Iterator for Lexer {
 
         let kind = match current_char {
             '"' => self.consume_literal(),
-            // Positive numbers
             c if Self::is_number_start(Some(c)) => {
-                let n = self.consume_number(false)?;
-                TokenKind::Number(n)
-            }
-            // Negative numbers
-            '-' if Self::is_number_start(self.peak(1)) => {
-                self.consume();
-                let n = self.consume_number(true)?;
+                let n = self.consume_number()?;
                 TokenKind::Number(n)
             }
             c if Self::is_whitespace(c) => {
@@ -500,16 +490,21 @@ fn lex_words_with_numbers() {
 }
 
 #[test]
-fn lex_negative_numbers() {
-    let code = "30 -30 1234 -1234";
+fn lex_negative_numbers_as_minuses() {
+    let code = "-4 30 -30 1234 -1234";
     let expected_tokens = vec![
+        TokenKind::Minus,
+        TokenKind::Number(4),
+        TokenKind::Whitespace,
         TokenKind::Number(30),
         TokenKind::Whitespace,
-        TokenKind::Number(-30),
+        TokenKind::Minus,
+        TokenKind::Number(30),
         TokenKind::Whitespace,
         TokenKind::Number(1234),
         TokenKind::Whitespace,
-        TokenKind::Number(-1234),
+        TokenKind::Minus,
+        TokenKind::Number(1234),
         TokenKind::End,
     ];
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);

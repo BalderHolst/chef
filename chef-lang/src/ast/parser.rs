@@ -920,7 +920,7 @@ impl Parser {
             TokenKind::Number(number) => {
                 self.consume();
                 Ok(Expression::new(
-                    ExpressionKind::Int(*number),
+                    ExpressionKind::Int((*number).into()),
                     self.get_span_from(&start_token.span),
                 ))
             }
