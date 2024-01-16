@@ -2,7 +2,7 @@
 
 use crate::diagnostics::{CompilationError, CompilationResult};
 
-use super::{visitors::MutVisitor, Expression, ExpressionKind, AST};
+use super::{visitors::MutVisitor, BinaryOperator, Expression, ExpressionKind, AST};
 
 /// Evaluate constant expressions in the [AST] and substitutes them for their results.
 pub fn evaluate_constants(ast: &mut AST) {
@@ -114,21 +114,17 @@ impl MutVisitor for ConstantEvaluator {
                 let left = left.unwrap();
                 let right = right.unwrap();
 
-                match binary_expression.operator.kind {
-                    super::BinaryOperatorKind::Add => ConstantValue::Int(left + right),
-                    super::BinaryOperatorKind::Subtract => ConstantValue::Int(left - right),
-                    super::BinaryOperatorKind::Multiply => ConstantValue::Int(left * right),
-                    super::BinaryOperatorKind::Divide => ConstantValue::Int(left / right),
-                    super::BinaryOperatorKind::LargerThan => ConstantValue::Bool(left > right),
-                    super::BinaryOperatorKind::LargerThanOrEqual => {
-                        ConstantValue::Bool(left >= right)
-                    }
-                    super::BinaryOperatorKind::LessThan => ConstantValue::Bool(left < right),
-                    super::BinaryOperatorKind::LessThanOrEqual => {
-                        ConstantValue::Bool(left <= right)
-                    }
-                    super::BinaryOperatorKind::Equals => ConstantValue::Bool(left == right),
-                    super::BinaryOperatorKind::NotEquals => ConstantValue::Bool(left != right),
+                match binary_expression.operator {
+                    BinaryOperator::Add => ConstantValue::Int(left + right),
+                    BinaryOperator::Subtract => ConstantValue::Int(left - right),
+                    BinaryOperator::Multiply => ConstantValue::Int(left * right),
+                    BinaryOperator::Divide => ConstantValue::Int(left / right),
+                    BinaryOperator::LargerThan => ConstantValue::Bool(left > right),
+                    BinaryOperator::LargerThanOrEqual => ConstantValue::Bool(left >= right),
+                    BinaryOperator::LessThanOrEqual => ConstantValue::Bool(left <= right),
+                    BinaryOperator::Equals => ConstantValue::Bool(left == right),
+                    BinaryOperator::NotEquals => ConstantValue::Bool(left != right),
+                    BinaryOperator::LessThan => ConstantValue::Bool(left < right),
                 }
             }
             ExpressionKind::VariableRef(var_ref) => match var_ref.var.type_ {

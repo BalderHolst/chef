@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
-    BinaryExpression, BinaryOperator, BinaryOperatorKind, Expression, ExpressionKind, Mutation,
+    BinaryExpression, BinaryOperator, Expression, ExpressionKind, Mutation,
     ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
 };
 use crate::cli::Opts;
@@ -872,20 +872,16 @@ impl Parser {
     fn get_binary_operator(&mut self) -> Option<BinaryOperator> {
         let token = self.current();
         match token.kind {
-            TokenKind::Plus => Some(BinaryOperator::new(BinaryOperatorKind::Add)),
-            TokenKind::Minus => Some(BinaryOperator::new(BinaryOperatorKind::Subtract)),
-            TokenKind::Asterisk => Some(BinaryOperator::new(BinaryOperatorKind::Multiply)),
-            TokenKind::Slash => Some(BinaryOperator::new(BinaryOperatorKind::Divide)),
-            TokenKind::LargerThan => Some(BinaryOperator::new(BinaryOperatorKind::LargerThan)),
-            TokenKind::LargerThanEquals => {
-                Some(BinaryOperator::new(BinaryOperatorKind::LargerThanOrEqual))
-            }
-            TokenKind::LessThan => Some(BinaryOperator::new(BinaryOperatorKind::LessThan)),
-            TokenKind::LessThanEquals => {
-                Some(BinaryOperator::new(BinaryOperatorKind::LessThanOrEqual))
-            }
-            TokenKind::DoubleEquals => Some(BinaryOperator::new(BinaryOperatorKind::Equals)),
-            TokenKind::BangEquals => Some(BinaryOperator::new(BinaryOperatorKind::NotEquals)),
+            TokenKind::Plus => Some(BinaryOperator::Add),
+            TokenKind::Minus => Some(BinaryOperator::Subtract),
+            TokenKind::Asterisk => Some(BinaryOperator::Multiply),
+            TokenKind::Slash => Some(BinaryOperator::Divide),
+            TokenKind::LargerThan => Some(BinaryOperator::LargerThan),
+            TokenKind::LargerThanEquals => Some(BinaryOperator::LargerThanOrEqual),
+            TokenKind::LessThan => Some(BinaryOperator::LessThan),
+            TokenKind::LessThanEquals => Some(BinaryOperator::LessThanOrEqual),
+            TokenKind::DoubleEquals => Some(BinaryOperator::Equals),
+            TokenKind::BangEquals => Some(BinaryOperator::NotEquals),
             _ => None,
         }
     }

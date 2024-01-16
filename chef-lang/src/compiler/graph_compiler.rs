@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::ast::{
-    Assignment, AssignmentKind, BinaryExpression, BinaryOperatorKind, Block, BlockLinkExpression,
+    Assignment, AssignmentKind, BinaryExpression, BinaryOperator, Block, BlockLinkExpression,
     Expression, ExpressionKind, Mutation, PickExpression, VariableRef, VariableSignalType,
     WhenExpression, AST,
 };
@@ -374,21 +374,19 @@ impl GraphCompiler {
         };
 
         // Get the combinator operation
-        let operation = match bin_expr.operator.kind {
-            BinaryOperatorKind::Add => ReturnValue::Int(ArithmeticOperation::Add),
-            BinaryOperatorKind::Subtract => ReturnValue::Int(ArithmeticOperation::Subtract),
-            BinaryOperatorKind::Multiply => ReturnValue::Int(ArithmeticOperation::Multiply),
-            BinaryOperatorKind::Divide => ReturnValue::Int(ArithmeticOperation::Divide),
-            BinaryOperatorKind::LargerThan => ReturnValue::Bool(DeciderOperation::LargerThan),
-            BinaryOperatorKind::LargerThanOrEqual => {
+        let operation = match bin_expr.operator {
+            BinaryOperator::Add => ReturnValue::Int(ArithmeticOperation::Add),
+            BinaryOperator::Subtract => ReturnValue::Int(ArithmeticOperation::Subtract),
+            BinaryOperator::Multiply => ReturnValue::Int(ArithmeticOperation::Multiply),
+            BinaryOperator::Divide => ReturnValue::Int(ArithmeticOperation::Divide),
+            BinaryOperator::LargerThan => ReturnValue::Bool(DeciderOperation::LargerThan),
+            BinaryOperator::LargerThanOrEqual => {
                 ReturnValue::Bool(DeciderOperation::LargerThanOrEqual)
             }
-            BinaryOperatorKind::LessThan => ReturnValue::Bool(DeciderOperation::LessThan),
-            BinaryOperatorKind::LessThanOrEqual => {
-                ReturnValue::Bool(DeciderOperation::LessThanOrEqual)
-            }
-            BinaryOperatorKind::Equals => ReturnValue::Bool(DeciderOperation::Equals),
-            BinaryOperatorKind::NotEquals => ReturnValue::Bool(DeciderOperation::NotEquals),
+            BinaryOperator::LessThan => ReturnValue::Bool(DeciderOperation::LessThan),
+            BinaryOperator::LessThanOrEqual => ReturnValue::Bool(DeciderOperation::LessThanOrEqual),
+            BinaryOperator::Equals => ReturnValue::Bool(DeciderOperation::Equals),
+            BinaryOperator::NotEquals => ReturnValue::Bool(DeciderOperation::NotEquals),
         };
 
         // The connection doing the actual operation

@@ -498,70 +498,9 @@ impl Display for MutationOperator {
     }
 }
 
-/// Operator used by a [BinaryExpression].
-#[derive(Debug, Clone, PartialEq)]
-pub struct BinaryOperator {
-    pub kind: BinaryOperatorKind,
-}
-
-impl BinaryOperator {
-    fn new(kind: BinaryOperatorKind) -> Self {
-        Self { kind }
-    }
-
-    /// Get the operator's precedence. Operations with highter precedence will be evaluated first.
-    fn precedence(&self) -> u8 {
-        match self.kind {
-            BinaryOperatorKind::LargerThan => 0,
-            BinaryOperatorKind::LargerThanOrEqual => 0,
-            BinaryOperatorKind::LessThan => 0,
-            BinaryOperatorKind::LessThanOrEqual => 0,
-            BinaryOperatorKind::Equals => 0,
-            BinaryOperatorKind::NotEquals => 0,
-            BinaryOperatorKind::Add => 2,
-            BinaryOperatorKind::Subtract => 2,
-            BinaryOperatorKind::Multiply => 3,
-            BinaryOperatorKind::Divide => 3,
-        }
-    }
-
-    /// Get the type that the operator returns
-    fn return_type(&self) -> ExpressionReturnType {
-        match self.kind {
-            BinaryOperatorKind::Add => ExpressionReturnType::Int,
-            BinaryOperatorKind::Subtract => ExpressionReturnType::Int,
-            BinaryOperatorKind::Multiply => ExpressionReturnType::Int,
-            BinaryOperatorKind::Divide => ExpressionReturnType::Int,
-            BinaryOperatorKind::LargerThan => ExpressionReturnType::Bool,
-            BinaryOperatorKind::LargerThanOrEqual => ExpressionReturnType::Bool,
-            BinaryOperatorKind::LessThan => ExpressionReturnType::Bool,
-            BinaryOperatorKind::LessThanOrEqual => ExpressionReturnType::Bool,
-            BinaryOperatorKind::Equals => ExpressionReturnType::Bool,
-            BinaryOperatorKind::NotEquals => ExpressionReturnType::Bool,
-        }
-    }
-}
-
-impl Display for BinaryOperator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.kind {
-            BinaryOperatorKind::Add => write!(f, "+"),
-            BinaryOperatorKind::Subtract => write!(f, "-"),
-            BinaryOperatorKind::Multiply => write!(f, "*"),
-            BinaryOperatorKind::Divide => write!(f, "/"),
-            BinaryOperatorKind::LargerThan => write!(f, ">"),
-            BinaryOperatorKind::LargerThanOrEqual => write!(f, ">="),
-            BinaryOperatorKind::LessThan => write!(f, "<"),
-            BinaryOperatorKind::LessThanOrEqual => write!(f, "<="),
-            BinaryOperatorKind::Equals => write!(f, "=="),
-            BinaryOperatorKind::NotEquals => write!(f, "!="),
-        }
-    }
-}
-
 /// Kinds of [BinaryOperator].
 #[derive(Debug, Clone, PartialEq)]
-pub enum BinaryOperatorKind {
+pub enum BinaryOperator {
     Add,
     Subtract,
     Multiply,
@@ -572,6 +511,57 @@ pub enum BinaryOperatorKind {
     LessThanOrEqual,
     Equals,
     NotEquals,
+}
+
+impl BinaryOperator {
+    /// Get the operator's precedence. Operations with highter precedence will be evaluated first.
+    fn precedence(&self) -> u8 {
+        match self {
+            Self::LargerThan => 0,
+            Self::LargerThanOrEqual => 0,
+            Self::LessThan => 0,
+            Self::LessThanOrEqual => 0,
+            Self::Equals => 0,
+            Self::NotEquals => 0,
+            Self::Add => 2,
+            Self::Subtract => 2,
+            Self::Multiply => 3,
+            Self::Divide => 3,
+        }
+    }
+
+    /// Get the type that the operator returns
+    fn return_type(&self) -> ExpressionReturnType {
+        match self {
+            Self::Add => ExpressionReturnType::Int,
+            Self::Subtract => ExpressionReturnType::Int,
+            Self::Multiply => ExpressionReturnType::Int,
+            Self::Divide => ExpressionReturnType::Int,
+            Self::LargerThan => ExpressionReturnType::Bool,
+            Self::LargerThanOrEqual => ExpressionReturnType::Bool,
+            Self::LessThan => ExpressionReturnType::Bool,
+            Self::LessThanOrEqual => ExpressionReturnType::Bool,
+            Self::Equals => ExpressionReturnType::Bool,
+            Self::NotEquals => ExpressionReturnType::Bool,
+        }
+    }
+}
+
+impl Display for BinaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Add => write!(f, "+"),
+            Self::Subtract => write!(f, "-"),
+            Self::Multiply => write!(f, "*"),
+            Self::Divide => write!(f, "/"),
+            Self::LargerThan => write!(f, ">"),
+            Self::LargerThanOrEqual => write!(f, ">="),
+            Self::LessThan => write!(f, "<"),
+            Self::LessThanOrEqual => write!(f, "<="),
+            Self::Equals => write!(f, "=="),
+            Self::NotEquals => write!(f, "!="),
+        }
+    }
 }
 
 /// The indentation depth when printing the [AST].
