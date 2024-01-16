@@ -65,6 +65,7 @@ impl Visitor for TypeChecker {
             ExpressionKind::Bool(_) => {}
             ExpressionKind::Int(_) => {}
             ExpressionKind::Parenthesized(_) => {}
+            ExpressionKind::Negative(_) => {}
             ExpressionKind::VariableRef(_) => {}
             ExpressionKind::BlockLink(_) => {}
             ExpressionKind::Error => {}

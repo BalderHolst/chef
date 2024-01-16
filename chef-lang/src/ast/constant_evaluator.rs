@@ -72,6 +72,7 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
     match &expr.kind {
         ExpressionKind::Int(n) => Some(*n),
         ExpressionKind::Parenthesized(p) => get_constant_int(&p.expression),
+        ExpressionKind::Negative(ne) => get_constant_int(ne).map(|n| -n),
         ExpressionKind::Bool(_) => None,
         ExpressionKind::Binary(_) => None,
         ExpressionKind::Pick(_) => None,
@@ -89,6 +90,16 @@ impl MutVisitor for ConstantEvaluator {
     fn visit_bool(&mut self, _bool: &mut bool) {}
     fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
     fn visit_error_expression(&mut self) {}
+
+    // fn visit_negative_expression(&mut self, expr: &mut Box<Expression>) {
+    //     match &mut expr.kind {
+    //         ExpressionKind::Int(n) => {
+    //             *n *= -1;
+    //             self.did_work = true;
+    //         }
+    //         _ => {}
+    //     }
+    // }
 
     fn visit_expression(&mut self, expression: &mut Expression) {
         let result = match &mut expression.kind {
@@ -124,6 +135,13 @@ impl MutVisitor for ConstantEvaluator {
                 super::VariableType::ConstInt(i) => ConstantValue::Int(i),
                 super::VariableType::ConstBool(b) => ConstantValue::Bool(b),
                 _ => return,
+            },
+            ExpressionKind::Negative(negative_expr) => match &mut negative_expr.kind {
+                ExpressionKind::Int(n) => ConstantValue::Int(*n * -1),
+                _ => {
+                    self.do_visit_expression(negative_expr);
+                    return;
+                }
             },
             _ => {
                 self.do_visit_expression(expression);

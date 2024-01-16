@@ -235,6 +235,7 @@ impl GraphCompiler {
             ExpressionKind::VariableRef(var_ref) => self.compile_variable_ref_expression(graph, var_ref), // 
             ExpressionKind::Pick(pick_expr) => self.compile_pick_expression(graph, pick_expr),
             ExpressionKind::Parenthesized(expr) => self.compile_expression(graph, &expr.expression, out_type),
+            ExpressionKind::Negative(expr) => self.compile_negative_expression(graph, expr, out_type),
             ExpressionKind::Binary(bin_expr) => self.compile_binary_expression(graph, bin_expr, out_type),
             ExpressionKind::BlockLink(block_link_expr) => self.compile_block_link_expression(graph, block_link_expr),
             ExpressionKind::When(when) => self.compile_when_expression(graph, when),
@@ -272,6 +273,33 @@ impl GraphCompiler {
         };
 
         Ok((var_node_nid, var_type.clone()))
+    }
+
+    fn compile_negative_expression(
+        &mut self,
+        graph: &mut Graph,
+        expr: &Expression,
+        out_type: Option<IOType>,
+    ) -> Result<(NId, IOType), CompilationError> {
+        let out_type = match out_type {
+            Some(t) => t,
+            None => self.get_new_anysignal(),
+        };
+
+        let (expr_out_nid, _) = self.compile_expression(graph, expr, Some(out_type.clone()))?;
+        let negative_out_nid = graph.push_inner_node();
+        graph.push_connection(
+            expr_out_nid,
+            negative_out_nid,
+            Connection::Arithmetic(ArithmeticConnection::new(
+                out_type.clone(),
+                IOType::Constant(-1),
+                ArithmeticOperation::Multiply,
+                out_type.clone(),
+            )),
+        );
+
+        Ok((negative_out_nid, out_type))
     }
 
     fn compile_pick_expression(

@@ -54,6 +54,9 @@ pub trait Visitor {
             ExpressionKind::Parenthesized(expr) => {
                 self.visit_parenthesized_expression(expr);
             }
+            ExpressionKind::Negative(expr) => {
+                self.visit_negative_expression(expr);
+            }
             ExpressionKind::Pick(expr) => {
                 self.visit_pick_expression(expr);
             }
@@ -100,6 +103,10 @@ pub trait Visitor {
 
     fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression) {
         self.visit_expression(&expr.expression);
+    }
+
+    fn visit_negative_expression(&mut self, expr: &Expression) {
+        self.visit_expression(expr);
     }
 
     fn visit_expression_statement(&mut self, expr: &Expression) {
@@ -194,6 +201,9 @@ pub trait MutVisitor {
             ExpressionKind::Parenthesized(expr) => {
                 self.visit_parenthesized_expression(expr);
             }
+            ExpressionKind::Negative(expr) => {
+                self.visit_negative_expression(expr);
+            }
             ExpressionKind::Pick(expr) => {
                 self.visit_pick_expression(expr);
             }
@@ -240,6 +250,10 @@ pub trait MutVisitor {
 
     fn visit_parenthesized_expression(&mut self, expr: &mut ParenthesizedExpression) {
         self.visit_expression(&mut expr.expression);
+    }
+
+    fn visit_negative_expression(&mut self, expr: &mut Box<Expression>) {
+        self.visit_expression(expr);
     }
 
     fn visit_expression_statement(&mut self, expr: &mut Expression) {

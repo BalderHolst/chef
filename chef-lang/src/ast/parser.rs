@@ -474,6 +474,28 @@ impl Parser {
                     }
                 }
             }
+            ExpressionKind::Negative(e) => {
+                variable.type_ = {
+                    if let ExpressionKind::Int(n) = e.kind {
+                        // TODO: This check is copy pasted from above and should definetely be handled
+                        // somewhere else.
+                        if let VariableType::Int(_) = variable.type_ {
+                            VariableType::ConstInt(n)
+                        } else {
+                            return Err(CompilationError::new_localized(
+                            format!("Can not assign variable `{}` of type `{}` to expression returning `int` type.",
+                                    variable.name,
+                                    variable.type_
+                                    ), TextSpan::from_spans(&variable.span, &expr.span)));
+                        }
+                    } else {
+                        return Err(CompilationError::new_localized(
+                            "Negative values must be integers.",
+                            TextSpan::from_spans(&variable.span, &expr.span),
+                        ));
+                    }
+                }
+            }
             ExpressionKind::Binary(_) => {}
             ExpressionKind::Parenthesized(_) => {}
             ExpressionKind::Pick(_) => {}
@@ -917,6 +939,15 @@ impl Parser {
     fn parse_primary_expression(&mut self) -> Result<Expression, CompilationError> {
         let start_token = self.current().clone();
         match &start_token.kind {
+            TokenKind::Minus => {
+                self.consume();
+                let inner = self.parse_primary_expression()?;
+                let inner_span = inner.span.clone();
+                Ok(Expression::new(
+                    ExpressionKind::Negative(Box::new(inner)),
+                    TextSpan::from_spans(&start_token.span, &inner_span),
+                ))
+            }
             TokenKind::Number(number) => {
                 self.consume();
                 Ok(Expression::new(
