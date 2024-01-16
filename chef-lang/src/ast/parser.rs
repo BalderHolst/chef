@@ -880,18 +880,18 @@ impl Parser {
     /// Parse a binary expression.
     fn parse_binary_expression(
         &mut self,
-        mut left: Option<Expression>,
+        left: Option<Expression>,
     ) -> Result<Expression, CompilationError> {
-        if left.is_none() {
-            let left = self.parse_primary_expression()?;
-            return self.parse_binary_expression(Some(left));
-        }
+        let left = match left {
+            Some(expr) => expr,
+            None => self.parse_primary_expression()?,
+        };
 
         let left_operator = if let Some(op) = self.get_binary_operator() {
             self.consume();
             op
         } else {
-            return Ok(left.unwrap());
+            return Ok(left);
         };
 
         // Store the current cursor position in case we need to jump back and parse the right
@@ -899,31 +899,38 @@ impl Parser {
         let cursor_pos = self.cursor;
         let mut right = self.parse_primary_expression()?;
 
+        // Check if the expression has more parts.
+        // 1 + 2 +
+        //       ^
         if let Some(right_operator) = self.get_binary_operator() {
+            // If this next operator has precedence over the current one, parse the rest of the
+            // exprssion from there and then add the left part of expression.
             if right_operator.precedence() > left_operator.precedence() {
                 self.rewind_to(cursor_pos);
                 right = self.parse_binary_expression(None)?;
             }
         }
 
-        left = Some(Expression::new(
+        // New left expression
+        let left = Expression::new(
             ExpressionKind::Binary(BinaryExpression {
-                left: Box::new(left.clone().unwrap()),
+                left: Box::new(left.clone()),
                 right: Box::new(right.clone()),
                 operator: left_operator.clone(),
                 return_type: left_operator.return_type(),
             }),
             TextSpan {
-                start: left.clone().unwrap().span.start,
+                start: left.clone().span.start,
                 end: right.span.end,
-                text: left.unwrap().span.text,
+                text: left.span.text,
             },
-        ));
+        );
 
+        // If the next token is a binary operator, we are not done yet.
         if self.get_binary_operator().is_some() {
-            self.parse_binary_expression(left)
+            self.parse_binary_expression(Some(left))
         } else {
-            Ok(left.unwrap())
+            Ok(left)
         }
     }
 
