@@ -1,6 +1,6 @@
 //! Module for lexing and parsing chef source code into an abstract syntax tree and checking for errors.
 
-use std::fmt::Display;
+use std::fmt::{write, Display};
 use std::rc::Rc;
 
 use crate::ast::visitors::Visitor;
@@ -511,18 +511,20 @@ pub enum BinaryOperator {
     LessThanOrEqual,
     Equals,
     NotEquals,
+    Combine,
 }
 
 impl BinaryOperator {
     /// Get the operator's precedence. Operations with highter precedence will be evaluated first.
     fn precedence(&self) -> u8 {
         match self {
-            Self::LargerThan => 0,
-            Self::LargerThanOrEqual => 0,
-            Self::LessThan => 0,
-            Self::LessThanOrEqual => 0,
-            Self::Equals => 0,
-            Self::NotEquals => 0,
+            Self::Combine => 0,
+            Self::LargerThan => 1,
+            Self::LargerThanOrEqual => 1,
+            Self::LessThan => 1,
+            Self::LessThanOrEqual => 1,
+            Self::Equals => 1,
+            Self::NotEquals => 1,
             Self::Add => 2,
             Self::Subtract => 2,
             Self::Multiply => 3,
@@ -543,6 +545,7 @@ impl BinaryOperator {
             Self::LessThanOrEqual => ExpressionReturnType::Bool,
             Self::Equals => ExpressionReturnType::Bool,
             Self::NotEquals => ExpressionReturnType::Bool,
+            Self::Combine => ExpressionReturnType::Group,
         }
     }
 }
@@ -560,6 +563,7 @@ impl Display for BinaryOperator {
             Self::LessThanOrEqual => write!(f, "<="),
             Self::Equals => write!(f, "=="),
             Self::NotEquals => write!(f, "!="),
+            Self::Combine => write!(f, "@"),
         }
     }
 }
