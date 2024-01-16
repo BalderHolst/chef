@@ -90,8 +90,6 @@ impl Simulator {
             inputs.push(vec![])
         }
 
-        graph.visualize("simtest.svg").unwrap();
-
         assert_eq!(
             inputs.len(),
             input_nodes.len(),
