@@ -461,7 +461,7 @@ fn lex_2_char_operators() {
 
 #[test]
 fn lex_all_tokens() {
-    let code = "10hello+-*/()[]{}=,.:;==->  @";
+    let code = "10hello+-*/()[]{}=,.:;==&->&&  @";
     let expected_tokens = vec![
         TokenKind::Number(10),
         TokenKind::Word("hello".to_string()),
@@ -481,9 +481,11 @@ fn lex_all_tokens() {
         TokenKind::Colon,
         TokenKind::Semicolon,
         TokenKind::DoubleEquals,
+        TokenKind::And,
         TokenKind::RightArrow,
+        TokenKind::DoubleAnd,
         TokenKind::Whitespace,
-        TokenKind::Bad,
+        TokenKind::At,
         TokenKind::End,
     ];
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
