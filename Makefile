@@ -1,8 +1,18 @@
-cargo_flags = --manifest-path chef/Cargo.toml
+cargo_flags = --manifest-path chef-lang/Cargo.toml
 
-main: test
+main: build
+
+check: test lint
 
 test:
-	cargo fmt --check $(cargo_flags) || exit 1
-	cargo clippy $(cargo_flags) || exit 1
-	cargo test $(cargo_flags) || exit 1
+	cargo test $(cargo_flags)
+	./chef-python/test.py
+
+lint:
+	cargo fmt --check $(cargo_flags)
+	cargo clippy $(cargo_flags)
+
+build:
+	cargo build --release $(cargo_flags)
+	cp ./chef-lang/target/release/chef ./chef
+

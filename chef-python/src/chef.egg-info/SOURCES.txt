@@ -1,0 +1,7 @@
+setup.py
+src/chef/__init__.py
+src/chef.egg-info/PKG-INFO
+src/chef.egg-info/SOURCES.txt
+src/chef.egg-info/dependency_links.txt
+src/chef.egg-info/requires.txt
+src/chef.egg-info/top_level.txt

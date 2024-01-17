@@ -17,8 +17,15 @@ cargo clippy --manifest-path "$manifest" -- --deny warnings 2> /dev/null || {
 echo "PASSED: Clippy"
 
 cargo test --manifest-path "$manifest" > /dev/null 2> /dev/null || {
-    echo -e "\nSome tests have failed"
+    echo -e "\nSome cargo tests have failed"
     exit 1
 }
 
 echo "PASSED: Tests"
+
+./chef-python/test.py > /dev/null 2> /dev/null || {
+    echo -e "\nFailed to compile some python scipts."
+    exit 1
+}
+
+echo "PASSED: Compile python examples"

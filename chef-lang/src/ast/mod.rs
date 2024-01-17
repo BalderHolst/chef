@@ -14,6 +14,7 @@ use self::parser::Parser;
 mod constant_evaluator;
 pub mod lexer;
 pub mod parser;
+pub mod python_macro;
 mod type_checker;
 mod visitors;
 

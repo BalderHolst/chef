@@ -25,7 +25,15 @@ mod tests;
 
 pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
     let path = &cook_opts.file;
-    let text = Rc::new(SourceText::from_file(path).unwrap());
+
+    let text = if path.ends_with(".py") {
+        ast::python_macro::run_python_import(opts.clone(), None, path).unwrap()
+    } else {
+        SourceText::from_file(path).unwrap()
+    };
+
+    let text = Rc::new(text);
+
     let diagnostics_bag: DiagnosticsBagRef = DiagnosticsBag::new_ref(opts.clone(), text.clone());
     let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
 

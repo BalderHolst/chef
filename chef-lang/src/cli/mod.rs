@@ -14,6 +14,10 @@ pub struct Opts {
     #[arg(short, long)]
     pub(crate) verbose: bool,
 
+    /// Python executable for macros
+    #[arg(short('P'), long)]
+    pub(crate) python: Option<String>,
+
     #[command(subcommand)]
     pub(crate) command: Command,
 }
@@ -32,6 +36,7 @@ impl Opts {
             no_advice: true,
             verbose: true,
             command,
+            python: None,
         }
     }
 }

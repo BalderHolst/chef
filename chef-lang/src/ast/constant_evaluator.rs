@@ -49,8 +49,6 @@ pub(crate) fn evaluate_constant_expression(
         evaluator.visit_expression(expr);
     }
 
-    dbg!(&expr.kind);
-
     match expr.kind {
         ExpressionKind::Bool(b) => Ok(ConstantValue::Bool(b)),
         ExpressionKind::Int(i) => Ok(ConstantValue::Int(i)),

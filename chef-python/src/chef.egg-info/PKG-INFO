@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: chef
+Version: 0.0.1
+Summary: Communication with DTMF tones
+Author: Balder W. Holst
+Author-email: 
+License: MIT
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
