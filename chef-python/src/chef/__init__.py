@@ -15,16 +15,37 @@ class Variable:
     def __repr__(self) -> str:
         return self.name
 
-    def __add__(self, other) -> str:
-        return f"{self} + {str(other)}"
+class Int(Variable):
+    def __init__(self, name: str, item: str | None = None) -> None:
+        if item is None: super().__init__(name, f"int")
+        else: super().__init__(name, f"int({item})")
 
-    def __radd__(self, other) -> str:
-        return self.__add__(other)
+class Bool(Variable):
+    def __init__(self, name: str, item: str | None = None) -> None:
+        if item is None: super().__init__(name, f"int")
+        else: super().__init__(name, f"int({item})")
+
+class All(Variable):
+    def __init__(self, name: str) -> None:
+        super().__init__(name, "all")
+
+class Counter(Variable):
+    def __init__(self, name: str, type: str, limit: int) -> None:
+        super().__init__(name, f"counter({type} : {limit})")
 
 class Block:
-    def __init__(self, name: str, args) -> None:
+    def __init__(self, name: str, args = None | list[Variable] | Variable, out: str | None = None) -> None:
         self.name = name
-        self.args = args
+
+        if args is None:
+            self.args = []
+        elif isinstance(args, Variable):
+            self.args = [args]
+        else:
+            self.args = list(args)
+
+
+        self.out = out
         self.statements = []
 
     def __enter__(self):
@@ -43,7 +64,9 @@ class Block:
 
     def __repr__(self) -> str:
         args = ", ".join(map(lambda a: a.definition(), self.args))
-        s = f"block {self.name}({args})" + " {\n"
+        s = f"block {self.name}({args})" 
+        if not self.out is None: s += f" -> {self.out}"
+        s += " {\n"
         chef.indentation += 1
         indent = "\t" * chef.indentation
         for statement in self.statements:
@@ -65,7 +88,6 @@ class CompoundStatement:
 
     def __exit__(self, *_):
         self.is_inside = False
-
 class When(CompoundStatement):
 
     def __init__(self, condition: str) -> None:
@@ -112,13 +134,13 @@ def statement(s):
 
 if __name__ == "__main__":
 
-    a = Variable("a", "int")
-    b = Variable("b", "int")
-    c = Variable("c", "int")
+    a = Int("a", "pump")
+    b = Int("b")
+    c = Int("c")
 
     test = When("test")
 
-    with Block("test_block", (a, b ,c)):
+    with Block("test_block", (a, b ,c), "int(signal-0)"):
         statement(f"a + b + 10;")
         statement(f"a + b + 10;")
         with When("1st"):

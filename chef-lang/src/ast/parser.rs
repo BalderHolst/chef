@@ -738,7 +738,7 @@ impl Parser {
             let text = if file.ends_with(".py") {
                 python_macro::run_python_import(
                     self.options.clone(),
-                    file_token.span,
+                    Some(file_token.span),
                     file.as_str(),
                 )?
             } else {
