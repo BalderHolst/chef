@@ -26,11 +26,7 @@ mod tests;
 pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
     let path = &cook_opts.file;
 
-    dbg!(&path);
-
     let text = if path.ends_with(".py") {
-        println!("PYTHON");
-        dbg!(env::current_dir().unwrap());
         ast::python_macro::run_python_import(opts.clone(), None, path).unwrap()
     } else {
         SourceText::from_file(path).unwrap()

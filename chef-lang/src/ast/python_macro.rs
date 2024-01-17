@@ -79,7 +79,6 @@ pub(crate) fn run_python_import(
     };
 
     let code = String::from_utf8(output.stdout).unwrap();
-    dbg!(&code);
 
     Ok(SourceText::from_str(code.as_str()))
 }
