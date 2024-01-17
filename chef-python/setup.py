@@ -9,7 +9,7 @@ setup(
     description = "Communication with DTMF tones",
     long_description_content_type = "text/markdown",
     package_dir={'': 'src'},
-    install_requires = [ "pytest" ],
+    install_requires = [ ],
     python_requires = ">=3.8",
     license = "MIT",
 )

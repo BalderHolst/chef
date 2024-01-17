@@ -5,7 +5,5 @@ pkgs.python310Packages.buildPythonPackage rec {
   version = "0.0.1";
   src = ./.;
   doCheck = false;
-  propagatedBuildInputs = [
-    pkgs.python310Packages.pytest
-  ];
+  propagatedBuildInputs = [ ];
 }
