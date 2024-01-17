@@ -1,6 +1,7 @@
 //! Chef type checker.
 
 // TODO: Check that blocks are called with the correct arguments
+// TODO: Check for reserved signals. See RESERVED_GATE_SIGNAL.
 
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
