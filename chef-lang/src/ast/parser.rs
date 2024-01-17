@@ -128,11 +128,19 @@ impl Parser {
             Ok(word.as_str())
         } else {
             Err(CompilationError::new_localized(
-                format!(
-                    "Exprected {}. Found {}.",
-                    TokenKind::Word("".to_string()),
-                    token.kind
-                ),
+                format!("Expected 'word' but found '{}'.", token.kind),
+                token.span.clone(),
+            ))
+        }
+    }
+
+    fn consume_number(&mut self) -> CompilationResult<u16> {
+        let token = self.consume();
+        if let TokenKind::Number(n) = &token.kind {
+            Ok(*n)
+        } else {
+            Err(CompilationError::new_localized(
+                format!("Expected 'word' but found '{}'.", token.kind),
                 token.span.clone(),
             ))
         }
@@ -619,6 +627,7 @@ impl Parser {
                 "bool" => Ok(VariableType::Bool(self.parse_variable_type_signal()?)),
                 "int" => Ok(VariableType::Int(self.parse_variable_type_signal()?)),
                 "var" => Ok(VariableType::Var(self.parse_variable_type_signal()?)),
+                "all" => Ok(VariableType::All),
                 "counter" => {
                     self.consume_and_expect(TokenKind::LeftParen)?;
                     let sig_token = self.consume();
@@ -635,7 +644,12 @@ impl Parser {
                     self.consume_and_expect(TokenKind::RightParen)?;
                     Ok(VariableType::Counter((type_, Box::new(limit_expr))))
                 }
-                "all" => Ok(VariableType::All),
+                "reg" => {
+                    self.consume_and_expect(TokenKind::LeftParen)?;
+                    let n = self.consume_number()?;
+                    self.consume_and_expect(TokenKind::RightParen)?;
+                    Ok(VariableType::Register(n))
+                }
                 w => Err(CompilationError::new_localized(
                     format!("Unknown type `{}`.", w),
                     token.span.clone(),
@@ -889,6 +903,7 @@ impl Parser {
             TokenKind::LessThanEquals => Some(BinaryOperator::LessThanOrEqual),
             TokenKind::DoubleEquals => Some(BinaryOperator::Equals),
             TokenKind::BangEquals => Some(BinaryOperator::NotEquals),
+            TokenKind::At => Some(BinaryOperator::Combine),
             _ => None,
         }
     }

@@ -123,6 +123,7 @@ impl MutVisitor for ConstantEvaluator {
                     BinaryOperator::Equals => ConstantValue::Bool(left == right),
                     BinaryOperator::NotEquals => ConstantValue::Bool(left != right),
                     BinaryOperator::LessThan => ConstantValue::Bool(left < right),
+                    BinaryOperator::Combine => return, // TODO: what to do here?
                 }
             }
             ExpressionKind::VariableRef(var_ref) => match var_ref.var.type_ {

@@ -1,6 +1,6 @@
 //! Module for lexing and parsing chef source code into an abstract syntax tree and checking for errors.
 
-use std::fmt::{write, Display};
+use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::ast::visitors::Visitor;
@@ -160,10 +160,11 @@ pub enum VariableType {
     Bool(VariableSignalType),
     Int(VariableSignalType),
     Var(VariableSignalType),
-    Counter((VariableSignalType, Box<Expression>)),
+    All,
     ConstInt(i32),
     ConstBool(bool),
-    All,
+    Counter((VariableSignalType, Box<Expression>)),
+    Register(u16),
 }
 
 impl VariableType {
@@ -172,10 +173,11 @@ impl VariableType {
             VariableType::Bool(_) => ExpressionReturnType::Bool,
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Var(_) => ExpressionReturnType::Int,
-            VariableType::Counter(_) => ExpressionReturnType::Int,
+            VariableType::All => ExpressionReturnType::Group,
             VariableType::ConstInt(_) => ExpressionReturnType::Int,
             VariableType::ConstBool(_) => ExpressionReturnType::Bool,
-            VariableType::All => ExpressionReturnType::Group,
+            VariableType::Counter(_) => ExpressionReturnType::Int,
+            VariableType::Register(_) => ExpressionReturnType::None,
         }
     }
 
@@ -184,10 +186,11 @@ impl VariableType {
             VariableType::Bool(s) => Some(s),
             VariableType::Int(s) => Some(s),
             VariableType::Var(s) => Some(s),
-            VariableType::Counter((s, _lim)) => Some(s),
+            VariableType::All => None,
             VariableType::ConstInt(_) => None,
             VariableType::ConstBool(_) => None,
-            VariableType::All => None,
+            VariableType::Counter((s, _lim)) => Some(s),
+            VariableType::Register(_) => None,
         }
     }
 
@@ -621,6 +624,7 @@ impl Display for VariableType {
             VariableType::ConstInt(_) => "ConstInt".to_string(),
             VariableType::ConstBool(_) => "ConstBool".to_string(),
             VariableType::All => "All".to_string(),
+            VariableType::Register(n) => format!("Register({n})"),
         };
         write!(f, "{s}")
     }

@@ -387,6 +387,7 @@ impl GraphCompiler {
             BinaryOperator::LessThanOrEqual => ReturnValue::Bool(DeciderOperation::LessThanOrEqual),
             BinaryOperator::Equals => ReturnValue::Bool(DeciderOperation::Equals),
             BinaryOperator::NotEquals => ReturnValue::Bool(DeciderOperation::NotEquals),
+            BinaryOperator::Combine => ReturnValue::Group,
         };
 
         // The connection doing the actual operation
@@ -400,6 +401,9 @@ impl GraphCompiler {
                 let decider_connection =
                     DeciderConnection::new(left_type, right_type, op, out_type.clone());
                 Connection::Decider(decider_connection)
+            }
+            ReturnValue::Group => {
+                todo!()
             }
         };
         graph.push_connection(input, output, op_connection);
@@ -526,6 +530,7 @@ impl GraphCompiler {
             VariableType::ConstBool(_) => {
                 panic!("ConstBool expression should never need to be converted to IOType.")
             }
+            VariableType::Register(_) => todo!(),
         }
     }
 
@@ -590,4 +595,5 @@ impl GraphCompiler {
 pub enum ReturnValue<A, B> {
     Int(A),
     Bool(B),
+    Group,
 }
