@@ -990,20 +990,7 @@ impl Parser {
                         ScopedItem::Var(var) => {
                             // If pick
                             if self.current().kind == TokenKind::LeftSquare {
-                                self.consume();
-                                let signal = self.consume_word()?.to_string();
-                                self.consume_and_expect(TokenKind::RightSquare)?;
-                                Ok({
-                                    let kind = ExpressionKind::Pick(PickExpression::new(
-                                        signal,
-                                        VariableRef::new(
-                                            var,
-                                            self.get_span_from(&start_token.span),
-                                        ),
-                                    ));
-                                    let span = self.get_span_from(&start_token.span);
-                                    Expression { kind, span }
-                                })
+                                self.parse_variable_index(var)
                             }
                             // otherwise variable reference
                             else {
@@ -1062,6 +1049,29 @@ impl Parser {
                 start_token.span,
             )),
         }
+    }
+
+    fn parse_variable_index(&mut self, var: Rc<Variable>) -> CompilationResult<Expression> {
+        let start_span = self.peak(-1).span.clone();
+        self.consume_and_expect(TokenKind::LeftSquare)?;
+        let index_token = self.consume();
+        let expr = match &index_token.kind {
+            TokenKind::Word(signal) => Ok({
+                let kind = ExpressionKind::Pick(PickExpression::new(
+                    signal.to_string(),
+                    VariableRef::new(var, self.get_span_from(&start_span)),
+                ));
+                let span = self.get_span_from(&start_span);
+                Expression { kind, span }
+            }),
+            _ => Err(CompilationError::new_localized(
+                "Variables can only be picked/indexed with types and numbers.",
+                self.get_span_from(&start_span),
+            )),
+        };
+        self.consume_and_expect(TokenKind::RightSquare)?;
+
+        return expr;
     }
 
     /// Parse a chef block link.
