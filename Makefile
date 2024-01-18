@@ -16,3 +16,9 @@ build:
 	cargo build --release $(cargo_flags)
 	cp ./chef-lang/target/release/chef ./chef
 
+install: build
+	cp -v "./chef" "/usr/local/bin"
+	pip install -e chef-python
+
+clean:
+	git clean -xdf
