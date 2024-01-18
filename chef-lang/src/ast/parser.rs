@@ -14,7 +14,7 @@ use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, Di
 use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
-use super::python_macro;
+use super::{python_macro, IndexExpression};
 use super::{
     Assignment, AssignmentKind, Block, BlockLinkExpression, MutationOperator, PickExpression,
     VariableRef, VariableSignalType, WhenExpression,
@@ -505,6 +505,7 @@ impl Parser {
             ExpressionKind::Binary(_) => {}
             ExpressionKind::Parenthesized(_) => {}
             ExpressionKind::Pick(_) => {}
+            ExpressionKind::Index(_) => {}
             ExpressionKind::VariableRef(_) => {}
             ExpressionKind::BlockLink(_) => {}
             ExpressionKind::When(_) => {}
@@ -1055,23 +1056,30 @@ impl Parser {
         let start_span = self.peak(-1).span.clone();
         self.consume_and_expect(TokenKind::LeftSquare)?;
         let index_token = self.consume();
-        let expr = match &index_token.kind {
-            TokenKind::Word(signal) => Ok({
-                let kind = ExpressionKind::Pick(PickExpression::new(
-                    signal.to_string(),
-                    VariableRef::new(var, self.get_span_from(&start_span)),
-                ));
-                let span = self.get_span_from(&start_span);
-                Expression { kind, span }
-            }),
-            _ => Err(CompilationError::new_localized(
-                "Variables can only be picked/indexed with types and numbers.",
-                self.get_span_from(&start_span),
+
+        let expr_kind = match &index_token.kind {
+            TokenKind::Word(signal) => ExpressionKind::Pick(PickExpression::new(
+                signal.to_string(),
+                VariableRef::new(var, self.get_span_from(&start_span)),
             )),
+            TokenKind::Number(n) => ExpressionKind::Index( IndexExpression {
+                var: var.clone(),
+                size: *n,
+            }),
+            _ => {
+                return Err(CompilationError::new_localized(
+                    "Variables can only be picked/indexed with types and numbers.",
+                    self.get_span_from(&start_span),
+                ))
+            }
         };
         self.consume_and_expect(TokenKind::RightSquare)?;
 
-        return expr;
+        let span = self.get_span_from(&start_span);
+        Ok(Expression {
+            kind: expr_kind,
+            span,
+        })
     }
 
     /// Parse a chef block link.

@@ -53,6 +53,7 @@ impl Visitor for TypeChecker {
     fn visit_error_expression(&mut self) {}
     fn visit_pick_expression(&mut self, _expr: &super::PickExpression) {}
     fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
+    fn visit_index_expression(&mut self, _expr: &super::IndexExpression) {}
 
     fn visit_assignment(&mut self, assignment: &super::Assignment) {
         if let Some(sig) = assignment.variable.type_.signal() {
@@ -61,6 +62,7 @@ impl Visitor for TypeChecker {
         self.do_visit_assignment(assignment);
     }
 
+    // TODO: Maybe break this up into the unimplemented functions above
     fn visit_expression(&mut self, expression: &super::Expression) {
         match &expression.kind {
             ExpressionKind::Bool(_) => {}
@@ -70,6 +72,16 @@ impl Visitor for TypeChecker {
             ExpressionKind::VariableRef(_) => {}
             ExpressionKind::BlockLink(_) => {}
             ExpressionKind::Error => {}
+            ExpressionKind::Index(index_expr) => {
+                match &index_expr.var.type_ {
+                    super::VariableType::Register(reg_size) => {
+                        if index_expr.size >= *reg_size {
+                            self.diagnostics_bag.borrow_mut().report_error(&expression.span, &format!("Index {n} of is out of range of register with size {reg_size}.", n=index_expr.size))
+                        }
+                    },
+                    _ => self.diagnostics_bag.borrow_mut().report_error(&expression.span, "Only variables of type 'register' can be indexed.")
+                }
+            }
             ExpressionKind::Pick(e) => {
                 self.report_if_invalid_signal(e.pick_signal.as_str(), &expression.span)
             }

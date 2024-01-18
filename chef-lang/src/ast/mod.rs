@@ -177,7 +177,7 @@ impl VariableType {
             VariableType::ConstInt(_) => ExpressionReturnType::Int,
             VariableType::ConstBool(_) => ExpressionReturnType::Bool,
             VariableType::Counter(_) => ExpressionReturnType::Int,
-            VariableType::Register(_) => ExpressionReturnType::None,
+            VariableType::Register(_) => ExpressionReturnType::Group,
         }
     }
 
@@ -314,6 +314,7 @@ impl Expression {
             ExpressionKind::Parenthesized(e) => e.return_type(),
             ExpressionKind::Negative(e) => e.return_type(),
             ExpressionKind::Pick(_) => ExpressionReturnType::Int,
+            ExpressionKind::Index(_) => ExpressionReturnType::Int,
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(),
             ExpressionKind::When(e) => e.return_type(),
@@ -385,6 +386,7 @@ pub enum ExpressionKind {
     Parenthesized(ParenthesizedExpression),
     Negative(Box<Expression>),
     Pick(PickExpression),
+    Index(IndexExpression),
     VariableRef(VariableRef),
     BlockLink(BlockLinkExpression),
     When(WhenExpression),
@@ -432,6 +434,12 @@ impl ParenthesizedExpression {
 pub struct PickExpression {
     pub pick_signal: String,
     pub from: VariableRef,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IndexExpression {
+    var: Rc<Variable>,
+    size: u16,
 }
 
 impl PickExpression {
@@ -746,6 +754,14 @@ impl Visitor for Printer {
         self.indent();
         self.print(&format!("Pick Signal: {}", expr.pick_signal));
         self.print(&format!("From Variable: {}", expr.from.var.name));
+        self.unindent();
+    }
+
+    fn visit_index_expression(&mut self, expr: &IndexExpression) {
+        self.print("IndexExpression:");
+        self.indent();
+        self.print(&format!("Variable: {}", expr.var));
+        self.print(&format!("Size: {}", expr.size));
         self.unindent();
     }
 

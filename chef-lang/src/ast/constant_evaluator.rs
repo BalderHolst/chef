@@ -74,6 +74,7 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
         ExpressionKind::Bool(_) => None,
         ExpressionKind::Binary(_) => None,
         ExpressionKind::Pick(_) => None,
+        ExpressionKind::Index(_) => None,
         ExpressionKind::VariableRef(_) => None,
         ExpressionKind::BlockLink(_) => None,
         ExpressionKind::When(_) => None,
@@ -83,6 +84,7 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
 
 impl MutVisitor for ConstantEvaluator {
     fn visit_pick_expression(&mut self, _expr: &mut super::PickExpression) {}
+    fn visit_index_expression(&mut self, _expr: &mut super::IndexExpression) {}
     fn visit_error_statement(&mut self) {}
     fn visit_number(&mut self, _number: &mut i32) {}
     fn visit_bool(&mut self, _bool: &mut bool) {}

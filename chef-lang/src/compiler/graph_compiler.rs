@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::ast::{
     Assignment, AssignmentKind, BinaryExpression, BinaryOperator, Block, BlockLinkExpression,
     Expression, ExpressionKind, Mutation, PickExpression, VariableRef, VariableSignalType,
-    WhenExpression, AST,
+    WhenExpression, AST, IndexExpression,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
@@ -235,12 +235,13 @@ impl GraphCompiler {
         match &expr.kind {
             ExpressionKind::Int(n) => self.compile_constant(graph, *n),
             ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32),
-            // TODO: use out_type in all compilation functions
             ExpressionKind::VariableRef(var_ref) => self.compile_variable_ref_expression(graph, var_ref), // 
             ExpressionKind::Pick(pick_expr) => self.compile_pick_expression(graph, pick_expr),
+            ExpressionKind::Index(index_expr) => self.compile_index_expression(graph, index_expr),
             ExpressionKind::Parenthesized(expr) => self.compile_expression(graph, &expr.expression, out_type),
             ExpressionKind::Negative(expr) => self.compile_negative_expression(graph, expr, out_type),
             ExpressionKind::Binary(bin_expr) => self.compile_binary_expression(graph, bin_expr, out_type),
+            // TODO: use out_type in all compilation functions
             ExpressionKind::BlockLink(block_link_expr) => self.compile_block_link_expression(graph, block_link_expr),
             ExpressionKind::When(when) => self.compile_when_expression(graph, when),
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
@@ -327,6 +328,14 @@ impl GraphCompiler {
                 var_ref.span,
             ))
         }
+    }
+
+    fn compile_index_expression(
+        &mut self,
+        graph: &mut Graph,
+        pick_expr: &IndexExpression,
+    ) -> Result<(NId, IOType), CompilationError> {
+        todo!()
     }
 
     fn compile_binary_expression(
