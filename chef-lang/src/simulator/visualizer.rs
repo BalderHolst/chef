@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    compiler::graph::{Connection, Node},
+    compiler::graph::{Connection, Node, Combinator, WireKind},
     utils,
 };
 
@@ -55,18 +55,17 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
 
     for (from_vid, to_vec) in &sim.graph.adjacency {
         for (to_vid, conn) in to_vec {
-            let color = if conn.is_pick() {
-                "red"
-            } else if conn.is_convert() {
-                "blue"
-            } else {
-                match conn {
-                    Connection::Arithmetic(_) => "black",
-                    Connection::Decider(_) => "purple",
-                    Connection::Gate(_) => "teal",
-                    Connection::Constant(_) => "green",
-                }
+            let color = match conn {
+                Connection::Wire(WireKind::Green) => "green",
+                Connection::Wire(WireKind::Red) => "red",
+                Connection::Combinator(com) if com.is_pick() => "black",
+                Connection::Combinator(com) if com.is_convert() => "blue",
+                Connection::Combinator(Combinator::Arithmetic(_)) => "orange",
+                Connection::Combinator(Combinator::Decider(_)) => "purple",
+                Connection::Combinator(Combinator::Gate(_)) => "teal",
+                Connection::Combinator(Combinator::Constant(_)) => "brown",
             };
+
             dot += &format!(
                 "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",
                 from_vid, to_vid, conn, color, color

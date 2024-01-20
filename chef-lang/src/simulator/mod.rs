@@ -5,7 +5,7 @@ mod visualizer;
 use std::{fmt::Display, io};
 
 use crate::compiler::graph::{
-    ArithmeticOperation, Connection, DeciderOperation, Graph, IOType, NId,
+    ArithmeticOperation, DeciderOperation, Graph, IOType, NId, Combinator,
 };
 use fnv::FnvHashMap;
 
@@ -117,11 +117,11 @@ impl Simulator {
     fn step(&mut self) {
         let mut new_contents = self.constant_inputs.clone();
 
-        for (from_nid, to_nid, conn) in self.graph.iter_conns() {
+        for (from_nid, to_nid, conn) in self.graph.iter_combinators() {
             let conn_inputs = self.contents.get(&from_nid).cloned().unwrap_or(vec![]);
 
             let output = match conn {
-                Connection::Arithmetic(c) => {
+                Combinator::Arithmetic(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);
                     let result = match c.operation {
@@ -132,7 +132,7 @@ impl Simulator {
                     };
                     Item::new(c.output, result)
                 }
-                Connection::Decider(c) => {
+                Combinator::Decider(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);
                     let result = match c.operation {
@@ -145,7 +145,7 @@ impl Simulator {
                     } as i32;
                     Item::new(c.output, result)
                 }
-                Connection::Gate(c) => {
+                Combinator::Gate(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);
                     let should_pass = match c.operation {
@@ -163,7 +163,7 @@ impl Simulator {
                     };
                     Item::new(c.gate_type, count)
                 }
-                Connection::Constant(c) => Item::new(c.type_, c.count),
+                Combinator::Constant(c) => Item::new(c.type_, c.count),
             };
 
             new_contents

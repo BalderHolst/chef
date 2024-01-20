@@ -1,4 +1,4 @@
-use super::graph::{Graph, IOType, NId};
+use super::graph::{Graph, NId, Connection};
 
 pub struct GraphOptimizer<'a> {
     graph: &'a mut Graph,
@@ -10,9 +10,6 @@ impl<'a> GraphOptimizer<'a> {
     }
 
     pub fn optimize(&mut self) {
-        for vid in self.graph.get_input_nodes() {
-            self.integrate_constant_input(vid);
-        }
         self.remove_redundant_picks();
     }
 
@@ -38,8 +35,10 @@ impl<'a> GraphOptimizer<'a> {
                         continue;
                     }
                     let (to_vid, conn2) = to_vec.first().unwrap();
-                    if !conn2.is_pick() {
-                        continue;
+                    if let Connection::Combinator(com2) = conn2 {
+                        if !com2.is_pick() {
+                            continue;
+                        }
                     }
                     return Some((*from_vid, *middle_vid, *to_vid, i));
                 }
@@ -48,24 +47,4 @@ impl<'a> GraphOptimizer<'a> {
         None
     }
 
-    // TODO: Constant are no longer input nodes. But they should probably be integrated anyways.
-    fn integrate_constant_input(&mut self, vid: NId) {
-        let inputs = self.graph.get_input_iotypes(&vid);
-
-        if inputs.len() != 1 {
-            return;
-        }
-
-        if let IOType::Constant(_) = inputs.first().unwrap() {
-        } else {
-            return;
-        }
-
-        for (to_vid, connection) in self.graph.adjacency.get(&vid).unwrap().clone() {
-            if connection.is_pick() {
-                self.graph.remove_node_with_connections(&vid);
-            }
-            self.integrate_constant_input(to_vid);
-        }
-    }
 }

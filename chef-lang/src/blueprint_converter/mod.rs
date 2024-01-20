@@ -79,22 +79,26 @@ pub struct Combinator {
 }
 
 impl Operation {
+    // TODO: remove this with removing constants as connections
     fn get_output_connection_point(&self) -> usize {
-        match self {
-            Connection::Arithmetic(_) => 2,
-            Connection::Decider(_) => 2,
-            Connection::Gate(_) => 2,
-            Connection::Constant(_) => 1,
-        }
+        2
+        // match self {
+        //     Connection::Arithmetic(_) => 2,
+        //     Connection::Decider(_) => 2,
+        //     Connection::Gate(_) => 2,
+        //     Connection::Constant(_) => 1,
+        // }
     }
 
+    // TODO: remove this with removing constants as connections
     fn get_input_connection_point(&self) -> usize {
-        match self {
-            Connection::Arithmetic(_) => 1,
-            Connection::Decider(_) => 1,
-            Connection::Gate(_) => 1,
-            Connection::Constant(_) => 1,
-        }
+        2
+        // match self {
+        //     Connection::Arithmetic(_) => 1,
+        //     Connection::Decider(_) => 1,
+        //     Connection::Gate(_) => 1,
+        //     Connection::Constant(_) => 1,
+        // }
     }
 }
 
@@ -123,10 +127,11 @@ impl Combinator {
 
         // Internal factorio name of combinator
         let name = match &self.operation {
-            graph::Connection::Arithmetic(_) => "arithmetic-combinator",
-            graph::Connection::Decider(_) => "decider-combinator",
-            graph::Connection::Gate(_) => "decider-combinator",
-            graph::Connection::Constant(_) => "constant-combinator",
+            Connection::Wire(_) => todo!(),
+            Connection::Combinator(graph::Combinator::Arithmetic(_)) => "arithmetic-combinator",
+            Connection::Combinator(graph::Combinator::Decider(_)) => "decider-combinator",
+            Connection::Combinator(graph::Combinator::Gate(_)) => "decider-combinator",
+            Connection::Combinator(graph::Combinator::Constant(_)) => "constant-combinator",
         }
         .to_string();
 
@@ -165,84 +170,93 @@ impl Combinator {
 
     fn get_control_behavior(&self) -> ControlBehavior {
         match &self.operation {
-            graph::Connection::Arithmetic(ac) => {
-                let (first_constant, first_signal) = Self::iotype_to_const_signal_pair(&ac.left);
-                let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&ac.right);
-                let (_, output_signal) = Self::iotype_to_const_signal_pair(&ac.output);
-                let operation = Self::arithmetic_operation_to_op_string(&ac.operation);
+            Connection::Wire(_) => todo!(),
+            Connection::Combinator(com) => match com {
+                graph::Combinator::Arithmetic(ac) => {
+                    let (first_constant, first_signal) =
+                        Self::iotype_to_const_signal_pair(&ac.left);
+                    let (second_constant, second_signal) =
+                        Self::iotype_to_const_signal_pair(&ac.right);
+                    let (_, output_signal) = Self::iotype_to_const_signal_pair(&ac.output);
+                    let operation = Self::arithmetic_operation_to_op_string(&ac.operation);
 
-                ControlBehavior {
-                    arithmetic_conditions: Some(ArithmeticConditions {
-                        first_constant,
-                        first_signal,
-                        second_constant,
-                        second_signal,
-                        operation,
-                        output_signal,
-                    }),
-                    decider_conditions: None,
-                    filters: None,
-                    is_on: None,
+                    ControlBehavior {
+                        arithmetic_conditions: Some(ArithmeticConditions {
+                            first_constant,
+                            first_signal,
+                            second_constant,
+                            second_signal,
+                            operation,
+                            output_signal,
+                        }),
+                        decider_conditions: None,
+                        filters: None,
+                        is_on: None,
+                    }
                 }
-            }
-            graph::Connection::Decider(dc) => {
-                let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&dc.left);
-                let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&dc.right);
-                let (_, output_signal) = Self::iotype_to_const_signal_pair(&dc.output);
-                let operation = Self::decider_operation_to_op_string(&dc.operation);
+                graph::Combinator::Decider(dc) => {
+                    let (_first_constant, first_signal) =
+                        Self::iotype_to_const_signal_pair(&dc.left);
+                    let (second_constant, second_signal) =
+                        Self::iotype_to_const_signal_pair(&dc.right);
+                    let (_, output_signal) = Self::iotype_to_const_signal_pair(&dc.output);
+                    let operation = Self::decider_operation_to_op_string(&dc.operation);
 
-                ControlBehavior {
-                    arithmetic_conditions: None,
-                    decider_conditions: Some(DeciderConditions {
-                        first_signal,
-                        second_signal,
-                        constant: second_constant,
-                        comparator: operation,
-                        output_signal,
-                        copy_count_from_input: Some(false),
-                    }),
-                    filters: None,
-                    is_on: None,
+                    ControlBehavior {
+                        arithmetic_conditions: None,
+                        decider_conditions: Some(DeciderConditions {
+                            first_signal,
+                            second_signal,
+                            constant: second_constant,
+                            comparator: operation,
+                            output_signal,
+                            copy_count_from_input: Some(false),
+                        }),
+                        filters: None,
+                        is_on: None,
+                    }
                 }
-            }
-            graph::Connection::Gate(gc) => {
-                let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&gc.left);
-                let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&gc.right);
-                let (_, gate_signal) = Self::iotype_to_const_signal_pair(&gc.gate_type);
-                let operation = Self::decider_operation_to_op_string(&gc.operation);
+                graph::Combinator::Gate(gc) => {
+                    let (_first_constant, first_signal) =
+                        Self::iotype_to_const_signal_pair(&gc.left);
+                    let (second_constant, second_signal) =
+                        Self::iotype_to_const_signal_pair(&gc.right);
+                    let (_, gate_signal) = Self::iotype_to_const_signal_pair(&gc.gate_type);
+                    let operation = Self::decider_operation_to_op_string(&gc.operation);
 
-                ControlBehavior {
-                    arithmetic_conditions: None,
-                    decider_conditions: Some(DeciderConditions {
-                        first_signal,
-                        second_signal,
-                        constant: second_constant,
-                        comparator: operation,
-                        output_signal: gate_signal,
-                        copy_count_from_input: Some(true),
-                    }),
-                    filters: None,
-                    is_on: None,
+                    ControlBehavior {
+                        arithmetic_conditions: None,
+                        decider_conditions: Some(DeciderConditions {
+                            first_signal,
+                            second_signal,
+                            constant: second_constant,
+                            comparator: operation,
+                            output_signal: gate_signal,
+                            copy_count_from_input: Some(true),
+                        }),
+                        filters: None,
+                        is_on: None,
+                    }
                 }
-            }
-            graph::Connection::Constant(cc) => {
-                let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
-                ControlBehavior {
-                    arithmetic_conditions: None,
-                    decider_conditions: None,
-                    filters: {
-                        Some(vec![ControlFilter {
-                            signal: SignalID {
-                                name: signal,
-                                type_,
-                            },
-                            index: NonZeroUsize::new(1).unwrap(),
-                            count: cc.count,
-                        }])
-                    },
-                    is_on: Some(true),
+                graph::Combinator::Constant(cc) => {
+                    let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
+                    ControlBehavior {
+                        arithmetic_conditions: None,
+                        decider_conditions: None,
+                        filters: {
+                            Some(vec![ControlFilter {
+                                signal: SignalID {
+                                    name: signal,
+                                    type_,
+                                },
+                                index: NonZeroUsize::new(1).unwrap(),
+                                count: cc.count,
+                            }])
+                        },
+                        is_on: Some(true),
+                    }
                 }
-            }
+            },
         }
     }
 

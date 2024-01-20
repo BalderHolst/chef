@@ -128,7 +128,7 @@ impl GraphCompiler {
                 let var_nid = graph.push_var_node(var_type.clone());
 
                 // Connect up the memory cell
-                let if_less_than_limit = Connection::Gate(GateConnection {
+                let if_less_than_limit = Connection::new_gate(GateCombinator {
                     left: var_type.clone(),
                     right: limit_type.clone(),
                     operation: DeciderOperation::LessThan,
@@ -141,10 +141,10 @@ impl GraphCompiler {
 
                 // Push constant node, to drive the counter.
                 let driver_nid = graph.push_node(Node::Constant(var_type.clone()));
-                let conn = Connection::Constant(ConstantConnection {
+                let conn = Connection::Combinator(Combinator::Constant(ConstantCombinator {
                     type_: var_type,
                     count: 1,
-                });
+                }));
                 graph.push_connection(driver_nid, var_nid, conn);
 
                 self.add_to_scope(var.name.clone(), var_nid);
@@ -161,7 +161,7 @@ impl GraphCompiler {
         graph.push_connection(
             expr_out_vid,
             var_node_vid,
-            Connection::Arithmetic(ArithmeticConnection::new_convert(expr_out_type, var_type)),
+            Connection::new_arithmetic(ArithmeticCombinator::new_convert(expr_out_type, var_type)),
         );
 
         self.add_to_scope(assignment.variable.name.clone(), var_node_vid);
@@ -192,7 +192,7 @@ impl GraphCompiler {
 
             // Multiply by -1 if subtracting
             crate::ast::MutationOperator::Subtract => {
-                Connection::Arithmetic(ArithmeticConnection::new(
+                Connection::new_arithmetic(ArithmeticCombinator::new(
                     expr_out_type.clone(),
                     IOType::Constant(-1),
                     ArithmeticOperation::Multiply,
@@ -296,7 +296,7 @@ impl GraphCompiler {
         graph.push_connection(
             expr_out_nid,
             negative_out_nid,
-            Connection::Arithmetic(ArithmeticConnection::new(
+            Connection::new_arithmetic(ArithmeticCombinator::new(
                 out_type.clone(),
                 IOType::Constant(-1),
                 ArithmeticOperation::Multiply,
@@ -319,7 +319,7 @@ impl GraphCompiler {
             graph.push_connection(
                 var_out_vid,
                 picked_vid,
-                Connection::Arithmetic(ArithmeticConnection::new_pick(out_type.clone())),
+                Connection::new_arithmetic(ArithmeticCombinator::new_pick(out_type.clone())),
             );
             Ok((picked_vid, out_type))
         } else {
@@ -355,7 +355,7 @@ impl GraphCompiler {
             graph.push_connection(
                 right_vid,
                 new_right_vid,
-                Connection::Arithmetic(ArithmeticConnection::new_convert(
+                Connection::new_arithmetic(ArithmeticCombinator::new_convert(
                     right_type.clone(),
                     new_right_type.clone(),
                 )),
@@ -371,12 +371,12 @@ impl GraphCompiler {
         graph.push_connection(
             left_vid,
             input,
-            Connection::Arithmetic(ArithmeticConnection::new_pick(left_type.clone())),
+            Connection::new_arithmetic(ArithmeticCombinator::new_pick(left_type.clone())),
         );
         graph.push_connection(
             right_vid,
             input,
-            Connection::Arithmetic(ArithmeticConnection::new_pick(right_type.clone())),
+            Connection::new_arithmetic(ArithmeticCombinator::new_pick(right_type.clone())),
         );
 
         // Use the outtype if any was provided.
@@ -407,13 +407,13 @@ impl GraphCompiler {
         let op_connection = match operation {
             ReturnValue::Int(op) => {
                 let arithmetic_connection =
-                    ArithmeticConnection::new(left_type, right_type, op, out_type.clone());
-                Connection::Arithmetic(arithmetic_connection)
+                    ArithmeticCombinator::new(left_type, right_type, op, out_type.clone());
+                Connection::new_arithmetic(arithmetic_connection)
             }
             ReturnValue::Bool(op) => {
                 let decider_connection =
-                    DeciderConnection::new(left_type, right_type, op, out_type.clone());
-                Connection::Decider(decider_connection)
+                    DeciderCombinator::new(left_type, right_type, op, out_type.clone());
+                Connection::new_decider(decider_connection)
             }
             ReturnValue::Group => {
                 todo!()
@@ -487,10 +487,10 @@ impl GraphCompiler {
             graph.push_connection(
                 convertion_node,
                 gated_input_nid,
-                Connection::Constant(ConstantConnection {
+                Connection::Combinator(Combinator::Constant(ConstantCombinator {
                     type_: gated_type.clone(),
                     count,
-                }),
+                })),
             )
         }
 

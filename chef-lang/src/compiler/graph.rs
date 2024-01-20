@@ -34,14 +34,14 @@ impl Display for DeciderOperation {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct DeciderConnection {
+pub struct DeciderCombinator {
     pub left: IOType,
     pub right: IOType,
     pub operation: DeciderOperation,
     pub output: IOType,
 }
 
-impl DeciderConnection {
+impl DeciderCombinator {
     pub fn new(left: IOType, right: IOType, operation: DeciderOperation, output: IOType) -> Self {
         Self {
             left,
@@ -105,14 +105,14 @@ impl Display for IOType {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ArithmeticConnection {
+pub struct ArithmeticCombinator {
     pub left: IOType,
     pub right: IOType,
     pub operation: ArithmeticOperation,
     pub output: IOType,
 }
 
-impl ArithmeticConnection {
+impl ArithmeticCombinator {
     pub fn new(
         left: IOType,
         right: IOType,
@@ -144,10 +144,22 @@ impl ArithmeticConnection {
             out_signal,
         )
     }
+
+    fn is_pick(&self) -> bool {
+        self.right == IOType::Constant(0)
+            && self.operation == ArithmeticOperation::Add
+            && self.output == self.left
+    }
+
+    fn is_convert(&self) -> bool {
+        self.right == IOType::Constant(0)
+            && self.operation == ArithmeticOperation::Add
+            && self.output != self.left
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct GateConnection {
+pub struct GateCombinator {
     pub left: IOType,
     pub right: IOType,
     pub operation: DeciderOperation,
@@ -155,89 +167,117 @@ pub struct GateConnection {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ConstantConnection {
+pub struct ConstantCombinator {
     pub type_: IOType,
     pub count: i32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Connection {
-    Arithmetic(ArithmeticConnection),
-    Decider(DeciderConnection),
-    Gate(GateConnection),
-    Constant(ConstantConnection),
+pub enum WireKind {
+    Green,
+    Red,
 }
 
-impl Connection {
-    pub fn new_pick(signal: IOType) -> Self {
-        Self::Arithmetic(ArithmeticConnection::new_pick(signal))
+#[derive(Clone, Debug, PartialEq)]
+pub enum Combinator {
+    Arithmetic(ArithmeticCombinator),
+    Decider(DeciderCombinator),
+    Gate(GateCombinator),
+    Constant(ConstantCombinator),
+}
+
+impl Combinator {
+    fn new_pick(signal: IOType) -> Self {
+        Self::Arithmetic(ArithmeticCombinator::new_pick(signal))
     }
 
-    pub fn new_convert(input_signal: IOType, output_signal: IOType) -> Self {
-        Self::Arithmetic(ArithmeticConnection::new_convert(
-            input_signal,
-            output_signal,
-        ))
+    fn new_convert(in_signal: IOType, out_signal: IOType) -> Self {
+        Self::Arithmetic(ArithmeticCombinator::new_convert(in_signal, out_signal))
     }
 
     pub fn get_output_iotype(&self) -> IOType {
         match self {
-            Connection::Arithmetic(ac) => ac.output.clone(),
-            Connection::Decider(dc) => dc.output.clone(),
-            Connection::Gate(gc) => gc.gate_type.clone(),
-            Connection::Constant(cc) => cc.type_.clone(),
+            Self::Arithmetic(ac) => ac.output.clone(),
+            Self::Decider(dc) => dc.output.clone(),
+            Self::Gate(gc) => gc.gate_type.clone(),
+            Self::Constant(cc) => cc.type_.clone(),
         }
     }
 
     #[allow(irrefutable_let_patterns)]
     pub fn is_pick(&self) -> bool {
-        if let Connection::Arithmetic(connection) = self {
-            if connection.right == IOType::Constant(0)
-                && connection.operation == ArithmeticOperation::Add
-                && connection.output == connection.left
-            {
-                return true;
-            }
+        if let Self::Arithmetic(ac) = self {
+            return ac.is_pick();
         }
-        false
+        return false;
     }
 
     #[allow(irrefutable_let_patterns)]
     pub fn is_convert(&self) -> bool {
-        if let Connection::Arithmetic(connection) = self {
-            connection.right == IOType::Constant(0)
-                && connection.operation == ArithmeticOperation::Add
-                && connection.output != connection.left
-        } else {
-            false
+        if let Self::Arithmetic(ac) = self {
+            return ac.is_convert();
         }
+        return false;
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Connection {
+    Wire(WireKind),
+    Combinator(Combinator),
+}
+
+impl Connection {
+    fn new_combinator(com: Combinator) -> Self {
+        Self::Combinator(com)
+    }
+
+    pub fn new_arithmetic(ac: ArithmeticCombinator) -> Self {
+        Self::new_combinator(Combinator::Arithmetic(ac))
+    }
+
+    pub fn new_decider(dc: DeciderCombinator) -> Self {
+        Self::new_combinator(Combinator::Decider(dc))
+    }
+
+    pub fn new_gate(gate: GateCombinator) -> Self {
+        Self::new_combinator(Combinator::Gate(gate))
+    }
+
+    pub fn new_pick(signal: IOType) -> Self {
+        Self::new_combinator(Combinator::new_pick(signal))
+    }
+
+    pub fn new_convert(input_signal: IOType, output_signal: IOType) -> Self {
+        Self::new_combinator(Combinator::new_convert(input_signal, output_signal))
     }
 }
 
 impl Display for Connection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Connection::Arithmetic(connection) => {
-                if self.is_pick() {
-                    format!("PICK: {}", connection.output)
-                } else if self.is_convert() {
-                    format!("CONVERT: {} -> {}", connection.left, connection.output)
-                } else {
-                    format!(
-                        "{}: {}, {}",
-                        connection.operation, connection.left, connection.right
-                    )
-                }
+            Self::Combinator(Combinator::Arithmetic(ac)) if ac.is_pick() => {
+                format!("PICK: {}", ac.output)
             }
-            Connection::Decider(connection) => format!(
-                "{}: {}, {}",
-                connection.operation, connection.left, connection.right
-            ),
-            Connection::Gate(gate) => format!(
+            Self::Combinator(Combinator::Arithmetic(ac)) if ac.is_convert() => {
+                format!("CONVERT: {} -> {}", ac.left, ac.output)
+            }
+            Self::Combinator(Combinator::Arithmetic(ac)) => {
+                format!("{}: {}, {}", ac.operation, ac.left, ac.right)
+            }
+            Self::Combinator(Combinator::Decider(dc)) => {
+                format!("{}: {}, {}", dc.operation, dc.left, dc.right)
+            }
+            Self::Combinator(Combinator::Gate(gate)) => format!(
                 "GATE: {}\n{}: {}, {}",
                 gate.gate_type, gate.operation, gate.left, gate.right
             ),
-            Connection::Constant(con) => format!("CONSTANT : {} = {}", con.type_, con.count),
+            // TODO: This should probably be a node instead of a connection
+            Self::Combinator(Combinator::Constant(cc)) => {
+                format!("CONSTANT : {} = {}", cc.type_, cc.count)
+            }
+            Self::Wire(WireKind::Green) => "GREEN WIRE".to_string(),
+            Self::Wire(WireKind::Red) => "RED WIRE".to_string(),
         };
         write!(f, "{s}")
     }
@@ -286,28 +326,69 @@ impl Graph {
         }
     }
 
-    pub fn get_input_iotypes(&self, nid: &NId) -> Vec<IOType> {
-        match self.vertices.get(nid) {
-            Some(Node::InputVariable(input_node)) => {
-                return vec![input_node.clone()];
+    // TODO: Check that this is correct
+    fn get_wire_connected_nodes(&self, from_nid: &NId, nid: &NId, wire_kind: WireKind) -> Vec<NId> {
+        let mut nids = vec![*nid, *from_nid];
+        if let Some(conns) = self.adjacency.get(nid) {
+            for (to_nid, conn) in conns {
+                if let Connection::Wire(wk) = conn {
+                    if wk == &wire_kind {
+                        // Avoid infinite loop
+                        if nids.contains(to_nid) {
+                            continue;
+                        }
+                        nids.extend(self.get_wire_connected_nodes(nid, to_nid, wire_kind.clone()));
+                    }
+                }
             }
-            Some(Node::Constant(const_node)) => {
-                return vec![const_node.clone()];
-            }
-            None => {
-                return vec![];
-            }
-            Some(_) => {} // Continue
-        };
-        let mut inputs: Vec<IOType> = vec![];
+        }
+        nids.dedup();
+        return nids;
+    }
 
-        for (_from_nid, to_nid, conn) in self.iter_conns() {
-            if &to_nid == nid {
-                inputs.push(conn.get_output_iotype());
+    /// Recursively get all nodes connected to a node via wires.
+    pub fn get_node_network(&self, nid: &NId, wire_kind: WireKind) -> Vec<NId> {
+        self.get_wire_connected_nodes(nid, nid, wire_kind)
+    }
+
+    pub fn get_output_iotype(&self, nid: &NId) -> IOType {
+        let network_nids = self.get_node_network(nid, WireKind::Green); // TODO: un-hard-code green
+
+        let mut types = vec![];
+
+        for (_from_nid, to_vec) in &self.adjacency {
+            for (to_nid, conn) in to_vec {
+                if network_nids.contains(to_nid) {
+                    if let Connection::Combinator(com) = conn {
+                        types.push(com.get_output_iotype())
+                    }
+                }
             }
         }
 
-        inputs
+        if types.len() == 1 {
+            return types[0].clone();
+        } else {
+            return IOType::All;
+        }
+    }
+
+    pub fn get_input_iotypes(&self, nid: &NId) -> Vec<IOType> {
+        let network_nids = self.get_node_network(nid, WireKind::Green); // TODO: un-hard-code green
+
+        let mut types = vec![];
+
+        for (_from_nid, to_vec) in &self.adjacency {
+            for (to_nid, conn) in to_vec {
+                if network_nids.contains(to_nid) {
+                    if let Connection::Combinator(com) = conn {
+                        types.push(com.get_output_iotype())
+                    }
+                }
+            }
+        }
+
+        types
     }
 
     /// Returns an iterator overr graph connections with the format:
@@ -317,6 +398,17 @@ impl Graph {
             to_vec
                 .iter()
                 .map(|(to_nid, conn)| (from_nid.to_owned(), to_nid.to_owned(), conn.clone()))
+        })
+    }
+
+    pub fn iter_combinators(&self) -> impl Iterator<Item = (NId, NId, Combinator)> + '_ {
+        self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
+            to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
+                Connection::Combinator(com) => {
+                    Some((from_nid.to_owned(), to_nid.to_owned(), com.clone()))
+                }
+                Connection::Wire(_) => None,
+            })
         })
     }
 
@@ -413,7 +505,7 @@ impl Graph {
         self.push_connection(
             input,
             output,
-            Connection::Gate(GateConnection {
+            Connection::new_gate(GateCombinator {
                 left: cond_type,
                 right: IOType::Constant(0),
                 operation: DeciderOperation::LargerThan,
@@ -553,7 +645,7 @@ impl Graph {
                     self.push_connection(
                         *block_input_nid,
                         middle_node,
-                        Connection::Arithmetic(ArithmeticConnection::new_convert(
+                        Connection::new_arithmetic(ArithmeticCombinator::new_convert(
                             input_type,
                             block_input_type.clone(),
                         )),
@@ -562,7 +654,7 @@ impl Graph {
                     self.push_connection(
                         middle_node,
                         other_input_nid,
-                        Connection::Arithmetic(ArithmeticConnection::new_convert(
+                        Connection::new_arithmetic(ArithmeticCombinator::new_convert(
                             block_input_type.clone(),
                             other_input_type,
                         )),
@@ -577,7 +669,7 @@ impl Graph {
                     self.push_connection(
                         *block_input_nid,
                         other_input_nid,
-                        Connection::Arithmetic(ArithmeticConnection::new_pick(new_type)),
+                        Connection::new_arithmetic(ArithmeticCombinator::new_pick(new_type)),
                     );
                 }
                 IOType::_ConstantSignal(_) => todo!(),
@@ -615,7 +707,7 @@ impl Graph {
         for (_, to_vec) in self.adjacency.iter_mut() {
             for (_, conn) in to_vec {
                 match conn {
-                    Connection::Arithmetic(ac) => {
+                    Connection::Combinator(Combinator::Arithmetic(ac)) => {
                         if ac.left == old_type {
                             ac.left = new_type.clone()
                         }
@@ -626,7 +718,7 @@ impl Graph {
                             ac.output = new_type.clone()
                         }
                     }
-                    Connection::Decider(dc) => {
+                    Connection::Combinator(Combinator::Decider(dc)) => {
                         if dc.left == old_type {
                             dc.left = new_type.clone()
                         }
@@ -637,7 +729,7 @@ impl Graph {
                             dc.output = new_type.clone()
                         }
                     }
-                    Connection::Gate(gc) => {
+                    Connection::Combinator(Combinator::Gate(gc)) => {
                         if gc.left == old_type {
                             gc.left = new_type.clone()
                         }
@@ -648,11 +740,12 @@ impl Graph {
                             gc.gate_type = new_type.clone()
                         }
                     }
-                    Connection::Constant(cc) => {
+                    Connection::Combinator(Combinator::Constant(cc)) => {
                         if cc.type_ == old_type {
                             cc.type_ = new_type.clone()
                         }
                     }
+                    Connection::Wire(_) => {}
                 }
             }
         }
@@ -776,8 +869,10 @@ impl<'a> AnysignalAssigner<'a> {
         // Keep track of what signals are already used by the blueprint
         for to_vec in self.graph.adjacency.values() {
             for (_, conn) in to_vec {
-                if let IOType::Signal(s) = conn.get_output_iotype() {
-                    self.used_signals.insert(s);
+                if let Connection::Combinator(com) = conn {
+                    if let IOType::Signal(s) = com.get_output_iotype() {
+                        self.used_signals.insert(s);
+                    }
                 }
             }
         }
@@ -785,24 +880,26 @@ impl<'a> AnysignalAssigner<'a> {
         // Create conversions for anysignals
         for to_vec in self.graph.adjacency.clone().values() {
             for (_, conn) in to_vec {
-                match conn {
-                    Connection::Arithmetic(c) => {
-                        self.assign_if_anysignal(&c.left);
-                        self.assign_if_anysignal(&c.right);
-                        self.assign_if_anysignal(&c.output);
-                    }
-                    Connection::Decider(c) => {
-                        self.assign_if_anysignal(&c.left);
-                        self.assign_if_anysignal(&c.right);
-                        self.assign_if_anysignal(&c.output);
-                    }
-                    Connection::Gate(c) => {
-                        self.assign_if_anysignal(&c.left);
-                        self.assign_if_anysignal(&c.right);
-                        self.assign_if_anysignal(&c.gate_type);
-                    }
-                    Connection::Constant(c) => {
-                        self.assign_if_anysignal(&c.type_);
+                if let Connection::Combinator(com) = conn {
+                    match com {
+                        Combinator::Arithmetic(c) => {
+                            self.assign_if_anysignal(&c.left);
+                            self.assign_if_anysignal(&c.right);
+                            self.assign_if_anysignal(&c.output);
+                        }
+                        Combinator::Decider(c) => {
+                            self.assign_if_anysignal(&c.left);
+                            self.assign_if_anysignal(&c.right);
+                            self.assign_if_anysignal(&c.output);
+                        }
+                        Combinator::Gate(c) => {
+                            self.assign_if_anysignal(&c.left);
+                            self.assign_if_anysignal(&c.right);
+                            self.assign_if_anysignal(&c.gate_type);
+                        }
+                        Combinator::Constant(c) => {
+                            self.assign_if_anysignal(&c.type_);
+                        }
                     }
                 }
             }

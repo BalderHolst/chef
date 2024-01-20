@@ -2,7 +2,7 @@ use std::{fs::OpenOptions, io::Write};
 
 use crate::utils::{self, VisualizerError};
 
-use super::graph::Graph;
+use super::graph::{Graph, Combinator};
 
 pub fn create_dot(graph: &Graph) -> String {
     let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();
@@ -29,18 +29,17 @@ pub fn create_dot(graph: &Graph) -> String {
 
     for (from_vid, to_vec) in &graph.adjacency {
         for (to_vid, conn) in to_vec {
-            let color = if conn.is_pick() {
-                "red"
-            } else if conn.is_convert() {
-                "blue"
-            } else {
-                match conn {
-                    super::graph::Connection::Arithmetic(_) => "black",
-                    super::graph::Connection::Decider(_) => "purple",
-                    super::graph::Connection::Gate(_) => "teal",
-                    super::graph::Connection::Constant(_) => "green",
-                }
+            let color = match conn {
+                super::graph::Connection::Wire(super::graph::WireKind::Green) => "green",
+                super::graph::Connection::Wire(super::graph::WireKind::Red) => "red",
+                super::graph::Connection::Combinator(com) if com.is_pick() => "black",
+                super::graph::Connection::Combinator(com) if com.is_convert() => "blue",
+                super::graph::Connection::Combinator(Combinator::Arithmetic(_)) => "orange",
+                super::graph::Connection::Combinator(Combinator::Decider(_)) => "purple",
+                super::graph::Connection::Combinator(Combinator::Gate(_)) => "teal",
+                super::graph::Connection::Combinator(Combinator::Constant(_)) => "brown",
             };
+
             dot += &format!(
                 "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",
                 from_vid, to_vid, conn, color, color
