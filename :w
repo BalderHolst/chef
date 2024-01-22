@@ -16,14 +16,14 @@ build:
 	cargo build --release $(cargo_flags)
 	cp ./chef-lang/target/release/chef ./chef
 
+
 sym_install: build
-	ln -s "$(CURDIR)/chef" "/usr/local/bin/chef"
-	ln -sf "$(CURDIR)/chef-mod/chef_0.0.1/" "$(HOME)/.factorio/mods"
-	pip install -e chef-python
+	ln -sf "$(curdir)/chef-mod/chef_0.0.1/" "$(HOME)/.factorio/mods"
+	# ln -s "$(pwd)/chef" "/usr/local/bin/chef"
+	# pip install -e chef-python
 
 install: build
-	cp -v "./chef" "/usr/local/bin/chef"
-	cp -rv "$(CURDIR)/chef-mod/chef_0.0.1/" "$(HOME)/.factorio/mods"
+	cp -v "./chef" "/usr/local/bin"
 	pip install chef-python
 
 clean:
