@@ -507,15 +507,23 @@ impl Graph {
         self.push_node(Node::Variable(variable_type))
     }
 
-    /// Push a connection between two nodes. Connections represent combinator operations.
-    pub fn push_connection(&mut self, from: NId, to: NId, connection: Connection) {
+    pub fn push_raw_connection(&mut self, from: NId, to: NId, connection: Connection) {
         let adjacent_to_from = self.adjacency.entry(from).or_default();
         adjacent_to_from.push((to, connection));
     }
 
+    /// Push a connection between two nodes.
+    pub fn push_connection(&mut self, from: NId, to: NId, connection: Connection) {
+        let input_nid = self.push_inner_node();
+        let output_nid = self.push_inner_node();
+        self.push_wire(from, input_nid, WireKind::Green);
+        self.push_wire(to, output_nid, WireKind::Green);
+        self.push_raw_connection(input_nid, output_nid, connection);
+    }
+
     pub fn push_wire(&mut self, n1: NId, n2: NId, wire_kind: WireKind) {
-        self.push_connection(n1, n2, Connection::Wire(wire_kind.clone()));
-        self.push_connection(n2, n1, Connection::Wire(wire_kind));
+        self.push_raw_connection(n1, n2, Connection::Wire(wire_kind.clone()));
+        self.push_raw_connection(n2, n1, Connection::Wire(wire_kind));
     }
 
     pub fn push_combinator(&mut self, com: Combinator) -> (NId, NId) {
@@ -976,7 +984,7 @@ mod tests {
         g.push_wire(n3, n1, wire_kind.clone());
         g.push_wire(n4, n6, wire_kind);
 
-        // Add compinators between networks. These should have no effect
+        // Add compinators between networks. These add a node to the connected networks.
         let conn = Connection::Combinator(Combinator::new_pick(IOType::Signal("test".to_string())));
         g.push_connection(n3, n4, conn.clone());
         g.push_connection(n6, n5, conn.clone());
@@ -989,7 +997,7 @@ mod tests {
         network1_1.sort();
         network1_2.sort();
         network1_3.sort();
-        assert_eq!(network1_1, vec![n1, n2, n3]);
+        assert_eq!(network1_1, vec![n1, n2, n3, 6]);
         assert_eq!(network1_1, network1_2);
         assert_eq!(network1_1, network1_3);
 
@@ -998,12 +1006,12 @@ mod tests {
         let mut network2_2 = g.get_node_network(&n6, WireKind::Green);
         network2_1.sort();
         network2_2.sort();
-        assert_eq!(network2_1, vec![n4, n6]);
-        assert_eq!(network2_2, vec![n4, n6]);
+        assert_eq!(network2_1, vec![n4, n6, 7, 8, 10]);
+        assert_eq!(network2_1, network2_2);
 
         // Check network 3
         let mut network3 = g.get_node_network(&n5, WireKind::Green);
         network3.sort();
-        assert_eq!(network3, vec![n5]);
+        assert_eq!(network3, vec![n5, 9, 11]);
     }
 }
