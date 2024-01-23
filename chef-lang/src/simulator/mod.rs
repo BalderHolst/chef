@@ -5,7 +5,7 @@ mod visualizer;
 use std::{fmt::Display, io};
 
 use crate::compiler::graph::{
-    ArithmeticOperation, Combinator, DeciderOperation, Graph, IOType, NId, WireKind,
+    ArithmeticOperation, Combinator, DeciderOperation, Graph, IOType, NId, NetworkId,
 };
 use fnv::FnvHashMap;
 
@@ -72,8 +72,6 @@ impl Display for Item {
         writeln!(f, "<{}:{}>", self.kind, self.count)
     }
 }
-
-type NetworkId = usize;
 
 pub struct Simulator {
     graph: Graph,
@@ -143,7 +141,7 @@ impl Simulator {
 
             let conn_inputs = self
                 .network_contents
-                .get(&from_network_id)
+                .get(from_network_id)
                 .cloned()
                 .unwrap_or(vec![]);
 

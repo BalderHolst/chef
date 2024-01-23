@@ -7,13 +7,13 @@ use factorio_blueprint::objects::EntityNumber;
 
 use crate::{
     blueprint_converter::{ConnectionPoint, NetworkId, Operation},
-    compiler::graph::Graph,
+    compiler::graph::{Graph, NId},
 };
 
-use super::{Combinator, CombinatorPosition, ConnectionPointType, CoordSet, WIRE_RANGE};
+use super::{CombinatorPosition, ConnectionPointType, CoordSet, FactorioCombinator, WIRE_RANGE};
 
 pub trait Placer {
-    fn place(self) -> Vec<Combinator>;
+    fn place(self) -> Vec<FactorioCombinator>;
 }
 
 pub(crate) fn is_in_range(p1: &CoordSet, p2: &CoordSet) -> bool {
@@ -48,7 +48,8 @@ fn test_is_in_range() {
 /// 6. When placed, connect wires to the other combinators that were placed.
 pub struct TurdMaster2000 {
     graph: Graph,
-    placed_combinators: HashMap<EntityNumber, Combinator>,
+    networks: Vec<Vec<NId>>,
+    placed_combinators: HashMap<EntityNumber, FactorioCombinator>,
     placed_positions: HashSet<CoordSet>,
     max_x: i64,
     min_x: i64,
@@ -57,33 +58,12 @@ pub struct TurdMaster2000 {
     next_entity_number: EntityNumber,
 }
 
-impl Placer for TurdMaster2000 {
-    fn place(mut self) -> Vec<Combinator> {
-        let conns: Vec<(NetworkId, NetworkId, Operation)> = self.graph.iter_conns().collect();
-
-        'next_combinator: for (input_network, output_network, operation) in conns {
-            for y in self.min_y - 1..=self.max_y + 1 {
-                for x in self.min_x - 1..=self.max_x + 1 {
-                    if let Some(combinator) =
-                        self.try_place_combinator(x, y, input_network, output_network, &operation)
-                    {
-                        self.placed_combinators
-                            .insert(combinator.entity_number, combinator);
-                        continue 'next_combinator;
-                    }
-                }
-            }
-            todo!("COULD NOT PLACE COMBINATOR");
-        }
-
-        self.placed_combinators.into_values().collect()
-    }
-}
-
 impl TurdMaster2000 {
     pub fn new(graph: Graph) -> Self {
+        let networks = graph.get_networks();
         Self {
             graph,
+            networks,
             placed_combinators: HashMap::new(),
             placed_positions: HashSet::new(),
             max_x: 0,
@@ -105,7 +85,7 @@ impl TurdMaster2000 {
         input_network: NetworkId,
         output_network: NetworkId,
         operation: &Operation,
-    ) -> Option<Combinator> {
+    ) -> Option<FactorioCombinator> {
         let input_coord = (x, y * 2);
         let output_coord = (x, y * 2 + 1);
 
@@ -189,7 +169,7 @@ impl TurdMaster2000 {
         self.max_x = cmp::max(self.max_x, x);
         self.max_y = cmp::max(self.max_y, y);
 
-        Some(Combinator {
+        Some(FactorioCombinator {
             entity_number: this_entity_number,
             input_network,
             output_network,
@@ -206,5 +186,41 @@ impl TurdMaster2000 {
         let en = self.next_entity_number;
         self.next_entity_number = self.next_entity_number.checked_add(1).unwrap();
         en
+    }
+
+    fn get_node_network(&self, nid: NId) -> NetworkId {
+        for (network_id, network) in self.networks.iter().enumerate() {
+            for network_nid in network {
+                if network_nid == &nid {
+                    return network_id;
+                }
+            }
+        }
+        panic!("Node has no network... this should not be possible.")
+    }
+}
+
+impl Placer for TurdMaster2000 {
+    fn place(mut self) -> Vec<FactorioCombinator> {
+        let coms: Vec<_> = self.graph.iter_combinators().collect();
+
+        'next_combinator: for (input_nid, output_nid, operation) in coms {
+            let input_network = self.get_node_network(input_nid);
+            let output_network = self.get_node_network(output_nid);
+            for y in self.min_y - 1..=self.max_y + 1 {
+                for x in self.min_x - 1..=self.max_x + 1 {
+                    if let Some(combinator) =
+                        self.try_place_combinator(x, y, input_network, output_network, &operation)
+                    {
+                        self.placed_combinators
+                            .insert(combinator.entity_number, combinator);
+                        continue 'next_combinator;
+                    }
+                }
+            }
+            todo!("COULD NOT PLACE COMBINATOR");
+        }
+
+        self.placed_combinators.into_values().collect()
     }
 }

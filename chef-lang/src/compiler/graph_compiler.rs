@@ -385,7 +385,7 @@ impl GraphCompiler {
         _graph: &mut Graph,
         index_expr: &IndexExpression,
     ) -> Result<(NId, IOType), CompilationError> {
-        let index = index_expr.index.clone();
+        let index = index_expr.index;
         if let Some(indexed_output) =
             self.search_scope(index_expr.var_ref.var.name.clone(), Some(index))
         {

@@ -385,18 +385,18 @@ impl Graph {
     }
 
     pub fn get_networks(&self) -> Vec<Vec<NId>> {
-        let mut inserted = HashSet::new();
-        let mut networks = vec![vec![]];
+        let mut inserted: HashSet<NId> = HashSet::new();
+        let mut networks: Vec<Vec<NId>> = vec![vec![]];
 
         for nid in self.vertices.keys() {
-            let has_new_network = inserted.insert(nid);
+            let has_new_network = inserted.insert(*nid);
             if !has_new_network {
                 continue;
             }
             // TODO: Also consider Red networks
             let network = self.get_node_network(nid, WireKind::Green);
             for network_nid in &network {
-                inserted.insert(network_nid);
+                inserted.insert(*network_nid);
             }
             networks.push(network);
         }
