@@ -1062,7 +1062,7 @@ impl Parser {
                 signal.to_string(),
                 VariableRef::new(var, self.get_span_from(&start_span)),
             )),
-            TokenKind::Number(n) => ExpressionKind::Index( IndexExpression {
+            TokenKind::Number(n) => ExpressionKind::Index(IndexExpression {
                 var: var.clone(),
                 size: *n,
             }),

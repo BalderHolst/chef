@@ -78,8 +78,11 @@ impl Visitor for TypeChecker {
                         if index_expr.size >= *reg_size {
                             self.diagnostics_bag.borrow_mut().report_error(&expression.span, &format!("Index {n} of is out of range of register with size {reg_size}.", n=index_expr.size))
                         }
-                    },
-                    _ => self.diagnostics_bag.borrow_mut().report_error(&expression.span, "Only variables of type 'register' can be indexed.")
+                    }
+                    _ => self.diagnostics_bag.borrow_mut().report_error(
+                        &expression.span,
+                        "Only variables of type 'register' can be indexed.",
+                    ),
                 }
             }
             ExpressionKind::Pick(e) => {

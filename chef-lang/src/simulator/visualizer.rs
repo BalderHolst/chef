@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    compiler::graph::{Connection, Node, Combinator, WireKind},
+    compiler::graph::{Combinator, Connection, Node, WireKind},
     utils,
 };
 

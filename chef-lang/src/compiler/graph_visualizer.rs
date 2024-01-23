@@ -2,7 +2,7 @@ use std::{fs::OpenOptions, io::Write};
 
 use crate::utils::{self, VisualizerError};
 
-use super::graph::{Graph, Combinator};
+use super::graph::{Combinator, Graph};
 
 pub fn create_dot(graph: &Graph) -> String {
     let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();

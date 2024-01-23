@@ -7,8 +7,8 @@
 
 use super::{
     parser::StatementList, Assignment, BinaryExpression, Block, BlockLinkExpression, Expression,
-    ExpressionKind, Mutation, ParenthesizedExpression, PickExpression, Statement, StatementKind,
-    VariableRef, WhenExpression, IndexExpression,
+    ExpressionKind, IndexExpression, Mutation, ParenthesizedExpression, PickExpression, Statement,
+    StatementKind, VariableRef, WhenExpression,
 };
 
 // For documentation references

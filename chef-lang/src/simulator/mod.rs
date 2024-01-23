@@ -5,7 +5,7 @@ mod visualizer;
 use std::{fmt::Display, io};
 
 use crate::compiler::graph::{
-    ArithmeticOperation, DeciderOperation, Graph, IOType, NId, Combinator,
+    ArithmeticOperation, Combinator, DeciderOperation, Graph, IOType, NId,
 };
 use fnv::FnvHashMap;
 

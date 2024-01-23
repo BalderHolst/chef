@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::ast::{
     Assignment, AssignmentKind, BinaryExpression, BinaryOperator, Block, BlockLinkExpression,
-    Expression, ExpressionKind, Mutation, PickExpression, VariableRef, VariableSignalType,
-    WhenExpression, AST, IndexExpression,
+    Expression, ExpressionKind, IndexExpression, Mutation, PickExpression, VariableRef,
+    VariableSignalType, WhenExpression, AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;

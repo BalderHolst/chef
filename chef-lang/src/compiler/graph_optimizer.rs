@@ -1,4 +1,4 @@
-use super::graph::{Graph, NId, Connection};
+use super::graph::{Connection, Graph, NId};
 
 pub struct GraphOptimizer<'a> {
     graph: &'a mut Graph,
@@ -46,5 +46,4 @@ impl<'a> GraphOptimizer<'a> {
         }
         None
     }
-
 }
