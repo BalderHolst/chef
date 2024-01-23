@@ -327,28 +327,35 @@ impl Graph {
     }
 
     // TODO: Check that this is correct
-    fn get_wire_connected_nodes(&self, from_nid: &NId, nid: &NId, wire_kind: WireKind) -> Vec<NId> {
-        let mut nids = vec![*nid, *from_nid];
+    /// Recursive function that walks nodes connected to the input nid. The `network` vector
+    /// contains all the that have been found in the network. This is used to handle circular
+    /// connections.
+    fn get_wire_connected_nodes(
+        &self,
+        nid: &NId,
+        mut network: Vec<NId>,
+        wire_kind: WireKind,
+    ) -> Vec<NId> {
+        network.push(*nid);
         if let Some(conns) = self.adjacency.get(nid) {
             for (to_nid, conn) in conns {
                 if let Connection::Wire(wk) = conn {
                     if wk == &wire_kind {
                         // Avoid infinite loop
-                        if nids.contains(to_nid) {
+                        if network.contains(to_nid) {
                             continue;
                         }
-                        nids.extend(self.get_wire_connected_nodes(nid, to_nid, wire_kind.clone()));
+                        network = self.get_wire_connected_nodes(to_nid, network, wire_kind.clone());
                     }
                 }
             }
         }
-        nids.dedup();
-        return nids;
+        return network;
     }
 
     /// Recursively get all nodes connected to a node via wires.
     pub fn get_node_network(&self, nid: &NId, wire_kind: WireKind) -> Vec<NId> {
-        self.get_wire_connected_nodes(nid, nid, wire_kind)
+        self.get_wire_connected_nodes(nid, vec![], wire_kind)
     }
 
     pub fn get_output_iotype(&self, nid: &NId) -> IOType {
@@ -376,19 +383,21 @@ impl Graph {
     pub fn get_input_iotypes(&self, nid: &NId) -> Vec<IOType> {
         let network_nids = self.get_node_network(nid, WireKind::Green); // TODO: un-hard-code green
 
-        let mut types = vec![];
+        let mut input_types = vec![];
 
         for (_from_nid, to_vec) in &self.adjacency {
             for (to_nid, conn) in to_vec {
                 if network_nids.contains(to_nid) {
                     if let Connection::Combinator(com) = conn {
-                        types.push(com.get_output_iotype())
+                        input_types.push(com.get_output_iotype())
                     }
                 }
             }
         }
 
-        types
+        dbg!(&input_types);
+
+        input_types
     }
 
     /// Returns an iterator overr graph connections with the format:
@@ -493,6 +502,15 @@ impl Graph {
     pub fn push_connection(&mut self, from: NId, to: NId, connection: Connection) {
         let adjacent_to_from = self.adjacency.entry(from).or_default();
         adjacent_to_from.push((to, connection));
+    }
+
+    pub fn push_wire(&mut self, n1: NId, n2: NId) {
+        self.push_connection(n1, n2, Connection::Wire(WireKind::Green));
+        self.push_connection(n2, n1, Connection::Wire(WireKind::Green));
+    }
+
+    pub fn push_combinaor(&mut self, from: NId, to: NId, com: Combinator) {
+        self.push_connection(from, to, Connection::Combinator(com))
     }
 
     pub fn push_gate_connection(
@@ -696,7 +714,7 @@ impl Graph {
     pub fn get_single_input(&self, nid: &NId) -> Result<IOType, String> {
         let inputs = self.get_input_iotypes(nid);
         if inputs.len() != 1 {
-            return Err("Could not get single input".to_string());
+            return Err(format!("Could not get single input: {inputs:?}"));
         }
         Ok(inputs[0].clone())
     }
@@ -920,5 +938,59 @@ impl<'a> AnysignalAssigner<'a> {
                 self.anysignal_to_signal.insert(*n, sig);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_node_network() {
+        let mut g = Graph::new();
+        let n1 = g.push_inner_node();
+        let n2 = g.push_inner_node();
+        let n3 = g.push_inner_node();
+        let n4 = g.push_inner_node();
+        let n5 = g.push_inner_node();
+        let n6 = g.push_inner_node();
+
+        // Network 1: n1 -- n2 -- n3 -- n1 (circle)
+        // Network 2: n4 -- n6
+        // Network 3: n5
+        g.push_wire(n1, n2);
+        g.push_wire(n2, n3);
+        g.push_wire(n3, n1);
+        g.push_wire(n4, n6);
+
+        // Add compinators between networks. These should have no effect
+        let com = Combinator::new_pick(IOType::Signal("test".to_string()));
+        g.push_combinaor(n3, n4, com.clone());
+        g.push_combinaor(n6, n5, com.clone());
+        g.push_combinaor(n4, n5, com);
+
+        // Check network 1
+        let mut network1_1 = g.get_node_network(&n1, WireKind::Green);
+        let mut network1_2 = g.get_node_network(&n2, WireKind::Green);
+        let mut network1_3 = g.get_node_network(&n3, WireKind::Green);
+        network1_1.sort();
+        network1_2.sort();
+        network1_3.sort();
+        assert_eq!(network1_1, vec![n1, n2, n3]);
+        assert_eq!(network1_1, network1_2);
+        assert_eq!(network1_1, network1_3);
+
+        // Check network 2
+        let mut network2_1 = g.get_node_network(&n4, WireKind::Green);
+        let mut network2_2 = g.get_node_network(&n6, WireKind::Green);
+        network2_1.sort();
+        network2_2.sort();
+        assert_eq!(network2_1, vec![n4, n6]);
+        assert_eq!(network2_2, vec![n4, n6]);
+
+        // Check network 3
+        let mut network3 = g.get_node_network(&n5, WireKind::Green);
+        network3.sort();
+        assert_eq!(network3, vec![n5]);
     }
 }
