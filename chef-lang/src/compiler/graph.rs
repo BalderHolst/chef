@@ -9,6 +9,7 @@ use crate::utils::BASE_SIGNALS;
 
 use super::graph_visualizer;
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Register {
     pub shift: NId,
     pub input: NId,
@@ -85,7 +86,7 @@ pub enum IOType {
     AnySignal(u64),
     Constant(i32),
     _ConstantSignal((String, i32)), // TODO: Add constant signals
-    All,
+    Everything,
 }
 
 impl IOType {
@@ -104,7 +105,7 @@ impl Display for IOType {
             IOType::AnySignal(n) => format!("Any({})", n),
             IOType::Constant(n) => format!("({})", n),
             IOType::_ConstantSignal((sig, n)) => format!("({}, {})", sig, n),
-            IOType::All => "ALL".to_string(),
+            IOType::Everything => "ALL".to_string(),
         };
         write!(f, "{}", s)
     }
@@ -380,7 +381,7 @@ impl Graph {
         if types.len() == 1 {
             types[0].clone()
         } else {
-            IOType::All
+            IOType::Everything
         }
     }
 
@@ -404,8 +405,6 @@ impl Graph {
                 }
             }
         }
-
-        dbg!(&input_types);
 
         input_types
     }
@@ -514,9 +513,9 @@ impl Graph {
         adjacent_to_from.push((to, connection));
     }
 
-    pub fn push_wire(&mut self, n1: NId, n2: NId) {
-        self.push_connection(n1, n2, Connection::Wire(WireKind::Green));
-        self.push_connection(n2, n1, Connection::Wire(WireKind::Green));
+    pub fn push_wire(&mut self, n1: NId, n2: NId, wire_kind: WireKind) {
+        self.push_connection(n1, n2, Connection::Wire(wire_kind.clone()));
+        self.push_connection(n2, n1, Connection::Wire(wire_kind));
     }
 
     pub fn push_combinator(&mut self, com: Combinator) -> (NId, NId) {
@@ -707,7 +706,7 @@ impl Graph {
                 IOType::Constant(_) => {
                     panic!("Compiler Error: Inputs to a block should not be constants.")
                 }
-                IOType::All => todo!(),
+                IOType::Everything => todo!(),
             }
 
             match self.vertices.get_mut(block_input_nid) {
@@ -971,10 +970,11 @@ mod tests {
         // Network 1: n1 -- n2 -- n3 -- n1 (circle)
         // Network 2: n4 -- n6
         // Network 3: n5
-        g.push_wire(n1, n2);
-        g.push_wire(n2, n3);
-        g.push_wire(n3, n1);
-        g.push_wire(n4, n6);
+        let wire_kind = WireKind::Green;
+        g.push_wire(n1, n2, wire_kind.clone());
+        g.push_wire(n2, n3, wire_kind.clone());
+        g.push_wire(n3, n1, wire_kind.clone());
+        g.push_wire(n4, n6, wire_kind);
 
         // Add compinators between networks. These should have no effect
         let conn = Connection::Combinator(Combinator::new_pick(IOType::Signal("test".to_string())));

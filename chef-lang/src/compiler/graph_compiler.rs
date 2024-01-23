@@ -17,7 +17,7 @@ pub struct GraphCompiler {
     ast: AST,
     next_anysignal: u64,
     block_graphs: HashMap<String, Graph>,
-    scopes: Vec<HashMap<String, NId>>,
+    scopes: Vec<HashMap<(String, Option<u16>), NId>>,
 }
 
 impl GraphCompiler {
@@ -45,7 +45,7 @@ impl GraphCompiler {
             let var_name = input_var.name.clone();
             let var_iotype = self.variable_type_to_iotype(&input_var.type_.clone());
             let input_vid = graph.push_input_node(var_iotype);
-            self.add_to_scope(var_name, input_vid)
+            self.add_to_scope(var_name, None, input_vid)
         }
         for statement in &block.statements {
             self.compile_statement(&mut graph, statement, None)?;
@@ -115,7 +115,7 @@ impl GraphCompiler {
             AssignmentKind::Var => {
                 let var_nid = graph.push_var_node(var_type.clone());
                 graph.push_connection(var_nid, var_nid, Connection::new_pick(var_type));
-                self.add_to_scope(var.name.clone(), var_nid);
+                self.add_to_scope(var.name.clone(), None, var_nid);
                 return Ok(());
             }
             AssignmentKind::Counter => {
@@ -147,10 +147,59 @@ impl GraphCompiler {
                 }));
                 graph.push_connection(driver_nid, var_nid, conn);
 
-                self.add_to_scope(var.name.clone(), var_nid);
+                self.add_to_scope(var.name.clone(), None, var_nid);
                 return Ok(());
             }
-            AssignmentKind::Register => todo!(),
+            AssignmentKind::Register => {
+                // TODO: Maybe do away with "AssignmentKind"?
+                let size = match var.type_ {
+                    VariableType::Register(s) => s,
+                    VariableType::Bool(_) => todo!(),
+                    VariableType::Int(_) => todo!(),
+                    VariableType::Var(_) => todo!(),
+                    VariableType::All => todo!(),
+                    VariableType::ConstInt(_) => todo!(),
+                    VariableType::ConstBool(_) => todo!(),
+                    VariableType::Counter(_) => todo!(),
+                };
+
+                let mut prev = None;
+
+                for i in 0..size {
+                    let (c1_input, c1_output) =
+                        graph.push_combinator(Combinator::Gate(GateCombinator {
+                            left: IOType::Signal(RESERVED_GATE_SIGNAL.to_string()),
+                            right: IOType::Constant(0),
+                            operation: DeciderOperation::Equals,
+                            gate_type: IOType::Everything,
+                        }));
+
+                    let (c2_input, c2_output) =
+                        graph.push_combinator(Combinator::Gate(GateCombinator {
+                            left: IOType::Signal(RESERVED_GATE_SIGNAL.to_string()),
+                            right: IOType::Constant(1),
+                            operation: DeciderOperation::Equals,
+                            gate_type: IOType::Everything,
+                        }));
+
+                    // Green wires
+                    graph.push_wire(c1_input, c2_input, WireKind::Green);
+                    graph.push_wire(c1_output, c2_output, WireKind::Green);
+
+                    // Red wires
+                    graph.push_wire(c1_input, c1_output, WireKind::Red);
+                    graph.push_wire(c1_output, c2_input, WireKind::Red);
+
+                    if let Some((prev_c1_input, prev_c2_output)) = prev {
+                        graph.push_wire(prev_c1_input, c1_input, WireKind::Green);
+                        graph.push_wire(prev_c2_output, c2_input, WireKind::Red)
+                    }
+
+                    self.add_to_scope(var.name.clone(), Some(i), c2_output);
+
+                    prev = Some((c1_input, c2_output))
+                }
+            }
         }
 
         let (expr_out_vid, expr_out_type) =
@@ -165,7 +214,7 @@ impl GraphCompiler {
             Connection::new_arithmetic(ArithmeticCombinator::new_convert(expr_out_type, var_type)),
         );
 
-        self.add_to_scope(assignment.variable.name.clone(), var_node_vid);
+        self.add_to_scope(assignment.variable.name.clone(), None, var_node_vid);
         Ok(())
     }
 
@@ -176,7 +225,7 @@ impl GraphCompiler {
         gate: Option<(NId, IOType)>,
     ) -> Result<(), CompilationError> {
         // TODO: Create test for expect
-        let var_nid = self.search_scope(mutation_statement.var_ref.var.name.clone()).expect("The parser should make sure that mutation statements only happen on defined variables.");
+        let var_nid = self.search_scope(mutation_statement.var_ref.var.name.clone(), None).expect("The parser should make sure that mutation statements only happen on defined variables.");
         let var_type = mutation_statement.var_ref.var.type_.clone();
         let var_iotype = self.variable_type_to_iotype(&var_type);
 
@@ -267,7 +316,7 @@ impl GraphCompiler {
         // Get the referenced variable.
         let var = var_ref.var.clone();
         let var_node_nid = self
-            .search_scope(var.name.clone())
+            .search_scope(var.name.clone(), None)
             .expect("Variable references should always point to defined variables");
         let var_node = graph.get_node(&var_node_nid).unwrap();
 
@@ -314,7 +363,7 @@ impl GraphCompiler {
         pick_expr: &PickExpression,
     ) -> Result<(NId, IOType), CompilationError> {
         let var_ref = pick_expr.from.clone();
-        if let Some(var_out_vid) = self.search_scope(var_ref.var.name.clone()) {
+        if let Some(var_out_vid) = self.search_scope(var_ref.var.name.clone(), None) {
             let out_type = IOType::signal(pick_expr.pick_signal.clone());
             let picked_vid = graph.push_inner_node();
             graph.push_connection(
@@ -333,22 +382,20 @@ impl GraphCompiler {
 
     fn compile_index_expression(
         &mut self,
-        graph: &mut Graph,
+        _graph: &mut Graph,
         index_expr: &IndexExpression,
     ) -> Result<(NId, IOType), CompilationError> {
-        match &index_expr.var_ref.var.type_ {
-            VariableType::Register(index) => {
-                todo!("indexing: {index}")
-            }
-            _ => {
-                return Err(CompilationError::new_localized(
-                    format!(
-                        "Cannot index variable type: {}",
-                        index_expr.var_ref.var.type_
-                    ),
-                    index_expr.var_ref.span.clone(),
-                ))
-            }
+        let index = index_expr.index.clone();
+        if let Some(indexed_output) =
+            self.search_scope(index_expr.var_ref.var.name.clone(), Some(index))
+        {
+            // TODO: Make type depend on register input type
+            Ok((indexed_output, IOType::Everything))
+        } else {
+            Err(CompilationError::new_localized(
+                "Index out of range.",
+                index_expr.var_ref.span.clone(),
+            ))
         }
     }
 
@@ -433,7 +480,7 @@ impl GraphCompiler {
                 graph.push_connection(input_nid, output_nid, op_connection);
                 (output_nid, out_type)
             }
-            ReturnValue::Group => (input_nid, IOType::All),
+            ReturnValue::Group => (input_nid, IOType::Everything),
         })
     }
 
@@ -549,15 +596,14 @@ impl GraphCompiler {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
-            VariableType::All => IOType::All,
+            VariableType::All => IOType::Everything,
+            VariableType::Register(_) => IOType::Everything, // TODO: make dependent on the type of input
+            // expression
             VariableType::ConstInt(_) => {
                 panic!("ConstInt expression should never need to be converted to IOType.")
             }
             VariableType::ConstBool(_) => {
                 panic!("ConstBool expression should never need to be converted to IOType.")
-            }
-            VariableType::Register(size) => {
-                todo!()
             }
         }
     }
@@ -590,23 +636,28 @@ impl GraphCompiler {
         self.scopes.pop().unwrap();
     }
 
-    fn add_to_scope(&mut self, variable_name: String, output_vid: NId) {
+    fn add_to_scope(&mut self, variable_name: String, index: Option<u16>, output_vid: NId) {
         if self
             .scopes
             .last_mut()
             .unwrap()
-            .insert(variable_name, output_vid)
+            .insert((variable_name, index), output_vid)
             .is_some()
         {
             panic!("tried to override a variable in scope.")
         }
     }
 
-    fn search_scope(&self, variable_name: String) -> Option<NId> {
+    fn search_scope(&self, variable_name: String, index: Option<u16>) -> Option<NId> {
         let scopes_len = self.scopes.len();
         for i in 0..scopes_len {
             let p = scopes_len - i - 1;
-            if let Some(vid) = self.scopes.get(p).unwrap().get(&variable_name) {
+            if let Some(vid) = self
+                .scopes
+                .get(p)
+                .unwrap()
+                .get(&(variable_name.clone(), index))
+            {
                 return Some(*vid);
             }
         }

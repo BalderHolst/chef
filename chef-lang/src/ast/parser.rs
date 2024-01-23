@@ -1081,7 +1081,7 @@ impl Parser {
             )),
             TokenKind::Number(n) => ExpressionKind::Index(IndexExpression {
                 var_ref: VariableRef::new(var, start_span.clone()),
-                size: *n,
+                index: *n,
             }),
             _ => {
                 return Err(CompilationError::new_localized(

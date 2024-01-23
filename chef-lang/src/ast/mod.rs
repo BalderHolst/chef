@@ -444,7 +444,7 @@ pub struct PickExpression {
 #[derive(Debug, Clone, PartialEq)]
 pub struct IndexExpression {
     pub var_ref: VariableRef,
-    pub size: u16,
+    pub index: u16,
 }
 
 impl PickExpression {
@@ -766,7 +766,7 @@ impl Visitor for Printer {
         self.print("IndexExpression:");
         self.indent();
         self.print(&format!("Variable: {}", expr.var_ref.var));
-        self.print(&format!("Size: {}", expr.size));
+        self.print(&format!("Size: {}", expr.index));
         self.unindent();
     }
 

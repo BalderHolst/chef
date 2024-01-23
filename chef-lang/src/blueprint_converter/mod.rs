@@ -297,7 +297,7 @@ impl Combinator {
             }
             graph::IOType::_ConstantSignal(_) => todo!(),
             graph::IOType::Constant(n) => (Some(*n), None),
-            graph::IOType::All => todo!(),
+            graph::IOType::Everything => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
         }
     }
@@ -308,7 +308,7 @@ impl Combinator {
             IOType::Signal(s) => (Self::get_signal_type(s.as_str()), s),
             IOType::Constant(_) => todo!(),
             IOType::_ConstantSignal(_) => todo!(),
-            IOType::All => todo!(),
+            IOType::Everything => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
         }
     }
