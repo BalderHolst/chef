@@ -71,7 +71,7 @@ block main() -> int(tank) {
 
     let mut sim = Simulator::new(graph, vec![]);
 
-    sim.simulate(14);
+    sim.simulate(15);
 
     let outputs = sim.get_output();
 
@@ -211,6 +211,8 @@ fn multiple_blocks() {
 ",
     );
 
+    let steps = 20;
+
     let mut sim = Simulator::new(
         g.clone(),
         inputs![
@@ -219,7 +221,7 @@ fn multiple_blocks() {
                                  "signal-C": 1000 // Should be ignored
         ],
     );
-    sim.simulate(10);
+    sim.simulate(steps);
 
     assert_eq!(sim.get_output(), outputs!["rail": 0]);
 
@@ -231,7 +233,7 @@ fn multiple_blocks() {
                                  "signal-C": -1000
         ],
     );
-    sim.simulate(10);
+    sim.simulate(steps);
 
     assert_eq!(sim.get_output(), outputs!["rail": 0]);
 
@@ -243,7 +245,7 @@ fn multiple_blocks() {
                                  "signal-C": -10000
         ],
     );
-    sim.simulate(10);
+    sim.simulate(steps);
 
     assert_eq!(sim.get_output(), outputs!["rail": 1]);
 
@@ -255,7 +257,7 @@ fn multiple_blocks() {
                                  "signal-C": 10000
         ],
     );
-    sim.simulate(10);
+    sim.simulate(steps);
 
     assert_eq!(sim.get_output(), outputs!["rail": 1]);
 }

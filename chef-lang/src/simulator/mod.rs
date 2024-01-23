@@ -5,7 +5,7 @@ mod visualizer;
 use std::{fmt::Display, io};
 
 use crate::compiler::graph::{
-    ArithmeticOperation, Combinator, DeciderOperation, Graph, IOType, NId,
+    ArithmeticOperation, Combinator, DeciderOperation, Graph, IOType, NId, WireKind,
 };
 use fnv::FnvHashMap;
 
@@ -73,11 +73,14 @@ impl Display for Item {
     }
 }
 
+type NetworkId = usize;
+
 pub struct Simulator {
     graph: Graph,
-    constant_inputs: FnvHashMap<NId, Vec<Item>>,
-    contents: FnvHashMap<NId, Vec<Item>>,
+    constant_inputs: FnvHashMap<NetworkId, Vec<Item>>,
     step: usize,
+    networks: FnvHashMap<NId, NetworkId>,
+    network_contents: FnvHashMap<NetworkId, Vec<Item>>,
 }
 
 impl Simulator {
@@ -96,12 +99,21 @@ impl Simulator {
             "Incorrect number of inputs were provided."
         );
 
+        let mut networks = FnvHashMap::default();
+
+        for (network_id, network) in graph.get_networks().iter().enumerate() {
+            for nid in network {
+                networks.insert(*nid, network_id);
+            }
+        }
+
         for i in 0..inputs.len() {
-            let vid = input_nodes[i];
+            let nid = input_nodes[i];
             let input = inputs[i].clone();
+            let network_id = networks.get(&nid).unwrap();
 
             constant_inputs
-                .entry(vid)
+                .entry(*network_id)
                 .and_modify(|v: &mut Vec<Item>| v.extend(input.clone()))
                 .or_insert(input);
         }
@@ -109,7 +121,8 @@ impl Simulator {
         Self {
             graph,
             constant_inputs,
-            contents: FnvHashMap::default(),
+            networks,
+            network_contents: FnvHashMap::default(),
             step: 0,
         }
     }
@@ -118,7 +131,21 @@ impl Simulator {
         let mut new_contents = self.constant_inputs.clone();
 
         for (from_nid, to_nid, conn) in self.graph.iter_combinators() {
-            let conn_inputs = self.contents.get(&from_nid).cloned().unwrap_or(vec![]);
+            let from_network_id = self
+                .networks
+                .get(&from_nid)
+                .expect("Constructor should have created a network for each node.");
+
+            let to_network_id = self
+                .networks
+                .get(&to_nid)
+                .expect("Constructor should have created a network for each node.");
+
+            let conn_inputs = self
+                .network_contents
+                .get(&from_network_id)
+                .cloned()
+                .unwrap_or(vec![]);
 
             let output = match conn {
                 Combinator::Arithmetic(c) => {
@@ -167,7 +194,7 @@ impl Simulator {
             };
 
             new_contents
-                .entry(to_nid)
+                .entry(*to_network_id)
                 .and_modify(|v: &mut Vec<Item>| {
                     // Check if the item exists in node
                     for item in v.iter_mut() {
@@ -181,11 +208,15 @@ impl Simulator {
                 .or_insert(vec![output]);
         }
 
-        self.contents = new_contents;
+        self.network_contents = new_contents;
     }
 
     fn get_node_contents(&self, nid: &NId) -> Vec<Item> {
-        self.contents.get(nid).cloned().unwrap_or(vec![])
+        let network_id = self.networks.get(nid).unwrap();
+        self.network_contents
+            .get(network_id)
+            .cloned()
+            .unwrap_or(vec![])
     }
 
     pub fn simulate(&mut self, steps: usize) {

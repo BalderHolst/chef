@@ -10,7 +10,8 @@ impl<'a> GraphOptimizer<'a> {
     }
 
     pub fn optimize(&mut self) {
-        self.remove_redundant_picks();
+        // TODO: This breaks wires
+        // self.remove_redundant_picks();
     }
 
     fn remove_redundant_picks(&mut self) {
