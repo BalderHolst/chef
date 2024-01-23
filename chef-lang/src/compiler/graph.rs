@@ -185,6 +185,16 @@ pub enum WireKind {
     Red,
 }
 
+impl Display for WireKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            WireKind::Green => "GREEN WIRE".to_string(),
+            WireKind::Red => "RED WIRE".to_string(),
+        };
+        write!(f, "{s}")
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Combinator {
     Arithmetic(ArithmeticCombinator),
@@ -228,6 +238,34 @@ impl Combinator {
     }
 }
 
+impl Display for Combinator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Combinator::Arithmetic(ac) if ac.is_pick() => {
+                format!("PICK: {}", ac.output)
+            }
+            Combinator::Arithmetic(ac) if ac.is_convert() => {
+                format!("CONVERT: {} -> {}", ac.left, ac.output)
+            }
+            Combinator::Arithmetic(ac) => {
+                format!("{}: {}, {}", ac.operation, ac.left, ac.right)
+            }
+            Combinator::Decider(dc) => {
+                format!("{}: {}, {}", dc.operation, dc.left, dc.right)
+            }
+            Combinator::Gate(gate) => format!(
+                "GATE: {}\n{}: {}, {}",
+                gate.gate_type, gate.operation, gate.left, gate.right
+            ),
+            // TODO: This should probably be a node instead of a connection
+            Combinator::Constant(cc) => {
+                format!("CONSTANT : {} = {}", cc.type_, cc.count)
+            }
+        };
+        write!(f, "{s}")
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Connection {
     Wire(WireKind),
@@ -263,28 +301,8 @@ impl Connection {
 impl Display for Connection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Self::Combinator(Combinator::Arithmetic(ac)) if ac.is_pick() => {
-                format!("PICK: {}", ac.output)
-            }
-            Self::Combinator(Combinator::Arithmetic(ac)) if ac.is_convert() => {
-                format!("CONVERT: {} -> {}", ac.left, ac.output)
-            }
-            Self::Combinator(Combinator::Arithmetic(ac)) => {
-                format!("{}: {}, {}", ac.operation, ac.left, ac.right)
-            }
-            Self::Combinator(Combinator::Decider(dc)) => {
-                format!("{}: {}, {}", dc.operation, dc.left, dc.right)
-            }
-            Self::Combinator(Combinator::Gate(gate)) => format!(
-                "GATE: {}\n{}: {}, {}",
-                gate.gate_type, gate.operation, gate.left, gate.right
-            ),
-            // TODO: This should probably be a node instead of a connection
-            Self::Combinator(Combinator::Constant(cc)) => {
-                format!("CONSTANT : {} = {}", cc.type_, cc.count)
-            }
-            Self::Wire(WireKind::Green) => "GREEN WIRE".to_string(),
-            Self::Wire(WireKind::Red) => "RED WIRE".to_string(),
+            Self::Combinator(com) => com.to_string(),
+            Self::Wire(wire) => wire.to_string(),
         };
         write!(f, "{s}")
     }
@@ -311,6 +329,9 @@ pub enum Node {
 
 /// Index of a node in a [Graph].
 pub type NId = u64;
+
+/// Identifier for a network of nodes directly connected by wires.
+pub type NetworkId = usize;
 
 // TODO: Make `print` the debug or display function
 /// A graph for storing connection and nodes representing factorio combinators.
@@ -361,6 +382,26 @@ impl Graph {
     /// Recursively get all nodes connected to a node via wires.
     pub fn get_node_network(&self, nid: &NId, wire_kind: WireKind) -> Vec<NId> {
         self.get_wire_connected_nodes(nid, vec![], wire_kind)
+    }
+
+    pub fn get_networks(&self) -> Vec<Vec<NId>> {
+        let mut inserted = HashSet::new();
+        let mut networks = vec![vec![]];
+
+        for nid in self.vertices.keys() {
+            let has_new_network = inserted.insert(nid);
+            if !has_new_network {
+                continue;
+            }
+            // TODO: Also consider Red networks
+            let network = self.get_node_network(nid, WireKind::Green);
+            for network_nid in &network {
+                inserted.insert(network_nid);
+            }
+            networks.push(network);
+        }
+
+        networks
     }
 
     pub fn get_output_iotype(&self, nid: &NId) -> IOType {
