@@ -9,6 +9,12 @@ use crate::utils::BASE_SIGNALS;
 
 use super::graph_visualizer;
 
+pub struct Register {
+    pub shift: NId,
+    pub input: NId,
+    pub output: Vec<NId>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum DeciderOperation {
     LargerThan,
@@ -513,8 +519,11 @@ impl Graph {
         self.push_connection(n2, n1, Connection::Wire(WireKind::Green));
     }
 
-    pub fn push_combinaor(&mut self, from: NId, to: NId, com: Combinator) {
-        self.push_connection(from, to, Connection::Combinator(com))
+    pub fn push_combinator(&mut self, com: Combinator) -> (NId, NId) {
+        let from = self.push_inner_node();
+        let to = self.push_inner_node();
+        self.push_connection(from, to, Connection::Combinator(com));
+        (from, to)
     }
 
     pub fn push_gate_connection(
@@ -968,10 +977,10 @@ mod tests {
         g.push_wire(n4, n6);
 
         // Add compinators between networks. These should have no effect
-        let com = Combinator::new_pick(IOType::Signal("test".to_string()));
-        g.push_combinaor(n3, n4, com.clone());
-        g.push_combinaor(n6, n5, com.clone());
-        g.push_combinaor(n4, n5, com);
+        let conn = Connection::Combinator(Combinator::new_pick(IOType::Signal("test".to_string())));
+        g.push_connection(n3, n4, conn.clone());
+        g.push_connection(n6, n5, conn.clone());
+        g.push_connection(n4, n5, conn);
 
         // Check network 1
         let mut network1_1 = g.get_node_network(&n1, WireKind::Green);

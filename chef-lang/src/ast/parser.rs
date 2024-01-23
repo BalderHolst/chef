@@ -398,15 +398,16 @@ impl Parser {
     /// Parse variable assignment statement.
     fn parse_assignment_statement(&mut self) -> Result<StatementKind, CompilationError> {
         let start_span = self.current().span.clone();
-        let mut variable = if let ParsedVariable::Def(v) = self.parse_variable()? {
-            v
-        } else {
-            self.diagnostics_bag.borrow_mut().report_error(
-                &self.get_span_from(&start_span),
-                "Variables cannot be reassigned.",
-            );
-            self.consume_bad_statement();
-            return Ok(StatementKind::Error);
+        let mut variable = match self.parse_variable()? {
+            ParsedVariable::Def(v) => v,
+            _ => {
+                self.diagnostics_bag.borrow_mut().report_error(
+                    &self.get_span_from(&start_span),
+                    "Variables cannot be reassigned.",
+                );
+                self.consume_bad_statement();
+                return Ok(StatementKind::Error);
+            }
         };
 
         match &variable.type_ {
@@ -415,11 +416,11 @@ impl Parser {
 
                 // `var` type variable is always zero initialized, because memory cells in factorio
                 // cannot be assigned values.
-                let var_ref = Rc::new(variable);
-                self.add_var_to_scope(var_ref.clone());
+                let var = Rc::new(variable);
+                self.add_var_to_scope(var.clone());
                 let zero_expr = Expression::number(0, self.get_span_from(&start_span));
                 return Ok(StatementKind::Assignment(Assignment::new(
-                    var_ref,
+                    var,
                     zero_expr,
                     AssignmentKind::Var,
                 )));
@@ -429,16 +430,32 @@ impl Parser {
 
                 // `counter` type variable is always zero initialized, because memory cells in factorio
                 // cannot be assigned values.
-                let var_ref = Rc::new(variable);
-                self.add_var_to_scope(var_ref.clone());
+                let var = Rc::new(variable);
+                self.add_var_to_scope(var.clone());
                 let zero_expr = Expression::number(0, self.get_span_from(&start_span));
                 return Ok(StatementKind::Assignment(Assignment::new(
-                    var_ref,
+                    var,
                     zero_expr,
                     AssignmentKind::Counter,
                 )));
             }
-            _ => {}
+            VariableType::Register(_) => {
+                let var = Rc::new(variable.clone());
+                self.add_var_to_scope(var.clone());
+                self.consume_and_expect(TokenKind::Equals)?;
+                let input = self.parse_expression()?;
+                self.consume_and_expect(TokenKind::Semicolon)?;
+                return Ok(StatementKind::Assignment(Assignment::new(
+                    var,
+                    input,
+                    AssignmentKind::Register,
+                )));
+            }
+            VariableType::Bool(_) => {}
+            VariableType::Int(_) => {}
+            VariableType::All => {}
+            VariableType::ConstInt(_) => {}
+            VariableType::ConstBool(_) => {}
         };
 
         if self.current().kind != TokenKind::Equals {
@@ -1063,7 +1080,7 @@ impl Parser {
                 VariableRef::new(var, self.get_span_from(&start_span)),
             )),
             TokenKind::Number(n) => ExpressionKind::Index(IndexExpression {
-                var: var.clone(),
+                var_ref: VariableRef::new(var, start_span.clone()),
                 size: *n,
             }),
             _ => {

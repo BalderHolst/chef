@@ -73,7 +73,7 @@ impl Visitor for TypeChecker {
             ExpressionKind::BlockLink(_) => {}
             ExpressionKind::Error => {}
             ExpressionKind::Index(index_expr) => {
-                match &index_expr.var.type_ {
+                match &index_expr.var_ref.type_() {
                     super::VariableType::Register(reg_size) => {
                         if index_expr.size >= *reg_size {
                             self.diagnostics_bag.borrow_mut().report_error(&expression.span, &format!("Index {n} of is out of range of register with size {reg_size}.", n=index_expr.size))

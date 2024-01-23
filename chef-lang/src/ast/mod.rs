@@ -244,6 +244,10 @@ impl VariableRef {
         Self { var, span }
     }
 
+    pub fn type_(&self) -> VariableType {
+        self.var.type_.clone()
+    }
+
     pub fn return_type(&self) -> ExpressionReturnType {
         self.var.return_type()
     }
@@ -254,6 +258,7 @@ pub enum AssignmentKind {
     Sig,
     Var,
     Counter,
+    Register,
 }
 
 /// [AST] representation of chef `int` variable assignment.
@@ -438,8 +443,8 @@ pub struct PickExpression {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct IndexExpression {
-    var: Rc<Variable>,
-    size: u16,
+    pub var_ref: VariableRef,
+    pub size: u16,
 }
 
 impl PickExpression {
@@ -760,7 +765,7 @@ impl Visitor for Printer {
     fn visit_index_expression(&mut self, expr: &IndexExpression) {
         self.print("IndexExpression:");
         self.indent();
-        self.print(&format!("Variable: {}", expr.var));
+        self.print(&format!("Variable: {}", expr.var_ref.var));
         self.print(&format!("Size: {}", expr.size));
         self.unindent();
     }

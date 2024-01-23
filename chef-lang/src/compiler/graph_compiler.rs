@@ -150,6 +150,7 @@ impl GraphCompiler {
                 self.add_to_scope(var.name.clone(), var_nid);
                 return Ok(());
             }
+            AssignmentKind::Register => todo!(),
         }
 
         let (expr_out_vid, expr_out_type) =
@@ -333,9 +334,22 @@ impl GraphCompiler {
     fn compile_index_expression(
         &mut self,
         graph: &mut Graph,
-        pick_expr: &IndexExpression,
+        index_expr: &IndexExpression,
     ) -> Result<(NId, IOType), CompilationError> {
-        todo!()
+        match &index_expr.var_ref.var.type_ {
+            VariableType::Register(index) => {
+                todo!("indexing: {index}")
+            }
+            _ => {
+                return Err(CompilationError::new_localized(
+                    format!(
+                        "Cannot index variable type: {}",
+                        index_expr.var_ref.var.type_
+                    ),
+                    index_expr.var_ref.span.clone(),
+                ))
+            }
+        }
     }
 
     fn compile_binary_expression(
@@ -364,18 +378,18 @@ impl GraphCompiler {
             right_type = new_right_type;
         }
 
-        let input = graph.push_inner_node();
-        let output = graph.push_inner_node();
+        let input_nid = graph.push_inner_node();
+        let output_nid = graph.push_inner_node();
 
         // Connect the outputs of the left and right expressions to the inputs.
         graph.push_connection(
             left_vid,
-            input,
+            input_nid,
             Connection::new_arithmetic(ArithmeticCombinator::new_pick(left_type.clone())),
         );
         graph.push_connection(
             right_vid,
-            input,
+            input_nid,
             Connection::new_arithmetic(ArithmeticCombinator::new_pick(right_type.clone())),
         );
 
@@ -404,24 +418,23 @@ impl GraphCompiler {
         };
 
         // The connection doing the actual operation
-        let op_connection = match operation {
+        Ok(match operation {
             ReturnValue::Int(op) => {
                 let arithmetic_connection =
                     ArithmeticCombinator::new(left_type, right_type, op, out_type.clone());
-                Connection::new_arithmetic(arithmetic_connection)
+                let op_connection = Connection::new_arithmetic(arithmetic_connection);
+                graph.push_connection(input_nid, output_nid, op_connection);
+                (output_nid, out_type)
             }
             ReturnValue::Bool(op) => {
                 let decider_connection =
                     DeciderCombinator::new(left_type, right_type, op, out_type.clone());
-                Connection::new_decider(decider_connection)
+                let op_connection = Connection::new_decider(decider_connection);
+                graph.push_connection(input_nid, output_nid, op_connection);
+                (output_nid, out_type)
             }
-            ReturnValue::Group => {
-                todo!()
-            }
-        };
-        graph.push_connection(input, output, op_connection);
-
-        Ok((output, out_type))
+            ReturnValue::Group => (input_nid, IOType::All),
+        })
     }
 
     fn compile_block_link_expression(
@@ -543,7 +556,9 @@ impl GraphCompiler {
             VariableType::ConstBool(_) => {
                 panic!("ConstBool expression should never need to be converted to IOType.")
             }
-            VariableType::Register(_) => todo!(),
+            VariableType::Register(size) => {
+                todo!()
+            }
         }
     }
 
