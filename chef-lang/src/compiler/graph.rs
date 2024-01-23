@@ -209,7 +209,7 @@ impl Combinator {
         if let Self::Arithmetic(ac) = self {
             return ac.is_pick();
         }
-        return false;
+        false
     }
 
     #[allow(irrefutable_let_patterns)]
@@ -217,7 +217,7 @@ impl Combinator {
         if let Self::Arithmetic(ac) = self {
             return ac.is_convert();
         }
-        return false;
+        false
     }
 }
 
@@ -348,7 +348,7 @@ impl Graph {
                 }
             }
         }
-        return network;
+        network
     }
 
     /// Recursively get all nodes connected to a node via wires.
@@ -361,7 +361,7 @@ impl Graph {
 
         let mut types = vec![];
 
-        for (_from_nid, to_vec) in &self.adjacency {
+        for to_vec in self.adjacency.values() {
             for (to_nid, conn) in to_vec {
                 if network_nids.contains(to_nid) {
                     if let Connection::Combinator(com) = conn {
@@ -372,9 +372,9 @@ impl Graph {
         }
 
         if types.len() == 1 {
-            return types[0].clone();
+            types[0].clone()
         } else {
-            return IOType::All;
+            IOType::All
         }
     }
 
@@ -389,7 +389,7 @@ impl Graph {
 
         let mut input_types = vec![];
 
-        for (_from_nid, to_vec) in &self.adjacency {
+        for to_vec in self.adjacency.values() {
             for (to_nid, conn) in to_vec {
                 if network_nids.contains(to_nid) {
                     if let Connection::Combinator(com) = conn {
