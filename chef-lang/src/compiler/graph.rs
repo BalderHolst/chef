@@ -298,9 +298,7 @@ pub enum Node {
     // from the graph structure itself.
     Output(IOType),
 
-    // A `None` is used when reperesenting a constant combinator. As the graph reperesents all
-    // combinators as connections, the constant combinator must also be. The constant combinator
-    // does however not take any input, therefore its input is connected to a `None` node.
+    // TODO: Maybe this should just contain the constant and not a generic iotype?
     Constant(IOType),
 }
 
@@ -382,6 +380,12 @@ impl Graph {
 
     pub fn get_input_iotypes(&self, nid: &NId) -> Vec<IOType> {
         let network_nids = self.get_node_network(nid, WireKind::Green); // TODO: un-hard-code green
+
+        // If the node is a constant node, it should have zero external inputs, but output its own
+        // values as a [IOType::Constant].
+        if let Some(Node::Constant(t)) = self.vertices.get(nid) {
+            return vec![t.clone()];
+        }
 
         let mut input_types = vec![];
 
