@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use crate::ast::{
     Assignment, AssignmentKind, BinaryExpression, BinaryOperator, Block, BlockLinkExpression,
     Expression, ExpressionKind, IndexExpression, Mutation, PickExpression, VariableRef,
-    VariableSignalType, WhenExpression, AST,
+    VariableSignalType, WhenExpression, AST, VarOperation,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
-use crate::diagnostics::CompilationError;
+use crate::diagnostics::{CompilationError, CompilationResult};
 
 use super::RESERVED_SIGNAL;
 
@@ -81,7 +81,7 @@ impl GraphCompiler {
             StatementKind::Mutation(mutation_statement) => {
                 self.compile_mutation_statement(graph, mutation_statement, gate)?;
             }
-            StatementKind::Operation(operation) => todo!(),
+            StatementKind::Operation(operation) => self.compile_variable_operation(operation)?,
             StatementKind::Out(expr) => {
                 let (expr_nid, out_type) = self.compile_expression(graph, &expr, None)?;
                 let out_nid = graph.push_output_node(out_type.clone());
@@ -316,6 +316,15 @@ impl GraphCompiler {
         };
 
         Ok(())
+    }
+
+    fn compile_variable_operation(&mut self, operation: VarOperation) -> CompilationResult<()> {
+        let var = operation.var_ref.var;
+
+        match &var.type_ {
+            VariableType::Register(_) => todo!(),
+            t => panic!("Cannot operate on type '{t}'."),
+        }
     }
 
     /// Returns a typle:: (output_vid, output_type)
