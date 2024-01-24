@@ -86,7 +86,9 @@ pub trait Visitor {
     }
 
     fn do_visit_assignment(&mut self, assignment: &Assignment) {
-        self.visit_expression(&assignment.expression)
+        if let Some(expr) = &assignment.expression {
+            self.visit_expression(expr)
+        }
     }
 
     fn do_visit_mutation(&mut self, mutation: &Mutation) {
@@ -248,7 +250,9 @@ pub trait MutVisitor {
     }
 
     fn do_visit_assignment(&mut self, assignment: &mut Assignment) {
-        self.visit_expression(&mut assignment.expression)
+        if let Some(expr) = &mut assignment.expression {
+            self.visit_expression(expr);
+        }
     }
 
     fn do_visit_mutation(&mut self, mutation: &mut Mutation) {

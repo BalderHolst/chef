@@ -16,8 +16,8 @@ use crate::text::{SourceText, TextSpan};
 use super::lexer::Lexer;
 use super::{python_macro, IndexExpression};
 use super::{
-    Assignment, AssignmentKind, Block, BlockLinkExpression, MutationOperator, PickExpression,
-    VariableRef, VariableSignalType, WhenExpression,
+    Assignment, Block, BlockLinkExpression, MutationOperator, PickExpression, VariableRef,
+    VariableSignalType, WhenExpression,
 };
 
 // TODO: Add example
@@ -31,6 +31,7 @@ pub struct StatementList {
 #[derive(Debug, Clone, PartialEq)]
 enum ScopedItem {
     Var(Rc<Variable>),
+    Attr(Rc<Variable>, String),
     Const(Constant),
 }
 
@@ -320,17 +321,21 @@ impl Parser {
                             _ => Ok(StatementKind::Out(when_expr)),
                         }
                     }
-                    // Operate
+                    // TODO: REMOVE
                     var if self.peak(1).kind == TokenKind::Bang => match self.search_scope(var) {
                         Some(ScopedItem::Var(var)) => self.parse_variable_operation_statement(var),
                         Some(ScopedItem::Const(_)) => Err(CompilationError::new_localized(
                             "Constants have can not be operated upon.",
                             start_token.span.clone(),
                         )),
+                        Some(ScopedItem::Attr(_, _)) => todo!(),
                         None => todo!(),
                     },
                     _ if self.is_at_assignment_statment() => self.parse_assignment_statement(),
                     _ if self.is_at_mutation_statment() => self.parse_mutation_statement(),
+                    _ if self.is_at_attribute_assignment_statement() => {
+                        self.parse_attribute_assignment_statement()
+                    }
                     _ => match self.parse_expression() {
                         Ok(expr) => Ok(StatementKind::Out(expr)),
                         Err(e) => Err(e),
@@ -399,6 +404,45 @@ impl Parser {
         )
     }
 
+    fn is_at_attribute_assignment_statement(&self) -> bool {
+        self.peak(1).kind == TokenKind::Period
+    }
+
+    fn parse_attribute_assignment_statement(&mut self) -> CompilationResult<StatementKind> {
+        let var_span = self.current().span.clone();
+        let var_name = self.consume_word()?.to_string();
+        self.consume_and_expect(TokenKind::Period)?;
+        let attr = self.consume_word()?.to_string();
+        self.consume_and_expect(TokenKind::Equals)?;
+
+        let input = self.parse_expression()?;
+
+        self.consume_and_expect(TokenKind::Semicolon)?;
+
+        let item = self
+            .search_scope(&var_name)
+            .ok_or(CompilationError::new_localized(
+                "Can not assign attribute to undefined variable.",
+                var_span.clone(),
+            ))?;
+
+        let var = match item {
+            ScopedItem::Var(v) => Ok(v),
+            _ => Err(CompilationError::new_localized(
+                "Only variable can have attributes.",
+                var_span,
+            )),
+        }?;
+
+        self.add_to_scope(format!("{var_name}.{attr}"), ScopedItem::Attr(var.clone(), attr.clone()));
+
+        Ok(StatementKind::Assignment(Assignment {
+            variable: var,
+            attr: Some(attr),
+            expression: Some(input),
+        }))
+    }
+
     /// Returns true if the cursor is at the begining of an assignment statement.
     fn is_at_assignment_statment(&self) -> bool {
         matches!(&self.peak(1).kind, TokenKind::Colon | TokenKind::Equals)
@@ -427,12 +471,7 @@ impl Parser {
                 // cannot be assigned values.
                 let var = Rc::new(variable);
                 self.add_var_to_scope(var.clone());
-                let zero_expr = Expression::number(0, self.get_span_from(&start_span));
-                return Ok(StatementKind::Assignment(Assignment::new(
-                    var,
-                    zero_expr,
-                    AssignmentKind::Var,
-                )));
+                return Ok(StatementKind::Assignment(Assignment::new(var, None, None)));
             }
             VariableType::Counter(_) => {
                 self.consume_and_expect(TokenKind::Semicolon)?;
@@ -441,24 +480,13 @@ impl Parser {
                 // cannot be assigned values.
                 let var = Rc::new(variable);
                 self.add_var_to_scope(var.clone());
-                let zero_expr = Expression::number(0, self.get_span_from(&start_span));
-                return Ok(StatementKind::Assignment(Assignment::new(
-                    var,
-                    zero_expr,
-                    AssignmentKind::Counter,
-                )));
+                return Ok(StatementKind::Assignment(Assignment::new(var, None, None)));
             }
             VariableType::Register(_) => {
                 let var = Rc::new(variable.clone());
                 self.add_var_to_scope(var.clone());
-                self.consume_and_expect(TokenKind::Equals)?;
-                let input = self.parse_expression()?;
                 self.consume_and_expect(TokenKind::Semicolon)?;
-                return Ok(StatementKind::Assignment(Assignment::new(
-                    var,
-                    input,
-                    AssignmentKind::Register,
-                )));
+                return Ok(StatementKind::Assignment(Assignment::new(var, None, None)));
             }
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
@@ -478,74 +506,12 @@ impl Parser {
 
         let expr = self.parse_expression()?;
 
-        // TODO: This check should probably be done by the type checker
-        match &expr.kind {
-            ExpressionKind::Bool(v) => {
-                variable.type_ = {
-                    if let VariableType::Bool(_) = variable.type_ {
-                        VariableType::ConstBool(*v)
-                    } else {
-                        return Err(CompilationError::new_localized(
-                            format!("Can not assign variable `{}` of type `{}` to expression returning `bool` type.",
-                                    variable.name,
-                                    variable.type_
-                                    ), TextSpan::from_spans(&variable.span, &expr.span)));
-                    }
-                }
-            }
-            ExpressionKind::Int(v) => {
-                variable.type_ = {
-                    if let VariableType::Int(_) = variable.type_ {
-                        VariableType::ConstInt(*v)
-                    } else {
-                        return Err(CompilationError::new_localized(
-                            format!("Can not assign variable `{}` of type `{}` to expression returning `int` type.",
-                                    variable.name,
-                                    variable.type_
-                                    ), TextSpan::from_spans(&variable.span, &expr.span)));
-                    }
-                }
-            }
-            ExpressionKind::Negative(e) => {
-                variable.type_ = {
-                    if let ExpressionKind::Int(n) = e.kind {
-                        // TODO: This check is copy pasted from above and should definetely be handled
-                        // somewhere else.
-                        if let VariableType::Int(_) = variable.type_ {
-                            VariableType::ConstInt(n)
-                        } else {
-                            return Err(CompilationError::new_localized(
-                            format!("Can not assign variable `{}` of type `{}` to expression returning `int` type.",
-                                    variable.name,
-                                    variable.type_
-                                    ), TextSpan::from_spans(&variable.span, &expr.span)));
-                        }
-                    } else {
-                        return Err(CompilationError::new_localized(
-                            "Negative values must be integers.",
-                            TextSpan::from_spans(&variable.span, &expr.span),
-                        ));
-                    }
-                }
-            }
-            ExpressionKind::Binary(_) => {}
-            ExpressionKind::Parenthesized(_) => {}
-            ExpressionKind::Pick(_) => {}
-            ExpressionKind::Index(_) => {}
-            ExpressionKind::VariableRef(_) => {}
-            ExpressionKind::BlockLink(_) => {}
-            ExpressionKind::When(_) => {}
-            ExpressionKind::Error => {}
-        }
-
         let var_ref = Rc::new(variable);
         self.add_var_to_scope(var_ref.clone());
 
         self.consume_and_expect(TokenKind::Semicolon)?;
         Ok(StatementKind::Assignment(Assignment::new(
-            var_ref,
-            expr,
-            AssignmentKind::Sig,
+            var_ref, None, Some(expr),
         )))
     }
 
@@ -631,6 +597,7 @@ impl Parser {
             Ok(match item {
                 ScopedItem::Var(v) => ParsedVariable::Ref(VariableRef::new(v, start_token.span)),
                 ScopedItem::Const(c) => ParsedVariable::Const(c),
+                ScopedItem::Attr(_, _) => todo!(),
             })
         } else {
             // If variable definition
@@ -1032,6 +999,7 @@ impl Parser {
                         ScopedItem::Const(Constant::Bool(b)) => {
                             Ok(Expression::new(ExpressionKind::Bool(b), item_span))
                         }
+                        ScopedItem::Attr(_, _) => todo!(),
                     }
                 } else if let Some(block) = self.search_blocks(word) {
                     let block_link_expr = self.parse_block_link(block)?;

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::ast::{
-    Assignment, AssignmentKind, BinaryExpression, BinaryOperator, Block, BlockLinkExpression,
+    Assignment, BinaryExpression, BinaryOperator, Block, BlockLinkExpression,
     Expression, ExpressionKind, IndexExpression, Mutation, PickExpression, VarOperation,
     VariableRef, VariableSignalType, WhenExpression, AST,
 };
@@ -179,7 +179,7 @@ impl GraphCompiler {
                         {
                             // Add input
                             let (input_nid, _input_type) =
-                                self.compile_expression(graph, &assignment.expression, None)?;
+                                self.compile_expression(graph, &assignment.expression.clone().unwrap(), None)?;
                             graph.push_wire(input_nid, c1_input, WireKind::Green);
                         }
 
@@ -228,7 +228,7 @@ impl GraphCompiler {
                 let var_type = self.variable_type_to_iotype(&var.type_);
 
                 let (expr_out_vid, expr_out_type) =
-                    self.compile_expression(graph, &assignment.expression, Some(var_type.clone()))?;
+                    self.compile_expression(graph, &assignment.expression.unwrap(), Some(var_type.clone()))?;
 
                 let var_node_vid = graph.push_var_node(var_type.clone());
 

@@ -254,29 +254,21 @@ impl VariableRef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum AssignmentKind {
-    Sig,
-    Var,
-    Counter,
-    Register,
-}
-
 /// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Assignment {
     pub variable: Rc<Variable>,
-    pub expression: Expression,
-    pub kind: AssignmentKind,
+    pub attr: Option<String>,
+    pub expression: Option<Expression>,
 }
 
 impl Assignment {
     /// Instantiate a new [Assignment].
-    pub fn new(variable: Rc<Variable>, expression: Expression, kind: AssignmentKind) -> Self {
+    pub fn new(variable: Rc<Variable>, attr: Option<String>, expression: Option<Expression>) -> Self {
         Self {
             variable,
+            attr,
             expression,
-            kind,
         }
     }
 }
