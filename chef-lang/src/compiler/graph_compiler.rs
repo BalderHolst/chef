@@ -9,9 +9,7 @@ use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
 use crate::diagnostics::CompilationError;
 
-/// A signal used for gates that allow all signals through. All except this reserved signal of
-/// course.
-const RESERVED_GATE_SIGNAL: &str = "signal-dot";
+use super::RESERVED_GATE_SIGNAL;
 
 pub struct GraphCompiler {
     ast: AST,

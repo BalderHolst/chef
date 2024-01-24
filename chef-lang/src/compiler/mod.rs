@@ -10,6 +10,10 @@ mod graph_compiler;
 mod graph_optimizer;
 pub mod graph_visualizer;
 
+/// A signal used for gates that allow all signals through. All except this reserved signal of
+/// course.
+pub const RESERVED_GATE_SIGNAL: &str = "signal-dot";
+
 /// Compile and abstract syntax tree in to a graph and report errors.
 pub fn compile(ast: AST) -> Graph {
     let mut graph_compiler = GraphCompiler::new(ast);

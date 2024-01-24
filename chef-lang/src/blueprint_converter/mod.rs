@@ -16,7 +16,7 @@ use fb::{
 use noisy_float::types::R64;
 
 use crate::{
-    compiler::graph::{self, ArithmeticOperation, DeciderOperation, Graph, IOType, NetworkId},
+    compiler::{graph::{self, ArithmeticOperation, DeciderOperation, Graph, IOType, NetworkId}, RESERVED_GATE_SIGNAL},
     utils::BASE_SIGNALS,
 };
 use placement::Placer;
@@ -286,11 +286,16 @@ impl FactorioCombinator {
             }
             graph::IOType::_ConstantSignal(_) => todo!(),
             graph::IOType::Constant(n) => (Some(*n), None),
-            graph::IOType::Everything => todo!(),
+            graph::IOType::Everything => (None, Some(SignalID {
+                // TODO: check that "everything" is correct
+                name: "everything".to_string(),
+                type_: SignalIDType::Virtual,
+            })),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
         }
     }
 
+    // TODO: Convert return type to union
     // Get the corresponding (signal_type, signal_string) pair
     fn iotype_to_signal_pair(t: IOType) -> (SignalIDType, String) {
         match t {
@@ -314,6 +319,9 @@ impl FactorioCombinator {
                     "virtual" => SignalIDType::Virtual,
                     _ => panic!("Invalid signal type in signal file: `{}`.", type_),
                 };
+            }
+            else if s == RESERVED_GATE_SIGNAL {
+                return SignalIDType::Virtual
             }
         }
         panic!(
