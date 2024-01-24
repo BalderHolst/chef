@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::ast::{
     Assignment, AssignmentKind, BinaryExpression, BinaryOperator, Block, BlockLinkExpression,
-    Expression, ExpressionKind, IndexExpression, Mutation, PickExpression, VariableRef,
-    VariableSignalType, WhenExpression, AST, VarOperation,
+    Expression, ExpressionKind, IndexExpression, Mutation, PickExpression, VarOperation,
+    VariableRef, VariableSignalType, WhenExpression, AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
@@ -101,25 +101,16 @@ impl GraphCompiler {
     ) -> Result<(), CompilationError> {
         let var = &assignment.variable;
 
-        if matches!(
-            &var.type_,
-            VariableType::ConstInt(_) | VariableType::ConstBool(_)
-        ) {
-            return Ok(());
-        }
-
-        let var_type = self.variable_type_to_iotype(&var.type_);
-
-        // Add connections to self for counters and var variables
-        match &assignment.kind {
-            AssignmentKind::Sig => {}
-            AssignmentKind::Var => {
+        match &var.type_ {
+            VariableType::Var(_) => {
+                let var_type = self.variable_type_to_iotype(&var.type_);
                 let var_nid = graph.push_var_node(var_type.clone());
                 graph.push_connection(var_nid, var_nid, Connection::new_pick(var_type));
                 self.add_to_scope(var.name.clone(), None, var_nid);
                 return Ok(());
             }
-            AssignmentKind::Counter => {
+            VariableType::Counter(_) => {
+                let var_type = self.variable_type_to_iotype(&var.type_);
                 let (limit_nid, limit_type) =
                     if let VariableType::Counter((_, limit_expr)) = &var.type_ {
                         self.compile_expression(graph, limit_expr, None)?
@@ -151,22 +142,10 @@ impl GraphCompiler {
                 self.add_to_scope(var.name.clone(), None, var_nid);
                 return Ok(());
             }
-            AssignmentKind::Register => {
-                // TODO: Maybe do away with "AssignmentKind"?
-                let size = match var.type_ {
-                    VariableType::Register(s) => s,
-                    VariableType::Bool(_) => todo!(),
-                    VariableType::Int(_) => todo!(),
-                    VariableType::Var(_) => todo!(),
-                    VariableType::All => todo!(),
-                    VariableType::ConstInt(_) => todo!(),
-                    VariableType::ConstBool(_) => todo!(),
-                    VariableType::Counter(_) => todo!(),
-                };
-
+            VariableType::Register(size) => {
                 let mut prev = None;
 
-                for i in 0..size {
+                for i in 0..*size {
                     let (c1_input, c1_output) =
                         graph.push_combinator(Combinator::Gate(GateCombinator {
                             left: IOType::Signal(RESERVED_SIGNAL.to_string()),
@@ -240,25 +219,33 @@ impl GraphCompiler {
 
                     self.add_to_scope(var.name.clone(), Some(i as i32), c2_output);
 
-                    prev = Some((c1_input, c2_output))
+                    prev = Some((c1_input, c2_output));
                 }
+                Ok(())
+            }
+            VariableType::ConstInt(_) | VariableType::ConstBool(_) => Ok(()),
+            VariableType::Bool(_) | VariableType::Int(_) | VariableType::All => {
+                let var_type = self.variable_type_to_iotype(&var.type_);
+
+                let (expr_out_vid, expr_out_type) =
+                    self.compile_expression(graph, &assignment.expression, Some(var_type.clone()))?;
+
+                let var_node_vid = graph.push_var_node(var_type.clone());
+
+                // Connect the output of the expression to the input of the variable
+                graph.push_connection(
+                    expr_out_vid,
+                    var_node_vid,
+                    Connection::new_arithmetic(ArithmeticCombinator::new_convert(
+                        expr_out_type,
+                        var_type,
+                    )),
+                );
+
+                self.add_to_scope(assignment.variable.name.clone(), None, var_node_vid);
+                Ok(())
             }
         }
-
-        let (expr_out_vid, expr_out_type) =
-            self.compile_expression(graph, &assignment.expression, Some(var_type.clone()))?;
-
-        let var_node_vid = graph.push_var_node(var_type.clone());
-
-        // Connect the output of the expression to the input of the variable
-        graph.push_connection(
-            expr_out_vid,
-            var_node_vid,
-            Connection::new_arithmetic(ArithmeticCombinator::new_convert(expr_out_type, var_type)),
-        );
-
-        self.add_to_scope(assignment.variable.name.clone(), None, var_node_vid);
-        Ok(())
     }
 
     fn compile_mutation_statement(
