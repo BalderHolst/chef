@@ -320,6 +320,15 @@ impl Parser {
                             _ => Ok(StatementKind::Out(when_expr)),
                         }
                     }
+                    // Operate
+                    var if self.peak(1).kind == TokenKind::Bang => match self.search_scope(var) {
+                        Some(ScopedItem::Var(var)) => self.parse_variable_operation_statement(var),
+                        Some(ScopedItem::Const(_)) => Err(CompilationError::new_localized(
+                            "Constants have can not be operated upon.",
+                            start_token.span.clone(),
+                        )),
+                        None => todo!(),
+                    },
                     _ if self.is_at_assignment_statment() => self.parse_assignment_statement(),
                     _ if self.is_at_mutation_statment() => self.parse_mutation_statement(),
                     _ => match self.parse_expression() {
@@ -1007,17 +1016,14 @@ impl Parser {
                     match item {
                         ScopedItem::Var(var) => {
                             // If pick
-                            if self.current().kind == TokenKind::LeftSquare {
-                                self.parse_variable_index(var)
-                            }
-                            // otherwise variable reference
-                            else {
-                                Ok({
+                            match self.current().kind {
+                                TokenKind::LeftSquare => self.parse_variable_index(var),
+                                _ => Ok({
                                     let span = self.get_span_from(&start_token.span);
                                     let var_ref = VariableRef::new(var, span.clone());
                                     let kind = ExpressionKind::VariableRef(var_ref);
                                     Expression { kind, span }
-                                })
+                                }),
                             }
                         }
                         ScopedItem::Const(Constant::Int(n)) => {
@@ -1097,6 +1103,29 @@ impl Parser {
             kind: expr_kind,
             span,
         })
+    }
+
+    /// Parse `var!` syntax
+    fn parse_variable_operation_statement(
+        &mut self,
+        var: Rc<Variable>,
+    ) -> CompilationResult<StatementKind> {
+        let start_span = self.peak(-1).span.clone();
+
+        // Consume `var!`
+        self.consume_word()?;
+        self.consume_and_expect(TokenKind::Bang)?;
+        self.consume_and_expect(TokenKind::Semicolon)?;
+
+        match &var.type_ {
+            VariableType::Register(_) => Ok(StatementKind::Operation(super::VarOperation {
+                var_ref: VariableRef::new(var.clone(), start_span),
+            })),
+            t => Err(CompilationError::new_localized(
+                format!("No standard operation exists for type: `{}`.", t),
+                self.get_span_from(&start_span),
+            )),
+        }
     }
 
     /// Parse a chef block link.

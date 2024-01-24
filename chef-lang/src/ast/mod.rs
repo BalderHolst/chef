@@ -150,6 +150,7 @@ pub enum StatementKind {
     Expression(Expression),
     Assignment(Assignment),
     Mutation(Mutation),
+    Operation(VarOperation),
     Out(Expression),
     Error,
 }
@@ -299,6 +300,12 @@ impl Mutation {
     }
 }
 
+/// [AST] representation of bang operation on a chef variable.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VarOperation {
+    pub var_ref: VariableRef,
+}
+
 /// A chef expression.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expression {
@@ -323,7 +330,7 @@ impl Expression {
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(),
             ExpressionKind::When(e) => e.return_type(),
-            ExpressionKind::Error => ExpressionReturnType::Int,
+            ExpressionKind::Error => ExpressionReturnType::None,
         }
     }
 

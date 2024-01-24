@@ -81,6 +81,7 @@ impl GraphCompiler {
             StatementKind::Mutation(mutation_statement) => {
                 self.compile_mutation_statement(graph, mutation_statement, gate)?;
             }
+            StatementKind::Operation(operation) => todo!(),
             StatementKind::Out(expr) => {
                 let (expr_nid, out_type) = self.compile_expression(graph, &expr, None)?;
                 let out_nid = graph.push_output_node(out_type.clone());

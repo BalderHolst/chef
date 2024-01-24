@@ -34,6 +34,7 @@ pub enum TokenKind {
     Period,
     Colon,
     Hashtag,
+    Bang,
     Semicolon,
     DoubleEquals,
     And,
@@ -77,6 +78,7 @@ impl Display for TokenKind {
             TokenKind::Colon => ":",
             TokenKind::Semicolon => ";",
             TokenKind::Hashtag => "#",
+            TokenKind::Bang => "!",
             TokenKind::At => "@",
             TokenKind::DoubleEquals => "==",
             TokenKind::And => "&",
@@ -280,7 +282,7 @@ impl Lexer {
                 Some('=') => TokenKind::BangEquals,
                 _ => {
                     self.backtrack(1);
-                    TokenKind::Bad
+                    TokenKind::Bang
                 }
             },
             Some('&') => match self.consume() {
