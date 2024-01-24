@@ -1,8 +1,8 @@
-use std::{fs::OpenOptions, io::Write, collections::HashSet};
+use std::{collections::HashSet, fs::OpenOptions, io::Write};
 
 use crate::utils::{self, VisualizerError};
 
-use super::graph::{Combinator, Graph, Connection, WireKind};
+use super::graph::{Combinator, Connection, Graph, WireKind};
 
 pub fn create_dot(graph: &Graph) -> String {
     let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();

@@ -87,6 +87,8 @@ pub enum IOType {
     Constant(i32),
     _ConstantSignal((String, i32)), // TODO: Add constant signals
     Everything,
+    Anything,
+    Each,
 }
 
 impl IOType {
@@ -105,7 +107,9 @@ impl Display for IOType {
             IOType::AnySignal(n) => format!("Any({})", n),
             IOType::Constant(n) => format!("({})", n),
             IOType::_ConstantSignal((sig, n)) => format!("({}, {})", sig, n),
-            IOType::Everything => "ALL".to_string(),
+            IOType::Everything => "EVERYTHING".to_string(),
+            IOType::Anything => "ANYTHING".to_string(),
+            IOType::Each => "EACH".to_string(),
         };
         write!(f, "{}", s)
     }
@@ -756,6 +760,8 @@ impl Graph {
                     panic!("Compiler Error: Inputs to a block should not be constants.")
                 }
                 IOType::Everything => todo!(),
+                IOType::Anything => todo!(),
+                IOType::Each => todo!(),
             }
 
             match self.vertices.get_mut(block_input_nid) {

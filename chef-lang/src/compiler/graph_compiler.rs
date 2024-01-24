@@ -9,13 +9,15 @@ use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
 use crate::diagnostics::CompilationError;
 
-use super::RESERVED_GATE_SIGNAL;
+use super::RESERVED_SIGNAL;
+
+const REGISTSER_SHIFT_TAG: i32 = -1;
 
 pub struct GraphCompiler {
     ast: AST,
     next_anysignal: u64,
     block_graphs: HashMap<String, Graph>,
-    scopes: Vec<HashMap<(String, Option<u16>), NId>>,
+    scopes: Vec<HashMap<(String, Option<i32>), NId>>,
 }
 
 impl GraphCompiler {
@@ -166,7 +168,7 @@ impl GraphCompiler {
                 for i in 0..size {
                     let (c1_input, c1_output) =
                         graph.push_combinator(Combinator::Gate(GateCombinator {
-                            left: IOType::Signal(RESERVED_GATE_SIGNAL.to_string()),
+                            left: IOType::Signal(RESERVED_SIGNAL.to_string()),
                             right: IOType::Constant(0),
                             operation: DeciderOperation::Equals,
                             gate_type: IOType::Everything,
@@ -174,31 +176,68 @@ impl GraphCompiler {
 
                     let (c2_input, c2_output) =
                         graph.push_combinator(Combinator::Gate(GateCombinator {
-                            left: IOType::Signal(RESERVED_GATE_SIGNAL.to_string()),
+                            left: IOType::Signal(RESERVED_SIGNAL.to_string()),
                             right: IOType::Constant(1),
                             operation: DeciderOperation::Equals,
                             gate_type: IOType::Everything,
                         }));
 
-                    // Green wires
-                    graph.push_wire(c1_input, c2_input, WireKind::Green);
-                    graph.push_wire(c1_output, c2_output, WireKind::Green);
-
                     // Red wires
-                    graph.push_wire(c1_input, c1_output, WireKind::Red);
-                    graph.push_wire(c1_output, c2_input, WireKind::Red);
+                    graph.push_wire(c1_input, c2_input, WireKind::Red);
+                    graph.push_wire(c1_output, c2_output, WireKind::Red);
+
+                    // Green wires
+                    graph.push_wire(c1_input, c1_output, WireKind::Green);
+                    graph.push_wire(c1_output, c2_input, WireKind::Green);
 
                     if let Some((prev_c1_input, prev_c2_output)) = prev {
-                        graph.push_wire(prev_c1_input, c1_input, WireKind::Green);
-                        graph.push_wire(prev_c2_output, c2_input, WireKind::Red)
-                    }
-                    else {
+                        graph.push_wire(prev_c1_input, c1_input, WireKind::Red);
+                        graph.push_wire(prev_c2_output, c2_input, WireKind::Green)
+                    } else {
                         // On first iteration only, connect input
-                        let (input_nid, _input_type) = self.compile_expression(graph, &assignment.expression, None)?;
-                        graph.push_wire(input_nid, c1_input, WireKind::Green);
+
+                        {
+                            // Add input
+                            let (input_nid, _input_type) =
+                                self.compile_expression(graph, &assignment.expression, None)?;
+                            graph.push_wire(input_nid, c1_input, WireKind::Green);
+                        }
+
+                        {
+                            // Add shift input
+
+                            // Convert whatever the input signal is, to the reserved signal
+                            let (shift_nid, n1) =
+                                graph.push_combinator(Combinator::Decider(DeciderCombinator {
+                                    left: IOType::Anything,
+                                    right: IOType::Constant(0),
+                                    operation: DeciderOperation::NotEquals,
+                                    output: IOType::Signal(RESERVED_SIGNAL.to_string()),
+                                }));
+
+                            graph.push_wire(n1, c1_input, WireKind::Green);
+
+                            // Add combonator to only shift once
+                            let (n2, n3) = graph.push_combinator(Combinator::Arithmetic(
+                                ArithmeticCombinator {
+                                    left: IOType::Signal(RESERVED_SIGNAL.to_string()),
+                                    right: IOType::Constant(-1),
+                                    operation: ArithmeticOperation::Multiply,
+                                    output: IOType::Signal(RESERVED_SIGNAL.to_string()),
+                                },
+                            ));
+                            graph.push_wire(n1, n2, WireKind::Green);
+                            graph.push_wire(n1, n3, WireKind::Red);
+
+                            self.add_to_scope(
+                                var.name.clone(),
+                                Some(REGISTSER_SHIFT_TAG),
+                                shift_nid,
+                            )
+                        }
                     }
 
-                    self.add_to_scope(var.name.clone(), Some(i), c2_output);
+                    self.add_to_scope(var.name.clone(), Some(i as i32), c2_output);
 
                     prev = Some((c1_input, c2_output))
                 }
@@ -390,7 +429,7 @@ impl GraphCompiler {
     ) -> Result<(NId, IOType), CompilationError> {
         let index = index_expr.index;
         if let Some(indexed_output) =
-            self.search_scope(index_expr.var_ref.var.name.clone(), Some(index))
+            self.search_scope(index_expr.var_ref.var.name.clone(), Some(index as i32))
         {
             // TODO: Make type depend on register input type
             Ok((indexed_output, IOType::Everything))
@@ -639,19 +678,19 @@ impl GraphCompiler {
         self.scopes.pop().unwrap();
     }
 
-    fn add_to_scope(&mut self, variable_name: String, index: Option<u16>, output_vid: NId) {
+    fn add_to_scope(&mut self, variable_name: String, tag: Option<i32>, nid: NId) {
         if self
             .scopes
             .last_mut()
             .unwrap()
-            .insert((variable_name, index), output_vid)
+            .insert((variable_name, tag), nid)
             .is_some()
         {
             panic!("tried to override a variable in scope.")
         }
     }
 
-    fn search_scope(&self, variable_name: String, index: Option<u16>) -> Option<NId> {
+    fn search_scope(&self, variable_name: String, tag: Option<i32>) -> Option<NId> {
         let scopes_len = self.scopes.len();
         for i in 0..scopes_len {
             let p = scopes_len - i - 1;
@@ -659,7 +698,7 @@ impl GraphCompiler {
                 .scopes
                 .get(p)
                 .unwrap()
-                .get(&(variable_name.clone(), index))
+                .get(&(variable_name.clone(), tag))
             {
                 return Some(*vid);
             }
