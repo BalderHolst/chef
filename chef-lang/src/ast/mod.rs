@@ -161,6 +161,7 @@ pub enum VariableType {
     Bool(VariableSignalType),
     Int(VariableSignalType),
     Var(VariableSignalType),
+    Attr(VariableSignalType),
     All,
     ConstInt(i32),
     ConstBool(bool),
@@ -174,6 +175,7 @@ impl VariableType {
             VariableType::Bool(_) => ExpressionReturnType::Bool,
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Var(_) => ExpressionReturnType::Int,
+            VariableType::Attr(_) => ExpressionReturnType::Group,
             VariableType::All => ExpressionReturnType::Group,
             VariableType::ConstInt(_) => ExpressionReturnType::Int,
             VariableType::ConstBool(_) => ExpressionReturnType::Bool,
@@ -187,6 +189,7 @@ impl VariableType {
             VariableType::Bool(s) => Some(s),
             VariableType::Int(s) => Some(s),
             VariableType::Var(s) => Some(s),
+            VariableType::Attr(s) => Some(s),
             VariableType::All => None,
             VariableType::ConstInt(_) => None,
             VariableType::ConstBool(_) => None,
@@ -628,6 +631,10 @@ impl Display for VariableType {
             VariableType::Var(var_type) => match var_type {
                 VariableSignalType::Signal(n) => format!("Var({n})"),
                 VariableSignalType::Any => "Var(Any)".to_string(),
+            },
+            VariableType::Attr(var_type) => match var_type {
+                VariableSignalType::Signal(n) => format!("Attr({n})"),
+                VariableSignalType::Any => "Attr(Any)".to_string(),
             },
             VariableType::Counter((var_type, _lim)) => match var_type {
                 VariableSignalType::Signal(n) => format!("Counter({n})"),

@@ -491,6 +491,7 @@ impl Parser {
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
             VariableType::All => {}
+            VariableType::Attr(_) => {}
             VariableType::ConstInt(_) => {}
             VariableType::ConstBool(_) => {}
         };

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::ast::{
-    Assignment, BinaryExpression, BinaryOperator, Block, BlockLinkExpression,
-    Expression, ExpressionKind, IndexExpression, Mutation, PickExpression, VarOperation,
-    VariableRef, VariableSignalType, WhenExpression, AST,
+    Assignment, BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Expression,
+    ExpressionKind, IndexExpression, Mutation, PickExpression, VarOperation, VariableRef,
+    VariableSignalType, WhenExpression, AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
@@ -11,7 +11,8 @@ use crate::diagnostics::{CompilationError, CompilationResult};
 
 use super::RESERVED_SIGNAL;
 
-const REGISTSER_SHIFT_TAG: i32 = -1;
+const REGISTER_INPUT_TAG: i32 = -1;
+const REGISTER_SHIFT_TAG: i32 = -2;
 
 pub struct GraphCompiler {
     ast: AST,
@@ -75,8 +76,8 @@ impl GraphCompiler {
             StatementKind::Expression(expr) => {
                 self.compile_expression(graph, &expr, None)?;
             }
-            StatementKind::Assignment(assignment) => {
-                self.compile_assignment_statement(graph, assignment)?;
+            StatementKind::Assignment(operation) => {
+                self.compile_assignment_statement(graph, operation)?;
             }
             StatementKind::Mutation(mutation_statement) => {
                 self.compile_mutation_statement(graph, mutation_statement, gate)?;
@@ -97,9 +98,9 @@ impl GraphCompiler {
     fn compile_assignment_statement(
         &mut self,
         graph: &mut Graph,
-        assignment: Assignment,
+        operation: Assignment,
     ) -> Result<(), CompilationError> {
-        let var = &assignment.variable;
+        let var = &operation.variable;
 
         match &var.type_ {
             VariableType::Var(_) => {
@@ -115,7 +116,7 @@ impl GraphCompiler {
                     if let VariableType::Counter((_, limit_expr)) = &var.type_ {
                         self.compile_expression(graph, limit_expr, None)?
                     } else {
-                        panic!("Counter assignment should be to counter variables.")
+                        panic!("Counter operation should be to counter variables.")
                     };
                 let var_nid = graph.push_var_node(var_type.clone());
 
@@ -142,7 +143,7 @@ impl GraphCompiler {
                 self.add_to_scope(var.name.clone(), None, var_nid);
                 return Ok(());
             }
-            VariableType::Register(size) => {
+            VariableType::Register(size) if operation.attr.is_none() => {
                 let mut prev = None;
 
                 for i in 0..*size {
@@ -177,9 +178,14 @@ impl GraphCompiler {
                         // On first iteration only, connect input
 
                         {
-                            // Add input
-                            let (input_nid, _input_type) =
-                                self.compile_expression(graph, &assignment.expression.clone().unwrap(), None)?;
+                            // Create input
+                            let input_nid = graph.push_inner_node();
+                            self.add_to_scope(
+                                var.name.clone(),
+                                Some(REGISTER_INPUT_TAG),
+                                input_nid,
+                            );
+
                             graph.push_wire(input_nid, c1_input, WireKind::Green);
                         }
 
@@ -209,11 +215,7 @@ impl GraphCompiler {
                             graph.push_wire(n1, n2, WireKind::Green);
                             graph.push_wire(n1, n3, WireKind::Red);
 
-                            self.add_to_scope(
-                                var.name.clone(),
-                                Some(REGISTSER_SHIFT_TAG),
-                                shift_nid,
-                            )
+                            self.add_to_scope(var.name.clone(), Some(REGISTER_SHIFT_TAG), shift_nid)
                         }
                     }
 
@@ -223,28 +225,54 @@ impl GraphCompiler {
                 }
                 Ok(())
             }
+            // Attribute definitions
+            VariableType::Register(_) => {
+                let nid = match operation
+                            .attr
+                            .expect("Should have been handled by the case above")
+                            .as_str()
+                        {
+                            "input" => self.search_scope(operation.variable.name.clone(), Some(REGISTER_INPUT_TAG)),
+                            "shift" => self.search_scope(operation.variable.name.clone(), Some(REGISTER_SHIFT_TAG)),
+                            _ => panic!("Invalid attribute. This should have been caught by the type checker."),
+                        }
+                // TODO: Make localized
+                .ok_or(CompilationError::new_generic(format!("Can not assign attrubute to undefined variable: `{}`.", &var.name)))?;
+                let expr = operation.expression.unwrap();
+
+                // TODO: Define output type for input
+                let (expr_out_nid, _) = self.compile_expression(graph, &expr, None)?;
+
+                graph.push_wire(expr_out_nid, nid, WireKind::Green);
+
+                Ok(())
+            },
             VariableType::ConstInt(_) | VariableType::ConstBool(_) => Ok(()),
             VariableType::Bool(_) | VariableType::Int(_) | VariableType::All => {
                 let var_type = self.variable_type_to_iotype(&var.type_);
 
-                let (expr_out_vid, expr_out_type) =
-                    self.compile_expression(graph, &assignment.expression.unwrap(), Some(var_type.clone()))?;
+                let (expr_out_nid, expr_out_type) = self.compile_expression(
+                    graph,
+                    &operation.expression.unwrap(),
+                    Some(var_type.clone()),
+                )?;
 
-                let var_node_vid = graph.push_var_node(var_type.clone());
+                let var_node_nid = graph.push_var_node(var_type.clone());
 
                 // Connect the output of the expression to the input of the variable
                 graph.push_connection(
-                    expr_out_vid,
-                    var_node_vid,
+                    expr_out_nid,
+                    var_node_nid,
                     Connection::new_arithmetic(ArithmeticCombinator::new_convert(
                         expr_out_type,
                         var_type,
                     )),
                 );
 
-                self.add_to_scope(assignment.variable.name.clone(), None, var_node_vid);
+                self.add_to_scope(operation.variable.name.clone(), None, var_node_nid);
                 Ok(())
             }
+            VariableType::Attr(_) => todo!(),
         }
     }
 
@@ -628,6 +656,10 @@ impl GraphCompiler {
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
             VariableType::Var(var_type) => match var_type {
+                VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
+                VariableSignalType::Any => self.get_new_anysignal(),
+            },
+            VariableType::Attr(var_type) => match var_type {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
