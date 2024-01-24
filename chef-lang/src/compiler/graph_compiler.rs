@@ -228,16 +228,25 @@ impl GraphCompiler {
             // Attribute definitions
             VariableType::Register(_) => {
                 let nid = match operation
-                            .attr
-                            .expect("Should have been handled by the case above")
-                            .as_str()
-                        {
-                            "input" => self.search_scope(operation.variable.name.clone(), Some(REGISTER_INPUT_TAG)),
-                            "shift" => self.search_scope(operation.variable.name.clone(), Some(REGISTER_SHIFT_TAG)),
-                            _ => panic!("Invalid attribute. This should have been caught by the type checker."),
-                        }
+                    .attr
+                    .expect("Should have been handled by the case above")
+                    .as_str()
+                {
+                    "input" => {
+                        self.search_scope(operation.variable.name.clone(), Some(REGISTER_INPUT_TAG))
+                    }
+                    "shift" => {
+                        self.search_scope(operation.variable.name.clone(), Some(REGISTER_SHIFT_TAG))
+                    }
+                    _ => panic!(
+                        "Invalid attribute. This should have been caught by the type checker."
+                    ),
+                }
                 // TODO: Make localized
-                .ok_or(CompilationError::new_generic(format!("Can not assign attrubute to undefined variable: `{}`.", &var.name)))?;
+                .ok_or(CompilationError::new_generic(format!(
+                    "Can not assign attrubute to undefined variable: `{}`.",
+                    &var.name
+                )))?;
                 let expr = operation.expression.unwrap();
 
                 // TODO: Define output type for input
@@ -246,7 +255,7 @@ impl GraphCompiler {
                 graph.push_wire(expr_out_nid, nid, WireKind::Green);
 
                 Ok(())
-            },
+            }
             VariableType::ConstInt(_) | VariableType::ConstBool(_) => Ok(()),
             VariableType::Bool(_) | VariableType::Int(_) | VariableType::All => {
                 let var_type = self.variable_type_to_iotype(&var.type_);

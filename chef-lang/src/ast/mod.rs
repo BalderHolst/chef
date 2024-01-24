@@ -267,7 +267,11 @@ pub struct Assignment {
 
 impl Assignment {
     /// Instantiate a new [Assignment].
-    pub fn new(variable: Rc<Variable>, attr: Option<String>, expression: Option<Expression>) -> Self {
+    pub fn new(
+        variable: Rc<Variable>,
+        attr: Option<String>,
+        expression: Option<Expression>,
+    ) -> Self {
         Self {
             variable,
             attr,

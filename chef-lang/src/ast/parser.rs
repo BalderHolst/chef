@@ -434,7 +434,10 @@ impl Parser {
             )),
         }?;
 
-        self.add_to_scope(format!("{var_name}.{attr}"), ScopedItem::Attr(var.clone(), attr.clone()));
+        self.add_to_scope(
+            format!("{var_name}.{attr}"),
+            ScopedItem::Attr(var.clone(), attr.clone()),
+        );
 
         Ok(StatementKind::Assignment(Assignment {
             variable: var,
@@ -512,7 +515,9 @@ impl Parser {
 
         self.consume_and_expect(TokenKind::Semicolon)?;
         Ok(StatementKind::Assignment(Assignment::new(
-            var_ref, None, Some(expr),
+            var_ref,
+            None,
+            Some(expr),
         )))
     }
 

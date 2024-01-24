@@ -8,7 +8,7 @@
 use super::{
     parser::StatementList, Assignment, BinaryExpression, Block, BlockLinkExpression, Expression,
     ExpressionKind, IndexExpression, Mutation, ParenthesizedExpression, PickExpression, Statement,
-    StatementKind, VariableRef, WhenExpression, VarOperation,
+    StatementKind, VarOperation, VariableRef, WhenExpression,
 };
 
 // For documentation references
@@ -31,9 +31,7 @@ pub trait Visitor {
             StatementKind::Mutation(mutation) => {
                 self.visit_mutation(mutation);
             }
-            StatementKind::Operation(operation) => {
-                self.visit_operation(operation)
-            }
+            StatementKind::Operation(operation) => self.visit_operation(operation),
             StatementKind::Error => {
                 self.visit_error_statement();
             }
