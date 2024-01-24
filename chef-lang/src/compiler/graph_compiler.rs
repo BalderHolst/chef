@@ -192,6 +192,11 @@ impl GraphCompiler {
                         graph.push_wire(prev_c1_input, c1_input, WireKind::Green);
                         graph.push_wire(prev_c2_output, c2_input, WireKind::Red)
                     }
+                    else {
+                        // On first iteration only, connect input
+                        let (input_nid, _input_type) = self.compile_expression(graph, &assignment.expression, None)?;
+                        graph.push_wire(input_nid, c1_input, WireKind::Green);
+                    }
 
                     self.add_to_scope(var.name.clone(), Some(i), c2_output);
 
