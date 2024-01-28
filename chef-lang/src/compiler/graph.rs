@@ -445,7 +445,10 @@ impl Graph {
             for (to_nid, conn) in to_vec {
                 if network_nids.contains(to_nid) {
                     if let Connection::Combinator(com) = conn {
-                        input_types.push(com.get_output_iotype())
+                        let input_type = com.get_output_iotype();
+                        if !input_types.contains(&input_type) {
+                            input_types.push(input_type)
+                        }
                     }
                 }
             }
@@ -649,6 +652,17 @@ impl Graph {
             return true;
         }
         false
+    }
+
+    pub fn is_wire_only_node(&self, nid: NId) -> bool {
+        for (from, to, conn) in self.iter_conns() {
+            if nid == from || nid == to {
+                if let Connection::Combinator(_) = conn {
+                    return false;
+                }
+            }
+        }
+        true
     }
 
     /// Stitch another graph into this one. Resuts a vector of outputs os the newly stitched in

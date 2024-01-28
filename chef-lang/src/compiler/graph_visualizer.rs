@@ -2,12 +2,12 @@ use std::{collections::HashSet, fs::OpenOptions, io::Write};
 
 use crate::utils::{self, VisualizerError};
 
-use super::graph::{Combinator, Connection, Graph, WireKind};
+use super::graph::{Combinator, Connection, Graph, Node, WireKind};
 
 pub fn create_dot(graph: &Graph) -> String {
     let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();
 
-    for (vid, node) in &graph.vertices {
+    for (nid, node) in &graph.vertices {
         let color = match node {
             super::graph::Node::Inner => "white",
             super::graph::Node::InputVariable(_) => "lightgreen",
@@ -15,15 +15,25 @@ pub fn create_dot(graph: &Graph) -> String {
             super::graph::Node::Output(_) => "orange",
             super::graph::Node::Constant(_) => "lightgray",
         };
-        let inputs = &graph.get_input_iotypes(vid);
-        let input = if inputs.is_empty() {
-            "CONST".to_string()
-        } else {
-            Vec::from_iter(inputs.iter().map(|i| i.to_string())).join(" | ")
+
+        let mut label = {
+            let inputs = &graph.get_input_iotypes(nid);
+            if inputs.is_empty() {
+                "CONST".to_string()
+            } else {
+                Vec::from_iter(inputs.iter().map(|i| i.to_string())).join(" | ")
+            }
         };
+
+        if graph.is_wire_only_node(*nid) {
+            if let Some(Node::Inner) = graph.get_node(nid) {
+                label = "".to_string();
+            }
+        }
+
         dot += &format!(
             "\t{}\t[style=filled fillcolor={} label=\"{}\"]\n",
-            vid, color, input
+            nid, color, label
         );
     }
 
