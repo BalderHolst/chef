@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs,
     io::{self, Write},
 };
@@ -59,45 +59,99 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
         );
     }
 
-    let mut visualized_wires = HashSet::new();
+    let mut wires = HashMap::new();
+    let mut combinators = Vec::new();
 
     for (from_nid, to_nid, conn) in sim.graph.iter_conns() {
         match &conn {
-            Connection::Wire(wire_color) => {
-                let is_new_wire = match from_nid < to_nid {
-                    true => visualized_wires.insert((from_nid, to_nid)),
-                    false => visualized_wires.insert((to_nid, from_nid)),
-                };
-
-                if !is_new_wire {
+            Connection::Wire(wk) => {
+                // Avoid wire duplication
+                if from_nid > to_nid {
                     continue;
                 }
-
-                let color = match wire_color {
-                    WireKind::Green => "green",
-                    WireKind::Red => "red",
-                };
-                dot += &format!(
-                    "\t{} -> {}\t[label=\"{}\" color={} fontcolor={} dir=\"both\"]\n",
-                    from_nid, to_nid, conn, color, color
-                );
+                wires
+                    .entry((from_nid, to_nid))
+                    .and_modify(|wk| {
+                        *wk = WireConnection::Both;
+                    })
+                    .or_insert(WireConnection::from_wire_kind(wk));
             }
-            Connection::Combinator(com) => {
-                let color = match com {
-                    com if com.is_pick() => "black",
-                    com if com.is_convert() => "blue",
-                    Combinator::Arithmetic(_) => "orange",
-                    Combinator::Decider(_) => "purple",
-                    Combinator::Gate(_) => "teal",
-                    Combinator::Constant(_) => "brown",
-                };
-                dot += &format!(
-                    "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",
-                    from_nid, to_nid, conn, color, color
-                );
-            }
-        };
+            Connection::Combinator(com) => combinators.push((from_nid, to_nid, com.clone())),
+        }
     }
+
+    for ((from_nid, to_nid), wire) in wires {
+        let color = match wire {
+            WireConnection::Green => "green",
+            WireConnection::Red => "red",
+            WireConnection::Both => "lightblue",
+        };
+
+        dot += &format!(
+            "\t{} -> {}\t[label=\"\" color={} fontcolor={} dir=\"both\"]\n",
+            from_nid, to_nid, color, color
+        );
+    }
+
+    for (from_nid, to_nid, com) in combinators {
+        let color = match &com {
+            com if com.is_pick() => "black",
+            com if com.is_convert() => "blue",
+            Combinator::Arithmetic(_) => "orange",
+            Combinator::Decider(_) => "purple",
+            Combinator::Gate(_) => "teal",
+            Combinator::Constant(_) => "brown",
+        };
+        dot += &format!(
+            "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",
+            from_nid, to_nid, com, color, color
+        );
+    }
+
+    // for (from_nid, to_nid, conn) in sim.graph.iter_conns() {
+    // match &conn {
+    //     Connection::Wire(wire_color) => {
+
+    //         let color = match wire_color {
+    //             WireKind::Green => "green",
+    //             WireKind::Red => "red",
+    //         };
+    //         dot += &format!(
+    //             "\t{} -> {}\t[label=\"{}\" color={} fontcolor={} dir=\"both\"]\n",
+    //             from_nid, to_nid, conn, color, color
+    //         );
+    //     }
+    //     Connection::Combinator(com) => {
+    //         let color = match com {
+    //             com if com.is_pick() => "black",
+    //             com if com.is_convert() => "blue",
+    //             Combinator::Arithmetic(_) => "orange",
+    //             Combinator::Decider(_) => "purple",
+    //             Combinator::Gate(_) => "teal",
+    //             Combinator::Constant(_) => "brown",
+    //         };
+    //         dot += &format!(
+    //             "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",
+    //             from_nid, to_nid, conn, color, color
+    //         );
+    //     }
+    // };
+    // }
     dot += "}\n";
     dot
+}
+
+enum WireConnection {
+    Green,
+    Red,
+    Both,
+}
+
+impl WireConnection {
+    fn from_wire_kind(wk: &WireKind) -> Self {
+        match wk {
+            WireKind::Green => Self::Green,
+            WireKind::Red => Self::Red,
+        }
+    }
 }

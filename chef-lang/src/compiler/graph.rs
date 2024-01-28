@@ -397,25 +397,31 @@ impl Graph {
             if !has_new_network {
                 continue;
             }
-            // TODO: Also consider Red networks
-            let network = self.get_node_network(nid, WireKind::Green);
-            for network_nid in &network {
+
+            let green_network = self.get_node_network(nid, WireKind::Green);
+            let red_network = self.get_node_network(nid, WireKind::Red);
+
+            for network_nid in &green_network {
                 inserted.insert(*network_nid);
             }
-            networks.push(network);
+            for network_nid in &red_network {
+                inserted.insert(*network_nid);
+            }
+            networks.push(green_network);
         }
 
         networks
     }
 
     pub fn get_output_iotype(&self, nid: &NId) -> IOType {
-        let network_nids = self.get_node_network(nid, WireKind::Green); // TODO: un-hard-code green
+        let green_network_nids = self.get_node_network(nid, WireKind::Green);
+        let red_network_nids = self.get_node_network(nid, WireKind::Red);
 
         let mut types = vec![];
 
         for to_vec in self.adjacency.values() {
             for (to_nid, conn) in to_vec {
-                if network_nids.contains(to_nid) {
+                if green_network_nids.contains(to_nid) || red_network_nids.contains(to_nid) {
                     if let Connection::Combinator(com) = conn {
                         types.push(com.get_output_iotype())
                     }
@@ -431,7 +437,8 @@ impl Graph {
     }
 
     pub fn get_input_iotypes(&self, nid: &NId) -> Vec<IOType> {
-        let network_nids = self.get_node_network(nid, WireKind::Green); // TODO: un-hard-code green
+        let green_network_nids = self.get_node_network(nid, WireKind::Green);
+        let red_network_nids = self.get_node_network(nid, WireKind::Red);
 
         // If the node is a constant node, it should have zero external inputs, but output its own
         // values as a [IOType::Constant].
@@ -443,7 +450,7 @@ impl Graph {
 
         for to_vec in self.adjacency.values() {
             for (to_nid, conn) in to_vec {
-                if network_nids.contains(to_nid) {
+                if green_network_nids.contains(to_nid) || red_network_nids.contains(to_nid) {
                     if let Connection::Combinator(com) = conn {
                         let input_type = com.get_output_iotype();
                         if !input_types.contains(&input_type) {
@@ -470,10 +477,17 @@ impl Graph {
     pub fn iter_combinators(&self) -> impl Iterator<Item = (NId, NId, Combinator)> + '_ {
         self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
             to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
-                Connection::Combinator(com) => {
-                    Some((from_nid.to_owned(), to_nid.to_owned(), com.clone()))
-                }
+                Connection::Combinator(com) => Some((*from_nid, *to_nid, com.clone())),
                 Connection::Wire(_) => None,
+            })
+        })
+    }
+
+    pub fn iter_wires(&self) -> impl Iterator<Item = (NId, NId, &WireKind)> + '_ {
+        self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
+            to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
+                Connection::Wire(wk) => Some((*from_nid, *to_nid, wk)),
+                Connection::Combinator(_) => None,
             })
         })
     }
@@ -566,6 +580,8 @@ impl Graph {
         let output_nid = self.push_inner_node();
         self.push_wire(from, input_nid, WireKind::Green);
         self.push_wire(to, output_nid, WireKind::Green);
+        self.push_wire(from, input_nid, WireKind::Red);
+        self.push_wire(to, output_nid, WireKind::Red);
         self.push_raw_connection(input_nid, output_nid, connection);
     }
 

@@ -97,18 +97,18 @@ impl Simulator {
             "Incorrect number of inputs were provided."
         );
 
-        let mut networks = FnvHashMap::default();
+        let mut nid_to_networks_id = FnvHashMap::default();
 
         for (network_id, network) in graph.get_networks().iter().enumerate() {
             for nid in network {
-                networks.insert(*nid, network_id);
+                nid_to_networks_id.insert(*nid, network_id);
             }
         }
 
         for i in 0..inputs.len() {
             let nid = input_nodes[i];
             let input = inputs[i].clone();
-            let network_id = networks.get(&nid).unwrap();
+            let network_id = nid_to_networks_id.get(&nid).unwrap();
 
             constant_inputs
                 .entry(*network_id)
@@ -119,7 +119,7 @@ impl Simulator {
         Self {
             graph,
             constant_inputs,
-            networks,
+            networks: nid_to_networks_id,
             network_contents: FnvHashMap::default(),
             step: 0,
         }
