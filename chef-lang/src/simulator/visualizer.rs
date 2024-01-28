@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    compiler::graph::{Combinator, Connection, Node, WireKind},
+    compiler::graph::{Combinator, Connection, Node, WireConnection, WireKind},
     utils,
 };
 
@@ -45,6 +45,7 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
             items if !items.is_empty() => items.iter().map(|item| item.to_string()).collect(),
             _ => "EMPTY".to_string(),
         };
+
         if sim.graph.is_wire_only_node(*nid) {
             if let Some(Node::Inner) = sim.graph.get_node(nid) {
                 node_contents = "".to_string();
@@ -139,19 +140,4 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
     // }
     dot += "}\n";
     dot
-}
-
-enum WireConnection {
-    Green,
-    Red,
-    Both,
-}
-
-impl WireConnection {
-    fn from_wire_kind(wk: &WireKind) -> Self {
-        match wk {
-            WireKind::Green => Self::Green,
-            WireKind::Red => Self::Red,
-        }
-    }
 }

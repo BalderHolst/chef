@@ -7,7 +7,7 @@ use factorio_blueprint::objects::EntityNumber;
 
 use crate::{
     blueprint_converter::{ConnectionPoint, NetworkId, Operation},
-    compiler::graph::{Graph, NId},
+    compiler::graph::{Graph, NId, WireKind},
 };
 
 use super::{CombinatorPosition, ConnectionPointType, CoordSet, FactorioCombinator, WIRE_RANGE};
@@ -48,7 +48,7 @@ fn test_is_in_range() {
 /// 6. When placed, connect wires to the other combinators that were placed.
 pub struct TurdMaster2000 {
     graph: Graph,
-    networks: Vec<Vec<NId>>,
+    networks: Vec<(Vec<NId>, WireKind)>,
     placed_combinators: HashMap<EntityNumber, FactorioCombinator>,
     placed_positions: HashSet<CoordSet>,
     max_x: i64,
@@ -189,7 +189,7 @@ impl TurdMaster2000 {
     }
 
     fn get_node_network(&self, nid: NId) -> NetworkId {
-        for (network_id, network) in self.networks.iter().enumerate() {
+        for (network_id, (network, _wk)) in self.networks.iter().enumerate() {
             for network_nid in network {
                 if network_nid == &nid {
                     return network_id;

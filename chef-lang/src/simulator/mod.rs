@@ -99,7 +99,7 @@ impl Simulator {
 
         let mut nid_to_networks_id = FnvHashMap::default();
 
-        for (network_id, network) in graph.get_networks().iter().enumerate() {
+        for (network_id, (network, _wk)) in graph.get_networks().iter().enumerate() {
             for nid in network {
                 nid_to_networks_id.insert(*nid, network_id);
             }

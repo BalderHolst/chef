@@ -388,26 +388,38 @@ impl Graph {
         self.get_wire_connected_nodes(nid, vec![], wire_kind)
     }
 
-    pub fn get_networks(&self) -> Vec<Vec<NId>> {
+    pub fn get_networks(&self) -> Vec<(Vec<NId>, WireKind)> {
         let mut inserted: HashSet<NId> = HashSet::new();
-        let mut networks: Vec<Vec<NId>> = vec![vec![]];
+        let mut networks: Vec<(Vec<NId>, WireKind)> = vec![];
 
+        // Green wires
         for nid in self.vertices.keys() {
             let has_new_network = inserted.insert(*nid);
             if !has_new_network {
                 continue;
             }
-
             let green_network = self.get_node_network(nid, WireKind::Green);
-            let red_network = self.get_node_network(nid, WireKind::Red);
-
             for network_nid in &green_network {
                 inserted.insert(*network_nid);
             }
+            if !green_network.is_empty() {
+                networks.push((green_network, WireKind::Green));
+            }
+        }
+
+        // Red wires
+        for nid in self.vertices.keys() {
+            let has_new_network = inserted.insert(*nid);
+            if !has_new_network {
+                continue;
+            }
+            let red_network = self.get_node_network(nid, WireKind::Red);
             for network_nid in &red_network {
                 inserted.insert(*network_nid);
             }
-            networks.push(green_network);
+            if !red_network.is_empty() {
+                networks.push((red_network, WireKind::Red));
+            }
         }
 
         networks
@@ -436,25 +448,35 @@ impl Graph {
         }
     }
 
-    pub fn get_input_iotypes(&self, nid: &NId) -> Vec<IOType> {
+    pub fn get_input_iotypes(&self, nid: &NId) -> Vec<(IOType, WireConnection)> {
         let green_network_nids = self.get_node_network(nid, WireKind::Green);
         let red_network_nids = self.get_node_network(nid, WireKind::Red);
 
         // If the node is a constant node, it should have zero external inputs, but output its own
         // values as a [IOType::Constant].
         if let Some(Node::Constant(t)) = self.vertices.get(nid) {
-            return vec![t.clone()];
+            return vec![(t.clone(), WireConnection::Both)];
         }
 
         let mut input_types = vec![];
 
         for to_vec in self.adjacency.values() {
             for (to_nid, conn) in to_vec {
-                if green_network_nids.contains(to_nid) || red_network_nids.contains(to_nid) {
+                if green_network_nids.contains(to_nid) {
                     if let Connection::Combinator(com) = conn {
                         let input_type = com.get_output_iotype();
-                        if !input_types.contains(&input_type) {
-                            input_types.push(input_type)
+                        let input = (input_type, WireConnection::Green);
+                        if !input_types.contains(&input) {
+                            input_types.push(input)
+                        }
+                    }
+                }
+                if red_network_nids.contains(to_nid) {
+                    if let Connection::Combinator(com) = conn {
+                        let input_type = com.get_output_iotype();
+                        let input = (input_type, WireConnection::Red);
+                        if !input_types.contains(&input) {
+                            input_types.push(input)
                         }
                     }
                 }
@@ -748,7 +770,7 @@ impl Graph {
                         "Block inputs can only have one type. NOTE: This type may be `All`."
                     );
 
-                    let input_type = input_types[0].clone();
+                    let (input_type, wc) = input_types[0].clone();
 
                     // This node is the transition point from this graph to the other graph, now
                     // stitched inside this one. The middle node contains signals of the type
@@ -813,7 +835,7 @@ impl Graph {
         if inputs.len() != 1 {
             return Err(format!("Could not get single input: {inputs:?}"));
         }
-        Ok(inputs[0].clone())
+        Ok(inputs[0].0.clone())
     }
 
     /// Replace an [IOType] with another throughout the whole graph. This is usefull when assigning
@@ -1034,6 +1056,22 @@ impl<'a> AnysignalAssigner<'a> {
                 let sig = self.get_next_signal();
                 self.anysignal_to_signal.insert(*n, sig);
             }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum WireConnection {
+    Green,
+    Red,
+    Both,
+}
+
+impl WireConnection {
+    pub fn from_wire_kind(wk: &WireKind) -> Self {
+        match wk {
+            WireKind::Green => Self::Green,
+            WireKind::Red => Self::Red,
         }
     }
 }

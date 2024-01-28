@@ -21,7 +21,12 @@ pub fn create_dot(graph: &Graph) -> String {
             if inputs.is_empty() {
                 "CONST".to_string()
             } else {
-                Vec::from_iter(inputs.iter().map(|i| i.to_string())).join(" | ")
+                Vec::from_iter(inputs.iter().map(|(i, wc)| match wc {
+                    super::graph::WireConnection::Green => format!("G[{i}]"),
+                    super::graph::WireConnection::Red => format!("R[{i}]"),
+                    super::graph::WireConnection::Both => format!("B[{i}]"),
+                }))
+                .join(" | ")
             }
         };
 
