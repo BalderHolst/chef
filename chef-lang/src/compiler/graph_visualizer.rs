@@ -1,12 +1,8 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fs::OpenOptions,
-    io::Write,
-};
+use std::{collections::HashMap, fs::OpenOptions, io::Write};
 
 use crate::utils::{self, VisualizerError};
 
-use super::graph::{Combinator, Connection, Graph, Node, WireConnection, WireKind};
+use super::graph::{Combinator, Connection, Graph, Node, WireConnection};
 
 pub fn create_dot(graph: &Graph) -> String {
     let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();
@@ -25,10 +21,16 @@ pub fn create_dot(graph: &Graph) -> String {
             if inputs.is_empty() {
                 "CONST".to_string()
             } else {
-                Vec::from_iter(inputs.iter().map(|(i, wc)| match wc {
-                    super::graph::WireConnection::Green => format!("G[{i}]"),
-                    super::graph::WireConnection::Red => format!("R[{i}]"),
-                    super::graph::WireConnection::Both => format!("B[{i}]"),
+                Vec::from_iter(inputs.iter().map(|(iotype, wc)| {
+                    let repr = match &iotype {
+                        super::graph::IOType::Signal(s) => s.to_string(),
+                        t => t.to_string(),
+                    };
+                    match wc {
+                        super::graph::WireConnection::Green => format!("G[{repr}]"),
+                        super::graph::WireConnection::Red => format!("R[{repr}]"),
+                        super::graph::WireConnection::Both => format!("B[{repr}]"),
+                    }
                 }))
                 .join(" | ")
             }

@@ -452,15 +452,21 @@ impl Graph {
         let green_network_nids = self.get_node_network(nid, WireKind::Green);
         let red_network_nids = self.get_node_network(nid, WireKind::Red);
 
-        // If the node is a constant node, it should have zero external inputs, but output its own
-        // values as a [IOType::Constant].
-        if let Some(Node::Constant(t)) = self.get_node(nid) {
-            return vec![(t.clone(), WireConnection::Both)];
-        }
-
         let mut input_types = vec![];
 
-        // Check for input nodes in network
+        // Check for CONSTANT nodes in network
+        for other_nid in &green_network_nids {
+            if let Some(Node::Constant(t)) = self.get_node(other_nid) {
+                input_types.push((t.clone(), WireConnection::Green))
+            }
+        }
+        for other_nid in &red_network_nids {
+            if let Some(Node::Constant(t)) = self.get_node(other_nid) {
+                input_types.push((t.clone(), WireConnection::Red))
+            }
+        }
+
+        // Check for INPUT nodes in network
         for other_id in &green_network_nids {
             if let Some(Node::InputVariable(t)) = self.get_node(other_id) {
                 input_types.push((t.clone(), WireConnection::Green))
