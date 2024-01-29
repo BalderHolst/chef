@@ -112,7 +112,10 @@ impl GraphCompiler {
                 let var_type = self.variable_type_to_iotype(&var.type_);
                 let var_nid = graph.push_var_node(var_type.clone());
                 let (c_input, c_output) = graph.push_connection(Connection::new_pick(var_type));
-                graph.push_wire(c_input, c_output, WireKind::Green); // Create loop
+                // This node is not needed, but makes visualiztions look better
+                let loop_nid = graph.push_inner_node();
+                graph.push_wire(c_input, loop_nid, WireKind::Green);
+                graph.push_wire(loop_nid, c_output, WireKind::Green);
                 graph.push_wire(c_input, var_nid, WireKind::Green);
                 self.add_to_scope(var.name.clone(), None, var_nid);
                 return Ok(());
@@ -134,9 +137,14 @@ impl GraphCompiler {
                     operation: DeciderOperation::LessThan,
                     gate_type: var_type.clone(),
                 });
+
                 let (memcell_input, memcell_output) = graph.push_connection(if_less_than_limit);
-                graph.push_wire(memcell_input, memcell_output, WireKind::Red); // Create loop
-                graph.push_wire(memcell_input, var_nid, WireKind::Green);
+
+                // This is not needed, but makes visualiztions look better.
+                let loop_nid = graph.push_inner_node();
+                graph.push_wire(memcell_input, loop_nid, WireKind::Green);
+                graph.push_wire(loop_nid, memcell_output, WireKind::Green);
+                graph.push_wire(memcell_output, var_nid, WireKind::Green);
 
                 // Connect the limit to the memory cell
                 graph.push_wire(limit_nid, memcell_input, WireKind::Red);
@@ -306,9 +314,10 @@ impl GraphCompiler {
         assert_ne!(&var_iotype, &expr_out_type);
 
         let conn = match mutation_statement.operator {
-            crate::ast::MutationOperator::Add => {
-                Connection::new_convert(expr_out_type.clone(), var_iotype.clone())
-            }
+            crate::ast::MutationOperator::Add => Connection::new_convert(
+                expr_out_type.clone().to_combinator_type(),
+                var_iotype.clone().to_combinator_type(),
+            ),
 
             // Multiply by -1 if subtracting
             crate::ast::MutationOperator::Subtract => {
