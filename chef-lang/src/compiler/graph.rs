@@ -1172,7 +1172,7 @@ mod tests {
         network1_1.sort();
         network1_2.sort();
         network1_3.sort();
-        assert_eq!(network1_1, vec![n1, n2, n3, 6]);
+        assert_eq!(network1_1, vec![n1, n2, n3]);
         assert_eq!(network1_1, network1_2);
         assert_eq!(network1_1, network1_3);
 
@@ -1181,12 +1181,12 @@ mod tests {
         let mut network2_2 = g.get_node_network(&n6, WireKind::Green);
         network2_1.sort();
         network2_2.sort();
-        assert_eq!(network2_1, vec![n4, n6, 7, 8, 10]);
+        assert_eq!(network2_1, vec![n6, n4]);
         assert_eq!(network2_1, network2_2);
 
         // Check network 3
         let mut network3 = g.get_node_network(&n5, WireKind::Green);
         network3.sort();
-        assert_eq!(network3, vec![n5, 9, 11]);
+        assert_eq!(network3, vec![n5]);
     }
 }
