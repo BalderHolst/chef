@@ -117,41 +117,33 @@ impl GraphCompiler {
                 self.add_to_scope(var.name.clone(), None, var_nid);
                 return Ok(());
             }
-            VariableType::Counter(_) => {
+            VariableType::Counter((_, limit_expr)) => {
                 let var_type = self.variable_type_to_iotype(&var.type_);
-                let (limit_nid, limit_type) =
-                    if let VariableType::Counter((_, limit_expr)) = &var.type_ {
-                        self.compile_expression(graph, limit_expr, None)?
-                    } else {
-                        panic!("Counter operation should be to counter variables.")
-                    };
+
+                // Get counter limit
+                let (limit_nid, limit_type) = self.compile_expression(graph, limit_expr, None)?;
+
                 let var_nid = graph.push_var_node(var_type.clone());
+
+                assert_ne!(limit_type, var_type);
 
                 // Connect up the memory cell
                 let if_less_than_limit = Connection::new_gate(GateCombinator {
-                    left: var_type.clone(),
-                    right: limit_type.clone(),
+                    left: var_type.clone().to_combinator_type(),
+                    right: limit_type.clone().to_combinator_type(),
                     operation: DeciderOperation::LessThan,
                     gate_type: var_type.clone(),
                 });
                 let (memcell_input, memcell_output) = graph.push_connection(if_less_than_limit);
-                graph.push_wire(memcell_input, memcell_output, WireKind::Green); // Create loop
+                graph.push_wire(memcell_input, memcell_output, WireKind::Red); // Create loop
                 graph.push_wire(memcell_input, var_nid, WireKind::Green);
 
                 // Connect the limit to the memory cell
-                let (_, limit_nid) = graph.push_connection(Connection::new_pick(limit_type));
                 graph.push_wire(limit_nid, memcell_input, WireKind::Red);
 
-                // Push constant node, to drive the counter.
-                // TODO: Convert to constant signal and remove combinator
-                let driver_nid = graph.push_node(Node::Constant(var_type.clone()));
-                let com = Combinator::Constant(ConstantCombinator {
-                    type_: var_type.to_combinator_type(),
-                    count: 1,
-                });
-                let (c_input, c_output) = graph.push_combinator(com);
-                graph.push_wire(driver_nid, c_input, WireKind::Green);
-                graph.push_wire(c_output, memcell_input, WireKind::Red);
+                // Push constant node to drive the counter
+                let driver_nid = graph.push_node(Node::Constant(var_type.to_constant(1).unwrap()));
+                graph.push_wire(driver_nid, memcell_input, WireKind::Red);
 
                 self.add_to_scope(var.name.clone(), None, var_nid);
                 return Ok(());

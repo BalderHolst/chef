@@ -5,7 +5,7 @@ mod visualizer;
 use std::{fmt::Display, io};
 
 use crate::compiler::graph::{
-    ArithmeticOperation, Combinator, DeciderOperation, Graph, IOType, NId, NetworkId,
+    ArithmeticOperation, Combinator, DeciderOperation, Graph, IOType, NId, NetworkId, Node,
 };
 use fnv::FnvHashMap;
 
@@ -114,6 +114,17 @@ impl Simulator {
                 .entry(*network_id)
                 .and_modify(|v: &mut Vec<Item>| v.extend(input.clone()))
                 .or_insert(input);
+        }
+
+        for (nid, node) in &graph.vertices {
+            if let Some((t, n)) = node.get_constant_value() {
+                let network_id = nid_to_networks_id.get(&nid).unwrap();
+                let item = Item::new(t, n);
+                constant_inputs
+                    .entry(*network_id)
+                    .and_modify(|v: &mut Vec<Item>| v.push(item.clone()))
+                    .or_insert(vec![item]);
+            }
         }
 
         Self {

@@ -102,14 +102,27 @@ impl IOType {
 
     pub fn to_combinator_type(self) -> Self {
         match self {
-            IOType::ConstantSignal((sig, _)) => IOType::Signal(sig),
-            IOType::ConstantAny((n, _)) => IOType::AnySignal(n),
-            IOType::Signal(_) => self,
-            IOType::AnySignal(_) => self,
-            IOType::Constant(_) => self,
-            IOType::Everything => self,
-            IOType::Anything => self,
-            IOType::Each => self,
+            Self::ConstantSignal((sig, _)) => IOType::Signal(sig),
+            Self::ConstantAny((n, _)) => IOType::AnySignal(n),
+            Self::Signal(_) => self,
+            Self::AnySignal(_) => self,
+            Self::Constant(_) => self,
+            Self::Everything => self,
+            Self::Anything => self,
+            Self::Each => self,
+        }
+    }
+
+    pub fn to_constant(&self, count: i32) -> Option<Self> {
+        match self {
+            Self::Signal(s) => Some(Self::ConstantSignal((s.clone(), count))),
+            Self::AnySignal(n) => Some(Self::ConstantAny((*n, count))),
+            Self::ConstantSignal(_) => Some(self.clone()),
+            Self::ConstantAny(_) => Some(self.clone()),
+            Self::Constant(_) => None,
+            Self::Everything => None,
+            Self::Anything => None,
+            Self::Each => None,
         }
     }
 }
@@ -117,14 +130,14 @@ impl IOType {
 impl Display for IOType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            IOType::Signal(s) => format!("Sig({})", s),
-            IOType::AnySignal(n) => format!("Any({})", n),
-            IOType::Constant(n) => format!("({})", n),
-            IOType::ConstantSignal((sig, n)) => format!("Const({}, {})", sig, n),
-            IOType::ConstantAny((sig, n)) => format!("ConstAny({}, {})", sig, n),
-            IOType::Everything => "EVERYTHING".to_string(),
-            IOType::Anything => "ANYTHING".to_string(),
-            IOType::Each => "EACH".to_string(),
+            Self::Signal(s) => format!("Sig({})", s),
+            Self::AnySignal(n) => format!("Any({})", n),
+            Self::Constant(n) => format!("({})", n),
+            Self::ConstantSignal((sig, n)) => format!("Const({}, {})", sig, n),
+            Self::ConstantAny((sig, n)) => format!("ConstAny({}, {})", sig, n),
+            Self::Everything => "EVERYTHING".to_string(),
+            Self::Anything => "ANYTHING".to_string(),
+            Self::Each => "EACH".to_string(),
         };
         write!(f, "{}", s)
     }
@@ -344,6 +357,20 @@ pub enum Node {
 
     // TODO: Maybe this should just contain the constant and not a generic iotype?
     Constant(IOType),
+}
+
+impl Node {
+    pub fn get_constant_value(&self) -> Option<(IOType, i32)> {
+        match self {
+            Self::Constant(IOType::ConstantSignal((sig, count))) => {
+                Some((IOType::Signal(sig.to_string()), *count))
+            }
+            Self::Constant(IOType::ConstantAny((n, count))) => {
+                Some((IOType::AnySignal(*n), *count))
+            }
+            _ => None,
+        }
+    }
 }
 
 /// Index of a node in a [Graph].
