@@ -99,6 +99,19 @@ impl IOType {
     {
         Self::Signal(signal.to_string())
     }
+
+    pub fn to_combinator_type(self) -> Self {
+        match self {
+            IOType::ConstantSignal((sig, _)) => IOType::Signal(sig),
+            IOType::ConstantAny((n, _)) => IOType::AnySignal(n),
+            IOType::Signal(_) => self,
+            IOType::AnySignal(_) => self,
+            IOType::Constant(_) => self,
+            IOType::Everything => self,
+            IOType::Anything => self,
+            IOType::Each => self,
+        }
+    }
 }
 
 impl Display for IOType {
@@ -643,7 +656,7 @@ impl Graph {
 
     pub fn push_gate_connection(&mut self, cond_type: IOType, gate_type: IOType) -> (NId, NId) {
         self.push_connection(Connection::new_gate(GateCombinator {
-            left: cond_type,
+            left: cond_type.to_combinator_type(),
             right: IOType::Constant(0),
             operation: DeciderOperation::LargerThan,
             gate_type,

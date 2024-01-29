@@ -146,7 +146,7 @@ impl GraphCompiler {
                 // TODO: Convert to constant signal and remove combinator
                 let driver_nid = graph.push_node(Node::Constant(var_type.clone()));
                 let com = Combinator::Constant(ConstantCombinator {
-                    type_: var_type,
+                    type_: var_type.to_combinator_type(),
                     count: 1,
                 });
                 let (c_input, c_output) = graph.push_combinator(com);
@@ -458,11 +458,9 @@ impl GraphCompiler {
         let var_ref = pick_expr.from.clone();
         if let Some(var_out_nid) = self.search_scope(var_ref.var.name.clone(), None) {
             let out_type = IOType::signal(pick_expr.pick_signal.clone());
-            let (c_input, picked_nid) = graph.push_connection(
-                // var_out_vid,
-                // picked_vid,
-                Connection::new_arithmetic(ArithmeticCombinator::new_pick(out_type.clone())),
-            );
+            let (c_input, picked_nid) = graph.push_connection(Connection::new_arithmetic(
+                ArithmeticCombinator::new_pick(out_type.clone().to_combinator_type()),
+            ));
             graph.push_wire(var_out_nid, c_input, WireKind::Green);
             Ok((picked_nid, out_type))
         } else {
@@ -561,8 +559,12 @@ impl GraphCompiler {
         // The connection doing the actual operation
         Ok(match operation {
             ReturnValue::Int(op) => {
-                let arithmetic_connection =
-                    ArithmeticCombinator::new(left_type, right_type, op, out_type.clone());
+                let arithmetic_connection = ArithmeticCombinator::new(
+                    left_type.to_combinator_type(),
+                    right_type.to_combinator_type(),
+                    op,
+                    out_type.clone(),
+                );
                 let op_connection = Connection::new_arithmetic(arithmetic_connection);
                 let (c_input, output_nid) = graph.push_connection(op_connection);
                 graph.push_wire(c_input, left_nid, WireKind::Green);
@@ -570,8 +572,12 @@ impl GraphCompiler {
                 (output_nid, out_type)
             }
             ReturnValue::Bool(op) => {
-                let decider_connection =
-                    DeciderCombinator::new(left_type, right_type, op, out_type.clone());
+                let decider_connection = DeciderCombinator::new(
+                    left_type.to_combinator_type(),
+                    right_type.to_combinator_type(),
+                    op,
+                    out_type.clone(),
+                );
                 let op_connection = Connection::new_decider(decider_connection);
                 let (c_input, output_nid) = graph.push_connection(op_connection);
                 graph.push_wire(c_input, left_nid, WireKind::Green);
