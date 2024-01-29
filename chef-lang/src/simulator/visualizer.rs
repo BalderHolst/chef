@@ -109,35 +109,6 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
         );
     }
 
-    // for (from_nid, to_nid, conn) in sim.graph.iter_conns() {
-    // match &conn {
-    //     Connection::Wire(wire_color) => {
-
-    //         let color = match wire_color {
-    //             WireKind::Green => "green",
-    //             WireKind::Red => "red",
-    //         };
-    //         dot += &format!(
-    //             "\t{} -> {}\t[label=\"{}\" color={} fontcolor={} dir=\"both\"]\n",
-    //             from_nid, to_nid, conn, color, color
-    //         );
-    //     }
-    //     Connection::Combinator(com) => {
-    //         let color = match com {
-    //             com if com.is_pick() => "black",
-    //             com if com.is_convert() => "blue",
-    //             Combinator::Arithmetic(_) => "orange",
-    //             Combinator::Decider(_) => "purple",
-    //             Combinator::Gate(_) => "teal",
-    //             Combinator::Constant(_) => "brown",
-    //         };
-    //         dot += &format!(
-    //             "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",
-    //             from_nid, to_nid, conn, color, color
-    //         );
-    //     }
-    // };
-    // }
     dot += "}\n";
     dot
 }
