@@ -287,7 +287,16 @@ impl FactorioCombinator {
                     }),
                 )
             }
-            graph::IOType::_ConstantSignal(_) => todo!(),
+            graph::IOType::ConstantSignal((s, n)) => {
+                let type_ = Self::get_signal_type(s.as_str());
+                (
+                    Some(*n),
+                    Some(SignalID {
+                        name: s.clone(),
+                        type_,
+                    }),
+                )
+            }
             graph::IOType::Constant(n) => (Some(*n), None),
             graph::IOType::Everything => (
                 None,
@@ -315,6 +324,9 @@ impl FactorioCombinator {
             ),
 
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
+            graph::IOType::ConstantAny(_) => {
+                panic!("CostantAny should be eradicated at this point.")
+            }
         }
     }
 
@@ -324,11 +336,14 @@ impl FactorioCombinator {
         match t {
             IOType::Signal(s) => (Self::get_signal_type(s.as_str()), s),
             IOType::Constant(_) => todo!(),
-            IOType::_ConstantSignal(_) => todo!(),
+            IOType::ConstantSignal(_) => todo!(),
             IOType::Everything => todo!(),
             IOType::Anything => todo!(),
             IOType::Each => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
+            graph::IOType::ConstantAny(_) => {
+                panic!("ConstantAny should be eradicated at this point.")
+            }
         }
     }
 

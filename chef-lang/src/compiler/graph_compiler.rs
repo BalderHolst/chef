@@ -394,7 +394,7 @@ impl GraphCompiler {
         graph: &mut Graph,
         number: i32,
     ) -> Result<(NId, IOType), CompilationError> {
-        let iotype = IOType::Constant(number);
+        let iotype = self.get_new_const_anysignal(number);
         let const_nid = graph.push_node(Node::Constant(iotype.clone()));
         Ok((const_nid, iotype))
     }
@@ -767,6 +767,12 @@ impl GraphCompiler {
 
     fn get_new_anysignal(&mut self) -> IOType {
         let signal = IOType::AnySignal(self.next_anysignal);
+        self.next_anysignal += 1;
+        signal
+    }
+
+    fn get_new_const_anysignal(&mut self, n: i32) -> IOType {
+        let signal = IOType::ConstantAny((self.next_anysignal, n));
         self.next_anysignal += 1;
         signal
     }
