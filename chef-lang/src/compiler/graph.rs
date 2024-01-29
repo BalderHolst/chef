@@ -591,51 +591,43 @@ impl Graph {
         self.push_node(Node::Variable(variable_type))
     }
 
-    pub fn push_raw_connection(&mut self, from: NId, to: NId, connection: Connection) {
-        let adjacent_to_from = self.adjacency.entry(from).or_default();
-        adjacent_to_from.push((to, connection));
+    /// Push a connection between two nodes.
+    fn push_raw_connection(&mut self, from: NId, to: NId, connection: Connection) {
+        self.adjacency
+            .entry(from)
+            .or_default()
+            .push((to, connection));
     }
 
     /// Push a connection between two nodes.
-    pub fn push_connection(&mut self, from: NId, to: NId, connection: Connection) {
-        let input_nid = self.push_inner_node();
-        let output_nid = self.push_inner_node();
-        self.push_wire(from, input_nid, WireKind::Green);
-        self.push_wire(to, output_nid, WireKind::Green);
-        self.push_wire(from, input_nid, WireKind::Red);
-        self.push_wire(to, output_nid, WireKind::Red);
-        self.push_raw_connection(input_nid, output_nid, connection);
-    }
-
-    pub fn push_wire(&mut self, n1: NId, n2: NId, wire_kind: WireKind) {
-        self.push_raw_connection(n1, n2, Connection::Wire(wire_kind.clone()));
-        self.push_raw_connection(n2, n1, Connection::Wire(wire_kind));
-    }
-
-    pub fn push_combinator(&mut self, com: Combinator) -> (NId, NId) {
+    pub fn push_connection(&mut self, connection: Connection) -> (NId, NId) {
         let from = self.push_inner_node();
         let to = self.push_inner_node();
-        self.push_connection(from, to, Connection::Combinator(com));
+        let adjacent_to_from = self.adjacency.entry(from).or_default();
+        adjacent_to_from.push((to, connection));
         (from, to)
     }
 
-    pub fn push_gate_connection(
-        &mut self,
-        input: NId,
-        output: NId,
-        cond_type: IOType,
-        gate_type: IOType,
-    ) {
-        self.push_connection(
-            input,
-            output,
-            Connection::new_gate(GateCombinator {
-                left: cond_type,
-                right: IOType::Constant(0),
-                operation: DeciderOperation::LargerThan,
-                gate_type,
-            }),
-        );
+    pub fn push_wire(&mut self, n1: NId, n2: NId, wire_kind: WireKind) {
+        let wire = Connection::Wire(wire_kind);
+        self.adjacency
+            .entry(n1)
+            .or_default()
+            .push((n2, wire.clone()));
+        self.adjacency.entry(n2).or_default().push((n1, wire));
+    }
+
+    pub fn push_combinator(&mut self, com: Combinator) -> (NId, NId) {
+        self.push_connection(Connection::Combinator(com))
+    }
+
+    pub fn push_gate_connection(&mut self, cond_type: IOType, gate_type: IOType) -> (NId, NId) {
+        self.push_connection(Connection::new_gate(GateCombinator {
+            left: cond_type,
+            right: IOType::Constant(0),
+            operation: DeciderOperation::LargerThan,
+            gate_type,
+        }))
     }
 
     /// Remove a connection between two nodes.
@@ -732,7 +724,7 @@ impl Graph {
         for (old_from_nid, old_to_nid, conn) in other.iter_conns() {
             let new_from_nid = nid_converter[&old_from_nid];
             let new_to_nid = nid_converter[&old_to_nid];
-            self.push_connection(new_from_nid, new_to_nid, conn.clone());
+            self.push_raw_connection(new_from_nid, new_to_nid, conn.clone());
         }
 
         let other_graph_inputs = other.get_non_constant_inputs();
@@ -777,7 +769,7 @@ impl Graph {
                     // specified in the block arguments.
                     let middle_node = self.push_node(Node::Inner);
 
-                    self.push_connection(
+                    self.push_raw_connection(
                         *block_input_nid,
                         middle_node,
                         Connection::new_arithmetic(ArithmeticCombinator::new_convert(
@@ -786,7 +778,7 @@ impl Graph {
                         )),
                     );
 
-                    self.push_connection(
+                    self.push_raw_connection(
                         middle_node,
                         other_input_nid,
                         Connection::new_arithmetic(ArithmeticCombinator::new_convert(
@@ -801,7 +793,7 @@ impl Graph {
 
                     let new_type = self.get_single_input(block_input_nid).unwrap();
                     self.replace_iotype(other_input_type, &new_type);
-                    self.push_connection(
+                    self.push_raw_connection(
                         *block_input_nid,
                         other_input_nid,
                         Connection::new_arithmetic(ArithmeticCombinator::new_pick(new_type)),
@@ -1083,12 +1075,13 @@ mod tests {
     #[test]
     fn test_get_node_network() {
         let mut g = Graph::new();
+        let conn = Connection::Combinator(Combinator::new_pick(IOType::Signal("test".to_string())));
+
         let n1 = g.push_inner_node();
         let n2 = g.push_inner_node();
-        let n3 = g.push_inner_node();
-        let n4 = g.push_inner_node();
-        let n5 = g.push_inner_node();
-        let n6 = g.push_inner_node();
+        let (n3, _n4) = g.push_connection(conn.clone());
+        let (n6, _n5) = g.push_connection(conn.clone());
+        let (n4, n5) = g.push_connection(conn);
 
         // Network 1: n1 -- n2 -- n3 -- n1 (circle)
         // Network 2: n4 -- n6
@@ -1098,12 +1091,6 @@ mod tests {
         g.push_wire(n2, n3, wire_kind.clone());
         g.push_wire(n3, n1, wire_kind.clone());
         g.push_wire(n4, n6, wire_kind);
-
-        // Add compinators between networks. These add a node to the connected networks.
-        let conn = Connection::Combinator(Combinator::new_pick(IOType::Signal("test".to_string())));
-        g.push_connection(n3, n4, conn.clone());
-        g.push_connection(n6, n5, conn.clone());
-        g.push_connection(n4, n5, conn);
 
         // Check network 1
         let mut network1_1 = g.get_node_network(&n1, WireKind::Green);

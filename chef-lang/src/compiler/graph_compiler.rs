@@ -56,11 +56,14 @@ impl GraphCompiler {
             self.compile_expression(&mut graph, &block.output, None)?;
         let block_out_type = self.variable_type_to_iotype(&block.output_type);
         let block_out_nid = graph.push_output_node(block_out_type.clone());
-        graph.push_connection(
-            out_expr_nid,
-            block_out_nid,
-            Connection::new_convert(out_expr_type, block_out_type),
-        );
+
+        let (c_input, c_ouput) =
+            graph.push_connection(Connection::new_convert(out_expr_type, block_out_type));
+
+        graph.push_wire(out_expr_nid, c_input, WireKind::Green);
+
+        // TODO: Use correct wire
+        graph.push_wire(c_ouput, block_out_nid, WireKind::Green);
 
         self.exit_scope();
         Ok(graph)
@@ -86,7 +89,9 @@ impl GraphCompiler {
             StatementKind::Out(expr) => {
                 let (expr_nid, out_type) = self.compile_expression(graph, &expr, None)?;
                 let out_nid = graph.push_output_node(out_type.clone());
-                graph.push_connection(expr_nid, out_nid, Connection::new_pick(out_type));
+                let (c_input, c_ouput) = graph.push_connection(Connection::new_pick(out_type));
+                graph.push_wire(expr_nid, c_input, WireKind::Green);
+                graph.push_wire(c_ouput, out_nid, WireKind::Green);
             }
             StatementKind::Error => {
                 panic!("There should not be error statements when compilation has started.")
@@ -106,7 +111,9 @@ impl GraphCompiler {
             VariableType::Var(_) => {
                 let var_type = self.variable_type_to_iotype(&var.type_);
                 let var_nid = graph.push_var_node(var_type.clone());
-                graph.push_connection(var_nid, var_nid, Connection::new_pick(var_type));
+                let (c_input, c_output) = graph.push_connection(Connection::new_pick(var_type));
+                graph.push_wire(c_input, c_output, WireKind::Green); // Create loop
+                graph.push_wire(c_input, var_nid, WireKind::Green);
                 self.add_to_scope(var.name.clone(), None, var_nid);
                 return Ok(());
             }
@@ -127,18 +134,24 @@ impl GraphCompiler {
                     operation: DeciderOperation::LessThan,
                     gate_type: var_type.clone(),
                 });
-                graph.push_connection(var_nid, var_nid, if_less_than_limit);
+                let (memcell_input, memcell_output) = graph.push_connection(if_less_than_limit);
+                graph.push_wire(memcell_input, memcell_output, WireKind::Green); // Create loop
+                graph.push_wire(memcell_input, var_nid, WireKind::Green);
 
                 // Connect the limit to the memory cell
-                graph.push_connection(limit_nid, var_nid, Connection::new_pick(limit_type));
+                let (_, limit_nid) = graph.push_connection(Connection::new_pick(limit_type));
+                graph.push_wire(limit_nid, memcell_input, WireKind::Red);
 
                 // Push constant node, to drive the counter.
+                // TODO: Convert to constant signal and remove combinator
                 let driver_nid = graph.push_node(Node::Constant(var_type.clone()));
-                let conn = Connection::Combinator(Combinator::Constant(ConstantCombinator {
+                let com = Combinator::Constant(ConstantCombinator {
                     type_: var_type,
                     count: 1,
-                }));
-                graph.push_connection(driver_nid, var_nid, conn);
+                });
+                let (c_input, c_output) = graph.push_combinator(com);
+                graph.push_wire(driver_nid, c_input, WireKind::Green);
+                graph.push_wire(c_output, memcell_input, WireKind::Red);
 
                 self.add_to_scope(var.name.clone(), None, var_nid);
                 return Ok(());
@@ -269,14 +282,12 @@ impl GraphCompiler {
                 let var_node_nid = graph.push_var_node(var_type.clone());
 
                 // Connect the output of the expression to the input of the variable
-                graph.push_connection(
-                    expr_out_nid,
-                    var_node_nid,
-                    Connection::new_arithmetic(ArithmeticCombinator::new_convert(
-                        expr_out_type,
-                        var_type,
-                    )),
-                );
+                let (c_input, c_output) = graph.push_connection(Connection::new_arithmetic(
+                    ArithmeticCombinator::new_convert(expr_out_type, var_type),
+                ));
+
+                graph.push_wire(c_input, expr_out_nid, WireKind::Green);
+                graph.push_wire(c_output, var_node_nid, WireKind::Green);
 
                 self.add_to_scope(operation.variable.name.clone(), None, var_node_nid);
                 Ok(())
@@ -323,20 +334,24 @@ impl GraphCompiler {
                 // TODO: convert one if this happens
                 assert_ne!(&condition_type, &var_iotype);
 
-                let expr_out_nid = {
-                    let new_out_nid = graph.push_inner_node();
-                    graph.push_connection(expr_out_nid, new_out_nid, conn);
-                    new_out_nid
-                };
+                let (c_input, new_out_nid) = graph.push_connection(conn);
+                graph.push_wire(expr_out_nid, c_input, WireKind::Green);
+                let expr_out_nid = new_out_nid; // Expression output is now gated
 
-                graph.push_connection(
-                    condition_nid,
-                    expr_out_nid,
-                    Connection::new_pick(condition_type.clone()),
-                );
-                graph.push_gate_connection(expr_out_nid, var_nid, condition_type, var_iotype)
+                // Add the gate
+                let (gate_input, gate_output) =
+                    graph.push_gate_connection(condition_type, var_iotype);
+
+                // Wire up the gate
+                graph.push_wire(gate_input, condition_nid, WireKind::Green);
+                graph.push_wire(gate_input, expr_out_nid, WireKind::Green);
+                graph.push_wire(gate_output, var_nid, WireKind::Green);
             }
-            None => graph.push_connection(expr_out_nid, var_nid, conn),
+            None => {
+                let (c_input, c_output) = graph.push_connection(conn);
+                graph.push_wire(c_input, expr_out_nid, WireKind::Green);
+                graph.push_wire(c_output, var_nid, WireKind::Green);
+            }
         };
 
         Ok(())
@@ -418,10 +433,10 @@ impl GraphCompiler {
         };
 
         let (expr_out_nid, _) = self.compile_expression(graph, expr, Some(out_type.clone()))?;
-        let negative_out_nid = graph.push_inner_node();
-        graph.push_connection(
-            expr_out_nid,
-            negative_out_nid,
+
+        let (c_input, negative_out_nid) = graph.push_connection(
+            // expr_out_nid,
+            // negative_out_nid,
             Connection::new_arithmetic(ArithmeticCombinator::new(
                 out_type.clone(),
                 IOType::Constant(-1),
@@ -429,6 +444,8 @@ impl GraphCompiler {
                 out_type.clone(),
             )),
         );
+
+        graph.push_wire(expr_out_nid, c_input, WireKind::Green);
 
         Ok((negative_out_nid, out_type))
     }
@@ -439,15 +456,15 @@ impl GraphCompiler {
         pick_expr: &PickExpression,
     ) -> Result<(NId, IOType), CompilationError> {
         let var_ref = pick_expr.from.clone();
-        if let Some(var_out_vid) = self.search_scope(var_ref.var.name.clone(), None) {
+        if let Some(var_out_nid) = self.search_scope(var_ref.var.name.clone(), None) {
             let out_type = IOType::signal(pick_expr.pick_signal.clone());
-            let picked_vid = graph.push_inner_node();
-            graph.push_connection(
-                var_out_vid,
-                picked_vid,
+            let (c_input, picked_nid) = graph.push_connection(
+                // var_out_vid,
+                // picked_vid,
                 Connection::new_arithmetic(ArithmeticCombinator::new_pick(out_type.clone())),
             );
-            Ok((picked_vid, out_type))
+            graph.push_wire(var_out_nid, c_input, WireKind::Green);
+            Ok((picked_nid, out_type))
         } else {
             Err(CompilationError::new_localized(
                 format!("No variable with the name \'{}\', ", var_ref.var.name),
@@ -481,40 +498,41 @@ impl GraphCompiler {
         bin_expr: &BinaryExpression,
         out_type: Option<IOType>,
     ) -> Result<(NId, IOType), CompilationError> {
-        let (left_vid, left_type) = self.compile_expression(graph, &bin_expr.left, None)?;
-        let (mut right_vid, mut right_type) =
+        let (left_nid, left_type) = self.compile_expression(graph, &bin_expr.left, None)?;
+        let (mut right_nid, mut right_type) =
             self.compile_expression(graph, &bin_expr.right, None)?;
 
         // If the two inputs are of the same type, one must be converted.
         if left_type == right_type {
-            let new_right_vid = graph.push_inner_node();
-            let new_right_type = self.get_new_anysignal();
-            graph.push_connection(
-                right_vid,
-                new_right_vid,
-                Connection::new_arithmetic(ArithmeticCombinator::new_convert(
-                    right_type.clone(),
-                    new_right_type.clone(),
-                )),
-            );
-            right_vid = new_right_vid;
-            right_type = new_right_type;
+            todo!("Convert binary expressons on the same type");
+            //     let new_right_vid = graph.push_inner_node();
+            //     let new_right_type = self.get_new_anysignal();
+            //     graph.push_connection(
+            //         right_vid,
+            //         new_right_vid,
+            //         Connection::new_arithmetic(ArithmeticCombinator::new_convert(
+            //             right_type.clone(),
+            //             new_right_type.clone(),
+            //         )),
+            //     );
+            //     right_vid = new_right_vid;
+            //     right_type = new_right_type;
         }
 
-        let input_nid = graph.push_inner_node();
-        let output_nid = graph.push_inner_node();
+        // let input_nid = graph.push_inner_node();
+        // let output_nid = graph.push_inner_node();
 
         // Connect the outputs of the left and right expressions to the inputs.
-        graph.push_connection(
-            left_vid,
-            input_nid,
-            Connection::new_arithmetic(ArithmeticCombinator::new_pick(left_type.clone())),
-        );
-        graph.push_connection(
-            right_vid,
-            input_nid,
-            Connection::new_arithmetic(ArithmeticCombinator::new_pick(right_type.clone())),
-        );
+        // graph.push_connection(
+        //     left_vid,
+        //     input_nid,
+        //     Connection::new_arithmetic(ArithmeticCombinator::new_pick(left_type.clone())),
+        // );
+        // graph.push_connection(
+        //     right_vid,
+        //     input_nid,
+        //     Connection::new_arithmetic(ArithmeticCombinator::new_pick(right_type.clone())),
+        // );
 
         // Use the outtype if any was provided.
         let out_type = if let Some(t) = out_type {
@@ -546,17 +564,25 @@ impl GraphCompiler {
                 let arithmetic_connection =
                     ArithmeticCombinator::new(left_type, right_type, op, out_type.clone());
                 let op_connection = Connection::new_arithmetic(arithmetic_connection);
-                graph.push_connection(input_nid, output_nid, op_connection);
+                let (c_input, output_nid) = graph.push_connection(op_connection);
+                graph.push_wire(c_input, left_nid, WireKind::Green);
+                graph.push_wire(c_input, right_nid, WireKind::Green);
                 (output_nid, out_type)
             }
             ReturnValue::Bool(op) => {
                 let decider_connection =
                     DeciderCombinator::new(left_type, right_type, op, out_type.clone());
                 let op_connection = Connection::new_decider(decider_connection);
-                graph.push_connection(input_nid, output_nid, op_connection);
+                let (c_input, output_nid) = graph.push_connection(op_connection);
+                graph.push_wire(c_input, left_nid, WireKind::Green);
+                graph.push_wire(c_input, right_nid, WireKind::Green);
                 (output_nid, out_type)
             }
-            ReturnValue::Group => (input_nid, IOType::Everything),
+            ReturnValue::Group => {
+                graph.push_wire(left_nid, right_nid, WireKind::Green);
+                let common_nid = left_nid;
+                (common_nid, IOType::Everything)
+            }
         })
     }
 
@@ -614,24 +640,22 @@ impl GraphCompiler {
         };
 
         // Compile output expression, we will attatch a gate to the output of this.
-        let (gated_input_nid, mut gated_type) = self.compile_expression(graph, out_expr, None)?;
+        let (expr_out_nid, gated_type) = self.compile_expression(graph, out_expr, None)?;
 
         // If the gated type is a constant, convert it as we can not gate a constant value
         if let IOType::Constant(count) = gated_type {
-            let convertion_node = graph.push_inner_node();
-            gated_type = self.get_new_anysignal();
-            graph.push_connection(
-                convertion_node,
-                gated_input_nid,
-                Connection::Combinator(Combinator::Constant(ConstantCombinator {
-                    type_: gated_type.clone(),
-                    count,
-                })),
-            )
+            todo!()
+            // // let convertion_node = graph.push_inner_node();
+            // gated_type = self.get_new_anysignal();
+            // let (conversion_node) = graph.push_connection(
+            //     // convertion_node,
+            //     // gated_input_nid,
+            //     Connection::Combinator(Combinator::Constant(ConstantCombinator {
+            //         type_: gated_type.clone(),
+            //         count,
+            //     })),
+            // );
         }
-
-        // Output of the gate. This output will be turned on and off by the condition statement.
-        let out_nid = graph.push_inner_node();
 
         let (cond_out_nid, cond_out_type) = cond_pair;
 
@@ -640,15 +664,12 @@ impl GraphCompiler {
 
         // Connect the condition output to the gate input, so the gate can read the condition
         // state.
-        graph.push_connection(
-            cond_out_nid,
-            gated_input_nid,
-            Connection::new_pick(cond_out_type.clone()),
-        );
+        graph.push_wire(cond_out_nid, expr_out_nid, WireKind::Green);
 
         // Push the actual gate opteration. Here we only let the signal through,
         // if the condition returns a value larger than zero.
-        graph.push_gate_connection(gated_input_nid, out_nid, cond_out_type, gated_type.clone());
+        let (gate_input, out_nid) = graph.push_gate_connection(cond_out_type, gated_type.clone());
+        graph.push_wire(expr_out_nid, gate_input, WireKind::Green);
 
         self.exit_scope();
         Ok((out_nid, gated_type))
