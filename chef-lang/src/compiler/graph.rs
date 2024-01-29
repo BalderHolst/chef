@@ -449,6 +449,8 @@ impl Graph {
             }
         }
 
+        let mut inserted: HashSet<NId> = HashSet::new();
+
         // Red wires
         for nid in self.vertices.keys() {
             let has_new_network = inserted.insert(*nid);
