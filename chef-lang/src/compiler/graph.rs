@@ -463,7 +463,7 @@ impl Graph {
         }
     }
 
-    pub fn get_input_iotypes(&self, nid: &NId) -> Vec<(IOType, WireConnection)> {
+    pub fn get_input_iotypes(&self, nid: &NId) -> Vec<(IOType, WireKind)> {
         let green_network_nids = self.get_node_network(nid, WireKind::Green);
         let red_network_nids = self.get_node_network(nid, WireKind::Red);
 
@@ -472,24 +472,24 @@ impl Graph {
         // Check for CONSTANT nodes in network
         for other_nid in &green_network_nids {
             if let Some(Node::Constant(t)) = self.get_node(other_nid) {
-                input_types.push((t.clone(), WireConnection::Green))
+                input_types.push((t.clone(), WireKind::Green))
             }
         }
         for other_nid in &red_network_nids {
             if let Some(Node::Constant(t)) = self.get_node(other_nid) {
-                input_types.push((t.clone(), WireConnection::Red))
+                input_types.push((t.clone(), WireKind::Red))
             }
         }
 
         // Check for INPUT nodes in network
         for other_id in &green_network_nids {
             if let Some(Node::InputVariable(t)) = self.get_node(other_id) {
-                input_types.push((t.clone(), WireConnection::Green))
+                input_types.push((t.clone(), WireKind::Green))
             }
         }
         for other_id in &red_network_nids {
             if let Some(Node::InputVariable(t)) = self.get_node(other_id) {
-                input_types.push((t.clone(), WireConnection::Red))
+                input_types.push((t.clone(), WireKind::Red))
             }
         }
 
@@ -498,7 +498,7 @@ impl Graph {
                 if green_network_nids.contains(to_nid) {
                     if let Connection::Combinator(com) = conn {
                         let input_type = com.get_output_iotype();
-                        let input = (input_type, WireConnection::Green);
+                        let input = (input_type, WireKind::Green);
                         if !input_types.contains(&input) {
                             input_types.push(input)
                         }
@@ -507,7 +507,7 @@ impl Graph {
                 if red_network_nids.contains(to_nid) {
                     if let Connection::Combinator(com) = conn {
                         let input_type = com.get_output_iotype();
-                        let input = (input_type, WireConnection::Red);
+                        let input = (input_type, WireKind::Red);
                         if !input_types.contains(&input) {
                             input_types.push(input)
                         }

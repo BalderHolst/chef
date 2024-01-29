@@ -27,9 +27,8 @@ pub fn create_dot(graph: &Graph) -> String {
                         t => t.to_string(),
                     };
                     match wc {
-                        super::graph::WireConnection::Green => format!("G[{repr}]"),
-                        super::graph::WireConnection::Red => format!("R[{repr}]"),
-                        super::graph::WireConnection::Both => format!("B[{repr}]"),
+                        super::graph::WireKind::Green => format!("G[{repr}]"),
+                        super::graph::WireKind::Red => format!("R[{repr}]"),
                     }
                 }))
                 .join(" | ")
