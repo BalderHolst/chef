@@ -322,10 +322,10 @@ impl GraphCompiler {
             // Multiply by -1 if subtracting
             crate::ast::MutationOperator::Subtract => {
                 Connection::new_arithmetic(ArithmeticCombinator::new(
-                    expr_out_type.clone(),
+                    expr_out_type.clone().to_combinator_type(),
                     IOType::Constant(-1),
                     ArithmeticOperation::Multiply,
-                    var_iotype.clone(),
+                    var_iotype.clone().to_combinator_type(),
                 ))
             }
         };

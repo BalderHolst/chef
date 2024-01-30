@@ -359,7 +359,7 @@ fn return_when() {
 }
 
 #[test]
-fn var_mutiation_with_clock() {
+fn var_mutation_with_clock() {
     let g = compile_code(
         "
     block main() -> int(signal-O) {
@@ -376,7 +376,7 @@ fn var_mutiation_with_clock() {
 ",
     );
     let mut sim = Simulator::new(g, inputs![]);
-    sim.simulate(50);
+    sim.dump_simulation(50, "test");
     assert_eq!(sim.get_output(), outputs!["signal-O": 5]);
 }
 
