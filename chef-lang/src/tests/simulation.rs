@@ -213,8 +213,6 @@ fn multiple_blocks() {
 
     let steps = 20;
 
-    // g.print();
-
     let mut sim = Simulator::new(
         g.clone(),
         inputs![
@@ -223,7 +221,7 @@ fn multiple_blocks() {
                                  "signal-C": 1000 // Should be ignored
         ],
     );
-    sim.dump_simulation(steps, "test");
+    sim.simulate(steps);
 
     assert_eq!(sim.get_output(), outputs!["rail": 0]);
 
