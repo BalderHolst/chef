@@ -135,7 +135,7 @@ impl GraphCompiler {
                     left: var_type.clone().to_combinator_type(),
                     right: limit_type.clone().to_combinator_type(),
                     operation: DeciderOperation::LessThan,
-                    gate_type: var_type.clone(),
+                    gate_type: var_type.clone().to_combinator_type(),
                 });
 
                 let (memcell_input, memcell_output) = graph.push_connection(if_less_than_limit);

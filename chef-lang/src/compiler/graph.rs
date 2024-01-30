@@ -689,7 +689,7 @@ impl Graph {
             left: cond_type.to_combinator_type(),
             right: IOType::Constant(0),
             operation: DeciderOperation::LargerThan,
-            gate_type,
+            gate_type: gate_type.to_combinator_type(),
         }))
     }
 
