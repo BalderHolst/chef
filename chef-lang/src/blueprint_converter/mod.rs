@@ -132,7 +132,7 @@ impl FactorioCombinator {
             graph::Combinator::Arithmetic(_) => "arithmetic-combinator",
             graph::Combinator::Decider(_) => "decider-combinator",
             graph::Combinator::Gate(_) => "decider-combinator",
-            graph::Combinator::Constant(_) => "constant-combinator",
+            graph::Combinator::_Constant(_) => "constant-combinator",
         }
         .to_string();
 
@@ -231,7 +231,7 @@ impl FactorioCombinator {
                     is_on: None,
                 }
             }
-            graph::Combinator::Constant(cc) => {
+            graph::Combinator::_Constant(cc) => {
                 let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
                 ControlBehavior {
                     arithmetic_conditions: None,
@@ -314,7 +314,7 @@ impl FactorioCombinator {
                     type_: SignalIDType::Virtual,
                 }),
             ),
-            graph::IOType::Each => (
+            graph::IOType::_Each => (
                 None,
                 Some(SignalID {
                     // TODO: check that "everything" is correct
@@ -339,7 +339,7 @@ impl FactorioCombinator {
             IOType::ConstantSignal(_) => todo!(),
             IOType::Everything => todo!(),
             IOType::Anything => todo!(),
-            IOType::Each => todo!(),
+            IOType::_Each => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
             graph::IOType::ConstantAny(_) => {
                 panic!("ConstantAny should be eradicated at this point.")

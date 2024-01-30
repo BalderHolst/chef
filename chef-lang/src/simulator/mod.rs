@@ -255,7 +255,7 @@ impl Simulator {
                     };
                     Item::new(c.gate_type, count)
                 }
-                Combinator::Constant(c) => Item::new(c.type_, c.count),
+                Combinator::_Constant(c) => Item::new(c.type_, c.count),
             };
 
             for to_network_id in to_network_ids {

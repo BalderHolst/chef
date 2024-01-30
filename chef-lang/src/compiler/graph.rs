@@ -1,7 +1,5 @@
 //! Implementation of [Graph]. A graph for representing a network of factorio combinators.
 
-#![allow(dead_code)] // TODO: remove
-
 use fnv::FnvHashMap;
 use std::{collections::HashSet, fmt::Display, usize};
 
@@ -89,7 +87,7 @@ pub enum IOType {
     ConstantAny((u64, i32)),
     Everything,
     Anything,
-    Each,
+    _Each,
 }
 
 impl IOType {
@@ -109,7 +107,7 @@ impl IOType {
             Self::Constant(_) => self.clone(),
             Self::Everything => self.clone(),
             Self::Anything => self.clone(),
-            Self::Each => self.clone(),
+            Self::_Each => self.clone(),
         }
     }
 
@@ -122,7 +120,7 @@ impl IOType {
             Self::Constant(_) => None,
             Self::Everything => None,
             Self::Anything => None,
-            Self::Each => None,
+            Self::_Each => None,
         }
     }
 }
@@ -137,7 +135,7 @@ impl Display for IOType {
             Self::ConstantAny((sig, n)) => format!("ConstAny({}, {})", sig, n),
             Self::Everything => "EVERYTHING".to_string(),
             Self::Anything => "ANYTHING".to_string(),
-            Self::Each => "EACH".to_string(),
+            Self::_Each => "EACH".to_string(),
         };
         write!(f, "{}", s)
     }
@@ -233,7 +231,7 @@ pub enum Combinator {
     Arithmetic(ArithmeticCombinator),
     Decider(DeciderCombinator),
     Gate(GateCombinator),
-    Constant(ConstantCombinator),
+    _Constant(ConstantCombinator),
 }
 
 impl Combinator {
@@ -250,7 +248,7 @@ impl Combinator {
             Self::Arithmetic(ac) => ac.output.clone(),
             Self::Decider(dc) => dc.output.clone(),
             Self::Gate(gc) => gc.gate_type.clone(),
-            Self::Constant(cc) => cc.type_.clone(),
+            Self::_Constant(cc) => cc.type_.clone(),
         }
     }
 
@@ -291,7 +289,7 @@ impl Display for Combinator {
                 gate.gate_type, gate.operation, gate.left, gate.right
             ),
             // TODO: This should probably be a node instead of a connection
-            Combinator::Constant(cc) => {
+            Combinator::_Constant(cc) => {
                 format!("CONSTANT : {} = {}", cc.type_, cc.count)
             }
         };
@@ -470,7 +468,7 @@ impl Graph {
         networks
     }
 
-    pub fn get_output_iotype(&self, nid: &NId) -> IOType {
+    pub fn _get_output_iotype(&self, nid: &NId) -> IOType {
         let green_network_nids = self.get_node_network(nid, WireKind::Green);
         let red_network_nids = self.get_node_network(nid, WireKind::Red);
 
@@ -568,7 +566,7 @@ impl Graph {
         })
     }
 
-    pub fn iter_wires(&self) -> impl Iterator<Item = (NId, NId, &WireKind)> + '_ {
+    pub fn _iter_wires(&self) -> impl Iterator<Item = (NId, NId, &WireKind)> + '_ {
         self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
             to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
                 Connection::Wire(wk) => Some((*from_nid, *to_nid, wk)),
@@ -705,7 +703,7 @@ impl Graph {
     }
 
     /// Remove a node and all of its connections.
-    pub fn remove_node_with_connections(&mut self, nid: &NId) {
+    pub fn _remove_node_with_connections(&mut self, nid: &NId) {
         self.adjacency.remove(nid);
         self.vertices.remove(nid);
         for (_, to_vec) in self.adjacency.iter_mut() {
@@ -740,7 +738,7 @@ impl Graph {
     }
 
     /// Check if a node is of type [Node::Output].
-    fn is_output(&self, nid: NId) -> bool {
+    fn _is_output(&self, nid: NId) -> bool {
         if let Some(Node::Output(_)) = self.get_node(&nid) {
             return true;
         }
@@ -872,7 +870,7 @@ impl Graph {
                 }
                 IOType::Everything => todo!(),
                 IOType::Anything => todo!(),
-                IOType::Each => todo!(),
+                IOType::_Each => todo!(),
             }
 
             match self.vertices.get_mut(block_input_nid) {
@@ -928,7 +926,7 @@ impl Graph {
                             gc.gate_type = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Combinator::Constant(cc)) => {
+                    Connection::Combinator(Combinator::_Constant(cc)) => {
                         if cc.type_ == old_type {
                             cc.type_ = new_type.clone()
                         }
@@ -1081,100 +1079,38 @@ impl<'a> AnysignalAssigner<'a> {
             }
         }
 
-        // Create conversions for anysignals
-        for to_vec in self.graph.adjacency.clone().values() {
+        let mut graph = self.graph.clone();
+
+        // Convert anysignals in connections
+        for to_vec in graph.adjacency.values_mut() {
             for (_, conn) in to_vec {
                 if let Connection::Combinator(com) = conn {
                     match com {
                         Combinator::Arithmetic(c) => {
-                            self.assign_if_anysignal(&c.left);
-                            self.assign_if_anysignal(&c.right);
-                            self.assign_if_anysignal(&c.output);
+                            self.replace_if_anysignal(&mut c.left);
+                            self.replace_if_anysignal(&mut c.right);
+                            self.replace_if_anysignal(&mut c.output);
                         }
                         Combinator::Decider(c) => {
-                            self.assign_if_anysignal(&c.left);
-                            self.assign_if_anysignal(&c.right);
-                            self.assign_if_anysignal(&c.output);
+                            self.replace_if_anysignal(&mut c.left);
+                            self.replace_if_anysignal(&mut c.right);
+                            self.replace_if_anysignal(&mut c.output);
                         }
                         Combinator::Gate(c) => {
-                            self.assign_if_anysignal(&c.left);
-                            self.assign_if_anysignal(&c.right);
-                            self.assign_if_anysignal(&c.gate_type);
+                            self.replace_if_anysignal(&mut c.left);
+                            self.replace_if_anysignal(&mut c.right);
+                            self.replace_if_anysignal(&mut c.gate_type);
                         }
-                        Combinator::Constant(c) => {
-                            self.assign_if_anysignal(&c.type_);
+                        Combinator::_Constant(c) => {
+                            self.replace_if_anysignal(&mut c.type_);
                         }
                     }
                 }
             }
         }
 
-        // Convert anysignals
-        self.replace_anysignals();
-    }
-
-    fn assign_if_anysignal(&mut self, iotype: &IOType) {
-        let n = match iotype {
-            IOType::AnySignal(n) => n,
-            IOType::ConstantAny((n, _number)) => n,
-            _ => return,
-        };
-        if let Some(_signal) = self.anysignal_to_signal.get(n) {
-        } else {
-            let sig = self.get_next_signal();
-            self.anysignal_to_signal.insert(*n, sig);
-        }
-    }
-
-    fn replace_if_anysignal(&mut self, mut iotype: &mut IOType) {
-        match &mut iotype {
-            IOType::AnySignal(n) => {
-                let sig = self.anysignal_to_signal.get(n).unwrap();
-                *iotype = IOType::Signal(sig.to_string());
-            }
-            IOType::ConstantAny((n, count)) => {
-                let sig = self.anysignal_to_signal.get(n).unwrap();
-                *iotype = IOType::ConstantSignal((sig.to_string(), *count))
-            }
-            _ => (),
-        }
-    }
-
-    /// Replace an [IOType] with another throughout the whole graph. This is usefull when assigning
-    /// `IOType::Any` actual factorio signals.
-    fn replace_anysignals(&mut self) {
-        // Convert connections
-        let mut adjacency = self.graph.adjacency.clone();
-        for (_, to_vec) in adjacency.iter_mut() {
-            for (_, conn) in to_vec {
-                match conn {
-                    Connection::Combinator(Combinator::Arithmetic(ac)) => {
-                        self.replace_if_anysignal(&mut ac.left);
-                        self.replace_if_anysignal(&mut ac.right);
-                        self.replace_if_anysignal(&mut ac.output);
-                    }
-                    Connection::Combinator(Combinator::Decider(dc)) => {
-                        self.replace_if_anysignal(&mut dc.left);
-                        self.replace_if_anysignal(&mut dc.right);
-                        self.replace_if_anysignal(&mut dc.output);
-                    }
-                    Connection::Combinator(Combinator::Gate(gc)) => {
-                        self.replace_if_anysignal(&mut gc.left);
-                        self.replace_if_anysignal(&mut gc.right);
-                        self.replace_if_anysignal(&mut gc.gate_type);
-                    }
-                    Connection::Combinator(Combinator::Constant(cc)) => {
-                        self.replace_if_anysignal(&mut cc.type_);
-                    }
-                    Connection::Wire(_) => {}
-                }
-            }
-        }
-        self.graph.adjacency = adjacency;
-
-        // Convert Nodes
-        let mut nodes = self.graph.vertices.clone();
-        for node in &mut nodes.values_mut() {
+        // Convert anysignals in nodes
+        for node in graph.vertices.values_mut() {
             match node {
                 Node::InputVariable(t) => self.replace_if_anysignal(t),
                 Node::Variable(t) => self.replace_if_anysignal(t),
@@ -1183,7 +1119,36 @@ impl<'a> AnysignalAssigner<'a> {
                 Node::Inner => {}
             }
         }
-        self.graph.vertices = nodes;
+
+        *self.graph = graph;
+    }
+
+    fn replace_if_anysignal(&mut self, mut iotype: &mut IOType) {
+        match &mut iotype {
+            IOType::AnySignal(n) => {
+                let sig = match self.anysignal_to_signal.get(n) {
+                    Some(s) => s.clone(),
+                    None => {
+                        let s = self.get_next_signal();
+                        self.anysignal_to_signal.insert(*n, s.clone());
+                        s
+                    }
+                };
+                *iotype = IOType::Signal(sig.to_string());
+            }
+            IOType::ConstantAny((n, count)) => {
+                let sig = match self.anysignal_to_signal.get(n) {
+                    Some(s) => s.clone(),
+                    None => {
+                        let s = self.get_next_signal();
+                        self.anysignal_to_signal.insert(*n, s.clone());
+                        s
+                    }
+                };
+                *iotype = IOType::ConstantSignal((sig.to_string(), *count))
+            }
+            _ => (),
+        }
     }
 }
 
