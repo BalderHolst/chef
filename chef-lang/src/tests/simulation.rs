@@ -376,7 +376,7 @@ fn var_mutation_with_clock() {
 ",
     );
     let mut sim = Simulator::new(g, inputs![]);
-    sim.dump_simulation(50, "test");
+    sim.simulate(50);
     assert_eq!(sim.get_output(), outputs!["signal-O": 5]);
 }
 
