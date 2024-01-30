@@ -515,8 +515,6 @@ impl GraphCompiler {
             right_type = new_right_type;
         }
 
-        dbg!(&right_type, graph.get_node(&right_nid));
-
         // Use the outtype if any was provided.
         let out_type = if let Some(t) = out_type {
             t
