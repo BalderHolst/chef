@@ -774,7 +774,11 @@ impl Graph {
 
         // Copy nodes from the other graph and assign them new ids.
         for (old_nid, node) in other.vertices.clone() {
-            let new_nid = self.push_node(Node::Inner);
+            let new_node = match node {
+                Node::Constant(_) => node.clone(),
+                _ => Node::Inner,
+            };
+            let new_nid = self.push_node(new_node);
             nid_converter.insert(old_nid, new_nid);
 
             // Note this node as output

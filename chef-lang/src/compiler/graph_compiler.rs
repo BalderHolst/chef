@@ -459,10 +459,12 @@ impl GraphCompiler {
         let var_ref = pick_expr.from.clone();
         if let Some(var_out_nid) = self.search_scope(var_ref.var.name.clone(), None) {
             let out_type = IOType::signal(pick_expr.pick_signal.clone());
-            let (c_input, picked_nid) = graph.push_connection(Connection::new_arithmetic(
+            let (c_input, c_output) = graph.push_connection(Connection::new_arithmetic(
                 ArithmeticCombinator::new_pick(out_type.clone().to_combinator_type()),
             ));
+            let picked_nid = graph.push_inner_node();
             graph.push_wire(var_out_nid, c_input, WireKind::Green);
+            graph.push_wire(picked_nid, c_output, WireKind::Green);
             Ok((picked_nid, out_type))
         } else {
             Err(CompilationError::new_localized(
@@ -503,35 +505,17 @@ impl GraphCompiler {
 
         // If the two inputs are of the same type, one must be converted.
         if left_type == right_type {
-            todo!("Convert binary expressons on the same type");
-            //     let new_right_vid = graph.push_inner_node();
-            //     let new_right_type = self.get_new_anysignal();
-            //     graph.push_connection(
-            //         right_vid,
-            //         new_right_vid,
-            //         Connection::new_arithmetic(ArithmeticCombinator::new_convert(
-            //             right_type.clone(),
-            //             new_right_type.clone(),
-            //         )),
-            //     );
-            //     right_vid = new_right_vid;
-            //     right_type = new_right_type;
+            let new_right_type = self.get_new_anysignal();
+            let (convertion_input, new_right_nid) =
+                graph.push_connection(Connection::new_arithmetic(
+                    ArithmeticCombinator::new_convert(right_type.clone(), new_right_type.clone()),
+                ));
+            graph.push_wire(right_nid, convertion_input, WireKind::Green);
+            right_nid = new_right_nid;
+            right_type = new_right_type;
         }
 
-        // let input_nid = graph.push_inner_node();
-        // let output_nid = graph.push_inner_node();
-
-        // Connect the outputs of the left and right expressions to the inputs.
-        // graph.push_connection(
-        //     left_vid,
-        //     input_nid,
-        //     Connection::new_arithmetic(ArithmeticCombinator::new_pick(left_type.clone())),
-        // );
-        // graph.push_connection(
-        //     right_vid,
-        //     input_nid,
-        //     Connection::new_arithmetic(ArithmeticCombinator::new_pick(right_type.clone())),
-        // );
+        dbg!(&right_type, graph.get_node(&right_nid));
 
         // Use the outtype if any was provided.
         let out_type = if let Some(t) = out_type {
