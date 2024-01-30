@@ -1,11 +1,11 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs,
     io::{self, Write},
 };
 
 use crate::{
-    compiler::graph::{Combinator, Connection, Node, WireConnection, WireKind},
+    compiler::graph::{Combinator, Connection, Node, WireConnection},
     utils,
 };
 

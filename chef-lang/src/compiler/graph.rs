@@ -100,16 +100,16 @@ impl IOType {
         Self::Signal(signal.to_string())
     }
 
-    pub fn to_combinator_type(self) -> Self {
+    pub fn to_combinator_type(&self) -> Self {
         match self {
-            Self::ConstantSignal((sig, _)) => IOType::Signal(sig),
-            Self::ConstantAny((n, _)) => IOType::AnySignal(n),
-            Self::Signal(_) => self,
-            Self::AnySignal(_) => self,
-            Self::Constant(_) => self,
-            Self::Everything => self,
-            Self::Anything => self,
-            Self::Each => self,
+            Self::ConstantSignal((sig, _)) => IOType::Signal(sig.clone()),
+            Self::ConstantAny((n, _)) => IOType::AnySignal(*n),
+            Self::Signal(_) => self.clone(),
+            Self::AnySignal(_) => self.clone(),
+            Self::Constant(_) => self.clone(),
+            Self::Everything => self.clone(),
+            Self::Anything => self.clone(),
+            Self::Each => self.clone(),
         }
     }
 
@@ -829,7 +829,7 @@ impl Graph {
                         "Block inputs can only have one type. NOTE: This type may be `All`."
                     );
 
-                    let (input_type, wc) = input_types[0].clone();
+                    let (input_type, _wc) = input_types[0].clone();
 
                     // This node is the transition point from this graph to the other graph, now
                     // stitched inside this one. The middle node contains signals of the type
@@ -942,13 +942,13 @@ impl Graph {
     pub fn get_single_input(&self, nid: &NId) -> Result<IOType, String> {
         let inputs = self.get_input_iotypes(nid);
         let t = match inputs.len() {
-            len if len == 2 => {
+            1 => &inputs[0].0,
+            2 => {
                 let (t1, _w1) = &inputs[0];
                 let (t2, _w2) = &inputs[1];
                 assert_eq!(t1, t2);
                 t1
             }
-            len if len == 1 => &inputs[0].0,
             _ => return Err(format!("Could not get single input: {inputs:?}")),
         };
 
@@ -1136,8 +1136,8 @@ impl<'a> AnysignalAssigner<'a> {
                 let sig = self.anysignal_to_signal.get(n).unwrap();
                 *iotype = IOType::ConstantSignal((sig.to_string(), *count))
             }
-            _ => return,
-        };
+            _ => (),
+        }
     }
 
     /// Replace an [IOType] with another throughout the whole graph. This is usefull when assigning

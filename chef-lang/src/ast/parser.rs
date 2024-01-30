@@ -454,7 +454,7 @@ impl Parser {
     /// Parse variable assignment statement.
     fn parse_assignment_statement(&mut self) -> Result<StatementKind, CompilationError> {
         let start_span = self.current().span.clone();
-        let mut variable = match self.parse_variable()? {
+        let variable = match self.parse_variable()? {
             ParsedVariable::Def(v) => v,
             _ => {
                 self.diagnostics_bag.borrow_mut().report_error(

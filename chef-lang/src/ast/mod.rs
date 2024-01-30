@@ -156,6 +156,7 @@ pub enum StatementKind {
 }
 
 /// Chef variable types.
+#[allow(dead_code)] // TODO: Remove
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariableType {
     Bool(VariableSignalType),
@@ -333,7 +334,7 @@ impl Expression {
         }
     }
 
-    fn number(n: i32, span: TextSpan) -> Self {
+    fn _number(n: i32, span: TextSpan) -> Self {
         Self {
             kind: ExpressionKind::Int(n),
             span,

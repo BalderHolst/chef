@@ -118,7 +118,7 @@ impl GraphCompiler {
                 graph.push_wire(loop_nid, c_output, WireKind::Green);
                 graph.push_wire(c_input, var_nid, WireKind::Green);
                 self.add_to_scope(var.name.clone(), None, var_nid);
-                return Ok(());
+                Ok(())
             }
             VariableType::Counter((_, limit_expr)) => {
                 let var_type = self.variable_type_to_iotype(&var.type_);
@@ -154,7 +154,7 @@ impl GraphCompiler {
                 graph.push_wire(driver_nid, memcell_input, WireKind::Red);
 
                 self.add_to_scope(var.name.clone(), None, var_nid);
-                return Ok(());
+                Ok(())
             }
             VariableType::Register(size) if operation.attr.is_none() => {
                 let mut prev = None;
@@ -634,7 +634,7 @@ impl GraphCompiler {
         let (expr_out_nid, gated_type) = self.compile_expression(graph, out_expr, None)?;
 
         // If the gated type is a constant, convert it as we can not gate a constant value
-        if let IOType::Constant(count) = gated_type {
+        if let IOType::Constant(_count) = gated_type {
             todo!()
             // // let convertion_node = graph.push_inner_node();
             // gated_type = self.get_new_anysignal();
