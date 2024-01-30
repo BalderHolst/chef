@@ -937,10 +937,18 @@ impl Graph {
 
     pub fn get_single_input(&self, nid: &NId) -> Result<IOType, String> {
         let inputs = self.get_input_iotypes(nid);
-        if inputs.len() != 1 {
-            return Err(format!("Could not get single input: {inputs:?}"));
-        }
-        Ok(inputs[0].0.clone())
+        let t = match inputs.len() {
+            len if len == 2 => {
+                let (t1, _w1) = &inputs[0];
+                let (t2, _w2) = &inputs[1];
+                assert_eq!(t1, t2);
+                t1
+            }
+            len if len == 1 => &inputs[0].0,
+            _ => return Err(format!("Could not get single input: {inputs:?}")),
+        };
+
+        Ok(t.clone())
     }
 
     fn _get_final_outputs(&self) -> Vec<(NId, Node)> {
