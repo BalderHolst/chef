@@ -851,14 +851,13 @@ impl Graph {
                     );
                 }
                 IOType::AnySignal(_) => {
-                    todo!()
-                    // let new_type = self.get_single_input(block_input_nid).unwrap();
-                    // self.replace_iotype(other_input_type, &new_type);
-                    // self.push_raw_connection(
-                    //     *block_input_nid,
-                    //     other_input_nid,
-                    //     Connection::new_arithmetic(ArithmeticCombinator::new_pick(new_type)),
-                    // );
+                    let new_type = self.get_single_input(block_input_nid).unwrap();
+                    self.replace_iotype(other_input_type, &new_type);
+                    self.push_raw_connection(
+                        *block_input_nid,
+                        other_input_nid,
+                        Connection::new_arithmetic(ArithmeticCombinator::new_pick(new_type)),
+                    );
                 }
                 IOType::ConstantAny(_) => {
                     todo!()
@@ -884,6 +883,56 @@ impl Graph {
             .iter()
             .map(|(nid, type_o)| (*nid, type_o.clone()))
             .collect())
+    }
+
+    /// Replace an [IOType] with another throughout the whole graph. This is usefull when assigning
+    /// `IOType::Any` actual factorio signals.
+    fn replace_iotype(&mut self, old_type: IOType, new_type: &IOType) {
+        for (_, to_vec) in self.adjacency.iter_mut() {
+            for (_, conn) in to_vec {
+                match conn {
+                    Connection::Combinator(Combinator::Arithmetic(ac)) => {
+                        if ac.left == old_type {
+                            ac.left = new_type.clone()
+                        }
+                        if ac.right == old_type {
+                            ac.right = new_type.clone()
+                        }
+                        if ac.output == old_type {
+                            ac.output = new_type.clone()
+                        }
+                    }
+                    Connection::Combinator(Combinator::Decider(dc)) => {
+                        if dc.left == old_type {
+                            dc.left = new_type.clone()
+                        }
+                        if dc.right == old_type {
+                            dc.right = new_type.clone()
+                        }
+                        if dc.output == old_type {
+                            dc.output = new_type.clone()
+                        }
+                    }
+                    Connection::Combinator(Combinator::Gate(gc)) => {
+                        if gc.left == old_type {
+                            gc.left = new_type.clone()
+                        }
+                        if gc.right == old_type {
+                            gc.right = new_type.clone()
+                        }
+                        if gc.gate_type == old_type {
+                            gc.gate_type = new_type.clone()
+                        }
+                    }
+                    Connection::Combinator(Combinator::Constant(cc)) => {
+                        if cc.type_ == old_type {
+                            cc.type_ = new_type.clone()
+                        }
+                    }
+                    Connection::Wire(_) => {}
+                }
+            }
+        }
     }
 
     pub fn get_single_input(&self, nid: &NId) -> Result<IOType, String> {
