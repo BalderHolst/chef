@@ -219,6 +219,7 @@ impl Simulator {
                         ArithmeticOperation::Add => left + right,
                         ArithmeticOperation::Subtract => left - right,
                         ArithmeticOperation::Multiply => left * right,
+                        ArithmeticOperation::Divide if right == 0 => 0,
                         ArithmeticOperation::Divide => left / right,
                     };
                     Item::new(c.output, result)
