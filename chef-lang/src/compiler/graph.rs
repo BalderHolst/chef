@@ -167,6 +167,7 @@ impl ArithmeticCombinator {
     }
 
     pub fn new_pick(signal: IOType) -> Self {
+        let signal = signal.to_combinator_type();
         Self::new(
             signal.clone(),
             IOType::Constant(0),
@@ -177,10 +178,10 @@ impl ArithmeticCombinator {
 
     pub fn new_convert(in_signal: IOType, out_signal: IOType) -> Self {
         Self::new(
-            in_signal,
+            in_signal.to_combinator_type(),
             IOType::Constant(0),
             ArithmeticOperation::Add,
-            out_signal,
+            out_signal.to_combinator_type(),
         )
     }
 
