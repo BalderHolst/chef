@@ -52,11 +52,11 @@ block main(input: all) -> int(inserter) {
 }
 
 #[test]
-fn simulate_counter_with_when() {
+fn counter_with_when() {
     let graph = compile_code(
         "
 block main() -> int(tank) {
-    c: counter(signal-T : 5);
+    c: counter(signal-T : 6);
     v: var(signal-V);
     when (c == 5) {
         v += 1;
