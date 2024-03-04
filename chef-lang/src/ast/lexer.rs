@@ -40,6 +40,9 @@ pub enum TokenKind {
     And,
     DoubleAnd,
     RightArrow,
+    RightFatArrow,
+    LeftArrow,
+    LeftCurlyArrow,
     LargerThan,
     LargerThanEquals,
     LessThan,
@@ -84,6 +87,9 @@ impl Display for TokenKind {
             TokenKind::And => "&",
             TokenKind::DoubleAnd => "&&",
             TokenKind::RightArrow => "->",
+            TokenKind::RightFatArrow => "=>",
+            TokenKind::LeftArrow => "<-",
+            TokenKind::LeftCurlyArrow => "<~",
             TokenKind::LargerThan => ">",
             TokenKind::LargerThanEquals => ">=",
             TokenKind::LessThan => "<",
@@ -204,7 +210,7 @@ impl Lexer {
         }
     }
 
-    // Lexes punktuation. Returns `None` if the punktuation is a commend.
+    /// Lexes punctuation. Returns `None` if the punctuation is a comment.
     fn consume_punctuation(&mut self) -> Option<TokenKind> {
         let kind = match self.consume() {
             Some('+') => match self.current() {
@@ -214,16 +220,13 @@ impl Lexer {
                 }
                 _ => TokenKind::Plus,
             },
-            Some('-') => match self.current() {
-                Some('=') => {
-                    self.consume();
-                    TokenKind::MinusEquals
+            Some('-') => match self.consume() {
+                Some('=') => TokenKind::MinusEquals,
+                Some('>') => TokenKind::RightArrow,
+                _ => {
+                    self.backtrack(1);
+                    TokenKind::Minus
                 }
-                Some('>') => {
-                    self.consume();
-                    TokenKind::RightArrow
-                }
-                _ => TokenKind::Minus,
             },
             Some('*') => match self.current() {
                 Some('=') => {
@@ -253,6 +256,7 @@ impl Lexer {
             Some('"') => TokenKind::DoubleQuote,
             Some('=') => match self.consume() {
                 Some('=') => TokenKind::DoubleEquals,
+                Some('>') => TokenKind::RightFatArrow,
                 _ => {
                     self.backtrack(1);
                     TokenKind::Equals
@@ -273,6 +277,8 @@ impl Lexer {
             },
             Some('<') => match self.consume() {
                 Some('=') => TokenKind::LessThanEquals,
+                Some('-') => TokenKind::LeftArrow,
+                Some('~') => TokenKind::LeftCurlyArrow,
                 _ => {
                     self.backtrack(1);
                     TokenKind::LessThan
