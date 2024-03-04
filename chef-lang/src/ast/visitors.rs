@@ -80,7 +80,6 @@ pub trait Visitor {
         for statement in &block.statements {
             self.visit_statement(statement);
         }
-        self.visit_expression(&block.output);
     }
 
     fn do_visit_assignment(&mut self, assignment: &Assignment) {
@@ -244,7 +243,6 @@ pub trait MutVisitor {
         for statement in &mut block.statements {
             self.visit_statement(statement);
         }
-        self.visit_expression(&mut block.output);
     }
 
     fn do_visit_assignment(&mut self, assignment: &mut Assignment) {

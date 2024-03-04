@@ -23,9 +23,8 @@ mod visitors;
 pub struct Block {
     pub name: String,
     pub inputs: Vec<Rc<Variable>>,
-    pub output_type: VariableType,
+    pub outputs: Vec<Rc<Variable>>,
     pub statements: Vec<Statement>,
-    pub output: Expression,
     pub span: TextSpan,
 }
 
@@ -34,17 +33,15 @@ impl Block {
     fn new(
         name: String,
         inputs: Vec<Rc<Variable>>,
-        output_type: VariableType,
+        outputs: Vec<Rc<Variable>>,
         statements: Vec<Statement>,
-        output: Expression,
         span: TextSpan,
     ) -> Self {
         Self {
             name,
             inputs,
-            output_type,
+            outputs,
             statements,
-            output,
             span,
         }
     }
@@ -473,7 +470,7 @@ impl BlockLinkExpression {
     }
 
     fn return_type(&self) -> ExpressionReturnType {
-        self.block.output_type.return_type()
+        todo!("Create tuple type")
     }
 }
 
@@ -684,7 +681,11 @@ impl Visitor for Printer {
                 .iter()
                 .map(|i| (i.name.clone(), i.type_.to_string()))
                 .collect::<Vec<(String, String)>>(),
-            block.output_type
+            block
+                .outputs
+                .iter()
+                .map(|i| (i.name.clone(), i.type_.to_string()))
+                .collect::<Vec<(String, String)>>(),
         ));
         self.indent();
 
@@ -696,9 +697,6 @@ impl Visitor for Printer {
         self.unindent();
 
         self.print("BlockOutput:");
-        self.indent();
-        self.visit_expression(&block.output);
-        self.unindent();
 
         self.unindent();
     }

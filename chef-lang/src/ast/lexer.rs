@@ -53,6 +53,12 @@ pub enum TokenKind {
     End,
 }
 
+impl TokenKind {
+    pub fn is_assignment_operator(&self) -> bool {
+        return matches!(self, TokenKind::LeftArrow | TokenKind::LeftCurlyArrow);
+    }
+}
+
 impl Display for TokenKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let string_rep = match self {

@@ -48,22 +48,17 @@ impl GraphCompiler {
             let input_vid = graph.push_input_node(var_iotype);
             self.add_to_scope(var_name, None, input_vid)
         }
+
+        for output_var in block.outputs.clone() {
+            let var_name = output_var.name.clone();
+            let var_iotype = self.variable_type_to_iotype(&output_var.type_.clone());
+            let output_vid = graph.push_output_node(var_iotype);
+            self.add_to_scope(var_name, None, output_vid)
+        }
+
         for statement in &block.statements {
             self.compile_statement(&mut graph, statement, None)?;
         }
-
-        let (out_expr_nid, out_expr_type) =
-            self.compile_expression(&mut graph, &block.output, None)?;
-        let block_out_type = self.variable_type_to_iotype(&block.output_type);
-        let block_out_nid = graph.push_output_node(block_out_type.clone());
-
-        let (c_input, c_ouput) =
-            graph.push_connection(Connection::new_convert(out_expr_type, block_out_type));
-
-        graph.push_wire(out_expr_nid, c_input, WireKind::Green);
-
-        // TODO: Use correct wire
-        graph.push_wire(c_ouput, block_out_nid, WireKind::Green);
 
         self.exit_scope();
         Ok(graph)

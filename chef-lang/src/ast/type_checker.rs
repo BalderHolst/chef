@@ -172,23 +172,16 @@ impl Visitor for TypeChecker {
             }
         }
 
-        if let Some(output_signal) = block.output_type.signal() {
-            // Make sure output signal is a valid factorio signal
-            self.report_if_invalid_signal(output_signal.as_str(), &block.span);
+        for input in &block.inputs {
+            if let Some(sig) = input.type_.signal() {
+                self.report_if_invalid_signal(&sig, &input.span);
+            }
         }
 
-        let block_return_type = block.output_type.return_type();
-        let block_out_expr_type = block.output.return_type();
-        if block_out_expr_type != block_return_type {
-            self.diagnostics_bag.borrow_mut()
-                .report_error(
-                    &block.output.span,
-                    &format!(
-                        "Block output expression type '{}' does not correspond to defined block output type '{}'.",
-                        block_out_expr_type,
-                        block_return_type
-                        )
-                    )
+        for output in &block.outputs {
+            if let Some(sig) = output.type_.signal() {
+                self.report_if_invalid_signal(&sig, &output.span);
+            }
         }
 
         self.do_visit_block(block);

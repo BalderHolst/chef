@@ -278,29 +278,8 @@ impl Parser {
         match &start_token.kind {
             TokenKind::Word(word) => {
                 let kind = match word.as_str() {
-                    "out" => {
-                        self.consume();
-                        let statement_start = self.current().span.start;
-                        if let Ok(expr) = self.parse_expression() {
-                            if let Err(e) = self.consume_and_expect(TokenKind::Semicolon) {
-                                self.diagnostics_bag
-                                    .borrow_mut()
-                                    .report_compilation_error(e);
-                                return None;
-                            }
-                            Ok(StatementKind::Out(expr))
-                        } else {
-                            self.consume_bad_statement();
-                            let statement_end = self.peak(-1).span.end;
-                            let text = self.peak(-1).span.text.clone();
-                            self.diagnostics_bag.borrow_mut().report_error(
-                                &TextSpan::new(statement_start, statement_end, text),
-                                "Bad output expression",
-                            ); // TODO: use error message here
-                            Ok(StatementKind::Error)
-                        }
-                    }
                     "int" => {
+                        // TODO: Do we need to disallow this?
                         self.diagnostics_bag
                             .borrow_mut()
                             .report_error(&start_token.span, "A variable cannot be named \"int\"");
@@ -321,16 +300,6 @@ impl Parser {
                             _ => Ok(StatementKind::Out(when_expr)),
                         }
                     }
-                    // TODO: REMOVE
-                    var if self.peak(1).kind == TokenKind::Bang => match self.search_scope(var) {
-                        Some(ScopedItem::Var(var)) => self.parse_variable_operation_statement(var),
-                        Some(ScopedItem::Const(_)) => Err(CompilationError::new_localized(
-                            "Constants have can not be operated upon.",
-                            start_token.span.clone(),
-                        )),
-                        Some(ScopedItem::Attr(_, _)) => todo!(),
-                        None => todo!(),
-                    },
                     _ if self.is_at_assignment_statment() => self.parse_assignment_statement(),
                     _ if self.is_at_mutation_statment() => self.parse_mutation_statement(),
                     _ if self.is_at_attribute_assignment_statement() => {
@@ -448,7 +417,10 @@ impl Parser {
 
     /// Returns true if the cursor is at the begining of an assignment statement.
     fn is_at_assignment_statment(&self) -> bool {
-        matches!(&self.peak(1).kind, TokenKind::Colon | TokenKind::Equals)
+        matches!(
+            &self.peak(1).kind,
+            TokenKind::Colon | TokenKind::LeftArrow | TokenKind::LeftCurlyArrow
+        )
     }
 
     /// Parse variable assignment statement.
@@ -499,10 +471,12 @@ impl Parser {
             VariableType::ConstBool(_) => {}
         };
 
-        if self.current().kind != TokenKind::Equals {
-            self.diagnostics_bag
-                .borrow_mut()
-                .report_unexpected_token(self.current(), TokenKind::Equals);
+        let current = self.current();
+        if !current.kind.is_assignment_operator() {
+            self.diagnostics_bag.borrow_mut().report_error(
+                &current.span,
+                &format!("'{}' is not a valid assignment operator.", current.kind),
+            );
             self.consume_bad_statement();
             return Ok(StatementKind::Error);
         }
@@ -690,8 +664,35 @@ impl Parser {
     }
 
     /// Parse outputs for `block` definition.
-    fn parse_block_outputs(&mut self) -> Result<VariableType, CompilationError> {
-        self.parse_variable_type()
+    fn parse_block_outputs(&mut self) -> Result<Vec<Variable>, CompilationError> {
+        self.consume_and_expect(TokenKind::LeftParen)?;
+
+        let mut outputs: Vec<Variable> = vec![];
+
+        loop {
+            let start = self.current().span.clone();
+            let var = self.parse_variable()?;
+            if let ParsedVariable::Def(var) = var {
+                outputs.push(var);
+            } else {
+                return Err(CompilationError::new_localized(
+                    "Block output must be a variable definition.".to_string(),
+                    TextSpan::from_spans(&start, &self.current().span),
+                ));
+            }
+
+            if self.current().kind == TokenKind::RightParen {
+                break;
+            }
+
+            self.consume_and_expect(TokenKind::Comma)?;
+        }
+
+        self.consume_if(TokenKind::Comma);
+
+        self.consume_and_expect(TokenKind::RightParen)?;
+
+        Ok(outputs)
     }
 
     /// Parse arguments for `block` links.
@@ -711,34 +712,18 @@ impl Parser {
         Ok(inputs)
     }
 
-    fn parse_statement_list_expression(&mut self) -> Result<StatementList, CompilationError> {
+    fn parse_statement_list_expression(&mut self) -> Result<Vec<Statement>, CompilationError> {
         self.consume_and_expect(TokenKind::LeftCurly)?;
 
         let mut statements: Vec<Statement> = vec![];
-        let mut out = None;
 
         while let Some(statement) = self.parse_statement() {
             statements.push(statement?)
         }
 
-        if let Some(StatementKind::Out(out_expr)) = statements.last().map(|s| &s.kind) {
-            out = Some(Box::new(out_expr.clone()));
-            statements.pop();
-        }
-
-        // Make sure no output statements are left
-        for statement in &statements {
-            if let StatementKind::Out(_) = statement.kind {
-                return Err(CompilationError::new_localized(
-                    "Output statements have to be last.".to_string(),
-                    statement.span.clone(),
-                ));
-            }
-        }
-
         self.consume_and_expect(TokenKind::RightCurly)?;
 
-        Ok(StatementList { statements, out })
+        Ok(statements)
     }
 
     // TODO: Constants should be able to be imported
@@ -815,7 +800,7 @@ impl Parser {
 
         self.enter_scope();
 
-        let name: String = if let TokenKind::Word(s) = &self.consume().kind {
+        let block_name: String = if let TokenKind::Word(s) = &self.consume().kind {
             s.clone()
         } else {
             self.diagnostics_bag
@@ -825,31 +810,24 @@ impl Parser {
         };
 
         self.consume_and_expect(TokenKind::LeftParen)?;
-
         let inputs = self.parse_block_arguments()?;
-
         self.consume_and_expect(TokenKind::RightParen)?;
-        self.consume_and_expect(TokenKind::RightArrow)?;
 
-        let output_type = self.parse_block_outputs()?;
+        self.consume_and_expect(TokenKind::RightFatArrow)?;
 
-        let statement_list = self.parse_statement_list_expression()?;
+        self.consume_and_expect(TokenKind::LeftParen)?;
+        let outputs = self.parse_block_arguments()?;
+        self.consume_and_expect(TokenKind::RightParen)?;
 
-        let out_expr = statement_list.out.ok_or({
-            CompilationError::new_localized(
-                "A `block` must contain an output statement.".to_string(),
-                self.get_span_from(&start_token.span),
-            )
-        })?;
+        let statements = self.parse_statement_list_expression()?;
 
         self.exit_scope();
 
         Ok(Block::new(
-            name,
+            block_name,
             inputs,
-            output_type,
-            statement_list.statements,
-            *out_expr,
+            outputs,
+            statements,
             TextSpan {
                 start: start_token.span.start,
                 end: self.peak(-1).span.end,
@@ -877,16 +855,16 @@ impl Parser {
 
         let statements_list = self.parse_statement_list_expression()?;
 
-        self.exit_scope();
+        todo!()
 
-        Ok(Expression::new(
-            ExpressionKind::When(WhenExpression {
-                condition: Box::new(condition),
-                statements: statements_list.statements,
-                out: statements_list.out,
-            }),
-            self.get_span_from(&start_token.span),
-        ))
+        // Ok(Expression::new(
+        //     ExpressionKind::When(WhenExpression {
+        //         condition: Box::new(condition),
+        //         statements: statements_list.statements,
+        //         out: statements_list.out,
+        //     }),
+        //     self.get_span_from(&start_token.span),
+        // ))
     }
 
     /// Returns the operator if the current token is an operator
