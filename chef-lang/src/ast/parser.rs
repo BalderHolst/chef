@@ -14,10 +14,10 @@ use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, Di
 use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
-use super::{python_macro, IndexExpression};
+use super::{python_macro, Declaration, Definition, IndexExpression};
 use super::{
-    Assignment, Block, BlockLinkExpression, MutationOperator, PickExpression, VariableRef,
-    VariableSignalType, WhenExpression,
+    Block, BlockLinkExpression, DeclarationDefinition, MutationOperator, PickExpression,
+    VariableRef, VariableSignalType,
 };
 
 // TODO: Add example
@@ -31,7 +31,7 @@ pub struct StatementList {
 #[derive(Debug, Clone, PartialEq)]
 enum ScopedItem {
     Var(Rc<Variable>),
-    Attr(Rc<Variable>, String),
+    Attr(Rc<Variable>, String), // TODO: Remove
     Const(Constant),
 }
 
@@ -47,6 +47,8 @@ enum Directive {
     Unknown,
 }
 
+type VarId = usize;
+
 /// The parser. The parser can be used as an iterator to get statements one at a time.
 pub struct Parser {
     tokens: Vec<Token>,
@@ -56,6 +58,7 @@ pub struct Parser {
     diagnostics_bag: DiagnosticsBagRef,
     options: Rc<Opts>,
     next_blocks: VecDeque<Block>,
+    next_var_id: usize,
 }
 
 impl Parser {
@@ -73,6 +76,7 @@ impl Parser {
             diagnostics_bag,
             options,
             next_blocks: VecDeque::new(),
+            next_var_id: 0,
         }
     }
 
@@ -91,6 +95,7 @@ impl Parser {
             diagnostics_bag,
             options,
             next_blocks: VecDeque::new(),
+            next_var_id: 0,
         }
     }
 
@@ -201,6 +206,12 @@ impl Parser {
         }
     }
 
+    fn get_next_var_id(&mut self) -> VarId {
+        let id = self.next_var_id;
+        self.next_var_id += 1;
+        id
+    }
+
     /// Add a scope item to the current scope.
     fn add_to_scope(&mut self, name: String, item: ScopedItem) {
         self.scopes.last_mut().unwrap().insert(name, item);
@@ -300,7 +311,8 @@ impl Parser {
                             _ => Ok(StatementKind::Out(when_expr)),
                         }
                     }
-                    _ if self.is_at_assignment_statment() => self.parse_assignment_statement(),
+                    _ if self.is_at_declaration_statment() => self.parse_declaration_statement(),
+                    _ if self.is_at_definition_statment() => self.parse_definition_statement(),
                     _ if self.is_at_mutation_statment() => self.parse_mutation_statement(),
                     _ if self.is_at_attribute_assignment_statement() => {
                         self.parse_attribute_assignment_statement()
@@ -408,35 +420,29 @@ impl Parser {
             ScopedItem::Attr(var.clone(), attr.clone()),
         );
 
-        Ok(StatementKind::Assignment(Assignment {
-            variable: var,
-            attr: Some(attr),
-            expression: Some(input),
-        }))
+        Ok(StatementKind::DeclarationDefinition(
+            DeclarationDefinition {
+                variable: var,
+                attr: Some(attr),
+                expression: Some(input),
+            },
+        ))
     }
 
     /// Returns true if the cursor is at the begining of an assignment statement.
-    fn is_at_assignment_statment(&self) -> bool {
+    fn is_at_definition_statment(&self) -> bool {
         matches!(
             &self.peak(1).kind,
             TokenKind::Colon | TokenKind::LeftArrow | TokenKind::LeftCurlyArrow
         )
     }
 
-    /// Parse variable assignment statement.
-    fn parse_assignment_statement(&mut self) -> Result<StatementKind, CompilationError> {
-        let start_span = self.current().span.clone();
-        let variable = match self.parse_variable()? {
-            ParsedVariable::Def(v) => v,
-            _ => {
-                self.diagnostics_bag.borrow_mut().report_error(
-                    &self.get_span_from(&start_span),
-                    "Variables cannot be reassigned.",
-                );
-                self.consume_bad_statement();
-                return Ok(StatementKind::Error);
-            }
-        };
+    fn is_at_declaration_statment(&self) -> bool {
+        matches!(&self.peak(1).kind, TokenKind::Colon)
+    }
+
+    fn parse_declaration_statement(&mut self) -> Result<StatementKind, CompilationError> {
+        let variable = self.parse_variable_declaration()?;
 
         match &variable.type_ {
             VariableType::Var(_) => {
@@ -446,7 +452,9 @@ impl Parser {
                 // cannot be assigned values.
                 let var = Rc::new(variable);
                 self.add_var_to_scope(var.clone());
-                return Ok(StatementKind::Assignment(Assignment::new(var, None, None)));
+                return Ok(StatementKind::DeclarationDefinition(
+                    DeclarationDefinition::new(var, None, None),
+                ));
             }
             VariableType::Counter(_) => {
                 self.consume_and_expect(TokenKind::Semicolon)?;
@@ -455,13 +463,17 @@ impl Parser {
                 // cannot be assigned values.
                 let var = Rc::new(variable);
                 self.add_var_to_scope(var.clone());
-                return Ok(StatementKind::Assignment(Assignment::new(var, None, None)));
+                return Ok(StatementKind::DeclarationDefinition(
+                    DeclarationDefinition::new(var, None, None),
+                ));
             }
             VariableType::Register(_) => {
                 let var = Rc::new(variable.clone());
                 self.add_var_to_scope(var.clone());
                 self.consume_and_expect(TokenKind::Semicolon)?;
-                return Ok(StatementKind::Assignment(Assignment::new(var, None, None)));
+                return Ok(StatementKind::DeclarationDefinition(
+                    DeclarationDefinition::new(var, None, None),
+                ));
             }
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
@@ -472,6 +484,14 @@ impl Parser {
         };
 
         let current = self.current();
+
+        // Return early if it is just a declaration
+        if current.kind == TokenKind::Semicolon {
+            return Ok(StatementKind::Declaration(Declaration {
+                variable: Rc::new(variable),
+            }));
+        }
+
         if !current.kind.is_assignment_operator() {
             self.diagnostics_bag.borrow_mut().report_error(
                 &current.span,
@@ -480,7 +500,7 @@ impl Parser {
             self.consume_bad_statement();
             return Ok(StatementKind::Error);
         }
-        self.consume(); // Consume equals
+        self.consume(); // Consume arrow
 
         let expr = self.parse_expression()?;
 
@@ -488,11 +508,43 @@ impl Parser {
         self.add_var_to_scope(var_ref.clone());
 
         self.consume_and_expect(TokenKind::Semicolon)?;
-        Ok(StatementKind::Assignment(Assignment::new(
-            var_ref,
-            None,
-            Some(expr),
-        )))
+        Ok(StatementKind::DeclarationDefinition(
+            DeclarationDefinition::new(var_ref, None, Some(expr)),
+        ))
+    }
+
+    /// Parse variable assignment statement.
+    fn parse_definition_statement(&mut self) -> Result<StatementKind, CompilationError> {
+        let start_span = self.current().span.clone();
+
+        let name = self.consume_word()?.to_string();
+
+        let var = match self.search_scope(&name) {
+            Some(ScopedItem::Var(v)) => Ok(v),
+            Some(_) => Err(CompilationError::new_localized(
+                "Only variables can be assigned to.".to_string(),
+                start_span.clone(),
+            )),
+            None => Err(CompilationError::new_localized(
+                format!("Variable `{}` not defined.", name),
+                start_span.clone(),
+            )),
+        }?;
+
+        let current = self.current();
+        if !current.kind.is_assignment_operator() {
+            self.diagnostics_bag.borrow_mut().report_error(
+                &current.span,
+                &format!("'{}' is not a valid assignment operator.", current.kind),
+            );
+            self.consume_bad_statement();
+            return Ok(StatementKind::Error);
+        }
+        self.consume(); // Consume assignment operator
+
+        let expr = self.parse_expression()?;
+
+        Ok(StatementKind::Definition(Definition::new(var, expr)))
     }
 
     fn consume_mutation_operator(&mut self) -> Result<MutationOperator, CompilationError> {
@@ -561,6 +613,23 @@ impl Parser {
         }
     }
 
+    fn parse_variable_declaration(&mut self) -> Result<Variable, CompilationError> {
+        let start_token = self.current().clone();
+
+        let name = self.consume_word()?.to_string();
+
+        self.consume_and_expect(TokenKind::Colon)?;
+
+        let type_ = self.parse_variable_type()?;
+
+        Ok(Variable::new(
+            name.to_owned(),
+            type_,
+            self.get_span_from(&start_token.span),
+            self.get_next_var_id(),
+        ))
+    }
+
     fn parse_variable(&mut self) -> Result<ParsedVariable, CompilationError> {
         let start_token = self.current().clone();
 
@@ -585,10 +654,11 @@ impl Parser {
 
             let type_ = self.parse_variable_type()?;
 
-            Ok(ParsedVariable::Def(Variable::new(
+            Ok(ParsedVariable::Dec(Variable::new(
                 name.to_owned(),
                 type_,
                 self.get_span_from(&start_token.span),
+                self.get_next_var_id(),
             )))
         }
     }
@@ -642,7 +712,7 @@ impl Parser {
         while self.current().kind != TokenKind::RightParen {
             let var_span = self.current().span.clone();
             let var = match self.parse_variable()? {
-                ParsedVariable::Def(v) => Ok(v),
+                ParsedVariable::Dec(v) => Ok(v),
 
                 // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
                 ParsedVariable::Ref(_) => Err(CompilationError::new_localized(
@@ -672,7 +742,7 @@ impl Parser {
         loop {
             let start = self.current().span.clone();
             let var = self.parse_variable()?;
-            if let ParsedVariable::Def(var) = var {
+            if let ParsedVariable::Dec(var) = var {
                 outputs.push(var);
             } else {
                 return Err(CompilationError::new_localized(
@@ -1122,7 +1192,11 @@ impl Iterator for Parser {
 }
 
 enum ParsedVariable {
-    Def(Variable),
+    /// Declaration of a variable.
+    Dec(Variable),
+
+    /// A reference to a variable in an expression.
     Ref(VariableRef),
+
     Const(Constant),
 }

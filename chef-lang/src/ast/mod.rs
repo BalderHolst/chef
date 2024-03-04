@@ -145,7 +145,9 @@ impl Statement {
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
     Expression(Expression),
-    Assignment(Assignment),
+    Declaration(Declaration),
+    DeclarationDefinition(DeclarationDefinition),
+    Definition(Definition),
     Mutation(Mutation),
     Operation(VarOperation),
     Out(Expression),
@@ -216,15 +218,17 @@ pub struct Variable {
     pub name: String,
     pub type_: VariableType,
     pub span: TextSpan,
+    pub id: usize,
 }
 
 impl Variable {
     /// Instantiate a new [Variable].
-    pub fn new(name: String, variable_type: VariableType, span: TextSpan) -> Self {
+    pub fn new(name: String, variable_type: VariableType, span: TextSpan, id: usize) -> Self {
         Self {
             name,
             type_: variable_type,
             span,
+            id,
         }
     }
 
@@ -257,13 +261,19 @@ impl VariableRef {
 
 /// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Assignment {
+pub struct Declaration {
+    pub variable: Rc<Variable>,
+}
+
+/// [AST] representation of chef `int` variable assignment and declaration.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DeclarationDefinition {
     pub variable: Rc<Variable>,
     pub attr: Option<String>,
     pub expression: Option<Expression>,
 }
 
-impl Assignment {
+impl DeclarationDefinition {
     /// Instantiate a new [Assignment].
     pub fn new(
         variable: Rc<Variable>,
@@ -273,6 +283,23 @@ impl Assignment {
         Self {
             variable,
             attr,
+            expression,
+        }
+    }
+}
+
+/// [AST] representation of chef `int` variable assignment.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Definition {
+    pub variable: Rc<Variable>,
+    pub expression: Expression,
+}
+
+impl Definition {
+    /// Instantiate a new [Assignment].
+    pub fn new(variable: Rc<Variable>, expression: Expression) -> Self {
+        Self {
+            variable,
             expression,
         }
     }
@@ -701,13 +728,13 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_assignment(&mut self, assignment: &Assignment) {
+    fn visit_declaration_assignment(&mut self, assignment: &DeclarationDefinition) {
         self.print(&format!(
             "Assignment: \"{} ({})\"",
             assignment.variable.name, assignment.variable.type_
         ));
         self.indent();
-        self.do_visit_assignment(assignment);
+        self.do_visit_declaration_assignment(assignment);
         self.unindent();
     }
 

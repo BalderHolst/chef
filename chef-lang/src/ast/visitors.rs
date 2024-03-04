@@ -6,9 +6,10 @@
 // even solve this. Suggestions very welcome!
 
 use super::{
-    parser::StatementList, Assignment, BinaryExpression, Block, BlockLinkExpression, Expression,
-    ExpressionKind, IndexExpression, Mutation, ParenthesizedExpression, PickExpression, Statement,
-    StatementKind, VarOperation, VariableRef, WhenExpression,
+    parser::StatementList, BinaryExpression, Block, BlockLinkExpression, Declaration,
+    DeclarationDefinition, Definition, Expression, ExpressionKind, IndexExpression, Mutation,
+    ParenthesizedExpression, PickExpression, Statement, StatementKind, VarOperation, VariableRef,
+    WhenExpression,
 };
 
 // For documentation references
@@ -25,7 +26,13 @@ pub trait Visitor {
             StatementKind::Out(expr) => {
                 self.visit_out(expr);
             }
-            StatementKind::Assignment(assignment) => {
+            StatementKind::Declaration(declaration) => {
+                self.visit_declaration(declaration);
+            }
+            StatementKind::DeclarationDefinition(assignment) => {
+                self.visit_declaration_assignment(assignment);
+            }
+            StatementKind::Definition(assignment) => {
                 self.visit_assignment(assignment);
             }
             StatementKind::Mutation(mutation) => {
@@ -82,10 +89,14 @@ pub trait Visitor {
         }
     }
 
-    fn do_visit_assignment(&mut self, assignment: &Assignment) {
+    fn do_visit_declaration_assignment(&mut self, assignment: &DeclarationDefinition) {
         if let Some(expr) = &assignment.expression {
             self.visit_expression(expr)
         }
+    }
+
+    fn do_visit_assignment(&mut self, assignment: &Definition) {
+        self.visit_expression(&assignment.expression)
     }
 
     fn do_visit_mutation(&mut self, mutation: &Mutation) {
@@ -130,7 +141,13 @@ pub trait Visitor {
         self.visit_expression(expr);
     }
 
-    fn visit_assignment(&mut self, assignment: &Assignment) {
+    fn visit_declaration(&mut self, _declaration: &Declaration) {}
+
+    fn visit_declaration_assignment(&mut self, assignment: &DeclarationDefinition) {
+        self.do_visit_declaration_assignment(assignment);
+    }
+
+    fn visit_assignment(&mut self, assignment: &Definition) {
         self.do_visit_assignment(assignment);
     }
 
@@ -186,7 +203,13 @@ pub trait MutVisitor {
             StatementKind::Out(expr) => {
                 self.visit_out(expr);
             }
-            StatementKind::Assignment(assignment) => {
+            StatementKind::Declaration(declaration) => {
+                self.visit_declaration(declaration);
+            }
+            StatementKind::DeclarationDefinition(assignment) => {
+                self.visit_declaration_assignment(assignment);
+            }
+            StatementKind::Definition(assignment) => {
                 self.visit_assignment(assignment);
             }
             StatementKind::Mutation(mutation) => {
@@ -245,10 +268,14 @@ pub trait MutVisitor {
         }
     }
 
-    fn do_visit_assignment(&mut self, assignment: &mut Assignment) {
+    fn do_visit_declaration_assignment(&mut self, assignment: &mut DeclarationDefinition) {
         if let Some(expr) = &mut assignment.expression {
             self.visit_expression(expr);
         }
+    }
+
+    fn do_visit_assignment(&mut self, assignment: &mut Definition) {
+        self.visit_expression(&mut assignment.expression);
     }
 
     fn do_visit_mutation(&mut self, mutation: &mut Mutation) {
@@ -293,7 +320,13 @@ pub trait MutVisitor {
         self.visit_expression(expr);
     }
 
-    fn visit_assignment(&mut self, assignment: &mut Assignment) {
+    fn visit_declaration(&mut self, _declaration: &mut Declaration) {}
+
+    fn visit_declaration_assignment(&mut self, assignment: &mut DeclarationDefinition) {
+        self.do_visit_declaration_assignment(assignment);
+    }
+
+    fn visit_assignment(&mut self, assignment: &mut Definition) {
         self.do_visit_assignment(assignment);
     }
 
