@@ -7,8 +7,8 @@
 
 use super::{
     parser::StatementList, Assignment, BinaryExpression, Block, BlockLinkExpression, Expression,
-    ExpressionKind, Mutation, ParenthesizedExpression, PickExpression, Statement, StatementKind,
-    VariableRef, WhenExpression,
+    ExpressionKind, IndexExpression, Mutation, ParenthesizedExpression, PickExpression, Statement,
+    StatementKind, VarOperation, VariableRef, WhenExpression,
 };
 
 // For documentation references
@@ -31,6 +31,7 @@ pub trait Visitor {
             StatementKind::Mutation(mutation) => {
                 self.visit_mutation(mutation);
             }
+            StatementKind::Operation(operation) => self.visit_operation(operation),
             StatementKind::Error => {
                 self.visit_error_statement();
             }
@@ -60,6 +61,9 @@ pub trait Visitor {
             ExpressionKind::Pick(expr) => {
                 self.visit_pick_expression(expr);
             }
+            ExpressionKind::Index(expr) => {
+                self.visit_index_expression(expr);
+            }
             ExpressionKind::BlockLink(block) => {
                 self.visit_block_link(block);
             }
@@ -80,12 +84,18 @@ pub trait Visitor {
     }
 
     fn do_visit_assignment(&mut self, assignment: &Assignment) {
-        self.visit_expression(&assignment.expression)
+        if let Some(expr) = &assignment.expression {
+            self.visit_expression(expr)
+        }
     }
 
     fn do_visit_mutation(&mut self, mutation: &Mutation) {
         self.visit_variable_ref(&mutation.var_ref);
         self.visit_expression(&mutation.expression);
+    }
+
+    fn do_visit_operation(&mut self, operation: &VarOperation) {
+        self.visit_variable_ref(&operation.var_ref);
     }
 
     fn visit_statement(&mut self, statement: &Statement) {
@@ -129,6 +139,10 @@ pub trait Visitor {
         self.do_visit_mutation(mutation);
     }
 
+    fn visit_operation(&mut self, operation: &VarOperation) {
+        self.do_visit_operation(operation);
+    }
+
     fn visit_block_link(&mut self, block: &BlockLinkExpression) {
         for expr in &block.inputs {
             self.visit_expression(expr);
@@ -155,6 +169,7 @@ pub trait Visitor {
     }
 
     fn visit_pick_expression(&mut self, expr: &PickExpression);
+    fn visit_index_expression(&mut self, expr: &IndexExpression);
     fn visit_error_statement(&mut self);
     fn visit_number(&mut self, number: &i32);
     fn visit_bool(&mut self, value: &bool);
@@ -177,6 +192,9 @@ pub trait MutVisitor {
             }
             StatementKind::Mutation(mutation) => {
                 self.visit_mutation(mutation);
+            }
+            StatementKind::Operation(operation) => {
+                self.visit_operation(operation);
             }
             StatementKind::Error => {
                 self.visit_error_statement();
@@ -207,6 +225,9 @@ pub trait MutVisitor {
             ExpressionKind::Pick(expr) => {
                 self.visit_pick_expression(expr);
             }
+            ExpressionKind::Index(expr) => {
+                self.visit_index_expression(expr);
+            }
             ExpressionKind::BlockLink(block) => {
                 self.visit_block_link(block);
             }
@@ -227,12 +248,18 @@ pub trait MutVisitor {
     }
 
     fn do_visit_assignment(&mut self, assignment: &mut Assignment) {
-        self.visit_expression(&mut assignment.expression)
+        if let Some(expr) = &mut assignment.expression {
+            self.visit_expression(expr);
+        }
     }
 
     fn do_visit_mutation(&mut self, mutation: &mut Mutation) {
         self.visit_variable_ref(&mutation.var_ref);
         self.visit_expression(&mut mutation.expression);
+    }
+
+    fn do_visit_operation(&mut self, operation: &mut VarOperation) {
+        self.visit_variable_ref(&operation.var_ref);
     }
 
     fn visit_statement(&mut self, statement: &mut Statement) {
@@ -276,6 +303,10 @@ pub trait MutVisitor {
         self.do_visit_mutation(mutation);
     }
 
+    fn visit_operation(&mut self, operation: &mut VarOperation) {
+        self.do_visit_operation(operation);
+    }
+
     fn visit_block_link(&mut self, block: &mut BlockLinkExpression) {
         for expr in &mut block.inputs {
             self.visit_expression(expr);
@@ -302,6 +333,7 @@ pub trait MutVisitor {
     }
 
     fn visit_pick_expression(&mut self, expr: &mut PickExpression);
+    fn visit_index_expression(&mut self, expr: &mut IndexExpression);
     fn visit_error_statement(&mut self);
     fn visit_bool(&mut self, bool: &mut bool);
     fn visit_number(&mut self, number: &mut i32);

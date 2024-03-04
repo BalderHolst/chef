@@ -16,15 +16,17 @@ use fb::{
 use noisy_float::types::R64;
 
 use crate::{
-    compiler::graph::{self, ArithmeticOperation, Connection, DeciderOperation, Graph, IOType},
+    compiler::{
+        graph::{self, ArithmeticOperation, DeciderOperation, Graph, IOType, NetworkId},
+        RESERVED_SIGNAL,
+    },
     utils::BASE_SIGNALS,
 };
 use placement::Placer;
 
-use self::{graph::NId, placement::TurdMaster2000};
+use self::placement::TurdMaster2000;
 
-type NetworkId = NId;
-type Operation = Connection;
+type Operation = graph::Combinator;
 
 pub(crate) type Coord = i64;
 
@@ -69,7 +71,7 @@ enum ConnectionPointType {
 
 /// Placed Factorio Combinator
 #[derive(Clone, Debug, PartialEq)]
-pub struct Combinator {
+pub struct FactorioCombinator {
     pub entity_number: EntityNumber,
     pub input_network: NetworkId,
     pub output_network: NetworkId,
@@ -79,26 +81,30 @@ pub struct Combinator {
 }
 
 impl Operation {
+    // TODO: remove this with removing constants as connections
     fn get_output_connection_point(&self) -> usize {
-        match self {
-            Connection::Arithmetic(_) => 2,
-            Connection::Decider(_) => 2,
-            Connection::Gate(_) => 2,
-            Connection::Constant(_) => 1,
-        }
+        2
+        // match self {
+        //     Connection::Arithmetic(_) => 2,
+        //     Connection::Decider(_) => 2,
+        //     Connection::Gate(_) => 2,
+        //     Connection::Constant(_) => 1,
+        // }
     }
 
+    // TODO: remove this with removing constants as connections
     fn get_input_connection_point(&self) -> usize {
-        match self {
-            Connection::Arithmetic(_) => 1,
-            Connection::Decider(_) => 1,
-            Connection::Gate(_) => 1,
-            Connection::Constant(_) => 1,
-        }
+        1
+        // match self {
+        //     Connection::Arithmetic(_) => 1,
+        //     Connection::Decider(_) => 1,
+        //     Connection::Gate(_) => 1,
+        //     Connection::Constant(_) => 1,
+        // }
     }
 }
 
-impl Combinator {
+impl FactorioCombinator {
     pub fn to_blueprint_entity(&self) -> Entity {
         let output_connections: Vec<fbo::ConnectionData> = self
             .output_entities
@@ -123,10 +129,10 @@ impl Combinator {
 
         // Internal factorio name of combinator
         let name = match &self.operation {
-            graph::Connection::Arithmetic(_) => "arithmetic-combinator",
-            graph::Connection::Decider(_) => "decider-combinator",
-            graph::Connection::Gate(_) => "decider-combinator",
-            graph::Connection::Constant(_) => "constant-combinator",
+            graph::Combinator::Arithmetic(_) => "arithmetic-combinator",
+            graph::Combinator::Decider(_) => "decider-combinator",
+            graph::Combinator::Gate(_) => "decider-combinator",
+            graph::Combinator::_Constant(_) => "constant-combinator",
         }
         .to_string();
 
@@ -165,7 +171,7 @@ impl Combinator {
 
     fn get_control_behavior(&self) -> ControlBehavior {
         match &self.operation {
-            graph::Connection::Arithmetic(ac) => {
+            graph::Combinator::Arithmetic(ac) => {
                 let (first_constant, first_signal) = Self::iotype_to_const_signal_pair(&ac.left);
                 let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&ac.right);
                 let (_, output_signal) = Self::iotype_to_const_signal_pair(&ac.output);
@@ -185,7 +191,7 @@ impl Combinator {
                     is_on: None,
                 }
             }
-            graph::Connection::Decider(dc) => {
+            graph::Combinator::Decider(dc) => {
                 let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&dc.left);
                 let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&dc.right);
                 let (_, output_signal) = Self::iotype_to_const_signal_pair(&dc.output);
@@ -205,7 +211,7 @@ impl Combinator {
                     is_on: None,
                 }
             }
-            graph::Connection::Gate(gc) => {
+            graph::Combinator::Gate(gc) => {
                 let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&gc.left);
                 let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&gc.right);
                 let (_, gate_signal) = Self::iotype_to_const_signal_pair(&gc.gate_type);
@@ -225,7 +231,7 @@ impl Combinator {
                     is_on: None,
                 }
             }
-            graph::Connection::Constant(cc) => {
+            graph::Combinator::_Constant(cc) => {
                 let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
                 ControlBehavior {
                     arithmetic_conditions: None,
@@ -281,21 +287,63 @@ impl Combinator {
                     }),
                 )
             }
-            graph::IOType::_ConstantSignal(_) => todo!(),
+            graph::IOType::ConstantSignal((s, n)) => {
+                let type_ = Self::get_signal_type(s.as_str());
+                (
+                    Some(*n),
+                    Some(SignalID {
+                        name: s.clone(),
+                        type_,
+                    }),
+                )
+            }
             graph::IOType::Constant(n) => (Some(*n), None),
-            graph::IOType::All => todo!(),
+            graph::IOType::Everything => (
+                None,
+                Some(SignalID {
+                    // TODO: check that "everything" is correct
+                    name: "signal-everything".to_string(),
+                    type_: SignalIDType::Virtual,
+                }),
+            ),
+            graph::IOType::Anything => (
+                None,
+                Some(SignalID {
+                    // TODO: check that "everything" is correct
+                    name: "signal-anything".to_string(),
+                    type_: SignalIDType::Virtual,
+                }),
+            ),
+            graph::IOType::_Each => (
+                None,
+                Some(SignalID {
+                    // TODO: check that "everything" is correct
+                    name: "signal-each".to_string(),
+                    type_: SignalIDType::Virtual,
+                }),
+            ),
+
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
+            graph::IOType::ConstantAny(_) => {
+                panic!("CostantAny should be eradicated at this point.")
+            }
         }
     }
 
+    // TODO: Convert return type to union
     // Get the corresponding (signal_type, signal_string) pair
     fn iotype_to_signal_pair(t: IOType) -> (SignalIDType, String) {
         match t {
             IOType::Signal(s) => (Self::get_signal_type(s.as_str()), s),
             IOType::Constant(_) => todo!(),
-            IOType::_ConstantSignal(_) => todo!(),
-            IOType::All => todo!(),
+            IOType::ConstantSignal(_) => todo!(),
+            IOType::Everything => todo!(),
+            IOType::Anything => todo!(),
+            IOType::_Each => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
+            graph::IOType::ConstantAny(_) => {
+                panic!("ConstantAny should be eradicated at this point.")
+            }
         }
     }
 
@@ -311,6 +359,8 @@ impl Combinator {
                     "virtual" => SignalIDType::Virtual,
                     _ => panic!("Invalid signal type in signal file: `{}`.", type_),
                 };
+            } else if s == RESERVED_SIGNAL {
+                return SignalIDType::Virtual;
             }
         }
         panic!(
@@ -320,7 +370,7 @@ impl Combinator {
     }
 }
 
-impl Display for Combinator {
+impl Display for FactorioCombinator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -351,12 +401,12 @@ pub fn convert_to_graph_to_blueprint_string(graph: Graph, verbose: bool) -> fb::
     fb::BlueprintCodec::encode_string(&container)
 }
 
-fn place_combinators(placer: impl Placer) -> Vec<Combinator> {
+fn place_combinators(placer: impl Placer) -> Vec<FactorioCombinator> {
     placer.place()
 }
 
 /// Create a [Blueprint] from a list of combinators
-fn combinators_to_blueprint(combinators: Vec<Combinator>) -> Container {
+fn combinators_to_blueprint(combinators: Vec<FactorioCombinator>) -> Container {
     let entities: Vec<Entity> = combinators
         .iter()
         .map(|c| c.to_blueprint_entity())

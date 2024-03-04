@@ -150,20 +150,24 @@ pub enum StatementKind {
     Expression(Expression),
     Assignment(Assignment),
     Mutation(Mutation),
+    Operation(VarOperation),
     Out(Expression),
     Error,
 }
 
 /// Chef variable types.
+#[allow(dead_code)] // TODO: Remove
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariableType {
     Bool(VariableSignalType),
     Int(VariableSignalType),
     Var(VariableSignalType),
-    Counter((VariableSignalType, Box<Expression>)),
+    Attr(VariableSignalType),
+    All,
     ConstInt(i32),
     ConstBool(bool),
-    All,
+    Counter((VariableSignalType, Box<Expression>)),
+    Register(u16),
 }
 
 impl VariableType {
@@ -172,10 +176,12 @@ impl VariableType {
             VariableType::Bool(_) => ExpressionReturnType::Bool,
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Var(_) => ExpressionReturnType::Int,
-            VariableType::Counter(_) => ExpressionReturnType::Int,
+            VariableType::Attr(_) => ExpressionReturnType::Group,
+            VariableType::All => ExpressionReturnType::Group,
             VariableType::ConstInt(_) => ExpressionReturnType::Int,
             VariableType::ConstBool(_) => ExpressionReturnType::Bool,
-            VariableType::All => ExpressionReturnType::Group,
+            VariableType::Counter(_) => ExpressionReturnType::Int,
+            VariableType::Register(_) => ExpressionReturnType::Group,
         }
     }
 
@@ -184,10 +190,12 @@ impl VariableType {
             VariableType::Bool(s) => Some(s),
             VariableType::Int(s) => Some(s),
             VariableType::Var(s) => Some(s),
-            VariableType::Counter((s, _lim)) => Some(s),
+            VariableType::Attr(s) => Some(s),
+            VariableType::All => None,
             VariableType::ConstInt(_) => None,
             VariableType::ConstBool(_) => None,
-            VariableType::All => None,
+            VariableType::Counter((s, _lim)) => Some(s),
+            VariableType::Register(_) => None,
         }
     }
 
@@ -241,33 +249,34 @@ impl VariableRef {
         Self { var, span }
     }
 
+    pub fn type_(&self) -> VariableType {
+        self.var.type_.clone()
+    }
+
     pub fn return_type(&self) -> ExpressionReturnType {
         self.var.return_type()
     }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum AssignmentKind {
-    Sig,
-    Var,
-    Counter,
 }
 
 /// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Assignment {
     pub variable: Rc<Variable>,
-    pub expression: Expression,
-    pub kind: AssignmentKind,
+    pub attr: Option<String>,
+    pub expression: Option<Expression>,
 }
 
 impl Assignment {
     /// Instantiate a new [Assignment].
-    pub fn new(variable: Rc<Variable>, expression: Expression, kind: AssignmentKind) -> Self {
+    pub fn new(
+        variable: Rc<Variable>,
+        attr: Option<String>,
+        expression: Option<Expression>,
+    ) -> Self {
         Self {
             variable,
+            attr,
             expression,
-            kind,
         }
     }
 }
@@ -291,6 +300,12 @@ impl Mutation {
     }
 }
 
+/// [AST] representation of bang operation on a chef variable.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VarOperation {
+    pub var_ref: VariableRef,
+}
+
 /// A chef expression.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expression {
@@ -311,14 +326,15 @@ impl Expression {
             ExpressionKind::Parenthesized(e) => e.return_type(),
             ExpressionKind::Negative(e) => e.return_type(),
             ExpressionKind::Pick(_) => ExpressionReturnType::Int,
+            ExpressionKind::Index(_) => ExpressionReturnType::Int,
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(),
             ExpressionKind::When(e) => e.return_type(),
-            ExpressionKind::Error => ExpressionReturnType::Int,
+            ExpressionKind::Error => ExpressionReturnType::None,
         }
     }
 
-    fn number(n: i32, span: TextSpan) -> Self {
+    fn _number(n: i32, span: TextSpan) -> Self {
         Self {
             kind: ExpressionKind::Int(n),
             span,
@@ -382,6 +398,7 @@ pub enum ExpressionKind {
     Parenthesized(ParenthesizedExpression),
     Negative(Box<Expression>),
     Pick(PickExpression),
+    Index(IndexExpression),
     VariableRef(VariableRef),
     BlockLink(BlockLinkExpression),
     When(WhenExpression),
@@ -429,6 +446,12 @@ impl ParenthesizedExpression {
 pub struct PickExpression {
     pub pick_signal: String,
     pub from: VariableRef,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IndexExpression {
+    pub var_ref: VariableRef,
+    pub index: u16,
 }
 
 impl PickExpression {
@@ -499,70 +522,9 @@ impl Display for MutationOperator {
     }
 }
 
-/// Operator used by a [BinaryExpression].
-#[derive(Debug, Clone, PartialEq)]
-pub struct BinaryOperator {
-    pub kind: BinaryOperatorKind,
-}
-
-impl BinaryOperator {
-    fn new(kind: BinaryOperatorKind) -> Self {
-        Self { kind }
-    }
-
-    /// Get the operator's precedence. Operations with highter precedence will be evaluated first.
-    fn precedence(&self) -> u8 {
-        match self.kind {
-            BinaryOperatorKind::LargerThan => 0,
-            BinaryOperatorKind::LargerThanOrEqual => 0,
-            BinaryOperatorKind::LessThan => 0,
-            BinaryOperatorKind::LessThanOrEqual => 0,
-            BinaryOperatorKind::Equals => 0,
-            BinaryOperatorKind::NotEquals => 0,
-            BinaryOperatorKind::Add => 2,
-            BinaryOperatorKind::Subtract => 2,
-            BinaryOperatorKind::Multiply => 3,
-            BinaryOperatorKind::Divide => 3,
-        }
-    }
-
-    /// Get the type that the operator returns
-    fn return_type(&self) -> ExpressionReturnType {
-        match self.kind {
-            BinaryOperatorKind::Add => ExpressionReturnType::Int,
-            BinaryOperatorKind::Subtract => ExpressionReturnType::Int,
-            BinaryOperatorKind::Multiply => ExpressionReturnType::Int,
-            BinaryOperatorKind::Divide => ExpressionReturnType::Int,
-            BinaryOperatorKind::LargerThan => ExpressionReturnType::Bool,
-            BinaryOperatorKind::LargerThanOrEqual => ExpressionReturnType::Bool,
-            BinaryOperatorKind::LessThan => ExpressionReturnType::Bool,
-            BinaryOperatorKind::LessThanOrEqual => ExpressionReturnType::Bool,
-            BinaryOperatorKind::Equals => ExpressionReturnType::Bool,
-            BinaryOperatorKind::NotEquals => ExpressionReturnType::Bool,
-        }
-    }
-}
-
-impl Display for BinaryOperator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.kind {
-            BinaryOperatorKind::Add => write!(f, "+"),
-            BinaryOperatorKind::Subtract => write!(f, "-"),
-            BinaryOperatorKind::Multiply => write!(f, "*"),
-            BinaryOperatorKind::Divide => write!(f, "/"),
-            BinaryOperatorKind::LargerThan => write!(f, ">"),
-            BinaryOperatorKind::LargerThanOrEqual => write!(f, ">="),
-            BinaryOperatorKind::LessThan => write!(f, "<"),
-            BinaryOperatorKind::LessThanOrEqual => write!(f, "<="),
-            BinaryOperatorKind::Equals => write!(f, "=="),
-            BinaryOperatorKind::NotEquals => write!(f, "!="),
-        }
-    }
-}
-
 /// Kinds of [BinaryOperator].
 #[derive(Debug, Clone, PartialEq)]
-pub enum BinaryOperatorKind {
+pub enum BinaryOperator {
     Add,
     Subtract,
     Multiply,
@@ -573,6 +535,61 @@ pub enum BinaryOperatorKind {
     LessThanOrEqual,
     Equals,
     NotEquals,
+    Combine,
+}
+
+impl BinaryOperator {
+    /// Get the operator's precedence. Operations with highter precedence will be evaluated first.
+    fn precedence(&self) -> u8 {
+        match self {
+            Self::Combine => 0,
+            Self::LargerThan => 1,
+            Self::LargerThanOrEqual => 1,
+            Self::LessThan => 1,
+            Self::LessThanOrEqual => 1,
+            Self::Equals => 1,
+            Self::NotEquals => 1,
+            Self::Add => 2,
+            Self::Subtract => 2,
+            Self::Multiply => 3,
+            Self::Divide => 3,
+        }
+    }
+
+    /// Get the type that the operator returns
+    fn return_type(&self) -> ExpressionReturnType {
+        match self {
+            Self::Add => ExpressionReturnType::Int,
+            Self::Subtract => ExpressionReturnType::Int,
+            Self::Multiply => ExpressionReturnType::Int,
+            Self::Divide => ExpressionReturnType::Int,
+            Self::LargerThan => ExpressionReturnType::Bool,
+            Self::LargerThanOrEqual => ExpressionReturnType::Bool,
+            Self::LessThan => ExpressionReturnType::Bool,
+            Self::LessThanOrEqual => ExpressionReturnType::Bool,
+            Self::Equals => ExpressionReturnType::Bool,
+            Self::NotEquals => ExpressionReturnType::Bool,
+            Self::Combine => ExpressionReturnType::Group,
+        }
+    }
+}
+
+impl Display for BinaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Add => write!(f, "+"),
+            Self::Subtract => write!(f, "-"),
+            Self::Multiply => write!(f, "*"),
+            Self::Divide => write!(f, "/"),
+            Self::LargerThan => write!(f, ">"),
+            Self::LargerThanOrEqual => write!(f, ">="),
+            Self::LessThan => write!(f, "<"),
+            Self::LessThanOrEqual => write!(f, "<="),
+            Self::Equals => write!(f, "=="),
+            Self::NotEquals => write!(f, "!="),
+            Self::Combine => write!(f, "@"),
+        }
+    }
 }
 
 /// The indentation depth when printing the [AST].
@@ -620,6 +637,10 @@ impl Display for VariableType {
                 VariableSignalType::Signal(n) => format!("Var({n})"),
                 VariableSignalType::Any => "Var(Any)".to_string(),
             },
+            VariableType::Attr(var_type) => match var_type {
+                VariableSignalType::Signal(n) => format!("Attr({n})"),
+                VariableSignalType::Any => "Attr(Any)".to_string(),
+            },
             VariableType::Counter((var_type, _lim)) => match var_type {
                 VariableSignalType::Signal(n) => format!("Counter({n})"),
                 VariableSignalType::Any => "Counter(Any)".to_string(),
@@ -627,6 +648,7 @@ impl Display for VariableType {
             VariableType::ConstInt(_) => "ConstInt".to_string(),
             VariableType::ConstBool(_) => "ConstBool".to_string(),
             VariableType::All => "All".to_string(),
+            VariableType::Register(n) => format!("Register({n})"),
         };
         write!(f, "{s}")
     }
@@ -748,6 +770,14 @@ impl Visitor for Printer {
         self.indent();
         self.print(&format!("Pick Signal: {}", expr.pick_signal));
         self.print(&format!("From Variable: {}", expr.from.var.name));
+        self.unindent();
+    }
+
+    fn visit_index_expression(&mut self, expr: &IndexExpression) {
+        self.print("IndexExpression:");
+        self.indent();
+        self.print(&format!("Variable: {}", expr.var_ref.var));
+        self.print(&format!("Size: {}", expr.index));
         self.unindent();
     }
 

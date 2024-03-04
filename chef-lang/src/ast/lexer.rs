@@ -30,11 +30,15 @@ pub enum TokenKind {
     DoubleQuote,
     Equals,
     Comma,
+    At,
     Period,
     Colon,
     Hashtag,
+    Bang,
     Semicolon,
     DoubleEquals,
+    And,
+    DoubleAnd,
     RightArrow,
     LargerThan,
     LargerThanEquals,
@@ -74,7 +78,11 @@ impl Display for TokenKind {
             TokenKind::Colon => ":",
             TokenKind::Semicolon => ";",
             TokenKind::Hashtag => "#",
+            TokenKind::Bang => "!",
+            TokenKind::At => "@",
             TokenKind::DoubleEquals => "==",
+            TokenKind::And => "&",
+            TokenKind::DoubleAnd => "&&",
             TokenKind::RightArrow => "->",
             TokenKind::LargerThan => ">",
             TokenKind::LargerThanEquals => ">=",
@@ -255,6 +263,7 @@ impl Lexer {
             Some(':') => TokenKind::Colon,
             Some(';') => TokenKind::Semicolon,
             Some('#') => TokenKind::Hashtag,
+            Some('@') => TokenKind::At,
             Some('>') => match self.consume() {
                 Some('=') => TokenKind::LargerThanEquals,
                 _ => {
@@ -273,7 +282,14 @@ impl Lexer {
                 Some('=') => TokenKind::BangEquals,
                 _ => {
                     self.backtrack(1);
-                    TokenKind::Bad
+                    TokenKind::Bang
+                }
+            },
+            Some('&') => match self.consume() {
+                Some('&') => TokenKind::DoubleAnd,
+                _ => {
+                    self.backtrack(1);
+                    TokenKind::And
                 }
             },
             _ => TokenKind::Bad,
@@ -447,7 +463,7 @@ fn lex_2_char_operators() {
 
 #[test]
 fn lex_all_tokens() {
-    let code = "10hello+-*/()[]{}=,.:;==->  @";
+    let code = "10hello+-*/()[]{}=,.:;==&->&&  @";
     let expected_tokens = vec![
         TokenKind::Number(10),
         TokenKind::Word("hello".to_string()),
@@ -467,9 +483,11 @@ fn lex_all_tokens() {
         TokenKind::Colon,
         TokenKind::Semicolon,
         TokenKind::DoubleEquals,
+        TokenKind::And,
         TokenKind::RightArrow,
+        TokenKind::DoubleAnd,
         TokenKind::Whitespace,
-        TokenKind::Bad,
+        TokenKind::At,
         TokenKind::End,
     ];
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);

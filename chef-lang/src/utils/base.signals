@@ -292,5 +292,4 @@ virtual:signal-grey
 virtual:signal-black
 virtual:signal-check
 virtual:signal-info
-virtual:signal-dot
 virtual:signal-unknown

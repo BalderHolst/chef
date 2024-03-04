@@ -2,7 +2,7 @@
 
 use crate::diagnostics::{CompilationError, CompilationResult};
 
-use super::{visitors::MutVisitor, Expression, ExpressionKind, AST};
+use super::{visitors::MutVisitor, BinaryOperator, Expression, ExpressionKind, AST};
 
 /// Evaluate constant expressions in the [AST] and substitutes them for their results.
 pub fn evaluate_constants(ast: &mut AST) {
@@ -74,6 +74,7 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
         ExpressionKind::Bool(_) => None,
         ExpressionKind::Binary(_) => None,
         ExpressionKind::Pick(_) => None,
+        ExpressionKind::Index(_) => None,
         ExpressionKind::VariableRef(_) => None,
         ExpressionKind::BlockLink(_) => None,
         ExpressionKind::When(_) => None,
@@ -83,6 +84,7 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
 
 impl MutVisitor for ConstantEvaluator {
     fn visit_pick_expression(&mut self, _expr: &mut super::PickExpression) {}
+    fn visit_index_expression(&mut self, _expr: &mut super::IndexExpression) {}
     fn visit_error_statement(&mut self) {}
     fn visit_number(&mut self, _number: &mut i32) {}
     fn visit_bool(&mut self, _bool: &mut bool) {}
@@ -112,21 +114,18 @@ impl MutVisitor for ConstantEvaluator {
                 let left = left.unwrap();
                 let right = right.unwrap();
 
-                match binary_expression.operator.kind {
-                    super::BinaryOperatorKind::Add => ConstantValue::Int(left + right),
-                    super::BinaryOperatorKind::Subtract => ConstantValue::Int(left - right),
-                    super::BinaryOperatorKind::Multiply => ConstantValue::Int(left * right),
-                    super::BinaryOperatorKind::Divide => ConstantValue::Int(left / right),
-                    super::BinaryOperatorKind::LargerThan => ConstantValue::Bool(left > right),
-                    super::BinaryOperatorKind::LargerThanOrEqual => {
-                        ConstantValue::Bool(left >= right)
-                    }
-                    super::BinaryOperatorKind::LessThan => ConstantValue::Bool(left < right),
-                    super::BinaryOperatorKind::LessThanOrEqual => {
-                        ConstantValue::Bool(left <= right)
-                    }
-                    super::BinaryOperatorKind::Equals => ConstantValue::Bool(left == right),
-                    super::BinaryOperatorKind::NotEquals => ConstantValue::Bool(left != right),
+                match binary_expression.operator {
+                    BinaryOperator::Add => ConstantValue::Int(left + right),
+                    BinaryOperator::Subtract => ConstantValue::Int(left - right),
+                    BinaryOperator::Multiply => ConstantValue::Int(left * right),
+                    BinaryOperator::Divide => ConstantValue::Int(left / right),
+                    BinaryOperator::LargerThan => ConstantValue::Bool(left > right),
+                    BinaryOperator::LargerThanOrEqual => ConstantValue::Bool(left >= right),
+                    BinaryOperator::LessThanOrEqual => ConstantValue::Bool(left <= right),
+                    BinaryOperator::Equals => ConstantValue::Bool(left == right),
+                    BinaryOperator::NotEquals => ConstantValue::Bool(left != right),
+                    BinaryOperator::LessThan => ConstantValue::Bool(left < right),
+                    BinaryOperator::Combine => return, // TODO: what to do here?
                 }
             }
             ExpressionKind::VariableRef(var_ref) => match var_ref.var.type_ {

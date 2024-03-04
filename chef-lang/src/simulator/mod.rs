@@ -5,7 +5,7 @@ mod visualizer;
 use std::{fmt::Display, io};
 
 use crate::compiler::graph::{
-    ArithmeticOperation, Connection, DeciderOperation, Graph, IOType, NId,
+    ArithmeticOperation, Combinator, DeciderOperation, Graph, IOType, NId, NetworkId,
 };
 use fnv::FnvHashMap;
 
@@ -67,6 +67,48 @@ impl Item {
     }
 }
 
+fn combine_items(input: Vec<Item>) -> Vec<Item> {
+    let mut evaluated = vec![false; input.len()];
+    let mut outputs: Vec<Item> = vec![];
+
+    for (i, item) in input.iter().enumerate() {
+        if evaluated[i] {
+            continue;
+        }
+        let mut count = item.count;
+        evaluated[i] = true;
+        for (j, other) in input.iter().enumerate() {
+            if evaluated[j] {
+                continue;
+            }
+            if item.kind == other.kind {
+                count += other.count;
+                evaluated[j] = true;
+            }
+        }
+        outputs.push(Item::new(item.kind.clone(), count));
+    }
+
+    outputs
+}
+
+#[test]
+fn test_combine_items() {
+    let input = vec![
+        Item::new(IOType::signal("test"), 1),
+        Item::new(IOType::signal("test"), 1),
+        Item::new(IOType::signal("test"), 1),
+        Item::new(IOType::signal("other"), 1),
+        Item::new(IOType::signal("test"), 1),
+        Item::new(IOType::signal("test"), 1),
+    ];
+    let expected = vec![
+        Item::new(IOType::signal("test"), 5),
+        Item::new(IOType::signal("other"), 1),
+    ];
+    assert_eq!(combine_items(input), expected);
+}
+
 impl Display for Item {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "<{}:{}>", self.kind, self.count)
@@ -75,9 +117,10 @@ impl Display for Item {
 
 pub struct Simulator {
     graph: Graph,
-    constant_inputs: FnvHashMap<NId, Vec<Item>>,
-    contents: FnvHashMap<NId, Vec<Item>>,
+    constant_inputs: FnvHashMap<NetworkId, Vec<Item>>,
     step: usize,
+    networks: FnvHashMap<NId, Vec<NetworkId>>,
+    network_contents: FnvHashMap<NetworkId, Vec<Item>>,
 }
 
 impl Simulator {
@@ -96,20 +139,48 @@ impl Simulator {
             "Incorrect number of inputs were provided."
         );
 
-        for i in 0..inputs.len() {
-            let vid = input_nodes[i];
-            let input = inputs[i].clone();
+        let mut nid_to_networks_id: FnvHashMap<_, Vec<_>> = FnvHashMap::default();
 
-            constant_inputs
-                .entry(vid)
-                .and_modify(|v: &mut Vec<Item>| v.extend(input.clone()))
-                .or_insert(input);
+        for (network_id, (network, _wk)) in graph.get_networks().iter().enumerate() {
+            for nid in network {
+                nid_to_networks_id
+                    .entry(*nid)
+                    .and_modify(|v| v.push(network_id))
+                    .or_insert(vec![network_id]);
+            }
+        }
+
+        for i in 0..inputs.len() {
+            let nid = input_nodes[i];
+            let input = inputs[i].clone();
+            let network_ids = nid_to_networks_id.get(&nid).unwrap();
+
+            for network_id in network_ids {
+                constant_inputs
+                    .entry(*network_id)
+                    .and_modify(|v: &mut Vec<Item>| v.extend(input.clone()))
+                    .or_insert(input.clone());
+            }
+        }
+
+        for (nid, node) in &graph.vertices {
+            if let Some((t, n)) = node.get_constant_value() {
+                let network_ids = nid_to_networks_id.get(nid).unwrap();
+                let item = Item::new(t, n);
+                for network_id in network_ids {
+                    constant_inputs
+                        .entry(*network_id)
+                        .and_modify(|v: &mut Vec<Item>| v.push(item.clone()))
+                        .or_insert(vec![item.clone()]);
+                }
+            }
         }
 
         Self {
             graph,
             constant_inputs,
-            contents: FnvHashMap::default(),
+            networks: nid_to_networks_id,
+            network_contents: FnvHashMap::default(),
             step: 0,
         }
     }
@@ -117,22 +188,43 @@ impl Simulator {
     fn step(&mut self) {
         let mut new_contents = self.constant_inputs.clone();
 
-        for (from_nid, to_nid, conn) in self.graph.iter_conns() {
-            let conn_inputs = self.contents.get(&from_nid).cloned().unwrap_or(vec![]);
+        for (from_nid, to_nid, conn) in self.graph.iter_combinators() {
+            let from_network_ids = self
+                .networks
+                .get(&from_nid)
+                .expect("Constructor should have created a network for each node.");
+
+            let to_network_ids = self
+                .networks
+                .get(&to_nid)
+                .expect("Constructor should have created a network for each node.");
+
+            let conn_inputs: Vec<_> = from_network_ids
+                .iter()
+                .flat_map(|from_network_id| {
+                    self.network_contents
+                        .get(from_network_id)
+                        .cloned()
+                        .unwrap_or(vec![])
+                })
+                .collect();
+
+            let conn_inputs = combine_items(conn_inputs);
 
             let output = match conn {
-                Connection::Arithmetic(c) => {
+                Combinator::Arithmetic(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);
                     let result = match c.operation {
                         ArithmeticOperation::Add => left + right,
                         ArithmeticOperation::Subtract => left - right,
                         ArithmeticOperation::Multiply => left * right,
+                        ArithmeticOperation::Divide if right == 0 => 0,
                         ArithmeticOperation::Divide => left / right,
                     };
                     Item::new(c.output, result)
                 }
-                Connection::Decider(c) => {
+                Combinator::Decider(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);
                     let result = match c.operation {
@@ -145,7 +237,7 @@ impl Simulator {
                     } as i32;
                     Item::new(c.output, result)
                 }
-                Connection::Gate(c) => {
+                Combinator::Gate(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);
                     let should_pass = match c.operation {
@@ -163,29 +255,40 @@ impl Simulator {
                     };
                     Item::new(c.gate_type, count)
                 }
-                Connection::Constant(c) => Item::new(c.type_, c.count),
+                Combinator::_Constant(c) => Item::new(c.type_, c.count),
             };
 
-            new_contents
-                .entry(to_nid)
-                .and_modify(|v: &mut Vec<Item>| {
-                    // Check if the item exists in node
-                    for item in v.iter_mut() {
-                        if output.kind == item.kind {
-                            item.count += output.count;
-                            return;
+            for to_network_id in to_network_ids {
+                new_contents
+                    .entry(*to_network_id)
+                    .and_modify(|v: &mut Vec<Item>| {
+                        // Check if the item exists in node
+                        for item in v.iter_mut() {
+                            if output.kind == item.kind {
+                                item.count += output.count;
+                                return;
+                            }
                         }
-                    }
-                    v.push(output.clone())
-                })
-                .or_insert(vec![output]);
+                        v.push(output.clone())
+                    })
+                    .or_insert(vec![output.clone()]);
+            }
         }
 
-        self.contents = new_contents;
+        self.network_contents = new_contents;
     }
 
     fn get_node_contents(&self, nid: &NId) -> Vec<Item> {
-        self.contents.get(nid).cloned().unwrap_or(vec![])
+        let network_ids = self.networks.get(nid).unwrap();
+        network_ids
+            .iter()
+            .flat_map(|network_id| {
+                self.network_contents
+                    .get(network_id)
+                    .cloned()
+                    .unwrap_or(vec![])
+            })
+            .collect()
     }
 
     pub fn simulate(&mut self, steps: usize) {

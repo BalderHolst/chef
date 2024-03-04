@@ -1,6 +1,7 @@
 //! Chef type checker.
 
 // TODO: Check that blocks are called with the correct arguments
+// TODO: Check for reserved signals. See RESERVED_GATE_SIGNAL.
 
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
@@ -52,14 +53,32 @@ impl Visitor for TypeChecker {
     fn visit_error_expression(&mut self) {}
     fn visit_pick_expression(&mut self, _expr: &super::PickExpression) {}
     fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
+    fn visit_index_expression(&mut self, _expr: &super::IndexExpression) {}
 
     fn visit_assignment(&mut self, assignment: &super::Assignment) {
         if let Some(sig) = assignment.variable.type_.signal() {
             self.report_if_invalid_signal(sig.as_str(), &assignment.variable.span)
         }
+
+        if let Some(expr) = &assignment.expression {
+            let expr_type = expr.return_type();
+            let var_type = assignment.variable.return_type();
+            if expr_type != var_type {
+                self.diagnostics_bag
+                    .borrow_mut()
+                    .report_error(&expr.span, &format!(
+                            "Can not assign variable `{}` of type `{}` to expression returning `{}` type.",
+                            &assignment.variable.name,
+                            var_type,
+                            expr_type
+                            ));
+            }
+        }
+
         self.do_visit_assignment(assignment);
     }
 
+    // TODO: Maybe break this up into the unimplemented functions above
     fn visit_expression(&mut self, expression: &super::Expression) {
         match &expression.kind {
             ExpressionKind::Bool(_) => {}
@@ -69,6 +88,20 @@ impl Visitor for TypeChecker {
             ExpressionKind::VariableRef(_) => {}
             ExpressionKind::BlockLink(_) => {}
             ExpressionKind::Error => {}
+
+            ExpressionKind::Index(index_expr) => {
+                match &index_expr.var_ref.type_() {
+                    super::VariableType::Register(reg_size) => {
+                        if index_expr.index >= *reg_size {
+                            self.diagnostics_bag.borrow_mut().report_error(&expression.span, &format!("Index {n} of is out of range of register with size {reg_size}.", n=index_expr.index))
+                        }
+                    }
+                    _ => self.diagnostics_bag.borrow_mut().report_error(
+                        &expression.span,
+                        "Only variables of type 'register' can be indexed.",
+                    ),
+                }
+            }
             ExpressionKind::Pick(e) => {
                 self.report_if_invalid_signal(e.pick_signal.as_str(), &expression.span)
             }
@@ -108,8 +141,16 @@ impl Visitor for TypeChecker {
     fn visit_statement(&mut self, statement: &super::Statement) {
         // Make sure variables are only assign expressions returning their type
         if let StatementKind::Assignment(assignment) = &statement.kind {
+            // TODO: check types
+            if assignment.attr.is_some() {
+                return;
+            }
+
             let var_type = assignment.variable.return_type();
-            let expr_type = assignment.expression.return_type();
+            let expr_type = match &assignment.expression {
+                Some(expr) => expr.return_type(),
+                None => return,
+            };
             if var_type != expr_type {
                 self.diagnostics_bag.borrow_mut().report_error(
                     &statement.span,
@@ -188,9 +229,10 @@ mod tests {
         );
         let m_bag = bag.borrow_mut();
         m_bag.print();
-        assert_eq!(m_bag.error_count(), 2);
+        assert_eq!(m_bag.error_count(), 3);
         let message = &format!("{:?}", m_bag.diagnostics()[1]);
-        assert_eq!(message, "Localized { message: \"Expected `}` but found `word`.\", span: TextSpan { start: 84, end: 85, text: SourceText { file: None, text: \"\\n            block main() -> bool {\\n                a: int = false;\\n                a\\n            }\\n            \", lines: [0, 0, 1, 36, 68, 86, 100] } } }");
+        dbg!(&message);
+        assert_eq!(message, "Localized { message: \"Can not assign variable `a` of type `int` to expression returning `bool` type.\", span: TextSpan { start: 52, end: 67, text: SourceText { file: None, text: \"\\n            block main() -> bool {\\n                a: int = false;\\n                a\\n            }\\n            \", lines: [0, 0, 1, 36, 68, 86, 100] } } }");
     }
 
     #[test]

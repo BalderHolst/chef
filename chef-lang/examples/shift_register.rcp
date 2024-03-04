@@ -1,0 +1,8 @@
+block main(input: all) -> int(signal-S) {
+    r: reg(3);
+
+    r.input = input[signal-red];
+    r.shift = input[signal-S];
+
+    r[0] / 8
+}

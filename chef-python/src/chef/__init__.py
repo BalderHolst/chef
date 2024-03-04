@@ -9,6 +9,7 @@ class Variable:
         self.name = name
         self.type = type
 
+    @property
     def definition(self) -> str:
         return f"{self.name}: {self.type}"
 
@@ -34,7 +35,8 @@ class Counter(Variable):
         super().__init__(name, f"counter({type} : {limit})")
 
 class Block:
-    def __init__(self, name: str, args = None | list[Variable] | Variable, out: str | None = None) -> None:
+    def __init__(self, name: str, args: None | list[Variable] | Variable = None, out: str | None = None) -> None:
+        """Start a chef `block` with a name, arguments and output type."""
         self.name = name
 
         if args is None:
@@ -43,7 +45,6 @@ class Block:
             self.args = [args]
         else:
             self.args = list(args)
-
 
         self.out = out
         self.statements = []
@@ -63,7 +64,7 @@ class Block:
         print(self)
 
     def __repr__(self) -> str:
-        args = ", ".join(map(lambda a: a.definition(), self.args))
+        args = ", ".join(map(lambda a: a.definition, self.args))
         s = f"block {self.name}({args})" 
         if not self.out is None: s += f" -> {self.out}"
         s += " {\n"
@@ -76,6 +77,7 @@ class Block:
         return s
 
 class CompoundStatement:
+    """Generic class inherited by compound statements."""
     def __init__(self) -> None:
         self.statements = []
         self.is_inside = False
@@ -88,7 +90,9 @@ class CompoundStatement:
 
     def __exit__(self, *_):
         self.is_inside = False
+
 class When(CompoundStatement):
+    """Start a `when` block with a condition."""
 
     def __init__(self, condition: str) -> None:
         super().__init__()
@@ -121,32 +125,22 @@ class When(CompoundStatement):
         s += indent + "}"
         return s
 
+def const(name: str, const_expr: str):
+    """Create a chef constant."""
+    print(f"const {name} = {const_expr}")
         
 def statement(s):
+    """Add a statement withing a block."""
     if len(chef.compound_statement_stack) == 0:
-        chef.current_block.statements.append(str(s))
+        if not chef.current_block is None:
+            chef.current_block.statements.append(str(s))
+        else:
+            raise Exception("Statements must be within blocks.")
     elif chef.compound_statement_stack[-1].is_inside:
         chef.compound_statement_stack[-1].add_statement(s)
     else:
         chef.compound_statement_stack.pop()
         chef.current_block.statements.append(str(s))
 
-
 if __name__ == "__main__":
-
-    a = Int("a", "pump")
-    b = Int("b")
-    c = Int("c")
-
-    test = When("test")
-
-    with Block("test_block", (a, b ,c), "int(signal-0)"):
-        statement(f"a + b + 10;")
-        statement(f"a + b + 10;")
-        with When("1st"):
-            statement(f"a + b + 10;")
-            with When("2nd"):
-                statement(f"a + b + 10;")
-            statement(f"a + b + 10;")
-        statement(f"a + b + 10;")
-        
+    pass

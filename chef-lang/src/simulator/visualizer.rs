@@ -1,10 +1,11 @@
 use std::{
+    collections::HashMap,
     fs,
     io::{self, Write},
 };
 
 use crate::{
-    compiler::graph::{Connection, Node},
+    compiler::graph::{Combinator, Connection, Node, WireConnection},
     utils,
 };
 
@@ -29,7 +30,7 @@ pub(crate) fn visualize_simulator(sim: &Simulator, path: &str) -> io::Result<()>
 pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
     let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();
 
-    for (vid, node) in &sim.graph.vertices {
+    for (nid, node) in &sim.graph.vertices {
         // Node color
         let color = match node {
             Node::Inner => "white",
@@ -40,39 +41,74 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
         };
 
         // Node text
-        let node_contents: String = match sim.contents.get(vid) {
-            Some(items) if !items.is_empty() => items.iter().map(|item| item.to_string()).collect(),
+        let mut node_contents: String = match sim.get_node_contents(nid) {
+            items if !items.is_empty() => items.iter().map(|item| item.to_string()).collect(),
             _ => "EMPTY".to_string(),
         };
 
+        if sim.graph.is_wire_only_node(*nid) {
+            if let Some(Node::Inner) = sim.graph.get_node(nid) {
+                node_contents = "".to_string();
+            }
+        }
+
         dot += &format!(
-            "\t{vid}\t[style=filled fillcolor={color} label=\"{label}\"]\n",
-            vid = vid,
+            "\t{nid}\t[style=filled fillcolor={color} label=\"{label}\"]\n",
+            nid = nid,
             color = color,
             label = node_contents
         );
     }
 
-    for (from_vid, to_vec) in &sim.graph.adjacency {
-        for (to_vid, conn) in to_vec {
-            let color = if conn.is_pick() {
-                "red"
-            } else if conn.is_convert() {
-                "blue"
-            } else {
-                match conn {
-                    Connection::Arithmetic(_) => "black",
-                    Connection::Decider(_) => "purple",
-                    Connection::Gate(_) => "teal",
-                    Connection::Constant(_) => "green",
+    let mut wires = HashMap::new();
+    let mut combinators = Vec::new();
+
+    for (from_nid, to_nid, conn) in sim.graph.iter_conns() {
+        match &conn {
+            Connection::Wire(wk) => {
+                // Avoid wire duplication
+                if from_nid > to_nid {
+                    continue;
                 }
-            };
-            dot += &format!(
-                "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",
-                from_vid, to_vid, conn, color, color
-            );
+                wires
+                    .entry((from_nid, to_nid))
+                    .and_modify(|wk| {
+                        *wk = WireConnection::Both;
+                    })
+                    .or_insert(WireConnection::from_wire_kind(wk));
+            }
+            Connection::Combinator(com) => combinators.push((from_nid, to_nid, com.clone())),
         }
     }
+
+    for ((from_nid, to_nid), wire) in wires {
+        let color = match wire {
+            WireConnection::Green => "green",
+            WireConnection::Red => "red",
+            WireConnection::Both => "lightblue",
+        };
+
+        dot += &format!(
+            "\t{} -> {}\t[label=\"\" color={} fontcolor={} dir=\"both\"]\n",
+            from_nid, to_nid, color, color
+        );
+    }
+
+    for (from_nid, to_nid, com) in combinators {
+        let color = match &com {
+            com if com.is_pick() => "black",
+            com if com.is_convert() => "blue",
+            Combinator::Arithmetic(_) => "orange",
+            Combinator::Decider(_) => "purple",
+            Combinator::Gate(_) => "teal",
+            Combinator::_Constant(_) => "brown",
+        };
+        dot += &format!(
+            "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",
+            from_nid, to_nid, com, color, color
+        );
+    }
+
     dot += "}\n";
     dot
 }
