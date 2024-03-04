@@ -5,7 +5,9 @@ main: build
 check: test lint
 
 test:
+	@echo "============================== Running Language Tests =============================="
 	cargo test $(cargo_flags)
+	@echo "=========================== Running Python Package Tests ==========================="
 	./chef-python/test.py
 
 lint:

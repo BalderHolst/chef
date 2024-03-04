@@ -45,9 +45,12 @@ info("Compiling examples:")
 for example in os.listdir(EXAMPLES_DIR):
     print(f"    {example} ... ", end="")
     out = subprocess.run(
-        [CHEF_EXE, "--python", "/home/balder/.nix-profile/bin/python", "cook", f"{EXAMPLES_DIR}/{example}"],
+        [CHEF_EXE, "cook", f"{EXAMPLES_DIR}/{example}"],
         capture_output=True,
-        env={'PYTHONPATH': f"{PYTHON_PACKAGE_DIR}/src"}
+        env={
+            'PYTHONPATH': f"{PYTHON_PACKAGE_DIR}/src",
+            'PATH': os.environ['PATH'],
+            }
         )
     if out.returncode == 0:
         success("OK")

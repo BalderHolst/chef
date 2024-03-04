@@ -1,4 +1,4 @@
-name: Build and Test
+name: Check chef-lang
 
 on:
   push:
@@ -10,15 +10,20 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - uses: dtolnay/rust-toolchain@stable
     - name: Build
       run: cargo build -v --manifest-path chef-lang/Cargo.toml
-    - name: Run tests
+    - name: Run language tests
       run: cargo test -v --manifest-path chef-lang/Cargo.toml
+    - uses: actions/setup-python@v4
+      with:
+          python-version: '3.10' 
+    - name: Run python module tests
+      run: PYTHONPATH="$(pwd)/chef-python/src" python ./chef-python/test.py
 
   clippy:
     runs-on: ubuntu-latest

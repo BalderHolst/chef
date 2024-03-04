@@ -44,7 +44,8 @@
             ];
 
             shellHook = ''
-                export PATH=$(pwd)/chef-lang/target/debug:$PATH
+                export PATH="$(pwd)/chef-lang/target/debug:$PATH"
+                export PYTHONPATH="$(pwd)/chef-python/src"
             '';
         };
     };
