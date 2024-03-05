@@ -544,6 +544,8 @@ impl Parser {
 
         let expr = self.parse_expression()?;
 
+        self.consume_and_expect(TokenKind::Semicolon)?;
+
         Ok(StatementKind::Definition(Definition::new(var, expr)))
     }
 
