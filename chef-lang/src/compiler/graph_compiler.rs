@@ -706,10 +706,6 @@ impl GraphCompiler {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
-            VariableType::Attr(var_type) => match var_type {
-                VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
-                VariableSignalType::Any => self.get_new_anysignal(),
-            },
             VariableType::Counter((var_type, _lim)) => match var_type {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),

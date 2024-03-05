@@ -31,7 +31,6 @@ pub struct StatementList {
 #[derive(Debug, Clone, PartialEq)]
 enum ScopedItem {
     Var(Rc<Variable>),
-    Attr(Rc<Variable>, String), // TODO: Remove
     Const(Constant),
 }
 
@@ -314,9 +313,6 @@ impl Parser {
                     _ if self.is_at_declaration_statment() => self.parse_declaration_statement(),
                     _ if self.is_at_definition_statment() => self.parse_definition_statement(),
                     _ if self.is_at_mutation_statment() => self.parse_mutation_statement(),
-                    // _ if self.is_at_attribute_assignment_statement() => {
-                    //     self.parse_attribute_assignment_statement()
-                    // }
                     _ => match self.parse_expression() {
                         Ok(expr) => Ok(StatementKind::Out(expr)),
                         Err(e) => Err(e),
@@ -385,51 +381,6 @@ impl Parser {
         )
     }
 
-    fn is_at_attribute_assignment_statement(&self) -> bool {
-        self.peak(1).kind == TokenKind::Period
-    }
-
-    // fn parse_attribute_assignment_statement(&mut self) -> CompilationResult<StatementKind> {
-    //     let var_span = self.current().span.clone();
-    //     let var_name = self.consume_word()?.to_string();
-    //     self.consume_and_expect(TokenKind::Period)?;
-    //     let attr = self.consume_word()?.to_string();
-    //     self.consume_and_expect(TokenKind::Equals)?;
-
-    //     let input = self.parse_expression()?;
-
-    //     self.consume_and_expect(TokenKind::Semicolon)?;
-
-    //     let item = self
-    //         .search_scope(&var_name)
-    //         .ok_or(CompilationError::new_localized(
-    //             "Can not assign attribute to undefined variable.",
-    //             var_span.clone(),
-    //         ))?;
-
-    //     let var = match item {
-    //         ScopedItem::Var(v) => Ok(v),
-    //         _ => Err(CompilationError::new_localized(
-    //             "Only variable can have attributes.",
-    //             var_span,
-    //         )),
-    //     }?;
-
-    //     self.add_to_scope(
-    //         format!("{var_name}.{attr}"),
-    //         ScopedItem::Attr(var.clone(), attr.clone()),
-    //     );
-
-    //     Ok(StatementKind::DeclarationDefinition(
-    //         DeclarationDefinition {
-    //             variable: var,
-    //             attr: Some(attr),
-    //             expression: Some(input),
-
-    //         },
-    //     ))
-    // }
-
     /// Returns true if the cursor is at the begining of an assignment statement.
     fn is_at_definition_statment(&self) -> bool {
         matches!(
@@ -473,7 +424,6 @@ impl Parser {
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
             VariableType::All => {}
-            VariableType::Attr(_) => {}
             VariableType::ConstInt(_) => {}
             VariableType::ConstBool(_) => {}
         };
@@ -502,7 +452,7 @@ impl Parser {
 
         self.consume_and_expect(TokenKind::Semicolon)?;
         Ok(StatementKind::DeclarationDefinition(
-            DeclarationDefinition::new(variable, None, Some(expr), kind),
+            DeclarationDefinition::new(variable, Some(expr), kind),
         ))
     }
 
@@ -639,7 +589,6 @@ impl Parser {
             Ok(match item {
                 ScopedItem::Var(v) => ParsedVariable::Ref(VariableRef::new(v, start_token.span)),
                 ScopedItem::Const(c) => ParsedVariable::Const(c),
-                ScopedItem::Attr(_, _) => todo!(),
             })
         } else {
             // If variable definition
@@ -1046,7 +995,6 @@ impl Parser {
                         ScopedItem::Const(Constant::Bool(b)) => {
                             Ok(Expression::new(ExpressionKind::Bool(b), item_span))
                         }
-                        ScopedItem::Attr(_, _) => todo!(),
                     }
                 } else if let Some(block) = self.search_blocks(word) {
                     let block_link_expr = self.parse_block_link(block)?;

@@ -141,11 +141,6 @@ impl Visitor for TypeChecker {
     fn visit_statement(&mut self, statement: &super::Statement) {
         // Make sure variables are only assign expressions returning their type
         if let StatementKind::DeclarationDefinition(assignment) = &statement.kind {
-            // TODO: check types
-            if assignment.attr.is_some() {
-                return;
-            }
-
             let var_type = assignment.variable.return_type();
             let expr_type = match &assignment.expression {
                 Some(expr) => expr.return_type(),
