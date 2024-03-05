@@ -675,38 +675,6 @@ impl Parser {
         Ok(arguments)
     }
 
-    /// Parse outputs for `block` definition.
-    fn parse_block_outputs(&mut self) -> Result<Vec<Variable>, CompilationError> {
-        self.consume_and_expect(TokenKind::LeftParen)?;
-
-        let mut outputs: Vec<Variable> = vec![];
-
-        loop {
-            let start = self.current().span.clone();
-            let var = self.parse_variable()?;
-            if let ParsedVariable::Dec(var) = var {
-                outputs.push(var);
-            } else {
-                return Err(CompilationError::new_localized(
-                    "Block output must be a variable definition.".to_string(),
-                    TextSpan::from_spans(&start, &self.current().span),
-                ));
-            }
-
-            if self.current().kind == TokenKind::RightParen {
-                break;
-            }
-
-            self.consume_and_expect(TokenKind::Comma)?;
-        }
-
-        self.consume_if(TokenKind::Comma);
-
-        self.consume_and_expect(TokenKind::RightParen)?;
-
-        Ok(outputs)
-    }
-
     /// Parse arguments for `block` links.
     fn parse_block_link_arguments(&mut self) -> Result<Vec<Expression>, CompilationError> {
         let mut inputs: Vec<Expression> = vec![];
