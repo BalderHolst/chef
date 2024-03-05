@@ -27,6 +27,7 @@ impl Scope {
         }
     }
 
+    /// TODO: DRY up these variable definitions
     fn declare_variable(
         &mut self,
         graph: &mut Graph,
@@ -34,6 +35,38 @@ impl Scope {
         var_type: IOType,
     ) -> CompilationResult<()> {
         let nid = graph.push_var_node(var_type.clone());
+        match self.variables.insert(var_id, (nid, var_type)) {
+            Some(_) => Err(CompilationError::new_generic(
+                "Variable already declared in this scope.",
+            )),
+            None => Ok(()),
+        }
+    }
+
+    /// TODO: DRY up these variable definitions
+    fn declare_input_variable(
+        &mut self,
+        graph: &mut Graph,
+        var_id: VariableId,
+        var_type: IOType,
+    ) -> CompilationResult<()> {
+        let nid = graph.push_input_node(var_type.clone());
+        match self.variables.insert(var_id, (nid, var_type)) {
+            Some(_) => Err(CompilationError::new_generic(
+                "Variable already declared in this scope.",
+            )),
+            None => Ok(()),
+        }
+    }
+
+    /// TODO: DRY up these variable definitions
+    fn declare_output_variable(
+        &mut self,
+        graph: &mut Graph,
+        var_id: VariableId,
+        var_type: IOType,
+    ) -> CompilationResult<()> {
+        let nid = graph.push_output_node(var_type.clone());
         match self.variables.insert(var_id, (nid, var_type)) {
             Some(_) => Err(CompilationError::new_generic(
                 "Variable already declared in this scope.",
@@ -100,12 +133,12 @@ impl GraphCompiler {
         self.enter_scope();
         for input_var in block.inputs.clone() {
             let t = self.variable_type_to_iotype(&input_var.type_);
-            self.declare_variable(&mut graph, input_var.id, t);
+            self.declare_input_variable(&mut graph, input_var.id, t)?;
         }
 
         for output_var in block.outputs.clone() {
             let t = self.variable_type_to_iotype(&output_var.type_);
-            self.declare_variable(&mut graph, output_var.id, t);
+            self.declare_output_variable(&mut graph, output_var.id, t)?;
         }
 
         for statement in &block.statements {
@@ -620,11 +653,43 @@ impl GraphCompiler {
             .declare_variable(graph, var_id, var_type)
     }
 
-    fn define_variable(&mut self, graph: &mut Graph, var_id: VariableId, nid: NId, wk: WireKind) {
+    /// Declare an INPUT variable in the current scope.
+    fn declare_input_variable(
+        &mut self,
+        graph: &mut Graph,
+        var_id: VariableId,
+        var_type: IOType,
+    ) -> CompilationResult<()> {
         self.scopes
             .last_mut()
             .unwrap()
-            .define_variable(graph, var_id, nid, wk);
+            .declare_input_variable(graph, var_id, var_type)
+    }
+
+    /// Declare an OUTPUT variable in the current scope.
+    fn declare_output_variable(
+        &mut self,
+        graph: &mut Graph,
+        var_id: VariableId,
+        var_type: IOType,
+    ) -> CompilationResult<()> {
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .declare_output_variable(graph, var_id, var_type)
+    }
+
+    fn define_variable(
+        &mut self,
+        graph: &mut Graph,
+        var_id: VariableId,
+        nid: NId,
+        wk: WireKind,
+    ) -> CompilationResult<()> {
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .define_variable(graph, var_id, nid, wk)
     }
 
     fn search_scope(&self, var_id: VariableId) -> Option<(NId, IOType)> {
