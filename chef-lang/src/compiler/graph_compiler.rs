@@ -369,19 +369,21 @@ impl GraphCompiler {
         pick_expr: &PickExpression,
     ) -> Result<(NId, IOType), CompilationError> {
         let var_ref = pick_expr.from.clone();
-        if let Some((var_out_nid, _)) = self.search_scope(var_ref.var.id) {
-            let out_type = IOType::signal(pick_expr.pick_signal.clone());
-            let (c_input, picked_nid) = graph.push_connection(Connection::new_arithmetic(
-                ArithmeticCombinator::new_pick(out_type.clone().to_combinator_type()),
-            ));
-            graph.push_wire(var_out_nid, c_input);
-            Ok((picked_nid, out_type))
-        } else {
-            Err(CompilationError::new_localized(
-                format!("No variable with the name \'{}\', ", var_ref.var.name),
-                var_ref.span,
-            ))
-        }
+
+        let (var_out_nid, _) =
+            self.search_scope(var_ref.var.id)
+                .ok_or(CompilationError::new_localized(
+                    format!("No variable with the name \'{}\', ", var_ref.var.name),
+                    var_ref.span,
+                ))?;
+
+        let out_type = IOType::signal(pick_expr.pick_signal.clone());
+        let (c_input, picked_nid) = graph.push_connection(Connection::new_arithmetic(
+            ArithmeticCombinator::new_pick(out_type.clone().to_combinator_type()),
+        ));
+        graph.push_wire(var_out_nid, c_input);
+
+        Ok((picked_nid, out_type))
     }
 
     fn compile_index_expression(
