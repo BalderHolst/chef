@@ -149,7 +149,6 @@ pub enum StatementKind {
     DeclarationDefinition(DeclarationDefinition),
     Definition(Definition),
     Mutation(Mutation),
-    Operation(VarOperation),
     Out(Expression),
     Error,
 }
@@ -340,12 +339,6 @@ impl Mutation {
             operator,
         }
     }
-}
-
-/// [AST] representation of bang operation on a chef variable.
-#[derive(Debug, Clone, PartialEq)]
-pub struct VarOperation {
-    pub var_ref: VariableRef,
 }
 
 /// A chef expression.

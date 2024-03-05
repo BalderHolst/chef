@@ -1068,29 +1068,6 @@ impl Parser {
         })
     }
 
-    /// Parse `var!` syntax
-    fn parse_variable_operation_statement(
-        &mut self,
-        var: Rc<Variable>,
-    ) -> CompilationResult<StatementKind> {
-        let start_span = self.peak(-1).span.clone();
-
-        // Consume `var!`
-        self.consume_word()?;
-        self.consume_and_expect(TokenKind::Bang)?;
-        self.consume_and_expect(TokenKind::Semicolon)?;
-
-        match &var.type_ {
-            VariableType::Register(_) => Ok(StatementKind::Operation(super::VarOperation {
-                var_ref: VariableRef::new(var.clone(), start_span),
-            })),
-            t => Err(CompilationError::new_localized(
-                format!("No standard operation exists for type: `{}`.", t),
-                self.get_span_from(&start_span),
-            )),
-        }
-    }
-
     /// Parse a chef block link.
     fn parse_block_link(
         &mut self,
