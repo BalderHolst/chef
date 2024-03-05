@@ -1,0 +1,14 @@
+block main(input: all) => (out: all) {
+    a: all;
+
+    // Create two 'signal-RED' signals with different values and colors of wires
+    a <- input[signal-red];
+    a <~ input[signal-red] * 10;
+
+    // Pick out the values into different variables
+    red: int <- a[signal-red];
+    green: int <~ a[signal-red];
+
+    // Out should now be the x + x*10 where x is the amount os 'signal-RED' on the input
+    out <- red + green;
+}
