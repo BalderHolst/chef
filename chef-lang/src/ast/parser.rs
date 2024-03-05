@@ -487,6 +487,7 @@ impl Parser {
 
         // Return early if it is just a declaration
         if current.kind == TokenKind::Semicolon {
+            self.consume();
             return Ok(StatementKind::Declaration(Declaration {
                 variable: Rc::new(variable),
             }));
