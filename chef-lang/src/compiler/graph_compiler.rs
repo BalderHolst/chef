@@ -9,12 +9,7 @@ use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
 use crate::diagnostics::{CompilationError, CompilationResult};
 
-// TODO: Remove RESERVED_SIGNAL
 use super::RESERVED_SIGNAL;
-
-// TODO: Remove tags
-const REGISTER_INPUT_TAG: i32 = -1;
-const REGISTER_SHIFT_TAG: i32 = -2;
 
 struct Scope {
     variables: HashMap<VariableId, (NId, IOType)>,
