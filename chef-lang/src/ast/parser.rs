@@ -14,7 +14,7 @@ use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, Di
 use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
-use super::{python_macro, Declaration, Definition, IndexExpression};
+use super::{python_macro, Declaration, Definition, DefinitionKind, IndexExpression};
 use super::{
     Block, BlockLinkExpression, DeclarationDefinition, MutationOperator, PickExpression,
     VariableRef, VariableSignalType,
@@ -314,9 +314,9 @@ impl Parser {
                     _ if self.is_at_declaration_statment() => self.parse_declaration_statement(),
                     _ if self.is_at_definition_statment() => self.parse_definition_statement(),
                     _ if self.is_at_mutation_statment() => self.parse_mutation_statement(),
-                    _ if self.is_at_attribute_assignment_statement() => {
-                        self.parse_attribute_assignment_statement()
-                    }
+                    // _ if self.is_at_attribute_assignment_statement() => {
+                    //     self.parse_attribute_assignment_statement()
+                    // }
                     _ => match self.parse_expression() {
                         Ok(expr) => Ok(StatementKind::Out(expr)),
                         Err(e) => Err(e),
@@ -389,45 +389,46 @@ impl Parser {
         self.peak(1).kind == TokenKind::Period
     }
 
-    fn parse_attribute_assignment_statement(&mut self) -> CompilationResult<StatementKind> {
-        let var_span = self.current().span.clone();
-        let var_name = self.consume_word()?.to_string();
-        self.consume_and_expect(TokenKind::Period)?;
-        let attr = self.consume_word()?.to_string();
-        self.consume_and_expect(TokenKind::Equals)?;
+    // fn parse_attribute_assignment_statement(&mut self) -> CompilationResult<StatementKind> {
+    //     let var_span = self.current().span.clone();
+    //     let var_name = self.consume_word()?.to_string();
+    //     self.consume_and_expect(TokenKind::Period)?;
+    //     let attr = self.consume_word()?.to_string();
+    //     self.consume_and_expect(TokenKind::Equals)?;
 
-        let input = self.parse_expression()?;
+    //     let input = self.parse_expression()?;
 
-        self.consume_and_expect(TokenKind::Semicolon)?;
+    //     self.consume_and_expect(TokenKind::Semicolon)?;
 
-        let item = self
-            .search_scope(&var_name)
-            .ok_or(CompilationError::new_localized(
-                "Can not assign attribute to undefined variable.",
-                var_span.clone(),
-            ))?;
+    //     let item = self
+    //         .search_scope(&var_name)
+    //         .ok_or(CompilationError::new_localized(
+    //             "Can not assign attribute to undefined variable.",
+    //             var_span.clone(),
+    //         ))?;
 
-        let var = match item {
-            ScopedItem::Var(v) => Ok(v),
-            _ => Err(CompilationError::new_localized(
-                "Only variable can have attributes.",
-                var_span,
-            )),
-        }?;
+    //     let var = match item {
+    //         ScopedItem::Var(v) => Ok(v),
+    //         _ => Err(CompilationError::new_localized(
+    //             "Only variable can have attributes.",
+    //             var_span,
+    //         )),
+    //     }?;
 
-        self.add_to_scope(
-            format!("{var_name}.{attr}"),
-            ScopedItem::Attr(var.clone(), attr.clone()),
-        );
+    //     self.add_to_scope(
+    //         format!("{var_name}.{attr}"),
+    //         ScopedItem::Attr(var.clone(), attr.clone()),
+    //     );
 
-        Ok(StatementKind::DeclarationDefinition(
-            DeclarationDefinition {
-                variable: var,
-                attr: Some(attr),
-                expression: Some(input),
-            },
-        ))
-    }
+    //     Ok(StatementKind::DeclarationDefinition(
+    //         DeclarationDefinition {
+    //             variable: var,
+    //             attr: Some(attr),
+    //             expression: Some(input),
+
+    //         },
+    //     ))
+    // }
 
     /// Returns true if the cursor is at the begining of an assignment statement.
     fn is_at_definition_statment(&self) -> bool {
@@ -452,9 +453,7 @@ impl Parser {
                 // cannot be assigned values.
                 let var = Rc::new(variable);
                 self.add_var_to_scope(var.clone());
-                return Ok(StatementKind::DeclarationDefinition(
-                    DeclarationDefinition::new(var, None, None),
-                ));
+                return Ok(StatementKind::Declaration(Declaration::new(var)));
             }
             VariableType::Counter(_) => {
                 self.consume_and_expect(TokenKind::Semicolon)?;
@@ -463,17 +462,13 @@ impl Parser {
                 // cannot be assigned values.
                 let var = Rc::new(variable);
                 self.add_var_to_scope(var.clone());
-                return Ok(StatementKind::DeclarationDefinition(
-                    DeclarationDefinition::new(var, None, None),
-                ));
+                return Ok(StatementKind::Declaration(Declaration::new(var)));
             }
             VariableType::Register(_) => {
                 let var = Rc::new(variable.clone());
                 self.add_var_to_scope(var.clone());
                 self.consume_and_expect(TokenKind::Semicolon)?;
-                return Ok(StatementKind::DeclarationDefinition(
-                    DeclarationDefinition::new(var, None, None),
-                ));
+                return Ok(StatementKind::Declaration(Declaration::new(var)));
             }
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
@@ -494,21 +489,20 @@ impl Parser {
             return Ok(StatementKind::Declaration(Declaration { variable }));
         }
 
-        if !current.kind.is_assignment_operator() {
-            self.diagnostics_bag.borrow_mut().report_error(
-                &current.span,
-                &format!("'{}' is not a valid assignment operator.", current.kind),
-            );
-            self.consume_bad_statement();
-            return Ok(StatementKind::Error);
-        }
-        self.consume(); // Consume arrow
+        let kind = match &self.consume().kind {
+            TokenKind::LeftArrow => Ok(DefinitionKind::RED),
+            TokenKind::LeftCurlyArrow => Ok(DefinitionKind::GREEN),
+            other => Err(CompilationError::new_localized(
+                format!("'{}' is not a valid assignment operator.", other),
+                self.peak(-1).span.clone(),
+            )),
+        }?;
 
         let expr = self.parse_expression()?;
 
         self.consume_and_expect(TokenKind::Semicolon)?;
         Ok(StatementKind::DeclarationDefinition(
-            DeclarationDefinition::new(variable, None, Some(expr)),
+            DeclarationDefinition::new(variable, None, Some(expr), kind),
         ))
     }
 
@@ -530,22 +524,20 @@ impl Parser {
             )),
         }?;
 
-        let current = self.current();
-        if !current.kind.is_assignment_operator() {
-            self.diagnostics_bag.borrow_mut().report_error(
-                &current.span,
-                &format!("'{}' is not a valid assignment operator.", current.kind),
-            );
-            self.consume_bad_statement();
-            return Ok(StatementKind::Error);
-        }
-        self.consume(); // Consume assignment operator
+        let kind = match &self.consume().kind {
+            TokenKind::LeftArrow => Ok(DefinitionKind::RED),
+            TokenKind::LeftCurlyArrow => Ok(DefinitionKind::GREEN),
+            other => Err(CompilationError::new_localized(
+                format!("'{}' is not a valid assignment operator.", other),
+                start_span.clone(),
+            )),
+        }?;
 
         let expr = self.parse_expression()?;
 
         self.consume_and_expect(TokenKind::Semicolon)?;
 
-        Ok(StatementKind::Definition(Definition::new(var, expr)))
+        Ok(StatementKind::Definition(Definition::new(var, expr, kind)))
     }
 
     fn consume_mutation_operator(&mut self) -> Result<MutationOperator, CompilationError> {

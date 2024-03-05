@@ -265,12 +265,20 @@ pub struct Declaration {
     pub variable: Rc<Variable>,
 }
 
+impl Declaration {
+    /// Instantiate a new [Declaration].
+    pub fn new(variable: Rc<Variable>) -> Self {
+        Self { variable }
+    }
+}
+
 /// [AST] representation of chef `int` variable assignment and declaration.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeclarationDefinition {
     pub variable: Rc<Variable>,
-    pub attr: Option<String>,
+    pub attr: Option<String>, // TODO: Remove
     pub expression: Option<Expression>,
+    pub kind: DefinitionKind,
 }
 
 impl DeclarationDefinition {
@@ -279,13 +287,21 @@ impl DeclarationDefinition {
         variable: Rc<Variable>,
         attr: Option<String>,
         expression: Option<Expression>,
+        kind: DefinitionKind,
     ) -> Self {
         Self {
             variable,
             attr,
             expression,
+            kind,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DefinitionKind {
+    RED,
+    GREEN,
 }
 
 /// [AST] representation of chef `int` variable assignment.
@@ -293,14 +309,16 @@ impl DeclarationDefinition {
 pub struct Definition {
     pub variable: Rc<Variable>,
     pub expression: Expression,
+    pub kind: DefinitionKind,
 }
 
 impl Definition {
     /// Instantiate a new [Assignment].
-    pub fn new(variable: Rc<Variable>, expression: Expression) -> Self {
+    pub fn new(variable: Rc<Variable>, expression: Expression, kind: DefinitionKind) -> Self {
         Self {
             variable,
             expression,
+            kind,
         }
     }
 }
@@ -732,23 +750,23 @@ impl Visitor for Printer {
         ));
     }
 
-    fn visit_definition(&mut self, definition: &Definition) {
+    fn visit_definition(&mut self, def: &Definition) {
         self.print(&format!(
-            "Definition: \"{}: {}\"",
-            definition.variable.name, definition.variable.type_
+            "Definition ({:?}): \"{}: {}\"",
+            def.kind, def.variable.name, def.variable.type_
         ));
         self.indent();
-        self.visit_expression(&definition.expression);
+        self.visit_expression(&def.expression);
         self.unindent();
     }
 
-    fn visit_declaration_definition(&mut self, assignment: &DeclarationDefinition) {
+    fn visit_declaration_definition(&mut self, dec_def: &DeclarationDefinition) {
         self.print(&format!(
-            "DeclarationDefinition: \"{}: {}\"",
-            assignment.variable.name, assignment.variable.type_
+            "DeclarationDefinition ({:?}): \"{}: {}\"",
+            dec_def.kind, dec_def.variable.name, dec_def.variable.type_
         ));
         self.indent();
-        self.do_visit_declaration_definition(assignment);
+        self.do_visit_declaration_definition(dec_def);
         self.unindent();
     }
 
