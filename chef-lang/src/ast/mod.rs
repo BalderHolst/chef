@@ -209,13 +209,15 @@ pub enum VariableSignalType {
     Any,
 }
 
+pub type VariableId = usize;
+
 /// A chef variable.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Variable {
     pub name: String,
     pub type_: VariableType,
     pub span: TextSpan,
-    pub id: usize,
+    pub id: VariableId,
 }
 
 impl Variable {

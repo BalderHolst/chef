@@ -1,4 +1,4 @@
-block main(input: all) => (out: all) {
+block main(input: all) => (out: int) {
     a: all;
 
     // Create two 'signal-RED' signals with different values and colors of wires
@@ -9,6 +9,7 @@ block main(input: all) => (out: all) {
     red: int <- a[signal-red];
     green: int <~ a[signal-red];
 
-    // Out should now be the x + x*10 where x is the amount os 'signal-RED' on the input
+    // Out should now be the x + x*10 where x is the amount os 'signal-RED' on the input.
+    // Arithmetic operation always return an integer.
     out <- red + green;
 }

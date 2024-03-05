@@ -1,24 +1,56 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
     BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
     DeclarationDefinition, Definition, Expression, ExpressionKind, IndexExpression, Mutation,
-    PickExpression, VarOperation, VariableRef, VariableSignalType, WhenExpression, AST,
+    PickExpression, VarOperation, VariableId, VariableRef, VariableSignalType, WhenExpression, AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
 use crate::diagnostics::{CompilationError, CompilationResult};
 
+// TODO: Remove RESERVED_SIGNAL
 use super::RESERVED_SIGNAL;
 
+// TODO: Remove tags
 const REGISTER_INPUT_TAG: i32 = -1;
 const REGISTER_SHIFT_TAG: i32 = -2;
+
+struct Scope {
+    variables: HashSet<VariableId>,
+    definitions: HashMap<VariableId, NId>,
+}
+
+impl Scope {
+    fn new() -> Self {
+        Self {
+            variables: HashSet::new(),
+            definitions: HashMap::new(),
+        }
+    }
+
+    fn declare_variable(&mut self, var_id: VariableId) -> bool {
+        self.variables.insert(var_id)
+    }
+
+    fn variable_is_declared(&self, var_id: VariableId) -> bool {
+        self.variables.contains(&var_id)
+    }
+
+    fn get_variable_definition(&self, var_id: VariableId) -> Option<NId> {
+        self.definitions.get(&var_id).cloned()
+    }
+
+    fn search(&self, var_id: VariableId) -> Option<NId> {
+        self.definitions.get(&var_id).cloned()
+    }
+}
 
 pub struct GraphCompiler {
     ast: AST,
     next_anysignal: u64,
     block_graphs: HashMap<String, Graph>,
-    scopes: Vec<HashMap<(String, Option<i32>), NId>>,
+    scopes: Vec<Scope>,
 }
 
 impl GraphCompiler {
@@ -27,7 +59,7 @@ impl GraphCompiler {
             ast,
             next_anysignal: 0,
             block_graphs: HashMap::new(),
-            scopes: vec![HashMap::new()],
+            scopes: vec![Scope::new()],
         }
     }
 
@@ -43,17 +75,11 @@ impl GraphCompiler {
         let mut graph = Graph::new();
         self.enter_scope();
         for input_var in block.inputs.clone() {
-            let var_name = input_var.name.clone();
-            let var_iotype = self.variable_type_to_iotype(&input_var.type_.clone());
-            let input_vid = graph.push_input_node(var_iotype);
-            self.add_to_scope(var_name, None, input_vid)
+            self.declare_variable(input_var.id);
         }
 
         for output_var in block.outputs.clone() {
-            let var_name = output_var.name.clone();
-            let var_iotype = self.variable_type_to_iotype(&output_var.type_.clone());
-            let output_vid = graph.push_output_node(var_iotype);
-            self.add_to_scope(var_name, None, output_vid)
+            self.declare_variable(output_var.id);
         }
 
         for statement in &block.statements {
@@ -78,7 +104,7 @@ impl GraphCompiler {
                 self.compile_declaration_statement(graph, dec)?;
             }
             StatementKind::DeclarationDefinition(dec_def) => {
-                self.compile_declaration_assignment_statement(graph, dec_def)?;
+                self.compile_declaration_definition_statement(graph, dec_def)?;
             }
             StatementKind::Definition(def) => {
                 self.compile_definition_statement(graph, def)?;
@@ -299,7 +325,7 @@ impl GraphCompiler {
         //         }
     }
 
-    fn compile_declaration_assignment_statement(
+    fn compile_declaration_definition_statement(
         &mut self,
         graph: &mut Graph,
         operation: DeclarationDefinition,
@@ -331,7 +357,7 @@ impl GraphCompiler {
         gate: Option<(NId, IOType)>,
     ) -> Result<(), CompilationError> {
         // TODO: Create test for expect
-        let var_nid = self.search_scope(mutation_statement.var_ref.var.name.clone(), None).expect("The parser should make sure that mutation statements only happen on defined variables.");
+        let var_nid = self.search_scope(mutation_statement.var_ref.var.id).expect("The parser should make sure that mutation statements only happen on defined variables.");
         let var_type = mutation_statement.var_ref.var.type_.clone();
         let var_iotype = self.variable_type_to_iotype(&var_type);
 
@@ -436,7 +462,7 @@ impl GraphCompiler {
         // Get the referenced variable.
         let var = var_ref.var.clone();
         let var_node_nid = self
-            .search_scope(var.name.clone(), None)
+            .search_scope(var.id)
             .expect("Variable references should always point to defined variables");
         let var_node = graph.get_node(&var_node_nid).unwrap();
 
@@ -485,7 +511,7 @@ impl GraphCompiler {
         pick_expr: &PickExpression,
     ) -> Result<(NId, IOType), CompilationError> {
         let var_ref = pick_expr.from.clone();
-        if let Some(var_out_nid) = self.search_scope(var_ref.var.name.clone(), None) {
+        if let Some(var_out_nid) = self.search_scope(var_ref.var.id) {
             let out_type = IOType::signal(pick_expr.pick_signal.clone());
             let (c_input, c_output) = graph.push_connection(Connection::new_arithmetic(
                 ArithmeticCombinator::new_pick(out_type.clone().to_combinator_type()),
@@ -508,9 +534,7 @@ impl GraphCompiler {
         index_expr: &IndexExpression,
     ) -> Result<(NId, IOType), CompilationError> {
         let index = index_expr.index;
-        if let Some(indexed_output) =
-            self.search_scope(index_expr.var_ref.var.name.clone(), Some(index as i32))
-        {
+        if let Some(indexed_output) = self.search_scope(index_expr.var_ref.var.id) {
             // TODO: Make type depend on register input type
             Ok((indexed_output, IOType::Everything))
         } else {
@@ -743,36 +767,26 @@ impl GraphCompiler {
     }
 
     fn enter_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.scopes.push(Scope::new());
     }
 
     fn exit_scope(&mut self) {
         self.scopes.pop().unwrap();
     }
 
-    fn add_to_scope(&mut self, variable_name: String, tag: Option<i32>, nid: NId) {
-        if self
-            .scopes
-            .last_mut()
-            .unwrap()
-            .insert((variable_name, tag), nid)
-            .is_some()
-        {
+    /// Declare a variable in the current scope.
+    fn declare_variable(&mut self, var_id: VariableId) {
+        if self.scopes.last_mut().unwrap().declare_variable(var_id) {
             panic!("tried to override a variable in scope.")
         }
     }
 
-    fn search_scope(&self, variable_name: String, tag: Option<i32>) -> Option<NId> {
+    fn search_scope(&self, var_id: VariableId) -> Option<NId> {
         let scopes_len = self.scopes.len();
         for i in 0..scopes_len {
             let p = scopes_len - i - 1;
-            if let Some(vid) = self
-                .scopes
-                .get(p)
-                .unwrap()
-                .get(&(variable_name.clone(), tag))
-            {
-                return Some(*vid);
+            if let Some(nid) = self.scopes.get(p).unwrap().search(var_id) {
+                return Some(nid);
             }
         }
         None
