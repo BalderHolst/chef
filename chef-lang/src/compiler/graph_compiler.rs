@@ -297,7 +297,7 @@ impl GraphCompiler {
             ExpressionKind::Int(n) => self.compile_constant(graph, *n),
             ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32),
             ExpressionKind::VariableRef(var_ref) => self.compile_variable_ref_expression(graph, var_ref), // 
-            ExpressionKind::Pick(pick_expr) => self.compile_pick_expression(graph, pick_expr),
+            ExpressionKind::Pick(pick_expr) => self.compile_pick_expression(graph, pick_expr, out_type),
             ExpressionKind::Index(index_expr) => self.compile_index_expression(graph, index_expr),
             ExpressionKind::Parenthesized(expr) => self.compile_expression(graph, &expr.expression, out_type),
             ExpressionKind::Negative(expr) => self.compile_negative_expression(graph, expr, out_type),
@@ -367,6 +367,7 @@ impl GraphCompiler {
         &mut self,
         graph: &mut Graph,
         pick_expr: &PickExpression,
+        out_type: Option<IOType>,
     ) -> Result<(NId, IOType), CompilationError> {
         let var_ref = pick_expr.from.clone();
 
@@ -377,13 +378,27 @@ impl GraphCompiler {
                     var_ref.span,
                 ))?;
 
-        let out_type = IOType::signal(pick_expr.pick_signal.clone());
-        let (c_input, picked_nid) = graph.push_connection(Connection::new_arithmetic(
-            ArithmeticCombinator::new_pick(out_type.clone().to_combinator_type()),
-        ));
-        graph.push_wire(var_out_nid, c_input);
+        let pick_type = IOType::signal(pick_expr.pick_signal.clone());
 
-        Ok((picked_nid, out_type))
+        let (com_input, picked_nid) = graph.push_connection(Connection::new_arithmetic(
+            ArithmeticCombinator::new_pick(pick_type.clone().to_combinator_type()),
+        ));
+        graph.push_wire(var_out_nid, com_input);
+
+        let (out_nid, out_type) = match out_type {
+            Some(out_type) if out_type == pick_type => (picked_nid, out_type),
+            Some(out_type) => {
+                let (c_input, c_output) = graph.push_connection(Connection::new_convert(
+                    pick_type.clone().to_combinator_type(),
+                    out_type.clone().to_combinator_type(),
+                ));
+                graph.push_wire(picked_nid, c_input);
+                (c_output, out_type)
+            }
+            None => (picked_nid, pick_type),
+        };
+
+        Ok((out_nid, out_type))
     }
 
     fn compile_index_expression(
@@ -411,26 +426,20 @@ impl GraphCompiler {
         out_type: Option<IOType>,
     ) -> Result<(NId, IOType), CompilationError> {
         let (left_nid, left_type) = self.compile_expression(graph, &bin_expr.left, None)?;
-        let (mut right_nid, mut right_type) =
-            self.compile_expression(graph, &bin_expr.right, None)?;
+        let (right_nid, right_type) = self.compile_expression(graph, &bin_expr.right, None)?;
 
-        // If the two inputs are of the same type, one must be converted.
+        // TODO: Report correctly
         if left_type == right_type {
-            let new_right_type = self.get_new_anysignal();
-            let (convertion_input, new_right_nid) =
-                graph.push_connection(Connection::new_arithmetic(
-                    ArithmeticCombinator::new_convert(right_type.clone(), new_right_type.clone()),
-                ));
-            graph.push_wire(right_nid, convertion_input);
-            right_nid = new_right_nid;
-            right_type = new_right_type;
+            panic!(
+                "Left and right types should not be the same. Found {} and {}.",
+                left_type, right_type
+            );
         }
 
         // Use the outtype if any was provided.
-        let out_type = if let Some(t) = out_type {
-            t
-        } else {
-            self.get_new_anysignal()
+        let out_type = match out_type {
+            Some(t) => t,
+            None => self.get_new_anysignal(),
         };
 
         // Get the combinator operation
