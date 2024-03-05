@@ -483,14 +483,15 @@ impl Parser {
             VariableType::ConstBool(_) => {}
         };
 
+        let variable = Rc::new(variable);
+        self.add_var_to_scope(variable.clone());
+
         let current = self.current();
 
         // Return early if it is just a declaration
         if current.kind == TokenKind::Semicolon {
             self.consume();
-            return Ok(StatementKind::Declaration(Declaration {
-                variable: Rc::new(variable),
-            }));
+            return Ok(StatementKind::Declaration(Declaration { variable }));
         }
 
         if !current.kind.is_assignment_operator() {
@@ -505,12 +506,9 @@ impl Parser {
 
         let expr = self.parse_expression()?;
 
-        let var_ref = Rc::new(variable);
-        self.add_var_to_scope(var_ref.clone());
-
         self.consume_and_expect(TokenKind::Semicolon)?;
         Ok(StatementKind::DeclarationDefinition(
-            DeclarationDefinition::new(var_ref, None, Some(expr)),
+            DeclarationDefinition::new(variable, None, Some(expr)),
         ))
     }
 
