@@ -6,13 +6,13 @@ use crate::{
     ast::AST,
     cli::Opts,
     compiler::{self, graph::Graph},
-    diagnostics::DiagnosticsBag,
+    diagnostics::{CompilationResult, DiagnosticsBag},
     inputs, outputs,
     simulator::Simulator,
     text::SourceText,
 };
 
-fn compile_source(source_text: SourceText) -> Graph {
+fn compile_source(source_text: SourceText) -> CompilationResult<Graph> {
     let text = Rc::new(source_text);
     let opts = Rc::new(Opts::new_test());
     let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
@@ -27,7 +27,7 @@ where
 {
     let code = code.to_string();
     let text = SourceText::from_str(code.as_str());
-    compile_source(text)
+    compile_source(text).unwrap()
 }
 
 #[test]

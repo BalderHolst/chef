@@ -17,41 +17,56 @@ const REGISTER_INPUT_TAG: i32 = -1;
 const REGISTER_SHIFT_TAG: i32 = -2;
 
 struct Scope {
-    variables: HashSet<VariableId>,
-    definitions: HashMap<VariableId, NId>,
+    variables: HashMap<VariableId, (NId, IOType)>,
 }
 
 impl Scope {
     fn new() -> Self {
         Self {
-            variables: HashSet::new(),
-            definitions: HashMap::new(),
+            variables: HashMap::new(),
         }
     }
 
-    fn declare_variable(&mut self, var_id: VariableId) -> bool {
-        self.variables.insert(var_id)
+    fn declare_variable(
+        &mut self,
+        graph: &mut Graph,
+        var_id: VariableId,
+        var_type: IOType,
+    ) -> CompilationResult<()> {
+        let nid = graph.push_var_node(var_type.clone());
+        match self.variables.insert(var_id, (nid, var_type)) {
+            Some(_) => Err(CompilationError::new_generic(
+                "Variable already declared in this scope.",
+            )),
+            None => Ok(()),
+        }
     }
 
-    fn define_variable(&mut self, graph: &mut Graph, var_id: VariableId, nid: NId, wk: WireKind) {
-        self.definitions
-            .entry(var_id)
-            .and_modify(|var_nid| {
-                graph.push_wire(nid, *var_nid, wk.clone());
-            })
-            .or_insert({
-                let var_nid = graph.push_inner_node();
-                graph.push_wire(nid, var_nid, wk);
-                var_nid
-            });
+    fn define_variable(
+        &mut self,
+        graph: &mut Graph,
+        var_id: VariableId,
+        nid: NId,
+        wk: WireKind,
+    ) -> CompilationResult<()> {
+        let (var_nid, _var_type) =
+            self.variables
+                .get(&var_id)
+                .ok_or(CompilationError::new_generic(
+                    "Variable not declared in this scope.",
+                ))?;
+
+        graph.push_wire(nid, *var_nid, wk);
+
+        Ok(())
     }
 
     fn variable_is_declared(&self, var_id: VariableId) -> bool {
-        self.variables.contains(&var_id)
+        self.variables.contains_key(&var_id)
     }
 
-    fn search(&self, var_id: VariableId) -> Option<NId> {
-        self.definitions.get(&var_id).cloned()
+    fn search(&self, var_id: VariableId) -> Option<(NId, IOType)> {
+        self.variables.get(&var_id).cloned()
     }
 }
 
@@ -84,11 +99,13 @@ impl GraphCompiler {
         let mut graph = Graph::new();
         self.enter_scope();
         for input_var in block.inputs.clone() {
-            self.declare_variable(input_var.id);
+            let t = self.variable_type_to_iotype(&input_var.type_);
+            self.declare_variable(&mut graph, input_var.id, t);
         }
 
         for output_var in block.outputs.clone() {
-            self.declare_variable(output_var.id);
+            let t = self.variable_type_to_iotype(&output_var.type_);
+            self.declare_variable(&mut graph, output_var.id, t);
         }
 
         for statement in &block.statements {
@@ -139,11 +156,12 @@ impl GraphCompiler {
 
     fn compile_declaration_statement(
         &mut self,
-        _graph: &mut Graph,
+        graph: &mut Graph,
         dec: Declaration,
     ) -> Result<(), CompilationError> {
         let var = &dec.variable;
-        self.declare_variable(var.id);
+        let var_type = self.variable_type_to_iotype(&var.type_);
+        self.declare_variable(graph, var.id, var_type)?;
         Ok(())
     }
 
@@ -153,7 +171,8 @@ impl GraphCompiler {
         dec_def: DeclarationDefinition,
     ) -> Result<(), CompilationError> {
         let var = &dec_def.variable;
-        self.declare_variable(var.id);
+        let var_type = self.variable_type_to_iotype(&var.type_);
+        self.declare_variable(graph, var.id, var_type)?;
         let definition = dec_def.to_definition();
         self.compile_definition_statement(graph, definition)
     }
@@ -291,19 +310,12 @@ impl GraphCompiler {
     ) -> Result<(NId, IOType), CompilationError> {
         // Get the referenced variable.
         let var = var_ref.var.clone();
-        let var_node_nid = self
+        let (var_nid, var_type) = self
             .search_scope(var.id)
             .expect("Variable references should always point to defined variables");
-        let var_node = graph.get_node(&var_node_nid).unwrap();
+        let var_node = graph.get_node(&var_nid).unwrap();
 
-        // Get the signal type of the var node.
-        let var_type = match var_node {
-            Node::InputVariable(input_type) => input_type,
-            Node::Variable(var_type) => var_type,
-            _ => panic!("Var nodes should be `Variable` or `InputVariable` nodes"),
-        };
-
-        Ok((var_node_nid, var_type.clone()))
+        Ok((var_nid, var_type.clone()))
     }
 
     fn compile_negative_expression(
@@ -341,7 +353,7 @@ impl GraphCompiler {
         pick_expr: &PickExpression,
     ) -> Result<(NId, IOType), CompilationError> {
         let var_ref = pick_expr.from.clone();
-        if let Some(var_out_nid) = self.search_scope(var_ref.var.id) {
+        if let Some((var_out_nid, _)) = self.search_scope(var_ref.var.id) {
             let out_type = IOType::signal(pick_expr.pick_signal.clone());
             let (c_input, c_output) = graph.push_connection(Connection::new_arithmetic(
                 ArithmeticCombinator::new_pick(out_type.clone().to_combinator_type()),
@@ -363,16 +375,17 @@ impl GraphCompiler {
         _graph: &mut Graph,
         index_expr: &IndexExpression,
     ) -> Result<(NId, IOType), CompilationError> {
-        let index = index_expr.index;
-        if let Some(indexed_output) = self.search_scope(index_expr.var_ref.var.id) {
-            // TODO: Make type depend on register input type
-            Ok((indexed_output, IOType::Everything))
-        } else {
-            Err(CompilationError::new_localized(
-                "Index out of range.",
-                index_expr.var_ref.span.clone(),
-            ))
-        }
+        todo!()
+        // let index = index_expr.index;
+        // if let Some((indexed_output, indexed_output_type)) = self.search_scope(index_expr.var_ref.var.id) {
+        //     // TODO: Make type depend on register input type
+        //     Ok((indexed_output, IOType::Everything))
+        // } else {
+        //     Err(CompilationError::new_localized(
+        //         "Index out of range.",
+        //         index_expr.var_ref.span.clone(),
+        //     ))
+        // }
     }
 
     fn compile_binary_expression(
@@ -605,10 +618,16 @@ impl GraphCompiler {
     }
 
     /// Declare a variable in the current scope.
-    fn declare_variable(&mut self, var_id: VariableId) {
-        if !self.scopes.last_mut().unwrap().declare_variable(var_id) {
-            panic!("tried to override a variable in scope.")
-        }
+    fn declare_variable(
+        &mut self,
+        graph: &mut Graph,
+        var_id: VariableId,
+        var_type: IOType,
+    ) -> CompilationResult<()> {
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .declare_variable(graph, var_id, var_type)
     }
 
     fn define_variable(&mut self, graph: &mut Graph, var_id: VariableId, nid: NId, wk: WireKind) {
@@ -618,12 +637,12 @@ impl GraphCompiler {
             .define_variable(graph, var_id, nid, wk);
     }
 
-    fn search_scope(&self, var_id: VariableId) -> Option<NId> {
+    fn search_scope(&self, var_id: VariableId) -> Option<(NId, IOType)> {
         let scopes_len = self.scopes.len();
         for i in 0..scopes_len {
             let p = scopes_len - i - 1;
-            if let Some(nid) = self.scopes.get(p).unwrap().search(var_id) {
-                return Some(nid);
+            if let Some(var) = self.scopes.get(p).unwrap().search(var_id) {
+                return Some(var);
             }
         }
         None

@@ -720,13 +720,13 @@ impl Visitor for Printer {
             block
                 .inputs
                 .iter()
-                .map(|i| (i.name.clone(), i.type_.to_string()))
-                .collect::<Vec<(String, String)>>(),
+                .map(|i| format!("{}: {} ({})", i.name, i.type_, i.id))
+                .collect::<Vec<String>>(),
             block
                 .outputs
                 .iter()
-                .map(|i| (i.name.clone(), i.type_.to_string()))
-                .collect::<Vec<(String, String)>>(),
+                .map(|i| format!("{}: {} ({})", i.name, i.type_, i.id))
+                .collect::<Vec<String>>(),
         ));
         self.indent();
 
@@ -739,17 +739,17 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_declaration(&mut self, declaration: &Declaration) {
+    fn visit_declaration(&mut self, dec: &Declaration) {
         self.print(&format!(
-            "Declaration: \"{}: {}\"",
-            declaration.variable.name, declaration.variable.type_
+            "Declaration: \"{}: {}\" ({})",
+            dec.variable.name, dec.variable.type_, dec.variable.id
         ));
     }
 
     fn visit_definition(&mut self, def: &Definition) {
         self.print(&format!(
-            "Definition <{:?}>: \"{}: {}\"",
-            def.kind, def.variable.name, def.variable.type_
+            "Definition <{:?}>: \"{}: {}\" ({})",
+            def.kind, def.variable.name, def.variable.type_, def.variable.id
         ));
         self.indent();
         self.visit_expression(&def.expression);
@@ -758,8 +758,8 @@ impl Visitor for Printer {
 
     fn visit_declaration_definition(&mut self, dec_def: &DeclarationDefinition) {
         self.print(&format!(
-            "DeclarationDefinition <{:?}>: \"{}: {}\"",
-            dec_def.kind, dec_def.variable.name, dec_def.variable.type_
+            "DeclarationDefinition <{:?}>: \"{}: {}\" ({})",
+            dec_def.kind, dec_def.variable.name, dec_def.variable.type_, dec_def.variable.id
         ));
         self.indent();
         self.do_visit_declaration_definition(dec_def);
@@ -822,7 +822,10 @@ impl Visitor for Printer {
         self.print("PickExpression:");
         self.indent();
         self.print(&format!("Pick Signal: {}", expr.pick_signal));
-        self.print(&format!("From Variable: {}", expr.from.var.name));
+        self.print(&format!(
+            "From Variable: {} ({})",
+            expr.from.var.name, expr.from.var.id
+        ));
         self.unindent();
     }
 
