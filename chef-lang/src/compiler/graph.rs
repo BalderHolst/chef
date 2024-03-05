@@ -669,7 +669,14 @@ impl Graph {
         (from, to)
     }
 
-    pub fn push_wire(&mut self, n1: NId, n2: NId, wire_kind: WireKind) {
+    /// Push both a red and green wire between two nodes.
+    pub fn push_wire(&mut self, n1: NId, n2: NId) {
+        self.push_wire_kind(n1, n2, WireKind::Green);
+        self.push_wire_kind(n1, n2, WireKind::Red);
+    }
+
+    /// Push a wire of a specific kind between two nodes.
+    pub fn push_wire_kind(&mut self, n1: NId, n2: NId, wire_kind: WireKind) {
         let wire = Connection::Wire(wire_kind);
         self.adjacency
             .entry(n1)
@@ -1187,10 +1194,10 @@ mod tests {
         // Network 2: n4 -- n6
         // Network 3: n5
         let wire_kind = WireKind::Green;
-        g.push_wire(n1, n2, wire_kind.clone());
-        g.push_wire(n2, n3, wire_kind.clone());
-        g.push_wire(n3, n1, wire_kind.clone());
-        g.push_wire(n4, n6, wire_kind);
+        g.push_wire_kind(n1, n2, wire_kind.clone());
+        g.push_wire_kind(n2, n3, wire_kind.clone());
+        g.push_wire_kind(n3, n1, wire_kind.clone());
+        g.push_wire_kind(n4, n6, wire_kind);
 
         // Check network 1
         let mut network1_1 = g.get_node_network(&n1, WireKind::Green);
