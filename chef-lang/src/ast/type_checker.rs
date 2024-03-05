@@ -55,7 +55,7 @@ impl Visitor for TypeChecker {
     fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
     fn visit_index_expression(&mut self, _expr: &super::IndexExpression) {}
 
-    fn visit_declaration_assignment(&mut self, assignment: &super::DeclarationDefinition) {
+    fn visit_declaration_definition(&mut self, assignment: &super::DeclarationDefinition) {
         if let Some(sig) = assignment.variable.type_.signal() {
             self.report_if_invalid_signal(sig.as_str(), &assignment.variable.span)
         }
@@ -75,7 +75,7 @@ impl Visitor for TypeChecker {
             }
         }
 
-        self.do_visit_declaration_assignment(assignment);
+        self.do_visit_declaration_definition(assignment);
     }
 
     // TODO: Maybe break this up into the unimplemented functions above

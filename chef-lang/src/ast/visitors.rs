@@ -29,11 +29,11 @@ pub trait Visitor {
             StatementKind::Declaration(declaration) => {
                 self.visit_declaration(declaration);
             }
-            StatementKind::DeclarationDefinition(assignment) => {
-                self.visit_declaration_assignment(assignment);
+            StatementKind::DeclarationDefinition(dec_def) => {
+                self.visit_declaration_definition(dec_def);
             }
-            StatementKind::Definition(assignment) => {
-                self.visit_assignment(assignment);
+            StatementKind::Definition(def) => {
+                self.visit_definition(def);
             }
             StatementKind::Mutation(mutation) => {
                 self.visit_mutation(mutation);
@@ -89,13 +89,13 @@ pub trait Visitor {
         }
     }
 
-    fn do_visit_declaration_assignment(&mut self, assignment: &DeclarationDefinition) {
+    fn do_visit_declaration_definition(&mut self, assignment: &DeclarationDefinition) {
         if let Some(expr) = &assignment.expression {
             self.visit_expression(expr)
         }
     }
 
-    fn do_visit_assignment(&mut self, assignment: &Definition) {
+    fn do_visit_definition(&mut self, assignment: &Definition) {
         self.visit_expression(&assignment.expression)
     }
 
@@ -143,12 +143,12 @@ pub trait Visitor {
 
     fn visit_declaration(&mut self, _declaration: &Declaration) {}
 
-    fn visit_declaration_assignment(&mut self, assignment: &DeclarationDefinition) {
-        self.do_visit_declaration_assignment(assignment);
+    fn visit_declaration_definition(&mut self, dec_def: &DeclarationDefinition) {
+        self.do_visit_declaration_definition(dec_def);
     }
 
-    fn visit_assignment(&mut self, assignment: &Definition) {
-        self.do_visit_assignment(assignment);
+    fn visit_definition(&mut self, def: &Definition) {
+        self.do_visit_definition(def);
     }
 
     fn visit_mutation(&mut self, mutation: &Mutation) {
@@ -203,14 +203,14 @@ pub trait MutVisitor {
             StatementKind::Out(expr) => {
                 self.visit_out(expr);
             }
-            StatementKind::Declaration(declaration) => {
-                self.visit_declaration(declaration);
+            StatementKind::Declaration(dec) => {
+                self.visit_declaration(dec);
             }
-            StatementKind::DeclarationDefinition(assignment) => {
-                self.visit_declaration_assignment(assignment);
+            StatementKind::DeclarationDefinition(dec_def) => {
+                self.visit_declaration_definition(dec_def);
             }
-            StatementKind::Definition(assignment) => {
-                self.visit_assignment(assignment);
+            StatementKind::Definition(def) => {
+                self.visit_definition(def);
             }
             StatementKind::Mutation(mutation) => {
                 self.visit_mutation(mutation);
@@ -268,14 +268,14 @@ pub trait MutVisitor {
         }
     }
 
-    fn do_visit_declaration_assignment(&mut self, assignment: &mut DeclarationDefinition) {
-        if let Some(expr) = &mut assignment.expression {
+    fn do_visit_declaration_definition(&mut self, dec_def: &mut DeclarationDefinition) {
+        if let Some(expr) = &mut dec_def.expression {
             self.visit_expression(expr);
         }
     }
 
-    fn do_visit_assignment(&mut self, assignment: &mut Definition) {
-        self.visit_expression(&mut assignment.expression);
+    fn do_visit_definition(&mut self, def: &mut Definition) {
+        self.visit_expression(&mut def.expression);
     }
 
     fn do_visit_mutation(&mut self, mutation: &mut Mutation) {
@@ -322,12 +322,12 @@ pub trait MutVisitor {
 
     fn visit_declaration(&mut self, _declaration: &mut Declaration) {}
 
-    fn visit_declaration_assignment(&mut self, assignment: &mut DeclarationDefinition) {
-        self.do_visit_declaration_assignment(assignment);
+    fn visit_declaration_definition(&mut self, dec_def: &mut DeclarationDefinition) {
+        self.do_visit_declaration_definition(dec_def);
     }
 
-    fn visit_assignment(&mut self, assignment: &mut Definition) {
-        self.do_visit_assignment(assignment);
+    fn visit_definition(&mut self, def: &mut Definition) {
+        self.do_visit_definition(def);
     }
 
     fn visit_mutation(&mut self, mutation: &mut Mutation) {

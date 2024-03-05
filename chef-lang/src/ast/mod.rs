@@ -722,19 +722,33 @@ impl Visitor for Printer {
             self.visit_statement(statement);
         }
         self.unindent();
-
-        self.print("BlockOutput:");
-
         self.unindent();
     }
 
-    fn visit_declaration_assignment(&mut self, assignment: &DeclarationDefinition) {
+    fn visit_declaration(&mut self, declaration: &Declaration) {
         self.print(&format!(
-            "Assignment: \"{} ({})\"",
+            "Declaration: \"{}: {}\"",
+            declaration.variable.name, declaration.variable.type_
+        ));
+    }
+
+    fn visit_definition(&mut self, definition: &Definition) {
+        self.print(&format!(
+            "Definition: \"{}: {}\"",
+            definition.variable.name, definition.variable.type_
+        ));
+        self.indent();
+        self.visit_expression(&definition.expression);
+        self.unindent();
+    }
+
+    fn visit_declaration_definition(&mut self, assignment: &DeclarationDefinition) {
+        self.print(&format!(
+            "DeclarationDefinition: \"{}: {}\"",
             assignment.variable.name, assignment.variable.type_
         ));
         self.indent();
-        self.do_visit_declaration_assignment(assignment);
+        self.do_visit_declaration_definition(assignment);
         self.unindent();
     }
 
