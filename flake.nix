@@ -44,8 +44,10 @@
             ];
 
             shellHook = ''
-                export PATH="$(pwd)/chef-lang/target/debug:$PATH"
-                export PYTHONPATH="$(pwd)/chef-python/src"
+                root="$(pwd)"
+                [[ ! "$(basename $root)" = "chef" ]] && echo -e "\nWARNING: Paths may are not set correctly. Please run in the 'chef' root directory."
+                export PATH="$root/chef-lang/target/debug:$PATH"
+                export PYTHONPATH="$root/chef-python/src"
             '';
         };
     };
