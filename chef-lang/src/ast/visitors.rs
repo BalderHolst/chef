@@ -90,9 +90,8 @@ pub trait Visitor {
     }
 
     fn do_visit_declaration_definition(&mut self, assignment: &DeclarationDefinition) {
-        if let Some(expr) = &assignment.expression {
-            self.visit_expression(expr)
-        }
+        let expr = &assignment.expression;
+        self.visit_expression(expr)
     }
 
     fn do_visit_definition(&mut self, assignment: &Definition) {
@@ -269,9 +268,8 @@ pub trait MutVisitor {
     }
 
     fn do_visit_declaration_definition(&mut self, dec_def: &mut DeclarationDefinition) {
-        if let Some(expr) = &mut dec_def.expression {
-            self.visit_expression(expr);
-        }
+        let expr = &mut dec_def.expression;
+        self.visit_expression(expr);
     }
 
     fn do_visit_definition(&mut self, def: &mut Definition) {

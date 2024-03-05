@@ -275,29 +275,33 @@ impl Declaration {
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeclarationDefinition {
     pub variable: Rc<Variable>,
-    pub expression: Option<Expression>,
+    pub expression: Expression,
     pub kind: DefinitionKind,
 }
 
 impl DeclarationDefinition {
     /// Instantiate a new [Assignment].
-    pub fn new(
-        variable: Rc<Variable>,
-        expression: Option<Expression>,
-        kind: DefinitionKind,
-    ) -> Self {
+    pub fn new(variable: Rc<Variable>, expression: Expression, kind: DefinitionKind) -> Self {
         Self {
             variable,
             expression,
             kind,
         }
     }
+
+    pub fn to_definition(self) -> Definition {
+        Definition {
+            variable: self.variable,
+            expression: self.expression,
+            kind: self.kind,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DefinitionKind {
-    RED,
-    GREEN,
+    Red,
+    Green,
 }
 
 /// [AST] representation of chef `int` variable assignment.

@@ -5,7 +5,7 @@ use std::{env, io};
 use ast::AST;
 use clap::Parser;
 use cli::{AddCommand, Command, CookOpts, Opts, SimulateOpts};
-use diagnostics::{DiagnosticsBag, DiagnosticsBagRef};
+use diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
 use simulator::Simulator;
 use text::SourceText;
 use utils::VisualizerError;
@@ -23,7 +23,7 @@ mod utils;
 #[cfg(test)]
 mod tests;
 
-pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
+pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
     let path = &cook_opts.file;
 
     let text = if path.ends_with(".py") {
@@ -46,7 +46,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
 
     diagnostics_bag.borrow().exit_if_errored();
 
-    let graph = compiler::compile(ast);
+    let graph = compiler::compile(ast)?;
 
     diagnostics_bag.borrow().exit_if_errored();
 
@@ -82,9 +82,11 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) {
     .unwrap();
     println!("{blueprint_str}");
     eprintln!();
+
+    Ok(())
 }
 
-fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) {
+fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) -> CompilationResult<()> {
     let path = &sim_opts.file;
     let text = Rc::new(SourceText::from_file(path).unwrap());
     let diagnostics_bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
@@ -92,27 +94,29 @@ fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) {
 
     diagnostics_bag.borrow().exit_if_errored();
 
-    let graph = compiler::compile(ast);
+    let graph = compiler::compile(ast)?;
 
     diagnostics_bag.borrow().exit_if_errored();
 
     let mut sim = Simulator::new(graph, vec![]);
 
-    sim.dump_simulation(sim_opts.iterations, "./test")
+    sim.dump_simulation(sim_opts.iterations, "./test");
+
+    Ok(())
 }
 
-fn main() -> Result<(), io::Error> {
+fn main() -> CompilationResult<()> {
     let opts = Rc::new(Opts::parse());
 
     match &opts.command {
         Command::Cook(cook_opts) => {
-            compile(opts.clone(), cook_opts);
+            compile(opts.clone(), cook_opts)?;
 
             eprintln!("Enjoy!");
             Ok(())
         }
         Command::Simulate(sim_opts) => {
-            simulate(opts.clone(), sim_opts);
+            simulate(opts.clone(), sim_opts)?;
             Ok(())
         }
         Command::Add(c) => match c.command {

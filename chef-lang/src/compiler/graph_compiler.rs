@@ -33,12 +33,21 @@ impl Scope {
         self.variables.insert(var_id)
     }
 
-    fn variable_is_declared(&self, var_id: VariableId) -> bool {
-        self.variables.contains(&var_id)
+    fn define_variable(&mut self, graph: &mut Graph, var_id: VariableId, nid: NId, wk: WireKind) {
+        self.definitions
+            .entry(var_id)
+            .and_modify(|var_nid| {
+                graph.push_wire(nid, *var_nid, wk.clone());
+            })
+            .or_insert({
+                let var_nid = graph.push_inner_node();
+                graph.push_wire(nid, var_nid, wk);
+                var_nid
+            });
     }
 
-    fn get_variable_definition(&self, var_id: VariableId) -> Option<NId> {
-        self.definitions.get(&var_id).cloned()
+    fn variable_is_declared(&self, var_id: VariableId) -> bool {
+        self.variables.contains(&var_id)
     }
 
     fn search(&self, var_id: VariableId) -> Option<NId> {
@@ -121,6 +130,7 @@ impl GraphCompiler {
                 graph.push_wire(c_ouput, out_nid, WireKind::Green);
             }
             StatementKind::Error => {
+                // TODO: Remove error statements
                 panic!("There should not be error statements when compilation has started.")
             }
         };
@@ -129,215 +139,23 @@ impl GraphCompiler {
 
     fn compile_declaration_statement(
         &mut self,
-        graph: &mut Graph,
-        operation: Declaration,
+        _graph: &mut Graph,
+        dec: Declaration,
     ) -> Result<(), CompilationError> {
-        let var = &operation.variable;
-
-        todo!();
-
-        //         match &var.type_ {
-        //             VariableType::Var(_) => {
-        //                 let var_type = self.variable_type_to_iotype(&var.type_);
-        //                 let var_nid = graph.push_var_node(var_type.clone());
-        //                 let (c_input, c_output) = graph.push_connection(Connection::new_pick(var_type));
-        //                 // This node is not needed, but makes visualiztions look better
-        //                 let loop_nid = graph.push_inner_node();
-        //                 graph.push_wire(c_input, loop_nid, WireKind::Green);
-        //                 graph.push_wire(loop_nid, c_output, WireKind::Green);
-        //                 graph.push_wire(c_input, var_nid, WireKind::Green);
-        //                 self.add_to_scope(var.name.clone(), None, var_nid);
-        //                 Ok(())
-        //             }
-        //             VariableType::Counter((_, limit_expr)) => {
-        //                 let var_type = self.variable_type_to_iotype(&var.type_);
-
-        //                 // Get counter limit
-        //                 let (limit_nid, limit_type) = self.compile_expression(graph, limit_expr, None)?;
-
-        //                 let var_nid = graph.push_var_node(var_type.clone());
-
-        //                 assert_ne!(limit_type, var_type);
-
-        //                 // Connect up the memory cell
-        //                 let if_less_than_limit = Connection::new_gate(GateCombinator {
-        //                     left: var_type.clone().to_combinator_type(),
-        //                     right: limit_type.clone().to_combinator_type(),
-        //                     operation: DeciderOperation::LessThan,
-        //                     gate_type: var_type.clone().to_combinator_type(),
-        //                 });
-
-        //                 let (memcell_input, memcell_output) = graph.push_connection(if_less_than_limit);
-
-        //                 // This is not needed, but makes visualiztions look better.
-        //                 let loop_nid = graph.push_inner_node();
-        //                 graph.push_wire(memcell_input, loop_nid, WireKind::Green);
-        //                 graph.push_wire(loop_nid, memcell_output, WireKind::Green);
-        //                 graph.push_wire(memcell_output, var_nid, WireKind::Green);
-
-        //                 // Connect the limit to the memory cell
-        //                 graph.push_wire(limit_nid, memcell_input, WireKind::Red);
-
-        //                 // Push constant node to drive the counter
-        //                 let driver_nid = graph.push_node(Node::Constant(var_type.to_constant(1).unwrap()));
-        //                 graph.push_wire(driver_nid, memcell_input, WireKind::Red);
-
-        //                 self.add_to_scope(var.name.clone(), None, var_nid);
-        //                 Ok(())
-        //             }
-        //             VariableType::Register(size) if operation.attr.is_none() => {
-        //                 let mut prev = None;
-
-        //                 for i in 0..*size {
-        //                     let (c1_input, c1_output) =
-        //                         graph.push_combinator(Combinator::Gate(GateCombinator {
-        //                             left: IOType::Signal(RESERVED_SIGNAL.to_string()),
-        //                             right: IOType::Constant(0),
-        //                             operation: DeciderOperation::Equals,
-        //                             gate_type: IOType::Everything,
-        //                         }));
-
-        //                     let (c2_input, c2_output) =
-        //                         graph.push_combinator(Combinator::Gate(GateCombinator {
-        //                             left: IOType::Signal(RESERVED_SIGNAL.to_string()),
-        //                             right: IOType::Constant(1),
-        //                             operation: DeciderOperation::Equals,
-        //                             gate_type: IOType::Everything,
-        //                         }));
-
-        //                     // Red wires
-        //                     graph.push_wire(c1_input, c2_input, WireKind::Red);
-        //                     graph.push_wire(c1_output, c2_output, WireKind::Red);
-
-        //                     // Green wires
-        //                     graph.push_wire(c1_input, c1_output, WireKind::Green);
-        //                     graph.push_wire(c1_output, c2_input, WireKind::Green);
-
-        //                     if let Some((prev_c1_input, prev_c2_output)) = prev {
-        //                         graph.push_wire(prev_c1_input, c1_input, WireKind::Red);
-        //                         graph.push_wire(prev_c2_output, c2_input, WireKind::Green)
-        //                     } else {
-        //                         // On first iteration only, connect input
-
-        //                         {
-        //                             // Create input
-        //                             let input_nid = graph.push_inner_node();
-        //                             self.add_to_scope(
-        //                                 var.name.clone(),
-        //                                 Some(REGISTER_INPUT_TAG),
-        //                                 input_nid,
-        //                             );
-
-        //                             graph.push_wire(input_nid, c1_input, WireKind::Green);
-        //                         }
-
-        //                         {
-        //                             // Add shift input
-
-        //                             // Convert whatever the input signal is, to the reserved signal
-        //                             let (shift_nid, n1) =
-        //                                 graph.push_combinator(Combinator::Decider(DeciderCombinator {
-        //                                     left: IOType::Anything,
-        //                                     right: IOType::Constant(0),
-        //                                     operation: DeciderOperation::NotEquals,
-        //                                     output: IOType::Signal(RESERVED_SIGNAL.to_string()),
-        //                                 }));
-
-        //                             graph.push_wire(n1, c1_input, WireKind::Green);
-
-        //                             // Add combonator to only shift once
-        //                             let (n2, n3) = graph.push_combinator(Combinator::Arithmetic(
-        //                                 ArithmeticCombinator {
-        //                                     left: IOType::Signal(RESERVED_SIGNAL.to_string()),
-        //                                     right: IOType::Constant(-1),
-        //                                     operation: ArithmeticOperation::Multiply,
-        //                                     output: IOType::Signal(RESERVED_SIGNAL.to_string()),
-        //                                 },
-        //                             ));
-        //                             graph.push_wire(n1, n2, WireKind::Green);
-        //                             graph.push_wire(n1, n3, WireKind::Red);
-
-        //                             self.add_to_scope(var.name.clone(), Some(REGISTER_SHIFT_TAG), shift_nid)
-        //                         }
-        //                     }
-
-        //                     self.add_to_scope(var.name.clone(), Some(i as i32), c2_output);
-
-        //                     prev = Some((c1_input, c2_output));
-        //                 }
-        //                 Ok(())
-        //             }
-        //             // Attribute definitions
-        //             VariableType::Register(_) => {
-        //                 let nid = match operation
-        //                     .attr
-        //                     .expect("Should have been handled by the case above")
-        //                     .as_str()
-        //                 {
-        //                     "input" => {
-        //                         self.search_scope(operation.variable.name.clone(), Some(REGISTER_INPUT_TAG))
-        //                     }
-        //                     "shift" => {
-        //                         self.search_scope(operation.variable.name.clone(), Some(REGISTER_SHIFT_TAG))
-        //                     }
-        //                     _ => panic!(
-        //                         "Invalid attribute. This should have been caught by the type checker."
-        //                     ),
-        //                 }
-        //                 // TODO: Make localized
-        //                 .ok_or(CompilationError::new_generic(format!(
-        //                     "Can not assign attrubute to undefined variable: `{}`.",
-        //                     &var.name
-        //                 )))?;
-        //                 let expr = operation.expression.unwrap();
-
-        //                 // TODO: Define output type for input
-        //                 let (expr_out_nid, _) = self.compile_expression(graph, &expr, None)?;
-
-        //                 graph.push_wire(expr_out_nid, nid, WireKind::Green);
-
-        //                 Ok(())
-        //             }
-        //             VariableType::ConstInt(_) | VariableType::ConstBool(_) => Ok(()),
-        //             VariableType::Bool(_) | VariableType::Int(_) | VariableType::All => {
-        //                 let var_type = self.variable_type_to_iotype(&var.type_);
-
-        //                 let (expr_out_nid, expr_out_type) = self.compile_expression(
-        //                     graph,
-        //                     &operation.expression.unwrap(),
-        //                     Some(var_type.clone()),
-        //                 )?;
-
-        //                 let var_node_nid = graph.push_var_node(var_type.clone());
-
-        //                 // Connect the output of the expression to the input of the variable
-        //                 let (c_input, c_output) = graph.push_connection(Connection::new_arithmetic(
-        //                     ArithmeticCombinator::new_convert(expr_out_type, var_type),
-        //                 ));
-
-        //                 graph.push_wire(c_input, expr_out_nid, WireKind::Green);
-        //                 graph.push_wire(c_output, var_node_nid, WireKind::Green);
-
-        //                 self.add_to_scope(operation.variable.name.clone(), None, var_node_nid);
-        //                 Ok(())
-        //             }
-        //             VariableType::Attr(_) => todo!(),
-        //         }
+        let var = &dec.variable;
+        self.declare_variable(var.id);
+        Ok(())
     }
 
     fn compile_declaration_definition_statement(
         &mut self,
         graph: &mut Graph,
-        operation: DeclarationDefinition,
+        dec_def: DeclarationDefinition,
     ) -> Result<(), CompilationError> {
-        let var = &operation.variable;
-
-        // match &var.type_ {
-        //     VariableType::Var(_) => { }
-        //     VariableType::Counter((_, limit_expr)) => { }
-        //     VariableType::Register(_) => {}
-        // }
-        todo!()
+        let var = &dec_def.variable;
+        self.declare_variable(var.id);
+        let definition = dec_def.to_definition();
+        self.compile_definition_statement(graph, definition)
     }
 
     fn compile_definition_statement(
@@ -347,7 +165,17 @@ impl GraphCompiler {
     ) -> Result<(), CompilationError> {
         let var = &def.variable;
 
-        todo!()
+        let iotype = self.variable_type_to_iotype(&var.type_);
+        let (var_nid, _) = self.compile_expression(graph, &def.expression, Some(iotype))?;
+
+        let wk = match def.kind {
+            crate::ast::DefinitionKind::Red => WireKind::Red,
+            crate::ast::DefinitionKind::Green => WireKind::Green,
+        };
+
+        self.define_variable(graph, var.id, var_nid, wk);
+
+        Ok(())
     }
 
     fn compile_mutation_statement(
@@ -367,47 +195,49 @@ impl GraphCompiler {
         // TODO: convert expr_out_type if this happens
         assert_ne!(&var_iotype, &expr_out_type);
 
-        let conn = match mutation_statement.operator {
-            crate::ast::MutationOperator::Add => Connection::new_convert(
-                expr_out_type.clone().to_combinator_type(),
-                var_iotype.clone().to_combinator_type(),
-            ),
+        todo!();
 
-            // Multiply by -1 if subtracting
-            crate::ast::MutationOperator::Subtract => {
-                Connection::new_arithmetic(ArithmeticCombinator::new(
-                    expr_out_type.clone().to_combinator_type(),
-                    IOType::Constant(-1),
-                    ArithmeticOperation::Multiply,
-                    var_iotype.clone().to_combinator_type(),
-                ))
-            }
-        };
+        // let conn = match mutation_statement.operator {
+        //     crate::ast::MutationOperator::Add => Connection::new_convert(
+        //         expr_out_type.clone().to_combinator_type(),
+        //         var_iotype.clone().to_combinator_type(),
+        //     ),
 
-        match gate {
-            Some((condition_nid, condition_type)) => {
-                // TODO: convert one if this happens
-                assert_ne!(&condition_type, &var_iotype);
+        //     // Multiply by -1 if subtracting
+        //     crate::ast::MutationOperator::Subtract => {
+        //         Connection::new_arithmetic(ArithmeticCombinator::new(
+        //             expr_out_type.clone().to_combinator_type(),
+        //             IOType::Constant(-1),
+        //             ArithmeticOperation::Multiply,
+        //             var_iotype.clone().to_combinator_type(),
+        //         ))
+        //     }
+        // };
 
-                let (c_input, new_out_nid) = graph.push_connection(conn);
-                graph.push_wire(expr_out_nid, c_input, WireKind::Green);
-                let expr_out_nid = new_out_nid; // Expression output is now gated
+        // match gate {
+        //     Some((condition_nid, condition_type)) => {
+        //         // TODO: convert one if this happens
+        //         assert_ne!(&condition_type, &var_iotype);
 
-                // Add the gate
-                let (gate_input, gate_output) =
-                    graph.push_gate_connection(condition_type, var_iotype);
+        //         let (c_input, new_out_nid) = graph.push_connection(conn);
+        //         graph.push_wire(expr_out_nid, c_input, WireKind::Green);
+        //         let expr_out_nid = new_out_nid; // Expression output is now gated
 
-                // Wire up the gate
-                graph.push_wire(gate_input, condition_nid, WireKind::Green);
-                graph.push_wire(gate_input, expr_out_nid, WireKind::Green);
-                graph.push_wire(gate_output, var_nid, WireKind::Green);
-            }
-            None => {
-                let (c_input, c_output) = graph.push_connection(conn);
-                graph.push_wire(c_input, expr_out_nid, WireKind::Green);
-                graph.push_wire(c_output, var_nid, WireKind::Green);
-            }
-        };
+        //         // Add the gate
+        //         let (gate_input, gate_output) =
+        //             graph.push_gate_connection(condition_type, var_iotype);
+
+        //         // Wire up the gate
+        //         graph.push_wire(gate_input, condition_nid, WireKind::Green);
+        //         graph.push_wire(gate_input, expr_out_nid, WireKind::Green);
+        //         graph.push_wire(gate_output, var_nid, WireKind::Green);
+        //     }
+        //     None => {
+        //         let (c_input, c_output) = graph.push_connection(conn);
+        //         graph.push_wire(c_input, expr_out_nid, WireKind::Green);
+        //         graph.push_wire(c_output, var_nid, WireKind::Green);
+        //     }
+        // };
 
         Ok(())
     }
@@ -776,9 +606,16 @@ impl GraphCompiler {
 
     /// Declare a variable in the current scope.
     fn declare_variable(&mut self, var_id: VariableId) {
-        if self.scopes.last_mut().unwrap().declare_variable(var_id) {
+        if !self.scopes.last_mut().unwrap().declare_variable(var_id) {
             panic!("tried to override a variable in scope.")
         }
+    }
+
+    fn define_variable(&mut self, graph: &mut Graph, var_id: VariableId, nid: NId, wk: WireKind) {
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .define_variable(graph, var_id, nid, wk);
     }
 
     fn search_scope(&self, var_id: VariableId) -> Option<NId> {

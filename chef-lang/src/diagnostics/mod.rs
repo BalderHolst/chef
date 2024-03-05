@@ -9,6 +9,7 @@ use crate::text::{SourceText, TextSpan};
 use crate::the_chef;
 
 use std::cell::RefCell;
+use std::process::{ExitCode, Termination};
 use std::rc::Rc;
 
 pub type CompilationResult<T> = std::result::Result<T, CompilationError>;
@@ -17,6 +18,13 @@ pub type CompilationResult<T> = std::result::Result<T, CompilationError>;
 pub struct CompilationError {
     pub desctiption: String,
     pub span: Option<TextSpan>,
+}
+
+impl Termination for CompilationError {
+    fn report(self) -> ExitCode {
+        eprintln!("{}", self.desctiption);
+        1.into()
+    }
 }
 
 impl CompilationError {

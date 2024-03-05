@@ -60,19 +60,17 @@ impl Visitor for TypeChecker {
             self.report_if_invalid_signal(sig.as_str(), &assignment.variable.span)
         }
 
-        if let Some(expr) = &assignment.expression {
-            let expr_type = expr.return_type();
-            let var_type = assignment.variable.return_type();
-            if expr_type != var_type {
-                self.diagnostics_bag
-                    .borrow_mut()
-                    .report_error(&expr.span, &format!(
-                            "Can not assign variable `{}` of type `{}` to expression returning `{}` type.",
-                            &assignment.variable.name,
-                            var_type,
-                            expr_type
-                            ));
-            }
+        let expr = &assignment.expression;
+        let expr_type = expr.return_type();
+        let var_type = assignment.variable.return_type();
+        if expr_type != var_type {
+            self.diagnostics_bag.borrow_mut().report_error(
+                &expr.span,
+                &format!(
+                    "Can not assign variable `{}` of type `{}` to expression returning `{}` type.",
+                    &assignment.variable.name, var_type, expr_type
+                ),
+            );
         }
 
         self.do_visit_declaration_definition(assignment);
@@ -142,11 +140,8 @@ impl Visitor for TypeChecker {
         // Make sure variables are only assign expressions returning their type
         if let StatementKind::DeclarationDefinition(assignment) = &statement.kind {
             let var_type = assignment.variable.return_type();
-            let expr_type = match &assignment.expression {
-                Some(expr) => expr.return_type(),
-                None => return,
-            };
-            if var_type != expr_type {
+            let expr_type = &assignment.expression.return_type();
+            if var_type != *expr_type {
                 self.diagnostics_bag.borrow_mut().report_error(
                     &statement.span,
                     &format!("Can not assign variable `{}` of type `{}` to expression returning `{}` type.",

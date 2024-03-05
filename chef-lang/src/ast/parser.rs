@@ -440,8 +440,8 @@ impl Parser {
         }
 
         let kind = match &self.consume().kind {
-            TokenKind::LeftArrow => Ok(DefinitionKind::RED),
-            TokenKind::LeftCurlyArrow => Ok(DefinitionKind::GREEN),
+            TokenKind::LeftArrow => Ok(DefinitionKind::Red),
+            TokenKind::LeftCurlyArrow => Ok(DefinitionKind::Green),
             other => Err(CompilationError::new_localized(
                 format!("'{}' is not a valid assignment operator.", other),
                 self.peak(-1).span.clone(),
@@ -452,7 +452,7 @@ impl Parser {
 
         self.consume_and_expect(TokenKind::Semicolon)?;
         Ok(StatementKind::DeclarationDefinition(
-            DeclarationDefinition::new(variable, Some(expr), kind),
+            DeclarationDefinition::new(variable, expr, kind),
         ))
     }
 
@@ -475,8 +475,8 @@ impl Parser {
         }?;
 
         let kind = match &self.consume().kind {
-            TokenKind::LeftArrow => Ok(DefinitionKind::RED),
-            TokenKind::LeftCurlyArrow => Ok(DefinitionKind::GREEN),
+            TokenKind::LeftArrow => Ok(DefinitionKind::Red),
+            TokenKind::LeftCurlyArrow => Ok(DefinitionKind::Green),
             other => Err(CompilationError::new_localized(
                 format!("'{}' is not a valid assignment operator.", other),
                 start_span.clone(),
