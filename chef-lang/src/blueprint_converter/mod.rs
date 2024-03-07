@@ -270,6 +270,18 @@ impl FactorioCombinator {
             DeciderOperation::LessThanOrEqual => "<=",
             DeciderOperation::Equals => "=",
             DeciderOperation::NotEquals => "!=",
+            DeciderOperation::EveryEquals => todo!(),
+            DeciderOperation::EveryLargerThan => todo!(),
+            DeciderOperation::EveryLargerThanEquals => todo!(),
+            DeciderOperation::EveryLessThan => todo!(),
+            DeciderOperation::EveryLessThanEquals => todo!(),
+            DeciderOperation::EveryNotEquals => todo!(),
+            DeciderOperation::AnyEquals => todo!(),
+            DeciderOperation::AnyLargerThan => todo!(),
+            DeciderOperation::AnyLargerThanEquals => todo!(),
+            DeciderOperation::AnyLessThan => todo!(),
+            DeciderOperation::AnyLessThanEquals => todo!(),
+            DeciderOperation::AnyNotEquals => todo!(),
         }
         .to_string()
     }
@@ -298,27 +310,11 @@ impl FactorioCombinator {
                 )
             }
             graph::IOType::Constant(n) => (Some(*n), None),
-            graph::IOType::Everything => (
+            graph::IOType::Many => (
                 None,
                 Some(SignalID {
                     // TODO: check that "everything" is correct
                     name: "signal-everything".to_string(),
-                    type_: SignalIDType::Virtual,
-                }),
-            ),
-            graph::IOType::Anything => (
-                None,
-                Some(SignalID {
-                    // TODO: check that "everything" is correct
-                    name: "signal-anything".to_string(),
-                    type_: SignalIDType::Virtual,
-                }),
-            ),
-            graph::IOType::_Each => (
-                None,
-                Some(SignalID {
-                    // TODO: check that "everything" is correct
-                    name: "signal-each".to_string(),
                     type_: SignalIDType::Virtual,
                 }),
             ),
@@ -337,9 +333,7 @@ impl FactorioCombinator {
             IOType::Signal(s) => (Self::get_signal_type(s.as_str()), s),
             IOType::Constant(_) => todo!(),
             IOType::ConstantSignal(_) => todo!(),
-            IOType::Everything => todo!(),
-            IOType::Anything => todo!(),
-            IOType::_Each => todo!(),
+            IOType::Many => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
             graph::IOType::ConstantAny(_) => {
                 panic!("ConstantAny should be eradicated at this point.")

@@ -22,6 +22,18 @@ pub enum DeciderOperation {
     LessThanOrEqual,
     Equals,
     NotEquals,
+    EveryEquals,
+    EveryLargerThan,
+    EveryLargerThanEquals,
+    EveryLessThan,
+    EveryLessThanEquals,
+    EveryNotEquals,
+    AnyEquals,
+    AnyLargerThan,
+    AnyLargerThanEquals,
+    AnyLessThan,
+    AnyLessThanEquals,
+    AnyNotEquals,
 }
 
 impl Display for DeciderOperation {
@@ -33,6 +45,18 @@ impl Display for DeciderOperation {
             DeciderOperation::LessThanOrEqual => "LESS_THAN_OR_EQUAL",
             DeciderOperation::Equals => "EQUALS",
             DeciderOperation::NotEquals => "NOT_EQUALS",
+            DeciderOperation::EveryEquals => "EVERY_EQUALS",
+            DeciderOperation::EveryLargerThan => "EVERY_LARGER_THAN",
+            DeciderOperation::EveryLargerThanEquals => "EVERY_LARGER_THAN_EQUALS",
+            DeciderOperation::EveryLessThan => "EVERY_LESS_THAN",
+            DeciderOperation::EveryLessThanEquals => "EVERY_LESS_THAN_EQUALS",
+            DeciderOperation::EveryNotEquals => "EVERY_NOT_EQUALS",
+            DeciderOperation::AnyEquals => "ANY_EQUALS",
+            DeciderOperation::AnyLargerThan => "ANY_LARGER_THAN",
+            DeciderOperation::AnyLargerThanEquals => "ANY_LARGER_THAN_EQUALS",
+            DeciderOperation::AnyLessThan => "ANY_LESS_THAN",
+            DeciderOperation::AnyLessThanEquals => "ANY_LESS_THAN_EQUALS",
+            DeciderOperation::AnyNotEquals => "ANY_NOT_EQUALS",
         };
         write!(f, "{s}")
     }
@@ -85,9 +109,7 @@ pub enum IOType {
     Constant(i32),
     ConstantSignal((String, i32)),
     ConstantAny((u64, i32)),
-    Everything,
-    Anything,
-    _Each,
+    Many,
 }
 
 impl IOType {
@@ -105,9 +127,7 @@ impl IOType {
             Self::Signal(_) => self.clone(),
             Self::AnySignal(_) => self.clone(),
             Self::Constant(_) => self.clone(),
-            Self::Everything => self.clone(),
-            Self::Anything => self.clone(),
-            Self::_Each => self.clone(),
+            Self::Many => self.clone(),
         }
     }
 
@@ -118,9 +138,7 @@ impl IOType {
             Self::ConstantSignal(_) => Some(self.clone()),
             Self::ConstantAny(_) => Some(self.clone()),
             Self::Constant(_) => None,
-            Self::Everything => None,
-            Self::Anything => None,
-            Self::_Each => None,
+            Self::Many => None,
         }
     }
 }
@@ -133,9 +151,7 @@ impl Display for IOType {
             Self::Constant(n) => format!("({})", n),
             Self::ConstantSignal((sig, n)) => format!("Const({}, {})", sig, n),
             Self::ConstantAny((sig, n)) => format!("ConstAny({}, {})", sig, n),
-            Self::Everything => "EVERYTHING".to_string(),
-            Self::Anything => "ANYTHING".to_string(),
-            Self::_Each => "EACH".to_string(),
+            Self::Many => "Many".to_string(),
         };
         write!(f, "{}", s)
     }
@@ -487,7 +503,7 @@ impl Graph {
         if types.len() == 1 {
             types[0].clone()
         } else {
-            IOType::Everything
+            IOType::Many
         }
     }
 
@@ -875,9 +891,7 @@ impl Graph {
                 IOType::Constant(_) => {
                     panic!("Compiler Error: Inputs to a block should not be constants.")
                 }
-                IOType::Everything => todo!(),
-                IOType::Anything => todo!(),
-                IOType::_Each => todo!(),
+                IOType::Many => todo!(),
             }
 
             match self.vertices.get_mut(block_input_nid) {

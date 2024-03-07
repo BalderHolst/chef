@@ -234,6 +234,18 @@ impl Simulator {
                         DeciderOperation::LessThanOrEqual => left <= right,
                         DeciderOperation::Equals => left == right,
                         DeciderOperation::NotEquals => left != right,
+                        DeciderOperation::EveryEquals => todo!(),
+                        DeciderOperation::EveryLargerThan => todo!(),
+                        DeciderOperation::EveryLargerThanEquals => todo!(),
+                        DeciderOperation::EveryLessThan => todo!(),
+                        DeciderOperation::EveryLessThanEquals => todo!(),
+                        DeciderOperation::EveryNotEquals => todo!(),
+                        DeciderOperation::AnyEquals => todo!(),
+                        DeciderOperation::AnyLargerThan => todo!(),
+                        DeciderOperation::AnyLargerThanEquals => todo!(),
+                        DeciderOperation::AnyLessThan => todo!(),
+                        DeciderOperation::AnyLessThanEquals => todo!(),
+                        DeciderOperation::AnyNotEquals => todo!(),
                     } as i32;
                     Item::new(c.output, result)
                 }
@@ -247,6 +259,18 @@ impl Simulator {
                         DeciderOperation::LessThanOrEqual => left <= right,
                         DeciderOperation::Equals => left == right,
                         DeciderOperation::NotEquals => left != right,
+                        DeciderOperation::EveryEquals => todo!(),
+                        DeciderOperation::EveryLargerThan => todo!(),
+                        DeciderOperation::EveryLargerThanEquals => todo!(),
+                        DeciderOperation::EveryLessThan => todo!(),
+                        DeciderOperation::EveryLessThanEquals => todo!(),
+                        DeciderOperation::EveryNotEquals => todo!(),
+                        DeciderOperation::AnyEquals => todo!(),
+                        DeciderOperation::AnyLargerThan => todo!(),
+                        DeciderOperation::AnyLargerThanEquals => todo!(),
+                        DeciderOperation::AnyLessThan => todo!(),
+                        DeciderOperation::AnyLessThanEquals => todo!(),
+                        DeciderOperation::AnyNotEquals => todo!(),
                     };
 
                     let count = match should_pass {

@@ -448,6 +448,7 @@ impl GraphCompiler {
             BinaryOperator::Subtract => ReturnValue::Int(ArithmeticOperation::Subtract),
             BinaryOperator::Multiply => ReturnValue::Int(ArithmeticOperation::Multiply),
             BinaryOperator::Divide => ReturnValue::Int(ArithmeticOperation::Divide),
+
             BinaryOperator::LargerThan => ReturnValue::Bool(DeciderOperation::LargerThan),
             BinaryOperator::LargerThanOrEqual => {
                 ReturnValue::Bool(DeciderOperation::LargerThanOrEqual)
@@ -456,19 +457,30 @@ impl GraphCompiler {
             BinaryOperator::LessThanOrEqual => ReturnValue::Bool(DeciderOperation::LessThanOrEqual),
             BinaryOperator::Equals => ReturnValue::Bool(DeciderOperation::Equals),
             BinaryOperator::NotEquals => ReturnValue::Bool(DeciderOperation::NotEquals),
+
+            BinaryOperator::EveryEquals => ReturnValue::Bool(DeciderOperation::EveryEquals),
+            BinaryOperator::EveryLargerThan => ReturnValue::Bool(DeciderOperation::EveryLargerThan),
+            BinaryOperator::EveryLargerThanEquals => {
+                ReturnValue::Bool(DeciderOperation::EveryLargerThanEquals)
+            }
+            BinaryOperator::EveryLessThan => ReturnValue::Bool(DeciderOperation::EveryLessThan),
+            BinaryOperator::EveryLessThanEquals => {
+                ReturnValue::Bool(DeciderOperation::EveryLessThanEquals)
+            }
+            BinaryOperator::EveryNotEquals => ReturnValue::Bool(DeciderOperation::EveryNotEquals),
+
+            BinaryOperator::AnyEquals => ReturnValue::Bool(DeciderOperation::AnyEquals),
+            BinaryOperator::AnyLargerThan => ReturnValue::Bool(DeciderOperation::AnyLargerThan),
+            BinaryOperator::AnyLargerThanEquals => {
+                ReturnValue::Bool(DeciderOperation::AnyLargerThanEquals)
+            }
+            BinaryOperator::AnyLessThan => ReturnValue::Bool(DeciderOperation::AnyLessThan),
+            BinaryOperator::AnyLessThanEquals => {
+                ReturnValue::Bool(DeciderOperation::AnyLessThanEquals)
+            }
+            BinaryOperator::AnyNotEquals => ReturnValue::Bool(DeciderOperation::AnyNotEquals),
+
             BinaryOperator::Combine => ReturnValue::Group,
-            BinaryOperator::EveryEquals => todo!(),
-            BinaryOperator::EveryLargerThan => todo!(),
-            BinaryOperator::EveryLargerThanEquals => todo!(),
-            BinaryOperator::EveryLessThan => todo!(),
-            BinaryOperator::EveryLessThanEquals => todo!(),
-            BinaryOperator::EveryNotEquals => todo!(),
-            BinaryOperator::AnyEquals => todo!(),
-            BinaryOperator::AnyLargerThan => todo!(),
-            BinaryOperator::AnyLargerThanEquals => todo!(),
-            BinaryOperator::AnyLessThan => todo!(),
-            BinaryOperator::AnyLessThanEquals => todo!(),
-            BinaryOperator::AnyNotEquals => todo!(),
         };
 
         // The connection doing the actual operation
@@ -502,7 +514,7 @@ impl GraphCompiler {
             ReturnValue::Group => {
                 graph.push_wire(left_nid, right_nid);
                 let common_nid = left_nid;
-                (common_nid, IOType::Everything)
+                (common_nid, IOType::Many)
             }
         })
     }
@@ -614,8 +626,8 @@ impl GraphCompiler {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
-            VariableType::Many => IOType::Everything,
-            VariableType::Register(_) => IOType::Everything, // TODO: make dependent on the type of input
+            VariableType::Many => IOType::Many,
+            VariableType::Register(_) => IOType::Many, // TODO: make dependent on the type of input
             // expression
             VariableType::ConstInt(_) => {
                 panic!("ConstInt expression should never need to be converted to IOType.")

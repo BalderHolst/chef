@@ -6,20 +6,20 @@ block main(input: many) => (out: many) {
     c: many <- a @ b;
 
     // TODO: Operate on evert signal in the many signal
-    d: many <- c + 1;
+    d: many <- input + 1;
 
     // This also works on binary operation (it defaults to "each" behavior)
-    e: many <- c > 1;
+    e: many <- input > 1;
 
     // Check if EVERY signal in the many signal satisfies the condition
-    f: bool <- c @> 1;
+    f: bool <- input @> 1;
     
     // Check if ANY signal in the many signal satisfies the condition
-    g: bool <- c ?> 1;
+    g: bool <- input ?> 1;
 
     // TODO: You can also get the inputs if the statement is true like this
-    // h: many <- c @> 1;
-    // i: many <- c ?> 1;
+    // h: many <- input @> 1;
+    // i: many <- input ?> 1;
 
     // NOTE: 'many' signal has to be on the left for boolean expressions with 'many' signals
 
