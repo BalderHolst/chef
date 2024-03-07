@@ -7,6 +7,8 @@ use crate::utils::BASE_SIGNALS;
 
 use super::graph_visualizer;
 
+const DEFAULT_WIRE_KIND: WireKind = WireKind::Red;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Register {
     pub shift: NId,
@@ -687,8 +689,7 @@ impl Graph {
 
     /// Push both a red and green wire between two nodes.
     pub fn push_wire(&mut self, n1: NId, n2: NId) {
-        self.push_wire_kind(n1, n2, WireKind::Green);
-        self.push_wire_kind(n1, n2, WireKind::Red);
+        self.push_wire_kind(n1, n2, DEFAULT_WIRE_KIND);
     }
 
     /// Push a wire of a specific kind between two nodes.
