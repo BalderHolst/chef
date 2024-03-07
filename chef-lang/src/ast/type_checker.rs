@@ -67,8 +67,8 @@ impl Visitor for TypeChecker {
             self.diagnostics_bag.borrow_mut().report_error(
                 &expr.span,
                 &format!(
-                    "Can not assign variable `{}` of type `{}` to expression returning `{}` type.",
-                    &assignment.variable.name, var_type, expr_type
+                    "Can not assign expression returning `{}` type to variable `{}` of type `{}`.",
+                    expr_type, assignment.variable.name, var_type
                 ),
             );
         }
@@ -105,17 +105,23 @@ impl Visitor for TypeChecker {
             }
             ExpressionKind::Binary(b_expr) => {
                 let left_r = b_expr.left.return_type();
-                if left_r != ExpressionReturnType::Int {
+                if left_r != ExpressionReturnType::Int && left_r != ExpressionReturnType::Many {
                     self.diagnostics_bag.borrow_mut().report_error(
                         &expression.span,
-                        &format!("Left side of expression must be `int` not `{}`.", left_r),
+                        &format!(
+                            "Left side of expression must be `int` or `many` not `{}`.",
+                            left_r
+                        ),
                     )
                 }
                 let rigth_r = b_expr.right.return_type();
-                if rigth_r != ExpressionReturnType::Int {
+                if rigth_r != ExpressionReturnType::Int && rigth_r != ExpressionReturnType::Many {
                     self.diagnostics_bag.borrow_mut().report_error(
                         &expression.span,
-                        &format!("Right side of expression must be `int` not `{}`.", rigth_r),
+                        &format!(
+                            "Right side of expression must be `int` or `many` not `{}`.",
+                            rigth_r
+                        ),
                     )
                 }
             }
@@ -141,14 +147,6 @@ impl Visitor for TypeChecker {
         if let StatementKind::DeclarationDefinition(assignment) = &statement.kind {
             let var_type = assignment.variable.return_type();
             let expr_type = &assignment.expression.return_type();
-            if var_type != *expr_type {
-                self.diagnostics_bag.borrow_mut().report_error(
-                    &statement.span,
-                    &format!("Can not assign variable `{}` of type `{}` to expression returning `{}` type.",
-                             assignment.variable.name, var_type, expr_type
-                             ),
-                    )
-            }
         }
 
         self.do_visit_statement(statement);

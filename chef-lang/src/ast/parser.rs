@@ -862,6 +862,18 @@ impl Parser {
             TokenKind::DoubleEquals => Some(BinaryOperator::Equals),
             TokenKind::BangEquals => Some(BinaryOperator::NotEquals),
             TokenKind::At => Some(BinaryOperator::Combine),
+            TokenKind::EveryDoubleEquals => Some(BinaryOperator::EveryEquals),
+            TokenKind::EveryLargerThan => Some(BinaryOperator::EveryLargerThan),
+            TokenKind::EveryLargerThanEquals => Some(BinaryOperator::EveryLargerThanEquals),
+            TokenKind::EveryLessThan => Some(BinaryOperator::EveryLessThan),
+            TokenKind::EveryLessThanEquals => Some(BinaryOperator::EveryLessThanEquals),
+            TokenKind::EveryBangEquals => Some(BinaryOperator::EveryNotEquals),
+            TokenKind::AnyDoubleEquals => Some(BinaryOperator::AnyEquals),
+            TokenKind::AnyLargerThan => Some(BinaryOperator::AnyLargerThan),
+            TokenKind::AnyLargerThanEquals => Some(BinaryOperator::AnyLargerThanEquals),
+            TokenKind::AnyLessThan => Some(BinaryOperator::AnyLessThan),
+            TokenKind::AnyLessThanEquals => Some(BinaryOperator::AnyLessThanEquals),
+            TokenKind::AnyBangEquals => Some(BinaryOperator::AnyNotEquals),
             _ => None,
         }
     }
@@ -898,7 +910,7 @@ impl Parser {
                     left: Box::new(left.clone()),
                     right: Box::new(right.clone()),
                     operator: op.clone(),
-                    return_type: op.return_type(),
+                    return_type: op.return_type(left.return_type(), right.return_type()),
                 }),
                 TextSpan {
                     start: left.span.clone().start,

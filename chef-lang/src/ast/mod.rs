@@ -173,11 +173,11 @@ impl VariableType {
             VariableType::Bool(_) => ExpressionReturnType::Bool,
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Var(_) => ExpressionReturnType::Int,
-            VariableType::Many => ExpressionReturnType::Group,
+            VariableType::Many => ExpressionReturnType::Many,
             VariableType::ConstInt(_) => ExpressionReturnType::Int,
             VariableType::ConstBool(_) => ExpressionReturnType::Bool,
             VariableType::Counter(_) => ExpressionReturnType::Int,
-            VariableType::Register(_) => ExpressionReturnType::Group,
+            VariableType::Register(_) => ExpressionReturnType::Many,
         }
     }
 
@@ -408,7 +408,7 @@ impl Expression {
 pub enum ExpressionReturnType {
     Bool,
     Int,
-    Group,
+    Many,
     None,
 }
 
@@ -571,6 +571,18 @@ pub enum BinaryOperator {
     Equals,
     NotEquals,
     Combine,
+    EveryEquals,
+    EveryLargerThan,
+    EveryLargerThanEquals,
+    EveryLessThan,
+    EveryLessThanEquals,
+    EveryNotEquals,
+    AnyEquals,
+    AnyLargerThan,
+    AnyLargerThanEquals,
+    AnyLessThan,
+    AnyLessThanEquals,
+    AnyNotEquals,
 }
 
 impl BinaryOperator {
@@ -584,6 +596,18 @@ impl BinaryOperator {
             Self::LessThanOrEqual => 1,
             Self::Equals => 1,
             Self::NotEquals => 1,
+            Self::EveryEquals => 1,
+            Self::EveryLargerThan => 1,
+            Self::EveryLargerThanEquals => 1,
+            Self::EveryLessThan => 1,
+            Self::EveryLessThanEquals => 1,
+            Self::EveryNotEquals => 1,
+            Self::AnyEquals => 1,
+            Self::AnyLargerThan => 1,
+            Self::AnyLargerThanEquals => 1,
+            Self::AnyLessThan => 1,
+            Self::AnyLessThanEquals => 1,
+            Self::AnyNotEquals => 1,
             Self::Add => 2,
             Self::Subtract => 2,
             Self::Multiply => 3,
@@ -592,19 +616,49 @@ impl BinaryOperator {
     }
 
     /// Get the type that the operator returns
-    fn return_type(&self) -> ExpressionReturnType {
+    fn return_type(
+        &self,
+        a: ExpressionReturnType,
+        b: ExpressionReturnType,
+    ) -> ExpressionReturnType {
         match self {
-            Self::Add => ExpressionReturnType::Int,
-            Self::Subtract => ExpressionReturnType::Int,
-            Self::Multiply => ExpressionReturnType::Int,
-            Self::Divide => ExpressionReturnType::Int,
-            Self::LargerThan => ExpressionReturnType::Bool,
-            Self::LargerThanOrEqual => ExpressionReturnType::Bool,
-            Self::LessThan => ExpressionReturnType::Bool,
-            Self::LessThanOrEqual => ExpressionReturnType::Bool,
-            Self::Equals => ExpressionReturnType::Bool,
-            Self::NotEquals => ExpressionReturnType::Bool,
-            Self::Combine => ExpressionReturnType::Group,
+            Self::Add | Self::Subtract | Self::Multiply | Self::Divide => match (a, b) {
+                (ExpressionReturnType::Int, ExpressionReturnType::Int) => ExpressionReturnType::Int,
+                (ExpressionReturnType::Many, ExpressionReturnType::Int) => {
+                    ExpressionReturnType::Many
+                }
+                _ => panic!("Invalid types for operator"),
+            },
+
+            Self::LargerThan
+            | Self::LargerThanOrEqual
+            | Self::LessThan
+            | Self::LessThanOrEqual
+            | Self::Equals
+            | Self::NotEquals => match (a, b) {
+                (ExpressionReturnType::Int, ExpressionReturnType::Int) => {
+                    ExpressionReturnType::Bool
+                }
+                (ExpressionReturnType::Many, ExpressionReturnType::Int) => {
+                    ExpressionReturnType::Many
+                }
+                _ => panic!("Invalid types for operator"),
+            },
+
+            Self::EveryEquals => ExpressionReturnType::Bool,
+            Self::EveryLargerThan => ExpressionReturnType::Bool,
+            Self::EveryLargerThanEquals => ExpressionReturnType::Bool,
+            Self::EveryLessThan => ExpressionReturnType::Bool,
+            Self::EveryLessThanEquals => ExpressionReturnType::Bool,
+            Self::EveryNotEquals => ExpressionReturnType::Bool,
+            Self::AnyEquals => ExpressionReturnType::Bool,
+            Self::AnyLargerThan => ExpressionReturnType::Bool,
+            Self::AnyLargerThanEquals => ExpressionReturnType::Bool,
+            Self::AnyLessThan => ExpressionReturnType::Bool,
+            Self::AnyLessThanEquals => ExpressionReturnType::Bool,
+            Self::AnyNotEquals => ExpressionReturnType::Bool,
+
+            Self::Combine => ExpressionReturnType::Many,
         }
     }
 }
@@ -623,6 +677,18 @@ impl Display for BinaryOperator {
             Self::Equals => write!(f, "=="),
             Self::NotEquals => write!(f, "!="),
             Self::Combine => write!(f, "@"),
+            Self::EveryEquals => write!(f, "@=="),
+            Self::EveryLargerThan => write!(f, "@>"),
+            Self::EveryLargerThanEquals => write!(f, "@>="),
+            Self::EveryLessThan => write!(f, "@<"),
+            Self::EveryLessThanEquals => write!(f, "@<="),
+            Self::EveryNotEquals => write!(f, "@!="),
+            Self::AnyEquals => write!(f, "?=="),
+            Self::AnyLargerThan => write!(f, "?>"),
+            Self::AnyLargerThanEquals => write!(f, "?>="),
+            Self::AnyLessThan => write!(f, "?<"),
+            Self::AnyLessThanEquals => write!(f, "?<="),
+            Self::AnyNotEquals => write!(f, "?!="),
         }
     }
 }

@@ -457,6 +457,18 @@ impl GraphCompiler {
             BinaryOperator::Equals => ReturnValue::Bool(DeciderOperation::Equals),
             BinaryOperator::NotEquals => ReturnValue::Bool(DeciderOperation::NotEquals),
             BinaryOperator::Combine => ReturnValue::Group,
+            BinaryOperator::EveryEquals => todo!(),
+            BinaryOperator::EveryLargerThan => todo!(),
+            BinaryOperator::EveryLargerThanEquals => todo!(),
+            BinaryOperator::EveryLessThan => todo!(),
+            BinaryOperator::EveryLessThanEquals => todo!(),
+            BinaryOperator::EveryNotEquals => todo!(),
+            BinaryOperator::AnyEquals => todo!(),
+            BinaryOperator::AnyLargerThan => todo!(),
+            BinaryOperator::AnyLargerThanEquals => todo!(),
+            BinaryOperator::AnyLessThan => todo!(),
+            BinaryOperator::AnyLessThanEquals => todo!(),
+            BinaryOperator::AnyNotEquals => todo!(),
         };
 
         // The connection doing the actual operation
