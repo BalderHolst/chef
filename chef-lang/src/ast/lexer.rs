@@ -36,19 +36,32 @@ pub enum TokenKind {
     Hashtag,
     Bang,
     Semicolon,
-    DoubleEquals,
     And,
     DoubleAnd,
     RightArrow,
     RightFatArrow,
     LeftArrow,
     LeftCurlyArrow,
+    DoubleEquals,
     LargerThan,
     LargerThanEquals,
     LessThan,
     LessThanEquals,
     BangEquals,
+    EveryDoubleEquals,
+    EveryLargerThan,
+    EveryLargerThanEquals,
+    EveryLessThan,
+    EveryLessThanEquals,
+    EveryBangEquals,
+    AnyDoubleEquals,
+    AnyLargerThan,
+    AnyLargerThanEquals,
+    AnyLessThan,
+    AnyLessThanEquals,
+    AnyBangEquals,
     Whitespace,
+    QuestionMark,
     Bad,
     End,
 }
@@ -101,6 +114,19 @@ impl Display for TokenKind {
             TokenKind::LessThan => "<",
             TokenKind::LessThanEquals => "<=",
             TokenKind::BangEquals => "!=",
+            TokenKind::EveryDoubleEquals => "@==",
+            TokenKind::EveryLargerThan => "@>",
+            TokenKind::EveryLargerThanEquals => "@>=",
+            TokenKind::EveryLessThan => "@<",
+            TokenKind::EveryLessThanEquals => "@<=",
+            TokenKind::EveryBangEquals => "@!=",
+            TokenKind::AnyDoubleEquals => "?==",
+            TokenKind::AnyLargerThan => "?>",
+            TokenKind::AnyLargerThanEquals => "?>=",
+            TokenKind::AnyLessThan => "?<",
+            TokenKind::AnyLessThanEquals => "?<=",
+            TokenKind::AnyBangEquals => "?!=",
+            TokenKind::QuestionMark => "?",
             TokenKind::Whitespace => "whitespace",
             TokenKind::Bad => "bad-token",
             TokenKind::End => "end-of-program",
@@ -273,7 +299,74 @@ impl Lexer {
             Some(':') => TokenKind::Colon,
             Some(';') => TokenKind::Semicolon,
             Some('#') => TokenKind::Hashtag,
-            Some('@') => TokenKind::At,
+            Some('@') => match self.consume() {
+                Some('=') => match self.consume() {
+                    Some('=') => TokenKind::EveryDoubleEquals,
+                    _ => {
+                        self.backtrack(2);
+                        TokenKind::At
+                    }
+                },
+                Some('>') => match self.consume() {
+                    Some('=') => TokenKind::EveryLargerThanEquals,
+                    _ => {
+                        self.backtrack(1);
+                        TokenKind::EveryLargerThan
+                    }
+                },
+                Some('<') => match self.consume() {
+                    Some('=') => TokenKind::EveryLessThanEquals,
+                    _ => {
+                        self.backtrack(1);
+                        TokenKind::EveryLessThan
+                    }
+                },
+                Some('!') => match self.consume() {
+                    Some('=') => TokenKind::EveryBangEquals,
+                    _ => {
+                        self.backtrack(2);
+                        TokenKind::At
+                    }
+                },
+                _ => {
+                    self.backtrack(1);
+                    TokenKind::At
+                }
+            },
+            Some('?') => match self.consume() {
+                Some('=') => match self.consume() {
+                    Some('=') => TokenKind::AnyDoubleEquals,
+                    _ => {
+                        self.backtrack(2);
+                        TokenKind::At
+                    }
+                },
+                Some('>') => match self.consume() {
+                    Some('=') => TokenKind::AnyLargerThanEquals,
+                    _ => {
+                        self.backtrack(1);
+                        TokenKind::AnyLargerThan
+                    }
+                },
+                Some('<') => match self.consume() {
+                    Some('=') => TokenKind::AnyLessThanEquals,
+                    _ => {
+                        self.backtrack(1);
+                        TokenKind::AnyLessThan
+                    }
+                },
+                Some('!') => match self.consume() {
+                    Some('=') => TokenKind::AnyBangEquals,
+                    _ => {
+                        self.backtrack(2);
+                        TokenKind::QuestionMark
+                    }
+                },
+                _ => {
+                    self.backtrack(1);
+                    TokenKind::QuestionMark
+                }
+            },
             Some('>') => match self.consume() {
                 Some('=') => TokenKind::LargerThanEquals,
                 _ => {
@@ -537,6 +630,37 @@ fn lex_negative_numbers_as_minuses() {
         TokenKind::Number(1234),
         TokenKind::End,
     ];
+    let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
+    let lexed_tokens: Vec<TokenKind> = lexer.map(|t| t.kind).collect();
+    assert_eq!(lexed_tokens, expected_tokens);
+}
+
+#[test]
+fn test_many_operations() {
+    let code = "1 @== 2?> 3 ?< 4 ?<=5 ?!= 6";
+    let expected_tokens = vec![
+        TokenKind::Number(1),
+        TokenKind::Whitespace,
+        TokenKind::EveryDoubleEquals,
+        TokenKind::Whitespace,
+        TokenKind::Number(2),
+        TokenKind::AnyLargerThan,
+        TokenKind::Whitespace,
+        TokenKind::Number(3),
+        TokenKind::Whitespace,
+        TokenKind::AnyLessThan,
+        TokenKind::Whitespace,
+        TokenKind::Number(4),
+        TokenKind::Whitespace,
+        TokenKind::AnyLessThanEquals,
+        TokenKind::Number(5),
+        TokenKind::Whitespace,
+        TokenKind::AnyBangEquals,
+        TokenKind::Whitespace,
+        TokenKind::Number(6),
+        TokenKind::End,
+    ];
+
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
     let lexed_tokens: Vec<TokenKind> = lexer.map(|t| t.kind).collect();
     assert_eq!(lexed_tokens, expected_tokens);
