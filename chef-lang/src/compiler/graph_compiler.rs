@@ -602,7 +602,7 @@ impl GraphCompiler {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
-            VariableType::All => IOType::Everything,
+            VariableType::Many => IOType::Everything,
             VariableType::Register(_) => IOType::Everything, // TODO: make dependent on the type of input
             // expression
             VariableType::ConstInt(_) => {

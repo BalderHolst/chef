@@ -160,7 +160,7 @@ pub enum VariableType {
     Bool(VariableSignalType),
     Int(VariableSignalType),
     Var(VariableSignalType),
-    All,
+    Many,
     ConstInt(i32),
     ConstBool(bool),
     Counter((VariableSignalType, Box<Expression>)),
@@ -173,7 +173,7 @@ impl VariableType {
             VariableType::Bool(_) => ExpressionReturnType::Bool,
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Var(_) => ExpressionReturnType::Int,
-            VariableType::All => ExpressionReturnType::Group,
+            VariableType::Many => ExpressionReturnType::Group,
             VariableType::ConstInt(_) => ExpressionReturnType::Int,
             VariableType::ConstBool(_) => ExpressionReturnType::Bool,
             VariableType::Counter(_) => ExpressionReturnType::Int,
@@ -186,7 +186,7 @@ impl VariableType {
             VariableType::Bool(s) => Some(s),
             VariableType::Int(s) => Some(s),
             VariableType::Var(s) => Some(s),
-            VariableType::All => None,
+            VariableType::Many => None,
             VariableType::ConstInt(_) => None,
             VariableType::ConstBool(_) => None,
             VariableType::Counter((s, _lim)) => Some(s),
@@ -417,7 +417,7 @@ impl Display for ExpressionReturnType {
         let s = match self {
             ExpressionReturnType::Bool => "bool",
             ExpressionReturnType::Int => "int",
-            ExpressionReturnType::Group => "all",
+            ExpressionReturnType::Many => "many",
             ExpressionReturnType::None => "none",
         };
         write!(f, "{s}")
@@ -678,7 +678,7 @@ impl Display for VariableType {
             },
             VariableType::ConstInt(_) => "ConstInt".to_string(),
             VariableType::ConstBool(_) => "ConstBool".to_string(),
-            VariableType::All => "All".to_string(),
+            VariableType::Many => "All".to_string(),
             VariableType::Register(n) => format!("Register({n})"),
         };
         write!(f, "{s}")

@@ -423,7 +423,7 @@ impl Parser {
             }
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
-            VariableType::All => {}
+            VariableType::Many => {}
             VariableType::ConstInt(_) => {}
             VariableType::ConstBool(_) => {}
         };
@@ -613,7 +613,7 @@ impl Parser {
                 "bool" => Ok(VariableType::Bool(self.parse_variable_type_signal()?)),
                 "int" => Ok(VariableType::Int(self.parse_variable_type_signal()?)),
                 "var" => Ok(VariableType::Var(self.parse_variable_type_signal()?)),
-                "all" => Ok(VariableType::All),
+                "many" => Ok(VariableType::Many),
                 "counter" => {
                     self.consume_and_expect(TokenKind::LeftParen)?;
                     let sig_token = self.consume();
