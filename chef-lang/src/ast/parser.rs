@@ -14,7 +14,9 @@ use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, Di
 use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
-use super::{python_macro, Declaration, Definition, DefinitionKind, IndexExpression};
+use super::{
+    python_macro, Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement,
+};
 use super::{
     Block, BlockLinkExpression, DeclarationDefinition, MutationOperator, PickExpression,
     VariableRef, VariableSignalType,
@@ -296,20 +298,7 @@ impl Parser {
                         self.consume();
                         Ok(StatementKind::Error)
                     }
-                    "when" => {
-                        let when_expr = match self.parse_when_expression() {
-                            Ok(expr) => expr,
-                            Err(e) => return Some(Err(e)),
-                        };
-
-                        match &self.current().kind {
-                            TokenKind::Semicolon => {
-                                self.consume();
-                                Ok(StatementKind::Expression(when_expr))
-                            }
-                            _ => Ok(StatementKind::Out(when_expr)),
-                        }
-                    }
+                    "when" => self.parse_when_statement(),
                     _ if self.is_at_declaration_statment() => self.parse_declaration_statement(),
                     _ if self.is_at_definition_statment() => self.parse_definition_statement(),
                     _ if self.is_at_mutation_statment() => self.parse_mutation_statement(),
@@ -692,7 +681,7 @@ impl Parser {
         Ok(inputs)
     }
 
-    fn parse_statement_list_expression(&mut self) -> Result<Vec<Statement>, CompilationError> {
+    fn parse_statement_list(&mut self) -> Result<Vec<Statement>, CompilationError> {
         self.consume_and_expect(TokenKind::LeftCurly)?;
 
         let mut statements: Vec<Statement> = vec![];
@@ -799,7 +788,7 @@ impl Parser {
         let outputs = self.parse_block_arguments()?;
         self.consume_and_expect(TokenKind::RightParen)?;
 
-        let statements = self.parse_statement_list_expression()?;
+        let statements = self.parse_statement_list()?;
 
         self.exit_scope();
 
@@ -818,33 +807,23 @@ impl Parser {
 
     /// Parse chef expression.
     fn parse_expression(&mut self) -> Result<Expression, CompilationError> {
-        match &self.current().kind {
-            TokenKind::Word(word) => match word.as_str() {
-                "when" => self.parse_when_expression(),
-                _ => self.parse_binary_expression(None, 0),
-            },
-            _ => self.parse_binary_expression(None, 0),
-        }
+        self.parse_binary_expression(None, 0)
     }
 
-    fn parse_when_expression(&mut self) -> Result<Expression, CompilationError> {
+    fn parse_when_statement(&mut self) -> Result<StatementKind, CompilationError> {
         let start_token = self.consume().clone(); // Consume "when" token
         let condition = self.parse_expression()?;
 
         self.enter_scope();
 
-        let statements_list = self.parse_statement_list_expression()?;
+        let statements = self.parse_statement_list()?;
 
-        todo!()
+        let kind = StatementKind::When(WhenStatement {
+            condition,
+            statements,
+        });
 
-        // Ok(Expression::new(
-        //     ExpressionKind::When(WhenExpression {
-        //         condition: Box::new(condition),
-        //         statements: statements_list.statements,
-        //         out: statements_list.out,
-        //     }),
-        //     self.get_span_from(&start_token.span),
-        // ))
+        Ok(kind)
     }
 
     /// Returns the operator if the current token is an operator

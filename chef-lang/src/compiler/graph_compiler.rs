@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::ast::{
     BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
     DeclarationDefinition, Definition, Expression, ExpressionKind, IndexExpression, Mutation,
-    PickExpression, VariableId, VariableRef, VariableSignalType, WhenExpression, AST,
+    PickExpression, VariableId, VariableRef, VariableSignalType, WhenStatement, AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
@@ -76,17 +76,14 @@ impl Scope {
         var_id: VariableId,
         nid: NId,
         wk: WireKind,
-    ) -> CompilationResult<()> {
-        let (var_nid, _var_type) =
-            self.variables
-                .get(&var_id)
-                .ok_or(CompilationError::new_generic(
-                    "Variable not declared in this scope.",
-                ))?;
-
-        graph.push_wire_kind(nid, *var_nid, wk);
-
-        Ok(())
+    ) -> bool {
+        match self.variables.get(&var_id) {
+            Some((var_nid, var_type)) => {
+                graph.push_wire_kind(nid, *var_nid, wk);
+                true
+            }
+            None => false,
+        }
     }
 
     fn variable_is_declared(&self, var_id: VariableId) -> bool {
@@ -177,6 +174,9 @@ impl GraphCompiler {
                 // TODO: Remove error statements
                 panic!("There should not be error statements when compilation has started.")
             }
+            StatementKind::When(when_statement) => {
+                self.compile_when_statement(graph, &when_statement)?
+            }
         };
         Ok(())
     }
@@ -188,8 +188,45 @@ impl GraphCompiler {
     ) -> Result<(), CompilationError> {
         let var = &dec.variable;
         let var_type = self.variable_type_to_iotype(&var.type_);
-        self.declare_variable(graph, var.id, var_type)?;
-        Ok(())
+
+        // Wire up and define memory cell variables.
+        match &var.type_ {
+            VariableType::Var(_) => {
+                let (var_input_nid, var_nid) =
+                    graph.push_combinator(Combinator::new_pick(var_type.clone()));
+                graph.push_wire(var_input_nid, var_nid);
+                self.declare_variable(graph, var.id, var_type)?;
+                self.define_variable(graph, var.id, var_nid, WireKind::Red)?;
+                self.define_variable(graph, var.id, var_nid, WireKind::Green)?;
+                Ok(())
+            }
+            VariableType::Counter((_, limit_expr)) => {
+                // Get counter limit
+                let (limit_nid, limit_type) = self.compile_expression(graph, &limit_expr, None)?;
+
+                let (counter_input_nid, counter_nid) =
+                    graph.push_connection(Connection::new_gate(GateCombinator {
+                        left: var_type.clone().to_combinator_type(),
+                        right: limit_type.clone().to_combinator_type(),
+                        operation: DeciderOperation::LessThan,
+                        gate_type: var_type.clone().to_combinator_type(),
+                    }));
+                graph.push_wire_kind(counter_input_nid, counter_nid, WireKind::Red);
+
+                // Create a constant driver for the counter
+                let driver_nid = graph.push_node(Node::Constant(var_type.to_constant(1).unwrap()));
+                graph.push_wire_kind(driver_nid, counter_input_nid, WireKind::Green);
+
+                // Connect counter to limit to input
+                graph.push_wire_kind(limit_nid, counter_input_nid, WireKind::Green);
+
+                self.declare_variable(graph, var.id, var_type)?;
+                self.define_variable(graph, var.id, counter_nid, WireKind::Red)?;
+                self.define_variable(graph, var.id, counter_nid, WireKind::Green)?;
+                Ok(())
+            }
+            _ => self.declare_variable(graph, var.id, var_type),
+        }
     }
 
     fn compile_declaration_definition_statement(
@@ -304,7 +341,6 @@ impl GraphCompiler {
             ExpressionKind::Binary(bin_expr) => self.compile_binary_expression(graph, bin_expr, out_type),
             // TODO: use out_type in all compilation functions
             ExpressionKind::BlockLink(block_link_expr) => self.compile_block_link_expression(graph, block_link_expr),
-            ExpressionKind::When(when) => self.compile_when_expression(graph, when),
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }
     }
@@ -548,64 +584,24 @@ impl GraphCompiler {
         Ok(outputs[0].clone())
     }
 
-    fn compile_when_expression(
+    fn compile_when_statement(
         &mut self,
         graph: &mut Graph,
-        when: &WhenExpression,
-    ) -> Result<(NId, IOType), CompilationError> {
+        when_statement: &WhenStatement,
+    ) -> Result<(), CompilationError> {
         self.enter_scope();
 
         // Compile condition expression.
-        let cond_pair = self.compile_expression(graph, &when.condition, None)?;
+        let cond_pair = self.compile_expression(graph, &when_statement.condition, None)?;
 
         // Compile statements
-        for statement in &when.statements {
+        for statement in &when_statement.statements {
             self.compile_statement(graph, statement, Some(cond_pair.clone()))?;
         }
 
-        let out_expr = match &when.out {
-            Some(e) => e,
-            None => {
-                // If the there is no output, we can skip creating the gate. In this case we just return
-                // the condition output node.
-                return Ok(cond_pair);
-            }
-        };
-
-        // Compile output expression, we will attatch a gate to the output of this.
-        let (expr_out_nid, gated_type) = self.compile_expression(graph, out_expr, None)?;
-
-        // If the gated type is a constant, convert it as we can not gate a constant value
-        if let IOType::Constant(_count) = gated_type {
-            todo!()
-            // // let convertion_node = graph.push_inner_node();
-            // gated_type = self.get_new_anysignal();
-            // let (conversion_node) = graph.push_connection(
-            //     // convertion_node,
-            //     // gated_input_nid,
-            //     Connection::Combinator(Combinator::Constant(ConstantCombinator {
-            //         type_: gated_type.clone(),
-            //         count,
-            //     })),
-            // );
-        }
-
-        let (cond_out_nid, cond_out_type) = cond_pair;
-
-        // We make sure that the cond type is not the same as the gated type
-        assert_ne!(gated_type, cond_out_type); // TODO: catch
-
-        // Connect the condition output to the gate input, so the gate can read the condition
-        // state.
-        graph.push_wire(cond_out_nid, expr_out_nid);
-
-        // Push the actual gate operation. Here we only let the signal through,
-        // if the condition returns a value larger than zero.
-        let (gate_input, out_nid) = graph.push_gate_connection(cond_out_type, gated_type.clone());
-        graph.push_wire(expr_out_nid, gate_input);
-
         self.exit_scope();
-        Ok((out_nid, gated_type))
+
+        Ok(())
     }
 
     fn variable_type_to_iotype(&mut self, variable_type: &VariableType) -> IOType {
@@ -712,10 +708,16 @@ impl GraphCompiler {
         nid: NId,
         wk: WireKind,
     ) -> CompilationResult<()> {
-        self.scopes
-            .last_mut()
-            .unwrap()
-            .define_variable(graph, var_id, nid, wk)
+        for scope in self.scopes.iter_mut().rev() {
+            if scope.define_variable(graph, var_id, nid, wk.clone()) {
+                return Ok(());
+            }
+        }
+
+        Err(CompilationError::new_generic(format!(
+            "Variable with id {} not declared.",
+            var_id
+        )))
     }
 
     fn search_scope(&self, var_id: VariableId) -> Option<(NId, IOType)> {

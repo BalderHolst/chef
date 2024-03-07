@@ -32,12 +32,6 @@ Tells you useful cooking tips when compilation fails.
 ## Code generation
 Import python files directly in your code, just like a chef file. The python file is then run, and its stdout is interpreted as chef code.
 
-## Internet Imports
-Because chef is not an executed language, there aren't the usual security risks from downloading code from arbitrary sources at compile time. It would be fun to be able to import online files directly with an import statement like this:
-```chef
-import "https://site.com/some/chef/file.rcp"
-import "https://site.com/some/python/file.py"
-```
 ## Dynamic Blocks
 Some blocks implementation may need to be generated at compile time. Dynamic blocks are blocks that have a defined interface in chef, but at handed over to a python script to be generated at compile time. This is useful for cases like shift registers, as depending on their size, their structure changes.
 
@@ -56,4 +50,8 @@ dyn block shift_register(shift: bool, input: all, size: lit) {
     # Write your python code here
 }
 ```
-
+## Pipeline
+It would be nice to be able to route blocks into each other like this
+```
+out <- block1 <- block2 <- block3(input)
+```

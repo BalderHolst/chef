@@ -8,7 +8,7 @@
 use super::{
     parser::StatementList, BinaryExpression, Block, BlockLinkExpression, Declaration,
     DeclarationDefinition, Definition, Expression, ExpressionKind, IndexExpression, Mutation,
-    ParenthesizedExpression, PickExpression, Statement, StatementKind, VariableRef, WhenExpression,
+    ParenthesizedExpression, PickExpression, Statement, StatementKind, VariableRef, WhenStatement,
 };
 
 // For documentation references
@@ -36,6 +36,9 @@ pub trait Visitor {
             }
             StatementKind::Mutation(mutation) => {
                 self.visit_mutation(mutation);
+            }
+            StatementKind::When(when) => {
+                self.visit_when_statement(when);
             }
             StatementKind::Error => {
                 self.visit_error_statement();
@@ -71,9 +74,6 @@ pub trait Visitor {
             }
             ExpressionKind::BlockLink(block) => {
                 self.visit_block_link(block);
-            }
-            ExpressionKind::When(when) => {
-                self.visit_when_expression(when);
             }
             ExpressionKind::Error => {
                 self.visit_error_expression();
@@ -154,13 +154,10 @@ pub trait Visitor {
         }
     }
 
-    fn visit_when_expression(&mut self, when: &WhenExpression) {
+    fn visit_when_statement(&mut self, when: &WhenStatement) {
         self.visit_expression(&when.condition);
         for statement in &when.statements {
             self.visit_statement(statement);
-        }
-        if let Some(out) = &when.out {
-            self.visit_expression(out);
         }
     }
 
@@ -204,6 +201,9 @@ pub trait MutVisitor {
             StatementKind::Mutation(mutation) => {
                 self.visit_mutation(mutation);
             }
+            StatementKind::When(when) => {
+                self.visit_when_statement(when);
+            }
             StatementKind::Error => {
                 self.visit_error_statement();
             }
@@ -238,9 +238,6 @@ pub trait MutVisitor {
             }
             ExpressionKind::BlockLink(block) => {
                 self.visit_block_link(block);
-            }
-            ExpressionKind::When(when) => {
-                self.visit_when_expression(when);
             }
             ExpressionKind::Error => {
                 self.visit_error_expression();
@@ -321,13 +318,10 @@ pub trait MutVisitor {
         }
     }
 
-    fn visit_when_expression(&mut self, when: &mut WhenExpression) {
+    fn visit_when_statement(&mut self, when: &mut WhenStatement) {
         self.visit_expression(&mut when.condition);
         for statement in &mut when.statements {
             self.visit_statement(statement);
-        }
-        if let Some(out) = &mut when.out {
-            self.visit_expression(out);
         }
     }
 

@@ -253,11 +253,11 @@ pub enum Combinator {
 }
 
 impl Combinator {
-    fn new_pick(signal: IOType) -> Self {
+    pub fn new_pick(signal: IOType) -> Self {
         Self::Arithmetic(ArithmeticCombinator::new_pick(signal))
     }
 
-    fn new_convert(in_signal: IOType, out_signal: IOType) -> Self {
+    pub fn new_convert(in_signal: IOType, out_signal: IOType) -> Self {
         Self::Arithmetic(ArithmeticCombinator::new_convert(in_signal, out_signal))
     }
 

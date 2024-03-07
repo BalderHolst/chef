@@ -145,6 +145,7 @@ impl Statement {
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
     Expression(Expression),
+    When(WhenStatement),
     Declaration(Declaration),
     DeclarationDefinition(DeclarationDefinition),
     Definition(Definition),
@@ -364,7 +365,6 @@ impl Expression {
             ExpressionKind::Index(_) => ExpressionReturnType::Int,
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(),
-            ExpressionKind::When(e) => e.return_type(),
             ExpressionKind::Error => ExpressionReturnType::None,
         }
     }
@@ -436,24 +436,13 @@ pub enum ExpressionKind {
     Index(IndexExpression),
     VariableRef(VariableRef),
     BlockLink(BlockLinkExpression),
-    When(WhenExpression),
     Error,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct WhenExpression {
-    pub condition: Box<Expression>,
+pub struct WhenStatement {
+    pub condition: Expression,
     pub statements: Vec<Statement>,
-    pub out: Option<Box<Expression>>,
-}
-
-impl WhenExpression {
-    pub fn return_type(&self) -> ExpressionReturnType {
-        match &self.out {
-            Some(o) => o.return_type(),
-            None => ExpressionReturnType::None,
-        }
-    }
 }
 
 /// An expression within parenthesis.
@@ -915,7 +904,7 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_when_expression(&mut self, when: &WhenExpression) {
+    fn visit_when_statement(&mut self, when: &WhenStatement) {
         self.print("WhenExpression:");
         self.indent();
         self.print("Condition:");
@@ -925,13 +914,6 @@ impl Visitor for Printer {
         for statement in &when.statements {
             self.do_visit_statement(statement);
         }
-        self.print("WhenOutput:");
-        self.indent();
-        match &when.out {
-            Some(out) => self.visit_expression(out),
-            None => self.print("No Output."),
-        }
-        self.unindent();
         self.unindent();
     }
 }

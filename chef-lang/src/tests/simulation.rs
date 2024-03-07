@@ -35,8 +35,8 @@ fn simulate_arithmetic() {
     let graph = compile_code(
         "
 
-block main(input: all) -> int(inserter) {
-    out input[signal-B] * 3 + 4;
+block main(input: many) => (out: int(inserter)) {
+    out <~ input[signal-B] * 3 + 4;
 }
 
 ",
@@ -55,13 +55,13 @@ block main(input: all) -> int(inserter) {
 fn counter_with_when() {
     let graph = compile_code(
         "
-block main() -> int(tank) {
+block main() => (out: int(tank)) {
     c: counter(signal-T : 6);
     v: var(signal-V);
     when (c == 5) {
-        v += 1;
-    };
-    out v;
+        v <- 1;
+    }
+    out <- v;
 }
 
 ",
@@ -71,7 +71,7 @@ block main() -> int(tank) {
 
     let mut sim = Simulator::new(graph, vec![]);
 
-    sim.simulate(15);
+    sim.dump_simulation(15, "out");
 
     let outputs = sim.get_output();
 
