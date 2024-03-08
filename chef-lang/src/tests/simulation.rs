@@ -263,7 +263,6 @@ fn simulate_order_of_operations_factorio_time() {
     assert_eq!(sim.get_output(), outputs!["rail": 11]);
 }
 
-#[ignore = "Anysignals are failing for some reason"]
 #[test]
 fn simulate_order_of_operations_any_signals_factorio_time() {
     let g = compile_code(
@@ -305,7 +304,6 @@ fn simulate_var_mutation_with_clock() {
     assert_eq!(sim.get_output(), outputs!["signal-O": 5]);
 }
 
-#[ignore = "anysignals are failing for some reason"]
 #[test]
 fn simulate_negative_numbers() {
     let g = compile_code(
@@ -319,6 +317,7 @@ fn simulate_negative_numbers() {
 ",
     );
     let mut sim = Simulator::new(g, inputs![]);
-    sim.dump_simulation(5, "out");
+    sim.dump_simulation(7, "out");
+
     assert_eq!(sim.get_output(), outputs!["pump": -10]);
 }

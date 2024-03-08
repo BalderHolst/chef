@@ -158,7 +158,7 @@ impl GraphCompiler {
                 self.compile_declaration_definition_statement(graph, dec_def, gate)?;
             }
             StatementKind::Definition(def) => {
-                self.compile_definition_statement(graph, def, gate)?;
+                self.compile_definition_statement(graph, def, gate, None)?;
             }
             StatementKind::Mutation(mutation_statement) => {
                 self.compile_mutation_statement(graph, mutation_statement, gate)?;
@@ -237,9 +237,9 @@ impl GraphCompiler {
     ) -> Result<(), CompilationError> {
         let var = &dec_def.variable;
         let var_type = self.variable_type_to_iotype(&var.type_);
-        self.declare_variable(graph, var.id, var_type)?;
+        self.declare_variable(graph, var.id, var_type.clone())?;
         let definition = dec_def.to_definition();
-        self.compile_definition_statement(graph, definition, gate)
+        self.compile_definition_statement(graph, definition, gate, Some(var_type))
     }
 
     fn compile_definition_statement(
@@ -247,10 +247,14 @@ impl GraphCompiler {
         graph: &mut Graph,
         def: Definition,
         gate: Option<(NId, IOType)>,
+        var_type: Option<IOType>,
     ) -> Result<(), CompilationError> {
         let var = &def.variable;
 
-        let var_iotype = self.variable_type_to_iotype(&var.type_);
+        let var_iotype = match var_type {
+            Some(t) => t,
+            None => self.variable_type_to_iotype(&var.type_),
+        };
 
         let (expr_out_nid, _) =
             self.compile_expression(graph, &def.expression, Some(var_iotype.clone()))?;
@@ -365,7 +369,7 @@ impl GraphCompiler {
             ExpressionKind::Negative(expr) => self.compile_negative_expression(graph, expr, out_type),
             ExpressionKind::Binary(bin_expr) => self.compile_binary_expression(graph, bin_expr, out_type),
             ExpressionKind::BlockLink(block_link_expr) => {
-                assert!(out_type.is_none(), "Block link expressions should not have an output type.");
+                dbg!(&out_type);
                 self.compile_block_link_expression(graph, block_link_expr)
             }
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
@@ -507,7 +511,6 @@ impl GraphCompiler {
     ) -> Result<(NId, IOType), CompilationError> {
         let (left_nid, left_type) = self.compile_expression(graph, &bin_expr.left, None)?;
         let (right_nid, right_type) = self.compile_expression(graph, &bin_expr.right, None)?;
-
         // TODO: Report correctly
         if left_type == right_type {
             panic!(
@@ -576,6 +579,8 @@ impl GraphCompiler {
                 let (c_input, output_nid) = graph.push_connection(op_connection);
                 graph.push_wire(c_input, left_nid);
                 graph.push_wire(c_input, right_nid);
+
+                graph.print();
                 (output_nid, out_type)
             }
             ReturnValue::Bool(op) => {
@@ -656,7 +661,13 @@ impl GraphCompiler {
             },
             VariableType::Int(int_type) => match int_type {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
-                VariableSignalType::Any => self.get_new_anysignal(),
+                VariableSignalType::Any => {
+                    println!(
+                        "getting anysignal. Backtrace: {:?}",
+                        std::backtrace::Backtrace::capture().to_string()
+                    );
+                    self.get_new_anysignal()
+                }
             },
             VariableType::Var(var_type) => match var_type {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
@@ -777,12 +788,14 @@ impl GraphCompiler {
 
     fn get_new_anysignal(&mut self) -> IOType {
         let signal = IOType::AnySignal(self.next_anysignal);
+        println!("getting anysignal: {:?}", signal);
         self.next_anysignal += 1;
         signal
     }
 
     fn get_new_const_anysignal(&mut self, n: i32) -> IOType {
         let signal = IOType::ConstantAny((self.next_anysignal, n));
+        println!("getting CONST anysignal: {:?}", signal);
         self.next_anysignal += 1;
         signal
     }

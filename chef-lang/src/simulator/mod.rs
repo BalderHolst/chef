@@ -185,6 +185,10 @@ impl Simulator {
         }
     }
 
+    pub fn graph(&self) -> &Graph {
+        &self.graph
+    }
+
     fn step(&mut self) {
         let mut new_contents = self.constant_inputs.clone();
 
