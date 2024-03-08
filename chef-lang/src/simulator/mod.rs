@@ -215,7 +215,7 @@ impl Simulator {
 
             let conn_inputs = combine_items(conn_inputs);
 
-            let output = match conn {
+            let mut output = match conn {
                 Combinator::Arithmetic(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);
@@ -286,22 +286,24 @@ impl Simulator {
                 Combinator::Constant(c) => Item::new(c.type_, c.count),
             };
 
-            if self.step > 0 {
-                for to_network_id in to_network_ids {
-                    new_contents
-                        .entry(*to_network_id)
-                        .and_modify(|v: &mut Vec<Item>| {
-                            // Check if the item exists in node
-                            for item in v.iter_mut() {
-                                if output.kind == item.kind {
-                                    item.count += output.count;
-                                    return;
-                                }
+            if self.step == 0 {
+                output.count = 0;
+            }
+
+            for to_network_id in to_network_ids {
+                new_contents
+                    .entry(*to_network_id)
+                    .and_modify(|v: &mut Vec<Item>| {
+                        // Check if the item exists in node
+                        for item in v.iter_mut() {
+                            if output.kind == item.kind {
+                                item.count += output.count;
+                                return;
                             }
-                            v.push(output.clone())
-                        })
-                        .or_insert(vec![output.clone()]);
-                }
+                        }
+                        v.push(output.clone())
+                    })
+                    .or_insert(vec![output.clone()]);
             }
         }
 

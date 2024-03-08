@@ -78,7 +78,7 @@ impl Scope {
         wk: WireKind,
     ) -> bool {
         match self.variables.get(&var_id) {
-            Some((var_nid, var_type)) => {
+            Some((var_nid, _var_type)) => {
                 graph.push_wire_kind(nid, *var_nid, wk);
                 true
             }
@@ -264,7 +264,7 @@ impl GraphCompiler {
             crate::ast::DefinitionKind::Green => WireKind::Green,
         };
 
-        match gate {
+        let output_nid = match gate {
             Some((condition_nid, condition_type)) => {
                 // TODO: convert one if this happens
                 assert_ne!(&condition_type, &var_iotype);
@@ -275,17 +275,19 @@ impl GraphCompiler {
 
                 // Add the gate
                 let (gate_input, gate_output) =
-                    graph.push_gate_connection(condition_type, var_iotype);
+                    graph.push_gate_connection(condition_type, var_iotype.clone());
 
                 // Wire up the gate
                 graph.push_wire(gate_input, condition_nid);
                 graph.push_wire(gate_input, expr_out_nid);
 
                 // Variable is the output of the gate
-                self.define_variable(graph, var.id, gate_output, wk)
+                gate_output
             }
-            None => self.define_variable(graph, var.id, expr_out_nid, wk),
-        }
+            None => expr_out_nid,
+        };
+
+        self.define_variable(graph, var.id, output_nid, wk)
     }
 
     fn compile_mutation_statement(
@@ -368,10 +370,7 @@ impl GraphCompiler {
             ExpressionKind::Parenthesized(expr) => self.compile_expression(graph, &expr.expression, out_type),
             ExpressionKind::Negative(expr) => self.compile_negative_expression(graph, expr, out_type),
             ExpressionKind::Binary(bin_expr) => self.compile_binary_expression(graph, bin_expr, out_type),
-            ExpressionKind::BlockLink(block_link_expr) => {
-                dbg!(&out_type);
-                self.compile_block_link_expression(graph, block_link_expr)
-            }
+            ExpressionKind::BlockLink(block_link_expr) =>  self.compile_block_link_expression(graph, block_link_expr, out_type),
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }
     }
@@ -580,7 +579,6 @@ impl GraphCompiler {
                 graph.push_wire(c_input, left_nid);
                 graph.push_wire(c_input, right_nid);
 
-                graph.print();
                 (output_nid, out_type)
             }
             ReturnValue::Bool(op) => {
@@ -604,33 +602,55 @@ impl GraphCompiler {
         })
     }
 
+    /// Compile a link to a block which only returns one statement
     fn compile_block_link_expression(
         &mut self,
         graph: &mut Graph,
         block_link_expr: &BlockLinkExpression,
+        out_type: Option<IOType>,
     ) -> Result<(NId, IOType), CompilationError> {
-        let mut vars: Vec<(NId, IOType)> = Vec::new();
-        for expr in block_link_expr.inputs.iter() {
-            let pair = self.compile_expression(graph, expr, None)?;
-            vars.push(pair);
+        let mut args: Vec<(NId, IOType)> = Vec::new();
+        for arg_expr in block_link_expr.inputs.iter() {
+            let (arg_nid, arg_type) = self.compile_expression(graph, arg_expr, None)?;
+            args.push((arg_nid, arg_type));
         }
 
-        let outputs = match self.get_block_graph(&block_link_expr.block.name) {
-            Some(block_graph) => match graph.stitch_graph(block_graph, vars) {
-                Ok(v) => v,
-                Err(e) => {
-                    panic!("Errored in stitch_graph: {}.", e) // TODO: handle correctly
-                                                              // return Err(CompilationError::new(e, expr.span.clone()))
-                }
-            },
-            None => {
-                panic!("Block not defined.");
+        let block_graph = self.get_block_graph(&block_link_expr.block.name).expect(
+            "Block is defined if a BlockLinkExpression exists. This is probably a parser bug.",
+        );
+
+        let outputs = match graph.stitch_graph(block_graph, args) {
+            Ok(v) => v,
+            Err(e) => {
+                panic!("Errored in stitch_graph: {}.", e) // TODO: handle correctly
+                                                          // return Err(CompilationError::new(e, expr.span.clone()))
             }
         };
-        if outputs.len() != 1 {
-            todo!("Blocks with multipule outputs are not implemented yet");
+
+        match outputs.len() {
+            1 => {
+                let out_type = match out_type {
+                    Some(out_type) => out_type,
+                    None => self.get_new_anysignal(),
+                };
+
+                let (block_out_nid, block_out_type) = outputs[0].clone();
+
+                let (convert_input_nid, convert_output_nid) =
+                    graph.push_connection(Connection::new_convert(
+                        block_out_type.to_combinator_type(),
+                        out_type.to_combinator_type(),
+                    ));
+
+                graph.push_wire(block_out_nid, convert_input_nid);
+
+                Ok((convert_output_nid, out_type))
+            }
+            _ => Err(CompilationError::new_generic(
+                // TODO: Make localized
+                "Blocks used withing expressions must return exactly one output.",
+            )),
         }
-        Ok(outputs[0].clone())
     }
 
     fn compile_when_statement(
@@ -661,13 +681,7 @@ impl GraphCompiler {
             },
             VariableType::Int(int_type) => match int_type {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
-                VariableSignalType::Any => {
-                    println!(
-                        "getting anysignal. Backtrace: {:?}",
-                        std::backtrace::Backtrace::capture().to_string()
-                    );
-                    self.get_new_anysignal()
-                }
+                VariableSignalType::Any => self.get_new_anysignal(),
             },
             VariableType::Var(var_type) => match var_type {
                 VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
@@ -788,14 +802,12 @@ impl GraphCompiler {
 
     fn get_new_anysignal(&mut self) -> IOType {
         let signal = IOType::AnySignal(self.next_anysignal);
-        println!("getting anysignal: {:?}", signal);
         self.next_anysignal += 1;
         signal
     }
 
     fn get_new_const_anysignal(&mut self, n: i32) -> IOType {
         let signal = IOType::ConstantAny((self.next_anysignal, n));
-        println!("getting CONST anysignal: {:?}", signal);
         self.next_anysignal += 1;
         signal
     }

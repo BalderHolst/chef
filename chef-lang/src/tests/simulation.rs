@@ -115,7 +115,6 @@ fn simulate_constant_bool_blocks() {
     assert_eq!(sim_out.get_output(), outputs!["rail": 1])
 }
 
-#[ignore = "Not implemented"]
 #[test]
 fn simulate_multiple_blocks() {
     let g = compile_code(
@@ -146,7 +145,9 @@ fn simulate_multiple_blocks() {
                                  "signal-C": 1000 // Should be ignored
         ],
     );
-    sim.simulate(steps);
+    sim.dump_simulation(steps, "out");
+
+    sim.graph().print();
 
     assert_eq!(sim.get_output(), outputs!["rail": 0]);
 

@@ -819,6 +819,7 @@ impl Graph {
         let other_graph_inputs = other.get_non_constant_inputs();
 
         // This should not errror. It should have been checked by the type checker.
+        // TODO: Handle this with error
         if other_graph_inputs.len() != inputs.len() {
             panic!(
                 "Number of arguments does not match with block definition: Expected {}, found {}. This is probably a bug in the typechecker.",
@@ -827,6 +828,7 @@ impl Graph {
             );
         }
 
+        // Iterate over the inputs of the other block
         for (i, (block_input_nid, block_input_type)) in inputs.iter().enumerate() {
             let (old_other_input_nid, other_input_node) = &other_graph_inputs[i];
 
@@ -841,8 +843,10 @@ impl Graph {
 
             match other_input_type {
                 IOType::Signal(_) => {
-                    // The input types for the (output) node on THIS graph, that is to be stitched togeather
-                    // with the input of the other graph.
+                    // TODO: Simplity
+
+                    // The input types for the (output) node on THIS graph, that is to be stitched
+                    // together with the input of the other graph.
                     let input_types = self.get_input_iotypes(block_input_nid);
 
                     // TODO: There should definetly be a better way to get the input type.
@@ -879,11 +883,7 @@ impl Graph {
                 IOType::AnySignal(_) => {
                     let new_type = self.get_single_input(block_input_nid).unwrap();
                     self.replace_iotype(other_input_type, &new_type);
-                    self.push_raw_connection(
-                        *block_input_nid,
-                        other_input_nid,
-                        Connection::new_arithmetic(ArithmeticCombinator::new_pick(new_type)),
-                    );
+                    self.push_wire(*block_input_nid, other_input_nid);
                 }
                 IOType::ConstantAny(_) => {
                     todo!()
