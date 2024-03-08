@@ -1,5 +1,5 @@
-block main(input: all) => (out: int) {
-    a: all;
+block main(input: many) => (out: int) {
+    a: many;
 
     // Create two 'signal-RED' signals with different values and colors of wires
     a <- input[signal-red];

@@ -1,9 +1,9 @@
 // TODO: `else`
 // TODO: WHEN AS EXPRESSION!
-block main(input: all) -> int(signal-blue) {
+block main(input: many) => (out: int(signal-blue)) {
     i: var(signal-green);
     when input[signal-red] > 5 {
-        i += 10;
-    };
-    out i;
+        i <- 10;
+    }
+    out <- i;
 }
