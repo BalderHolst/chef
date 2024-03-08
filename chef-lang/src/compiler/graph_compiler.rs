@@ -358,14 +358,16 @@ impl GraphCompiler {
         match &expr.kind {
             ExpressionKind::Int(n) => self.compile_constant(graph, *n, out_type),
             ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32, out_type),
-            ExpressionKind::VariableRef(var_ref) => self.compile_variable_ref_expression(graph, var_ref), // 
+            ExpressionKind::VariableRef(var_ref) => self.compile_variable_ref_expression(graph, var_ref, out_type), // 
             ExpressionKind::Pick(pick_expr) => self.compile_pick_expression(graph, pick_expr, out_type),
             ExpressionKind::Index(index_expr) => self.compile_index_expression(graph, index_expr),
             ExpressionKind::Parenthesized(expr) => self.compile_expression(graph, &expr.expression, out_type),
             ExpressionKind::Negative(expr) => self.compile_negative_expression(graph, expr, out_type),
             ExpressionKind::Binary(bin_expr) => self.compile_binary_expression(graph, bin_expr, out_type),
-            // TODO: use out_type in all compilation functions
-            ExpressionKind::BlockLink(block_link_expr) => self.compile_block_link_expression(graph, block_link_expr),
+            ExpressionKind::BlockLink(block_link_expr) => {
+                assert!(out_type.is_none(), "Block link expressions should not have an output type.");
+                self.compile_block_link_expression(graph, block_link_expr)
+            }
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }
     }
@@ -389,15 +391,27 @@ impl GraphCompiler {
         &mut self,
         graph: &mut Graph,
         var_ref: &VariableRef,
+        out_type: Option<IOType>,
     ) -> Result<(NId, IOType), CompilationError> {
         // Get the referenced variable.
         let var = var_ref.var.clone();
-        let (var_nid, var_type) = self
+        let (var_ref_nid, var_type) = self
             .search_scope(var.id)
             .expect("Variable references should always point to defined variables");
-        let var_node = graph.get_node(&var_nid).unwrap();
 
-        Ok((var_nid, var_type.clone()))
+        match out_type {
+            Some(out_type) => {
+                let (converter_input, var_nid) = graph.push_connection(Connection::new_convert(
+                    var_type.to_combinator_type(),
+                    out_type.to_combinator_type(),
+                ));
+
+                graph.push_wire(var_ref_nid, converter_input);
+
+                Ok((var_nid, out_type))
+            }
+            None => Ok((var_ref_nid, var_type.clone())),
+        }
     }
 
     fn compile_negative_expression(
