@@ -63,7 +63,6 @@ block main() => (out: int(tank)) {
     }
     out <- v;
 }
-
 ",
     );
 

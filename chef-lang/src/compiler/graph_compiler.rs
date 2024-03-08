@@ -155,10 +155,10 @@ impl GraphCompiler {
                 self.compile_declaration_statement(graph, dec)?;
             }
             StatementKind::DeclarationDefinition(dec_def) => {
-                self.compile_declaration_definition_statement(graph, dec_def)?;
+                self.compile_declaration_definition_statement(graph, dec_def, gate)?;
             }
             StatementKind::Definition(def) => {
-                self.compile_definition_statement(graph, def)?;
+                self.compile_definition_statement(graph, def, gate)?;
             }
             StatementKind::Mutation(mutation_statement) => {
                 self.compile_mutation_statement(graph, mutation_statement, gate)?;
@@ -233,30 +233,55 @@ impl GraphCompiler {
         &mut self,
         graph: &mut Graph,
         dec_def: DeclarationDefinition,
+        gate: Option<(NId, IOType)>,
     ) -> Result<(), CompilationError> {
         let var = &dec_def.variable;
         let var_type = self.variable_type_to_iotype(&var.type_);
         self.declare_variable(graph, var.id, var_type)?;
         let definition = dec_def.to_definition();
-        self.compile_definition_statement(graph, definition)
+        self.compile_definition_statement(graph, definition, gate)
     }
 
     fn compile_definition_statement(
         &mut self,
         graph: &mut Graph,
         def: Definition,
+        gate: Option<(NId, IOType)>,
     ) -> Result<(), CompilationError> {
         let var = &def.variable;
 
-        let iotype = self.variable_type_to_iotype(&var.type_);
-        let (var_nid, _) = self.compile_expression(graph, &def.expression, Some(iotype))?;
+        let var_iotype = self.variable_type_to_iotype(&var.type_);
+
+        let (expr_out_nid, _) =
+            self.compile_expression(graph, &def.expression, Some(var_iotype.clone()))?;
 
         let wk = match def.kind {
             crate::ast::DefinitionKind::Red => WireKind::Red,
             crate::ast::DefinitionKind::Green => WireKind::Green,
         };
 
-        self.define_variable(graph, var.id, var_nid, wk)
+        match gate {
+            Some((condition_nid, condition_type)) => {
+                // TODO: convert one if this happens
+                assert_ne!(&condition_type, &var_iotype);
+
+                // let (c_input, new_out_nid) = graph.push_connection(conn);
+                // graph.push_wire(expr_out_nid, c_input, WireKind::Green);
+                // let expr_out_nid = new_out_nid; // Expression output is now gated
+
+                // Add the gate
+                let (gate_input, gate_output) =
+                    graph.push_gate_connection(condition_type, var_iotype);
+
+                // Wire up the gate
+                graph.push_wire(gate_input, condition_nid);
+                graph.push_wire(gate_input, expr_out_nid);
+
+                // Variable is the output of the gate
+                self.define_variable(graph, var.id, gate_output, wk)
+            }
+            None => self.define_variable(graph, var.id, expr_out_nid, wk),
+        }
     }
 
     fn compile_mutation_statement(
@@ -331,8 +356,8 @@ impl GraphCompiler {
         out_type: Option<IOType>,
     ) -> Result<(NId, IOType), CompilationError> {
         match &expr.kind {
-            ExpressionKind::Int(n) => self.compile_constant(graph, *n),
-            ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32),
+            ExpressionKind::Int(n) => self.compile_constant(graph, *n, out_type),
+            ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32, out_type),
             ExpressionKind::VariableRef(var_ref) => self.compile_variable_ref_expression(graph, var_ref), // 
             ExpressionKind::Pick(pick_expr) => self.compile_pick_expression(graph, pick_expr, out_type),
             ExpressionKind::Index(index_expr) => self.compile_index_expression(graph, index_expr),
@@ -349,8 +374,13 @@ impl GraphCompiler {
         &mut self,
         graph: &mut Graph,
         number: i32,
+        out_type: Option<IOType>,
     ) -> Result<(NId, IOType), CompilationError> {
-        let iotype = self.get_new_const_anysignal(number);
+        let iotype = match out_type {
+            Some(out_type) => out_type.to_constant(number).unwrap(),
+            None => self.get_new_const_anysignal(number),
+        };
+
         let const_nid = graph.push_node(Node::Constant(iotype.clone()));
         Ok((const_nid, iotype))
     }
