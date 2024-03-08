@@ -132,7 +132,7 @@ impl FactorioCombinator {
             graph::Combinator::Arithmetic(_) => "arithmetic-combinator",
             graph::Combinator::Decider(_) => "decider-combinator",
             graph::Combinator::Gate(_) => "decider-combinator",
-            graph::Combinator::_Constant(_) => "constant-combinator",
+            graph::Combinator::Constant(_) => "constant-combinator",
         }
         .to_string();
 
@@ -231,7 +231,7 @@ impl FactorioCombinator {
                     is_on: None,
                 }
             }
-            graph::Combinator::_Constant(cc) => {
+            graph::Combinator::Constant(cc) => {
                 let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
                 ControlBehavior {
                     arithmetic_conditions: None,

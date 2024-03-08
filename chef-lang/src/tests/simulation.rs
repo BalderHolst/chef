@@ -70,7 +70,7 @@ block main() => (out: int(tank)) {
 
     let mut sim = Simulator::new(graph, vec![]);
 
-    sim.dump_simulation(15, "out");
+    sim.dump_simulation(17, "out");
 
     let outputs = sim.get_output();
 

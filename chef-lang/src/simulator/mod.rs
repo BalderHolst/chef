@@ -279,27 +279,31 @@ impl Simulator {
                     };
                     Item::new(c.gate_type, count)
                 }
-                Combinator::_Constant(c) => Item::new(c.type_, c.count),
+                Combinator::Constant(c) => Item::new(c.type_, c.count),
             };
 
-            for to_network_id in to_network_ids {
-                new_contents
-                    .entry(*to_network_id)
-                    .and_modify(|v: &mut Vec<Item>| {
-                        // Check if the item exists in node
-                        for item in v.iter_mut() {
-                            if output.kind == item.kind {
-                                item.count += output.count;
-                                return;
+            if self.step > 0 {
+                for to_network_id in to_network_ids {
+                    new_contents
+                        .entry(*to_network_id)
+                        .and_modify(|v: &mut Vec<Item>| {
+                            // Check if the item exists in node
+                            for item in v.iter_mut() {
+                                if output.kind == item.kind {
+                                    item.count += output.count;
+                                    return;
+                                }
                             }
-                        }
-                        v.push(output.clone())
-                    })
-                    .or_insert(vec![output.clone()]);
+                            v.push(output.clone())
+                        })
+                        .or_insert(vec![output.clone()]);
+                }
             }
         }
 
         self.network_contents = new_contents;
+
+        self.step += 1;
     }
 
     fn get_node_contents(&self, nid: &NId) -> Vec<Item> {

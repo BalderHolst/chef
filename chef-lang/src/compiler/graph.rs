@@ -249,7 +249,7 @@ pub enum Combinator {
     Arithmetic(ArithmeticCombinator),
     Decider(DeciderCombinator),
     Gate(GateCombinator),
-    _Constant(ConstantCombinator),
+    Constant(ConstantCombinator),
 }
 
 impl Combinator {
@@ -266,7 +266,7 @@ impl Combinator {
             Self::Arithmetic(ac) => ac.output.clone(),
             Self::Decider(dc) => dc.output.clone(),
             Self::Gate(gc) => gc.gate_type.clone(),
-            Self::_Constant(cc) => cc.type_.clone(),
+            Self::Constant(cc) => cc.type_.clone(),
         }
     }
 
@@ -307,7 +307,7 @@ impl Display for Combinator {
                 gate.gate_type, gate.operation, gate.left, gate.right
             ),
             // TODO: This should probably be a node instead of a connection
-            Combinator::_Constant(cc) => {
+            Combinator::Constant(cc) => {
                 format!("CONSTANT : {} = {}", cc.type_, cc.count)
             }
         };
@@ -948,7 +948,7 @@ impl Graph {
                             gc.gate_type = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Combinator::_Constant(cc)) => {
+                    Connection::Combinator(Combinator::Constant(cc)) => {
                         if cc.type_ == old_type {
                             cc.type_ = new_type.clone()
                         }
@@ -1123,7 +1123,7 @@ impl<'a> AnysignalAssigner<'a> {
                             self.replace_if_anysignal(&mut c.right);
                             self.replace_if_anysignal(&mut c.gate_type);
                         }
-                        Combinator::_Constant(c) => {
+                        Combinator::Constant(c) => {
                             self.replace_if_anysignal(&mut c.type_);
                         }
                     }
