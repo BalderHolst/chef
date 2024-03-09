@@ -26,12 +26,7 @@ mod tests;
 pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
     let path = &cook_opts.file;
 
-    let text = if path.ends_with(".py") {
-        ast::python_macro::run_python_import(opts.clone(), None, path).unwrap()
-    } else {
-        SourceText::from_file(path).unwrap()
-    };
-
+    let text = SourceText::from_file(path, opts.clone()).unwrap();
     let text = Rc::new(text);
 
     let diagnostics_bag: DiagnosticsBagRef = DiagnosticsBag::new_ref(opts.clone(), text.clone());
@@ -88,7 +83,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
 
 fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) -> CompilationResult<()> {
     let path = &sim_opts.file;
-    let text = Rc::new(SourceText::from_file(path).unwrap());
+    let text = Rc::new(SourceText::from_file(path, opts.clone()).unwrap());
     let diagnostics_bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
     let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
 

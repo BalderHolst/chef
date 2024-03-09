@@ -193,7 +193,6 @@ impl GraphCompiler {
         let var_type = self.variable_type_to_iotype(&var.type_);
 
         // Wire up and define memory cell variables.
-        // TODO: Make `var` and `counter` into expressions instead.
         match &var.type_ {
             VariableType::Var(_) => {
                 let (var_input_nid, var_nid) =

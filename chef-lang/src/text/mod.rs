@@ -1,6 +1,12 @@
 //! Struct for managing references to the source code.
 
-use std::{cmp::max, fs, io, rc::Rc};
+use std::{cmp::max, fs, rc::Rc};
+
+use crate::{
+    ast::python_macro::run_python_import,
+    cli::Opts,
+    diagnostics::{CompilationError, CompilationResult},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextSpan {
@@ -41,8 +47,14 @@ pub struct SourceText {
 
 #[allow(dead_code)]
 impl SourceText {
-    pub fn from_file(path: &str) -> io::Result<Self> {
-        let text = fs::read_to_string(path)?;
+    pub fn from_file(path: &str, opts: Rc<Opts>) -> CompilationResult<Self> {
+        if path.ends_with(".py") {
+            return run_python_import(opts, None, path);
+        };
+
+        let text = fs::read_to_string(path).map_err(|e| {
+            CompilationError::new_generic(format!("Error reading file `{}`: {}", path, e))
+        })?;
         let lines = Self::index_text(&text);
         Ok(Self {
             text,

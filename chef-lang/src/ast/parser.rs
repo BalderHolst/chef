@@ -15,12 +15,10 @@ use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
 use super::{
-    python_macro, Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement,
-};
-use super::{
     Block, BlockLinkExpression, DeclarationDefinition, PickExpression, VariableRef,
     VariableSignalType,
 };
+use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement};
 
 // TODO: Add example
 /// A list of statements with an optional return expression at its end.
@@ -644,22 +642,7 @@ impl Parser {
         let file_token = self.consume().clone();
 
         if let TokenKind::Literal(file) = &file_token.kind {
-            let text = if file.ends_with(".py") {
-                python_macro::run_python_import(
-                    self.options.clone(),
-                    Some(file_token.span),
-                    file.as_str(),
-                )?
-            } else {
-                match SourceText::from_file(file.as_str()) {
-                    Ok(text) => Ok(text),
-                    Err(e) => Err(CompilationError::new_localized(
-                        format!("Could not read imported file '{}': {}", file, e),
-                        file_token.span,
-                    )),
-                }?
-            };
-
+            let text = SourceText::from_file(file, self.options.clone())?;
             let text = Rc::new(text);
 
             let diagnostics_bag = DiagnosticsBag::new_ref(self.options.clone(), text.clone());
