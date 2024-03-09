@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::ast::{
     BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
-    DeclarationDefinition, Definition, Expression, ExpressionKind, IndexExpression, Mutation,
-    PickExpression, VariableId, VariableRef, VariableSignalType, WhenStatement, AST,
+    DeclarationDefinition, Definition, Expression, ExpressionKind, IndexExpression, PickExpression,
+    VariableId, VariableRef, VariableSignalType, WhenStatement, AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
@@ -166,9 +166,6 @@ impl GraphCompiler {
             StatementKind::Definition(def) => {
                 self.compile_definition_statement(graph, def, gate, None)?;
             }
-            StatementKind::Mutation(mutation_statement) => {
-                self.compile_mutation_statement(graph, mutation_statement, gate)?;
-            }
             StatementKind::Out(expr) => {
                 let (expr_nid, out_type) = self.compile_expression(graph, &expr, None)?;
                 let out_nid = graph.push_output_node(out_type.clone());
@@ -297,70 +294,7 @@ impl GraphCompiler {
         self.define_variable(graph, var.id, output_nid, var_iotype, wk)
     }
 
-    // TODO: remove mutation_statement
-    fn compile_mutation_statement(
-        &mut self,
-        graph: &mut Graph,
-        mutation_statement: Mutation,
-        _gate: Option<(NId, IOType)>,
-    ) -> Result<(), CompilationError> {
-        // TODO: Create test for expect
-        let _var_nid = self.search_scope(mutation_statement.var_ref.var.id).expect("The parser should make sure that mutation statements only happen on defined variables.");
-        let var_type = mutation_statement.var_ref.var.type_.clone();
-        let var_iotype = self.variable_type_to_iotype(&var_type);
-
-        let (_expr_out_nid, expr_out_type) =
-            self.compile_expression(graph, &mutation_statement.expression, None)?;
-
-        // TODO: convert expr_out_type if this happens
-        assert_ne!(&var_iotype, &expr_out_type);
-
-        todo!();
-
-        // let conn = match mutation_statement.operator {
-        //     crate::ast::MutationOperator::Add => Connection::new_convert(
-        //         expr_out_type.clone().to_combinator_type(),
-        //         var_iotype.clone().to_combinator_type(),
-        //     ),
-
-        //     // Multiply by -1 if subtracting
-        //     crate::ast::MutationOperator::Subtract => {
-        //         Connection::new_arithmetic(ArithmeticCombinator::new(
-        //             expr_out_type.clone().to_combinator_type(),
-        //             IOType::Constant(-1),
-        //             ArithmeticOperation::Multiply,
-        //             var_iotype.clone().to_combinator_type(),
-        //         ))
-        //     }
-        // };
-
-        // match gate {
-        //     Some((condition_nid, condition_type)) => {
-        //         // TODO: convert one if this happens
-        //         assert_ne!(&condition_type, &var_iotype);
-
-        //         let (c_input, new_out_nid) = graph.push_connection(conn);
-        //         graph.push_wire(expr_out_nid, c_input, WireKind::Green);
-        //         let expr_out_nid = new_out_nid; // Expression output is now gated
-
-        //         // Add the gate
-        //         let (gate_input, gate_output) =
-        //             graph.push_gate_connection(condition_type, var_iotype);
-
-        //         // Wire up the gate
-        //         graph.push_wire(gate_input, condition_nid, WireKind::Green);
-        //         graph.push_wire(gate_input, expr_out_nid, WireKind::Green);
-        //         graph.push_wire(gate_output, var_nid, WireKind::Green);
-        //     }
-        //     None => {
-        //         let (c_input, c_output) = graph.push_connection(conn);
-        //         graph.push_wire(c_input, expr_out_nid, WireKind::Green);
-        //         graph.push_wire(c_output, var_nid, WireKind::Green);
-        //     }
-        // };
-    }
-
-    /// Returns a typle:: (output_vid, output_type)
+    /// Returns a tuple: (output_vid, output_type)
     fn compile_expression(
         &mut self,
         graph: &mut Graph,

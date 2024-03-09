@@ -6,8 +6,8 @@ use std::rc::Rc;
 
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
-    BinaryExpression, BinaryOperator, Expression, ExpressionKind, Mutation,
-    ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
+    BinaryExpression, BinaryOperator, Expression, ExpressionKind, ParenthesizedExpression,
+    Statement, StatementKind, Variable, VariableType,
 };
 use crate::cli::Opts;
 use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
@@ -18,8 +18,8 @@ use super::{
     python_macro, Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement,
 };
 use super::{
-    Block, BlockLinkExpression, DeclarationDefinition, MutationOperator, PickExpression,
-    VariableRef, VariableSignalType,
+    Block, BlockLinkExpression, DeclarationDefinition, PickExpression, VariableRef,
+    VariableSignalType,
 };
 
 // TODO: Add example
@@ -301,7 +301,6 @@ impl Parser {
                     "when" => self.parse_when_statement(),
                     _ if self.is_at_declaration_statment() => self.parse_declaration_statement(),
                     _ if self.is_at_definition_statment() => self.parse_definition_statement(),
-                    _ if self.is_at_mutation_statment() => self.parse_mutation_statement(),
                     _ => match self.parse_expression() {
                         Ok(expr) => Ok(StatementKind::Out(expr)),
                         Err(e) => Err(e),
@@ -357,17 +356,6 @@ impl Parser {
             self.consume();
         }
         self.consume();
-    }
-
-    /// Returns true if the cursor is at the begining of an mutation statement.
-    fn is_at_mutation_statment(&self) -> bool {
-        matches!(
-            &self.peak(1).kind,
-            &TokenKind::PlusEquals
-                | &TokenKind::MinusEquals
-                | &TokenKind::AsteriskEquals
-                | &TokenKind::SlashEquals
-        )
     }
 
     /// Returns true if the cursor is at the begining of an assignment statement.
@@ -477,53 +465,6 @@ impl Parser {
         self.consume_and_expect(TokenKind::Semicolon)?;
 
         Ok(StatementKind::Definition(Definition::new(var, expr, kind)))
-    }
-
-    fn consume_mutation_operator(&mut self) -> Result<MutationOperator, CompilationError> {
-        let token = self.consume();
-        match token.kind.clone() {
-            TokenKind::PlusEquals => Ok(MutationOperator::Add),
-            TokenKind::MinusEquals => Ok(MutationOperator::Subtract),
-            k => Err(CompilationError::new_localized(
-                format!("Expected mutation operator, found `{}`.", k),
-                token.span.clone(),
-            )),
-        }
-    }
-
-    /// Parse variable mutation statement.
-    fn parse_mutation_statement(&mut self) -> Result<StatementKind, CompilationError> {
-        let start_span = self.current().span.clone();
-        let var_ref = if let ParsedVariable::Ref(v) = self.parse_variable()? {
-            v
-        } else {
-            self.diagnostics_bag.borrow_mut().report_error(
-                &self.get_span_from(&start_span),
-                "Only defined variables can be mutated.",
-            );
-            self.consume_bad_statement();
-            return Ok(StatementKind::Error);
-        };
-
-        let var = if let VariableType::Var(_) = var_ref.var.type_.clone() {
-            var_ref
-        } else {
-            self.diagnostics_bag.borrow_mut().report_error(
-                &self.get_span_from(&start_span),
-                &format!(
-                    "Only `var` type variables can be mutated. Found variable of type: `{}`",
-                    var_ref.var.type_
-                ),
-            );
-            self.consume_bad_statement();
-            return Ok(StatementKind::Error);
-        };
-
-        let op = self.consume_mutation_operator()?;
-        let expr = self.parse_expression()?;
-        self.consume_and_expect(TokenKind::Semicolon)?;
-
-        Ok(StatementKind::Mutation(Mutation::new(var, op, expr)))
     }
 
     /// Parse signal part of variable type

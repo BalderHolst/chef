@@ -7,7 +7,7 @@
 
 use super::{
     parser::StatementList, BinaryExpression, Block, BlockLinkExpression, Declaration,
-    DeclarationDefinition, Definition, Expression, ExpressionKind, IndexExpression, Mutation,
+    DeclarationDefinition, Definition, Expression, ExpressionKind, IndexExpression,
     ParenthesizedExpression, PickExpression, Statement, StatementKind, VariableRef, WhenStatement,
 };
 
@@ -30,9 +30,6 @@ pub trait Visitor {
             }
             StatementKind::Definition(def) => {
                 self.visit_definition(def);
-            }
-            StatementKind::Mutation(mutation) => {
-                self.visit_mutation(mutation);
             }
             StatementKind::When(when) => {
                 self.visit_when_statement(when);
@@ -93,11 +90,6 @@ pub trait Visitor {
         self.visit_expression(&assignment.expression)
     }
 
-    fn do_visit_mutation(&mut self, mutation: &Mutation) {
-        self.visit_variable_ref(&mutation.var_ref);
-        self.visit_expression(&mutation.expression);
-    }
-
     fn visit_statement(&mut self, statement: &Statement) {
         self.do_visit_statement(statement);
     }
@@ -139,10 +131,6 @@ pub trait Visitor {
 
     fn visit_definition(&mut self, def: &Definition) {
         self.do_visit_definition(def);
-    }
-
-    fn visit_mutation(&mut self, mutation: &Mutation) {
-        self.do_visit_mutation(mutation);
     }
 
     fn visit_block_link(&mut self, block: &BlockLinkExpression) {
@@ -191,9 +179,6 @@ pub trait MutVisitor {
             }
             StatementKind::Definition(def) => {
                 self.visit_definition(def);
-            }
-            StatementKind::Mutation(mutation) => {
-                self.visit_mutation(mutation);
             }
             StatementKind::When(when) => {
                 self.visit_when_statement(when);
@@ -254,11 +239,6 @@ pub trait MutVisitor {
         self.visit_expression(&mut def.expression);
     }
 
-    fn do_visit_mutation(&mut self, mutation: &mut Mutation) {
-        self.visit_variable_ref(&mutation.var_ref);
-        self.visit_expression(&mut mutation.expression);
-    }
-
     fn visit_statement(&mut self, statement: &mut Statement) {
         self.do_visit_statement(statement);
     }
@@ -300,10 +280,6 @@ pub trait MutVisitor {
 
     fn visit_definition(&mut self, def: &mut Definition) {
         self.do_visit_definition(def);
-    }
-
-    fn visit_mutation(&mut self, mutation: &mut Mutation) {
-        self.do_visit_mutation(mutation);
     }
 
     fn visit_block_link(&mut self, block: &mut BlockLinkExpression) {

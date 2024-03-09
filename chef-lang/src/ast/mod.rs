@@ -148,7 +148,6 @@ pub enum StatementKind {
     Declaration(Declaration),
     DeclarationDefinition(DeclarationDefinition),
     Definition(Definition),
-    Mutation(Mutation),
     Out(Expression),
     Error,
 }
@@ -320,25 +319,6 @@ impl From<DeclarationDefinition> for Definition {
             variable: value.variable,
             expression: value.expression,
             kind: value.kind,
-        }
-    }
-}
-
-/// [AST] representation of mutaton of a chef `var` type variable.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Mutation {
-    pub var_ref: VariableRef,
-    pub operator: MutationOperator,
-    pub expression: Expression,
-}
-
-impl Mutation {
-    /// Instantiate a new [Mutation].
-    pub fn new(variable: VariableRef, operator: MutationOperator, expression: Expression) -> Self {
-        Self {
-            var_ref: variable,
-            expression,
-            operator,
         }
     }
 }
@@ -533,22 +513,6 @@ impl BinaryExpression {
 
     fn return_type(&self) -> &ExpressionReturnType {
         &self.return_type
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MutationOperator {
-    Add,
-    Subtract,
-}
-
-impl Display for MutationOperator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            MutationOperator::Add => "+=",
-            MutationOperator::Subtract => "-=",
-        };
-        write!(f, "{s}")
     }
 }
 
@@ -817,14 +781,6 @@ impl Visitor for Printer {
         ));
         self.indent();
         self.do_visit_declaration_definition(dec_def);
-        self.unindent();
-    }
-
-    fn visit_mutation(&mut self, mutation: &Mutation) {
-        self.print(&format!("Mutation: \"{}\"", mutation.var_ref.var.name));
-        self.indent();
-        self.print(&format!("Operation: {}", mutation.operator));
-        self.visit_expression(&mutation.expression);
         self.unindent();
     }
 
