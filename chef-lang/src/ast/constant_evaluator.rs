@@ -77,7 +77,6 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
         ExpressionKind::Index(_) => None,
         ExpressionKind::VariableRef(_) => None,
         ExpressionKind::BlockLink(_) => None,
-        ExpressionKind::When(_) => None,
         ExpressionKind::Error => None,
     }
 }
@@ -125,7 +124,21 @@ impl MutVisitor for ConstantEvaluator {
                     BinaryOperator::Equals => ConstantValue::Bool(left == right),
                     BinaryOperator::NotEquals => ConstantValue::Bool(left != right),
                     BinaryOperator::LessThan => ConstantValue::Bool(left < right),
-                    BinaryOperator::Combine => return, // TODO: what to do here?
+
+                    // These all take a 'many' input, and thus cannot be evaluated af compile time.
+                    BinaryOperator::Combine => return,
+                    BinaryOperator::EveryEquals => return,
+                    BinaryOperator::EveryLargerThan => return,
+                    BinaryOperator::EveryLargerThanEquals => return,
+                    BinaryOperator::EveryLessThan => return,
+                    BinaryOperator::EveryLessThanEquals => return,
+                    BinaryOperator::EveryNotEquals => return,
+                    BinaryOperator::AnyEquals => return,
+                    BinaryOperator::AnyLargerThan => return,
+                    BinaryOperator::AnyLargerThanEquals => return,
+                    BinaryOperator::AnyLessThan => return,
+                    BinaryOperator::AnyLessThanEquals => return,
+                    BinaryOperator::AnyNotEquals => return,
                 }
             }
             ExpressionKind::VariableRef(var_ref) => match var_ref.var.type_ {

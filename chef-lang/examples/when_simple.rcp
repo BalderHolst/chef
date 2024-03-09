@@ -1,6 +1,0 @@
-block main(input: all) -> int(signal-blue) {
-    i: int(pipe) = when input[signal-red] > 5 {
-        100 + input[signal-blue]
-    };
-    out i;
-}

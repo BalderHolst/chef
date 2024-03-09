@@ -9,6 +9,7 @@ use crate::text::{SourceText, TextSpan};
 use crate::the_chef;
 
 use std::cell::RefCell;
+use std::process::{ExitCode, Termination};
 use std::rc::Rc;
 
 pub type CompilationResult<T> = std::result::Result<T, CompilationError>;
@@ -17,6 +18,13 @@ pub type CompilationResult<T> = std::result::Result<T, CompilationError>;
 pub struct CompilationError {
     pub desctiption: String,
     pub span: Option<TextSpan>,
+}
+
+impl Termination for CompilationError {
+    fn report(self) -> ExitCode {
+        eprintln!("{}", self.desctiption);
+        1.into()
+    }
 }
 
 impl CompilationError {
@@ -121,7 +129,7 @@ impl DiagnosticsBag {
     }
 
     /// Report unexpected token error.
-    pub fn report_unexpected_token(&mut self, token: &Token, expected: TokenKind) {
+    pub fn _report_unexpected_token(&mut self, token: &Token, expected: TokenKind) {
         let message = format!("Expected `{}` but found `{}`.", expected, token.kind);
         self.diagnostics
             .push(Diagnostic::new_localized(message, token.span.clone()))
@@ -164,12 +172,5 @@ impl DiagnosticsBag {
         if self.has_errored() {
             self.exit_with_errors();
         }
-    }
-}
-
-#[cfg(test)]
-impl DiagnosticsBag {
-    pub fn diagnostics(&self) -> Vec<Diagnostic> {
-        self.diagnostics.clone()
     }
 }

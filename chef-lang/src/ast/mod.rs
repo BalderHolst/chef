@@ -23,9 +23,8 @@ mod visitors;
 pub struct Block {
     pub name: String,
     pub inputs: Vec<Rc<Variable>>,
-    pub output_type: VariableType,
+    pub outputs: Vec<Rc<Variable>>,
     pub statements: Vec<Statement>,
-    pub output: Expression,
     pub span: TextSpan,
 }
 
@@ -34,17 +33,15 @@ impl Block {
     fn new(
         name: String,
         inputs: Vec<Rc<Variable>>,
-        output_type: VariableType,
+        outputs: Vec<Rc<Variable>>,
         statements: Vec<Statement>,
-        output: Expression,
         span: TextSpan,
     ) -> Self {
         Self {
             name,
             inputs,
-            output_type,
+            outputs,
             statements,
-            output,
             span,
         }
     }
@@ -147,10 +144,11 @@ impl Statement {
 /// Kinds of statement.
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
-    Expression(Expression),
-    Assignment(Assignment),
+    When(WhenStatement),
+    Declaration(Declaration),
+    DeclarationDefinition(DeclarationDefinition),
+    Definition(Definition),
     Mutation(Mutation),
-    Operation(VarOperation),
     Out(Expression),
     Error,
 }
@@ -162,8 +160,7 @@ pub enum VariableType {
     Bool(VariableSignalType),
     Int(VariableSignalType),
     Var(VariableSignalType),
-    Attr(VariableSignalType),
-    All,
+    Many,
     ConstInt(i32),
     ConstBool(bool),
     Counter((VariableSignalType, Box<Expression>)),
@@ -176,12 +173,11 @@ impl VariableType {
             VariableType::Bool(_) => ExpressionReturnType::Bool,
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Var(_) => ExpressionReturnType::Int,
-            VariableType::Attr(_) => ExpressionReturnType::Group,
-            VariableType::All => ExpressionReturnType::Group,
+            VariableType::Many => ExpressionReturnType::Many,
             VariableType::ConstInt(_) => ExpressionReturnType::Int,
             VariableType::ConstBool(_) => ExpressionReturnType::Bool,
             VariableType::Counter(_) => ExpressionReturnType::Int,
-            VariableType::Register(_) => ExpressionReturnType::Group,
+            VariableType::Register(_) => ExpressionReturnType::Many,
         }
     }
 
@@ -190,8 +186,7 @@ impl VariableType {
             VariableType::Bool(s) => Some(s),
             VariableType::Int(s) => Some(s),
             VariableType::Var(s) => Some(s),
-            VariableType::Attr(s) => Some(s),
-            VariableType::All => None,
+            VariableType::Many => None,
             VariableType::ConstInt(_) => None,
             VariableType::ConstBool(_) => None,
             VariableType::Counter((s, _lim)) => Some(s),
@@ -213,21 +208,25 @@ pub enum VariableSignalType {
     Any,
 }
 
+pub type VariableId = usize;
+
 /// A chef variable.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Variable {
     pub name: String,
     pub type_: VariableType,
     pub span: TextSpan,
+    pub id: VariableId,
 }
 
 impl Variable {
     /// Instantiate a new [Variable].
-    pub fn new(name: String, variable_type: VariableType, span: TextSpan) -> Self {
+    pub fn new(name: String, variable_type: VariableType, span: TextSpan, id: usize) -> Self {
         Self {
             name,
             type_: variable_type,
             span,
+            id,
         }
     }
 
@@ -260,23 +259,67 @@ impl VariableRef {
 
 /// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Assignment {
+pub struct Declaration {
     pub variable: Rc<Variable>,
-    pub attr: Option<String>,
-    pub expression: Option<Expression>,
 }
 
-impl Assignment {
+impl Declaration {
+    /// Instantiate a new [Declaration].
+    pub fn new(variable: Rc<Variable>) -> Self {
+        Self { variable }
+    }
+}
+
+/// [AST] representation of chef `int` variable assignment and declaration.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DeclarationDefinition {
+    pub variable: Rc<Variable>,
+    pub expression: Expression,
+    pub kind: DefinitionKind,
+}
+
+impl DeclarationDefinition {
     /// Instantiate a new [Assignment].
-    pub fn new(
-        variable: Rc<Variable>,
-        attr: Option<String>,
-        expression: Option<Expression>,
-    ) -> Self {
+    pub fn new(variable: Rc<Variable>, expression: Expression, kind: DefinitionKind) -> Self {
         Self {
             variable,
-            attr,
             expression,
+            kind,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DefinitionKind {
+    Red,
+    Green,
+}
+
+/// [AST] representation of chef `int` variable assignment.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Definition {
+    pub variable: Rc<Variable>,
+    pub expression: Expression,
+    pub kind: DefinitionKind,
+}
+
+impl Definition {
+    /// Instantiate a new [Assignment].
+    pub fn new(variable: Rc<Variable>, expression: Expression, kind: DefinitionKind) -> Self {
+        Self {
+            variable,
+            expression,
+            kind,
+        }
+    }
+}
+
+impl From<DeclarationDefinition> for Definition {
+    fn from(value: DeclarationDefinition) -> Self {
+        Self {
+            variable: value.variable,
+            expression: value.expression,
+            kind: value.kind,
         }
     }
 }
@@ -298,12 +341,6 @@ impl Mutation {
             operator,
         }
     }
-}
-
-/// [AST] representation of bang operation on a chef variable.
-#[derive(Debug, Clone, PartialEq)]
-pub struct VarOperation {
-    pub var_ref: VariableRef,
 }
 
 /// A chef expression.
@@ -328,8 +365,7 @@ impl Expression {
             ExpressionKind::Pick(_) => ExpressionReturnType::Int,
             ExpressionKind::Index(_) => ExpressionReturnType::Int,
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
-            ExpressionKind::BlockLink(e) => e.return_type(),
-            ExpressionKind::When(e) => e.return_type(),
+            ExpressionKind::BlockLink(e) => e.return_type(true),
             ExpressionKind::Error => ExpressionReturnType::None,
         }
     }
@@ -373,7 +409,7 @@ impl Expression {
 pub enum ExpressionReturnType {
     Bool,
     Int,
-    Group,
+    Many,
     None,
 }
 
@@ -382,7 +418,7 @@ impl Display for ExpressionReturnType {
         let s = match self {
             ExpressionReturnType::Bool => "bool",
             ExpressionReturnType::Int => "int",
-            ExpressionReturnType::Group => "all",
+            ExpressionReturnType::Many => "many",
             ExpressionReturnType::None => "none",
         };
         write!(f, "{s}")
@@ -401,24 +437,13 @@ pub enum ExpressionKind {
     Index(IndexExpression),
     VariableRef(VariableRef),
     BlockLink(BlockLinkExpression),
-    When(WhenExpression),
     Error,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct WhenExpression {
-    pub condition: Box<Expression>,
+pub struct WhenStatement {
+    pub condition: Expression,
     pub statements: Vec<Statement>,
-    pub out: Option<Box<Expression>>,
-}
-
-impl WhenExpression {
-    pub fn return_type(&self) -> ExpressionReturnType {
-        match &self.out {
-            Some(o) => o.return_type(),
-            None => ExpressionReturnType::None,
-        }
-    }
 }
 
 /// An expression within parenthesis.
@@ -472,8 +497,13 @@ impl BlockLinkExpression {
         Self { block, inputs }
     }
 
-    fn return_type(&self) -> ExpressionReturnType {
-        self.block.output_type.return_type()
+    fn return_type(&self, return_int: bool) -> ExpressionReturnType {
+        match self.block.outputs.len() {
+            0 => ExpressionReturnType::None,
+            // In expressions, we want the block link to act as a single value
+            1 if return_int => self.block.outputs[0].return_type(),
+            _ => ExpressionReturnType::Many,
+        }
     }
 }
 
@@ -536,6 +566,18 @@ pub enum BinaryOperator {
     Equals,
     NotEquals,
     Combine,
+    EveryEquals,
+    EveryLargerThan,
+    EveryLargerThanEquals,
+    EveryLessThan,
+    EveryLessThanEquals,
+    EveryNotEquals,
+    AnyEquals,
+    AnyLargerThan,
+    AnyLargerThanEquals,
+    AnyLessThan,
+    AnyLessThanEquals,
+    AnyNotEquals,
 }
 
 impl BinaryOperator {
@@ -549,6 +591,18 @@ impl BinaryOperator {
             Self::LessThanOrEqual => 1,
             Self::Equals => 1,
             Self::NotEquals => 1,
+            Self::EveryEquals => 1,
+            Self::EveryLargerThan => 1,
+            Self::EveryLargerThanEquals => 1,
+            Self::EveryLessThan => 1,
+            Self::EveryLessThanEquals => 1,
+            Self::EveryNotEquals => 1,
+            Self::AnyEquals => 1,
+            Self::AnyLargerThan => 1,
+            Self::AnyLargerThanEquals => 1,
+            Self::AnyLessThan => 1,
+            Self::AnyLessThanEquals => 1,
+            Self::AnyNotEquals => 1,
             Self::Add => 2,
             Self::Subtract => 2,
             Self::Multiply => 3,
@@ -557,19 +611,49 @@ impl BinaryOperator {
     }
 
     /// Get the type that the operator returns
-    fn return_type(&self) -> ExpressionReturnType {
+    fn return_type(
+        &self,
+        a: ExpressionReturnType,
+        b: ExpressionReturnType,
+    ) -> ExpressionReturnType {
         match self {
-            Self::Add => ExpressionReturnType::Int,
-            Self::Subtract => ExpressionReturnType::Int,
-            Self::Multiply => ExpressionReturnType::Int,
-            Self::Divide => ExpressionReturnType::Int,
-            Self::LargerThan => ExpressionReturnType::Bool,
-            Self::LargerThanOrEqual => ExpressionReturnType::Bool,
-            Self::LessThan => ExpressionReturnType::Bool,
-            Self::LessThanOrEqual => ExpressionReturnType::Bool,
-            Self::Equals => ExpressionReturnType::Bool,
-            Self::NotEquals => ExpressionReturnType::Bool,
-            Self::Combine => ExpressionReturnType::Group,
+            Self::Add | Self::Subtract | Self::Multiply | Self::Divide => match (a, b) {
+                (ExpressionReturnType::Int, ExpressionReturnType::Int) => ExpressionReturnType::Int,
+                (ExpressionReturnType::Many, ExpressionReturnType::Int) => {
+                    ExpressionReturnType::Many
+                }
+                _ => panic!("Invalid types for operator"),
+            },
+
+            Self::LargerThan
+            | Self::LargerThanOrEqual
+            | Self::LessThan
+            | Self::LessThanOrEqual
+            | Self::Equals
+            | Self::NotEquals => match (a, b) {
+                (ExpressionReturnType::Int, ExpressionReturnType::Int) => {
+                    ExpressionReturnType::Bool
+                }
+                (ExpressionReturnType::Many, ExpressionReturnType::Int) => {
+                    ExpressionReturnType::Many
+                }
+                _ => panic!("Invalid types for operator"),
+            },
+
+            Self::EveryEquals => ExpressionReturnType::Bool,
+            Self::EveryLargerThan => ExpressionReturnType::Bool,
+            Self::EveryLargerThanEquals => ExpressionReturnType::Bool,
+            Self::EveryLessThan => ExpressionReturnType::Bool,
+            Self::EveryLessThanEquals => ExpressionReturnType::Bool,
+            Self::EveryNotEquals => ExpressionReturnType::Bool,
+            Self::AnyEquals => ExpressionReturnType::Bool,
+            Self::AnyLargerThan => ExpressionReturnType::Bool,
+            Self::AnyLargerThanEquals => ExpressionReturnType::Bool,
+            Self::AnyLessThan => ExpressionReturnType::Bool,
+            Self::AnyLessThanEquals => ExpressionReturnType::Bool,
+            Self::AnyNotEquals => ExpressionReturnType::Bool,
+
+            Self::Combine => ExpressionReturnType::Many,
         }
     }
 }
@@ -588,6 +672,18 @@ impl Display for BinaryOperator {
             Self::Equals => write!(f, "=="),
             Self::NotEquals => write!(f, "!="),
             Self::Combine => write!(f, "@"),
+            Self::EveryEquals => write!(f, "@=="),
+            Self::EveryLargerThan => write!(f, "@>"),
+            Self::EveryLargerThanEquals => write!(f, "@>="),
+            Self::EveryLessThan => write!(f, "@<"),
+            Self::EveryLessThanEquals => write!(f, "@<="),
+            Self::EveryNotEquals => write!(f, "@!="),
+            Self::AnyEquals => write!(f, "?=="),
+            Self::AnyLargerThan => write!(f, "?>"),
+            Self::AnyLargerThanEquals => write!(f, "?>="),
+            Self::AnyLessThan => write!(f, "?<"),
+            Self::AnyLessThanEquals => write!(f, "?<="),
+            Self::AnyNotEquals => write!(f, "?!="),
         }
     }
 }
@@ -637,17 +733,13 @@ impl Display for VariableType {
                 VariableSignalType::Signal(n) => format!("Var({n})"),
                 VariableSignalType::Any => "Var(Any)".to_string(),
             },
-            VariableType::Attr(var_type) => match var_type {
-                VariableSignalType::Signal(n) => format!("Attr({n})"),
-                VariableSignalType::Any => "Attr(Any)".to_string(),
-            },
             VariableType::Counter((var_type, _lim)) => match var_type {
                 VariableSignalType::Signal(n) => format!("Counter({n})"),
                 VariableSignalType::Any => "Counter(Any)".to_string(),
             },
             VariableType::ConstInt(_) => "ConstInt".to_string(),
             VariableType::ConstBool(_) => "ConstBool".to_string(),
-            VariableType::All => "All".to_string(),
+            VariableType::Many => "All".to_string(),
             VariableType::Register(n) => format!("Register({n})"),
         };
         write!(f, "{s}")
@@ -682,9 +774,13 @@ impl Visitor for Printer {
             block
                 .inputs
                 .iter()
-                .map(|i| (i.name.clone(), i.type_.to_string()))
-                .collect::<Vec<(String, String)>>(),
-            block.output_type
+                .map(|i| format!("{}: {} ({})", i.name, i.type_, i.id))
+                .collect::<Vec<String>>(),
+            block
+                .outputs
+                .iter()
+                .map(|i| format!("{}: {} ({})", i.name, i.type_, i.id))
+                .collect::<Vec<String>>(),
         ));
         self.indent();
 
@@ -694,22 +790,33 @@ impl Visitor for Printer {
             self.visit_statement(statement);
         }
         self.unindent();
-
-        self.print("BlockOutput:");
-        self.indent();
-        self.visit_expression(&block.output);
-        self.unindent();
-
         self.unindent();
     }
 
-    fn visit_assignment(&mut self, assignment: &Assignment) {
+    fn visit_declaration(&mut self, dec: &Declaration) {
         self.print(&format!(
-            "Assignment: \"{} ({})\"",
-            assignment.variable.name, assignment.variable.type_
+            "Declaration: \"{}: {}\" ({})",
+            dec.variable.name, dec.variable.type_, dec.variable.id
+        ));
+    }
+
+    fn visit_definition(&mut self, def: &Definition) {
+        self.print(&format!(
+            "Definition <{:?}>: \"{}: {}\" ({})",
+            def.kind, def.variable.name, def.variable.type_, def.variable.id
         ));
         self.indent();
-        self.do_visit_assignment(assignment);
+        self.visit_expression(&def.expression);
+        self.unindent();
+    }
+
+    fn visit_declaration_definition(&mut self, dec_def: &DeclarationDefinition) {
+        self.print(&format!(
+            "DeclarationDefinition <{:?}>: \"{}: {}\" ({})",
+            dec_def.kind, dec_def.variable.name, dec_def.variable.type_, dec_def.variable.id
+        ));
+        self.indent();
+        self.do_visit_declaration_definition(dec_def);
         self.unindent();
     }
 
@@ -769,7 +876,10 @@ impl Visitor for Printer {
         self.print("PickExpression:");
         self.indent();
         self.print(&format!("Pick Signal: {}", expr.pick_signal));
-        self.print(&format!("From Variable: {}", expr.from.var.name));
+        self.print(&format!(
+            "From Variable: {} ({})",
+            expr.from.var.name, expr.from.var.id
+        ));
         self.unindent();
     }
 
@@ -800,7 +910,7 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_when_expression(&mut self, when: &WhenExpression) {
+    fn visit_when_statement(&mut self, when: &WhenStatement) {
         self.print("WhenExpression:");
         self.indent();
         self.print("Condition:");
@@ -810,13 +920,6 @@ impl Visitor for Printer {
         for statement in &when.statements {
             self.do_visit_statement(statement);
         }
-        self.print("WhenOutput:");
-        self.indent();
-        match &when.out {
-            Some(out) => self.visit_expression(out),
-            None => self.print("No Output."),
-        }
-        self.unindent();
         self.unindent();
     }
 }

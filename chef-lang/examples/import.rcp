@@ -1,5 +1,5 @@
 import "./examples/imported.ing"
 
-block main() -> int {
-    imported_block()
+block main() => (out: int) {
+    out <- imported_block();
 }

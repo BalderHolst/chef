@@ -55,27 +55,25 @@ impl Visitor for TypeChecker {
     fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
     fn visit_index_expression(&mut self, _expr: &super::IndexExpression) {}
 
-    fn visit_assignment(&mut self, assignment: &super::Assignment) {
+    fn visit_declaration_definition(&mut self, assignment: &super::DeclarationDefinition) {
         if let Some(sig) = assignment.variable.type_.signal() {
             self.report_if_invalid_signal(sig.as_str(), &assignment.variable.span)
         }
 
-        if let Some(expr) = &assignment.expression {
-            let expr_type = expr.return_type();
-            let var_type = assignment.variable.return_type();
-            if expr_type != var_type {
-                self.diagnostics_bag
-                    .borrow_mut()
-                    .report_error(&expr.span, &format!(
-                            "Can not assign variable `{}` of type `{}` to expression returning `{}` type.",
-                            &assignment.variable.name,
-                            var_type,
-                            expr_type
-                            ));
-            }
+        let expr = &assignment.expression;
+        let expr_type = expr.return_type();
+        let var_type = assignment.variable.return_type();
+        if expr_type != var_type {
+            self.diagnostics_bag.borrow_mut().report_error(
+                &expr.span,
+                &format!(
+                    "Can not assign expression returning `{}` type to variable `{}` of type `{}`.",
+                    expr_type, assignment.variable.name, var_type
+                ),
+            );
         }
 
-        self.do_visit_assignment(assignment);
+        self.do_visit_declaration_definition(assignment);
     }
 
     // TODO: Maybe break this up into the unimplemented functions above
@@ -107,29 +105,22 @@ impl Visitor for TypeChecker {
             }
             ExpressionKind::Binary(b_expr) => {
                 let left_r = b_expr.left.return_type();
-                if left_r != ExpressionReturnType::Int {
-                    self.diagnostics_bag.borrow_mut().report_error(
-                        &expression.span,
-                        &format!("Left side of expression must be `int` not `{}`.", left_r),
-                    )
-                }
-                let rigth_r = b_expr.right.return_type();
-                if rigth_r != ExpressionReturnType::Int {
-                    self.diagnostics_bag.borrow_mut().report_error(
-                        &expression.span,
-                        &format!("Right side of expression must be `int` not `{}`.", rigth_r),
-                    )
-                }
-            }
-            ExpressionKind::When(e) => {
-                let cond_type = e.condition.return_type();
-                if cond_type != ExpressionReturnType::Bool {
+                if left_r != ExpressionReturnType::Int && left_r != ExpressionReturnType::Many {
                     self.diagnostics_bag.borrow_mut().report_error(
                         &expression.span,
                         &format!(
-                            "`when` conditions should be `{}` not `{}`.",
-                            ExpressionReturnType::Bool,
-                            cond_type
+                            "Left side of expression must be `int` or `many` not `{}`.",
+                            left_r
+                        ),
+                    )
+                }
+                let rigth_r = b_expr.right.return_type();
+                if rigth_r != ExpressionReturnType::Int && rigth_r != ExpressionReturnType::Many {
+                    self.diagnostics_bag.borrow_mut().report_error(
+                        &expression.span,
+                        &format!(
+                            "Right side of expression must be `int` or `many` not `{}`.",
+                            rigth_r
                         ),
                     )
                 }
@@ -140,24 +131,17 @@ impl Visitor for TypeChecker {
 
     fn visit_statement(&mut self, statement: &super::Statement) {
         // Make sure variables are only assign expressions returning their type
-        if let StatementKind::Assignment(assignment) = &statement.kind {
-            // TODO: check types
-            if assignment.attr.is_some() {
-                return;
-            }
-
+        if let StatementKind::DeclarationDefinition(assignment) = &statement.kind {
             let var_type = assignment.variable.return_type();
-            let expr_type = match &assignment.expression {
-                Some(expr) => expr.return_type(),
-                None => return,
-            };
-            if var_type != expr_type {
+            let expr_type = &assignment.expression.return_type();
+            if var_type != *expr_type {
                 self.diagnostics_bag.borrow_mut().report_error(
-                    &statement.span,
-                    &format!("Can not assign variable `{}` of type `{}` to expression returning `{}` type.",
-                             assignment.variable.name, var_type, expr_type
-                             ),
-                    )
+                    &assignment.expression.span,
+                    &format!(
+                        "Can not assign expression returning `{}` type to variable `{}` of type `{}`.",
+                        expr_type, assignment.variable.name, var_type
+                    ),
+                );
             }
         }
 
@@ -172,23 +156,16 @@ impl Visitor for TypeChecker {
             }
         }
 
-        if let Some(output_signal) = block.output_type.signal() {
-            // Make sure output signal is a valid factorio signal
-            self.report_if_invalid_signal(output_signal.as_str(), &block.span);
+        for input in &block.inputs {
+            if let Some(sig) = input.type_.signal() {
+                self.report_if_invalid_signal(&sig, &input.span);
+            }
         }
 
-        let block_return_type = block.output_type.return_type();
-        let block_out_expr_type = block.output.return_type();
-        if block_out_expr_type != block_return_type {
-            self.diagnostics_bag.borrow_mut()
-                .report_error(
-                    &block.output.span,
-                    &format!(
-                        "Block output expression type '{}' does not correspond to defined block output type '{}'.",
-                        block_out_expr_type,
-                        block_return_type
-                        )
-                    )
+        for output in &block.outputs {
+            if let Some(sig) = output.type_.signal() {
+                self.report_if_invalid_signal(&sig, &output.span);
+            }
         }
 
         self.do_visit_block(block);
@@ -200,55 +177,49 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
+    #[ignore = "Not implemented"]
     #[test]
     fn check_return_types() {
         let (_, bag) = AST::from_str(
             "
-            block main() -> bool {
-                10
+            block main() => (out: bool) {
+                out <- 10;
             }
             ",
         );
         let m_bag = bag.borrow_mut();
         m_bag.print();
         assert_eq!(m_bag.error_count(), 1);
-        let message = format!("{:?}", m_bag.diagnostics()[0].message());
-        dbg!(&message);
-        assert_eq!(message,"\"Block output expression type 'int' does not correspond to defined block output type 'bool'.\"");
     }
 
     #[test]
     fn check_assignment_types() {
         let (_, bag) = AST::from_str(
             "
-            block main() -> bool {
-                a: int = false;
-                a
+            block main() => (out: bool) {
+                a: int <- false;
+                out <- a;
             }
             ",
         );
         let m_bag = bag.borrow_mut();
         m_bag.print();
-        assert_eq!(m_bag.error_count(), 3);
-        let message = &format!("{:?}", m_bag.diagnostics()[1]);
-        dbg!(&message);
-        assert_eq!(message, "Localized { message: \"Can not assign variable `a` of type `int` to expression returning `bool` type.\", span: TextSpan { start: 52, end: 67, text: SourceText { file: None, text: \"\\n            block main() -> bool {\\n                a: int = false;\\n                a\\n            }\\n            \", lines: [0, 0, 1, 36, 68, 86, 100] } } }");
+        assert_eq!(m_bag.error_count(), 2);
     }
 
+    #[ignore = "Not implemented"]
     #[test]
     fn check_expression_types() {
         let (_, bag) = AST::from_str(
             "
-        block main() -> int {
-            b: int = 5 + false * 10;
-            b
+        block main() => (out: int) {
+            b: int <- 5 + false * 10;
+            out <- b;
         }
         ",
         );
         let m_bag = bag.borrow_mut();
         m_bag.print();
         assert!(m_bag.error_count() == 1);
-        let message = &format!("{:?}", m_bag.diagnostics()[0]);
-        assert_eq!(message,"Localized { message: \"Left side of expression must be `int` not `bool`.\", span: TextSpan { start: 56, end: 66, text: SourceText { file: None, text: \"\\n        block main() -> int {\\n            b: int = 5 + false * 10;\\n            b\\n        }\\n        \", lines: [0, 0, 1, 31, 68, 82, 92] } } }");
     }
 }

@@ -17,10 +17,8 @@ where
     P: AsRef<Path>,
 {
     env::var_os("PATH").and_then(|paths| {
-        dbg!(&paths);
         env::split_paths(&paths).find_map(|dir| {
             let full_path = dir.join(&exe_name);
-            dbg!(&full_path);
             if full_path.is_file() {
                 Some(full_path)
             } else {
@@ -32,7 +30,6 @@ where
 
 /// Find the python executable in the system's PATH
 fn find_python() -> Option<PathBuf> {
-    println!("Finding python");
     find_executable("python3").or(find_executable("python"))
 }
 

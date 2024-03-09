@@ -7,6 +7,8 @@ use crate::utils::BASE_SIGNALS;
 
 use super::graph_visualizer;
 
+const DEFAULT_WIRE_KIND: WireKind = WireKind::Red;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Register {
     pub shift: NId,
@@ -22,6 +24,18 @@ pub enum DeciderOperation {
     LessThanOrEqual,
     Equals,
     NotEquals,
+    EveryEquals,
+    EveryLargerThan,
+    EveryLargerThanEquals,
+    EveryLessThan,
+    EveryLessThanEquals,
+    EveryNotEquals,
+    AnyEquals,
+    AnyLargerThan,
+    AnyLargerThanEquals,
+    AnyLessThan,
+    AnyLessThanEquals,
+    AnyNotEquals,
 }
 
 impl Display for DeciderOperation {
@@ -33,6 +47,18 @@ impl Display for DeciderOperation {
             DeciderOperation::LessThanOrEqual => "LESS_THAN_OR_EQUAL",
             DeciderOperation::Equals => "EQUALS",
             DeciderOperation::NotEquals => "NOT_EQUALS",
+            DeciderOperation::EveryEquals => "EVERY_EQUALS",
+            DeciderOperation::EveryLargerThan => "EVERY_LARGER_THAN",
+            DeciderOperation::EveryLargerThanEquals => "EVERY_LARGER_THAN_EQUALS",
+            DeciderOperation::EveryLessThan => "EVERY_LESS_THAN",
+            DeciderOperation::EveryLessThanEquals => "EVERY_LESS_THAN_EQUALS",
+            DeciderOperation::EveryNotEquals => "EVERY_NOT_EQUALS",
+            DeciderOperation::AnyEquals => "ANY_EQUALS",
+            DeciderOperation::AnyLargerThan => "ANY_LARGER_THAN",
+            DeciderOperation::AnyLargerThanEquals => "ANY_LARGER_THAN_EQUALS",
+            DeciderOperation::AnyLessThan => "ANY_LESS_THAN",
+            DeciderOperation::AnyLessThanEquals => "ANY_LESS_THAN_EQUALS",
+            DeciderOperation::AnyNotEquals => "ANY_NOT_EQUALS",
         };
         write!(f, "{s}")
     }
@@ -85,9 +111,7 @@ pub enum IOType {
     Constant(i32),
     ConstantSignal((String, i32)),
     ConstantAny((u64, i32)),
-    Everything,
-    Anything,
-    _Each,
+    Many,
 }
 
 impl IOType {
@@ -105,9 +129,7 @@ impl IOType {
             Self::Signal(_) => self.clone(),
             Self::AnySignal(_) => self.clone(),
             Self::Constant(_) => self.clone(),
-            Self::Everything => self.clone(),
-            Self::Anything => self.clone(),
-            Self::_Each => self.clone(),
+            Self::Many => self.clone(),
         }
     }
 
@@ -118,9 +140,7 @@ impl IOType {
             Self::ConstantSignal(_) => Some(self.clone()),
             Self::ConstantAny(_) => Some(self.clone()),
             Self::Constant(_) => None,
-            Self::Everything => None,
-            Self::Anything => None,
-            Self::_Each => None,
+            Self::Many => None,
         }
     }
 }
@@ -133,9 +153,7 @@ impl Display for IOType {
             Self::Constant(n) => format!("({})", n),
             Self::ConstantSignal((sig, n)) => format!("Const({}, {})", sig, n),
             Self::ConstantAny((sig, n)) => format!("ConstAny({}, {})", sig, n),
-            Self::Everything => "EVERYTHING".to_string(),
-            Self::Anything => "ANYTHING".to_string(),
-            Self::_Each => "EACH".to_string(),
+            Self::Many => "Many".to_string(),
         };
         write!(f, "{}", s)
     }
@@ -231,15 +249,14 @@ pub enum Combinator {
     Arithmetic(ArithmeticCombinator),
     Decider(DeciderCombinator),
     Gate(GateCombinator),
-    _Constant(ConstantCombinator),
 }
 
 impl Combinator {
-    fn new_pick(signal: IOType) -> Self {
+    pub fn new_pick(signal: IOType) -> Self {
         Self::Arithmetic(ArithmeticCombinator::new_pick(signal))
     }
 
-    fn new_convert(in_signal: IOType, out_signal: IOType) -> Self {
+    pub fn new_convert(in_signal: IOType, out_signal: IOType) -> Self {
         Self::Arithmetic(ArithmeticCombinator::new_convert(in_signal, out_signal))
     }
 
@@ -248,7 +265,6 @@ impl Combinator {
             Self::Arithmetic(ac) => ac.output.clone(),
             Self::Decider(dc) => dc.output.clone(),
             Self::Gate(gc) => gc.gate_type.clone(),
-            Self::_Constant(cc) => cc.type_.clone(),
         }
     }
 
@@ -288,10 +304,6 @@ impl Display for Combinator {
                 "GATE: {}\n{}: {}, {}",
                 gate.gate_type, gate.operation, gate.left, gate.right
             ),
-            // TODO: This should probably be a node instead of a connection
-            Combinator::_Constant(cc) => {
-                format!("CONSTANT : {} = {}", cc.type_, cc.count)
-            }
         };
         write!(f, "{s}")
     }
@@ -487,7 +499,7 @@ impl Graph {
         if types.len() == 1 {
             types[0].clone()
         } else {
-            IOType::Everything
+            IOType::Many
         }
     }
 
@@ -669,7 +681,13 @@ impl Graph {
         (from, to)
     }
 
-    pub fn push_wire(&mut self, n1: NId, n2: NId, wire_kind: WireKind) {
+    /// Push both a red and green wire between two nodes.
+    pub fn push_wire(&mut self, n1: NId, n2: NId) {
+        self.push_wire_kind(n1, n2, DEFAULT_WIRE_KIND);
+    }
+
+    /// Push a wire of a specific kind between two nodes.
+    pub fn push_wire_kind(&mut self, n1: NId, n2: NId, wire_kind: WireKind) {
         let wire = Connection::Wire(wire_kind);
         self.adjacency
             .entry(n1)
@@ -795,6 +813,7 @@ impl Graph {
         let other_graph_inputs = other.get_non_constant_inputs();
 
         // This should not errror. It should have been checked by the type checker.
+        // TODO: Handle this with error
         if other_graph_inputs.len() != inputs.len() {
             panic!(
                 "Number of arguments does not match with block definition: Expected {}, found {}. This is probably a bug in the typechecker.",
@@ -803,6 +822,7 @@ impl Graph {
             );
         }
 
+        // Iterate over the inputs of the other block
         for (i, (block_input_nid, block_input_type)) in inputs.iter().enumerate() {
             let (old_other_input_nid, other_input_node) = &other_graph_inputs[i];
 
@@ -817,8 +837,10 @@ impl Graph {
 
             match other_input_type {
                 IOType::Signal(_) => {
-                    // The input types for the (output) node on THIS graph, that is to be stitched togeather
-                    // with the input of the other graph.
+                    // TODO: Simplity
+
+                    // The input types for the (output) node on THIS graph, that is to be stitched
+                    // together with the input of the other graph.
                     let input_types = self.get_input_iotypes(block_input_nid);
 
                     // TODO: There should definetly be a better way to get the input type.
@@ -855,11 +877,7 @@ impl Graph {
                 IOType::AnySignal(_) => {
                     let new_type = self.get_single_input(block_input_nid).unwrap();
                     self.replace_iotype(other_input_type, &new_type);
-                    self.push_raw_connection(
-                        *block_input_nid,
-                        other_input_nid,
-                        Connection::new_arithmetic(ArithmeticCombinator::new_pick(new_type)),
-                    );
+                    self.push_wire(*block_input_nid, other_input_nid);
                 }
                 IOType::ConstantAny(_) => {
                     todo!()
@@ -868,9 +886,7 @@ impl Graph {
                 IOType::Constant(_) => {
                     panic!("Compiler Error: Inputs to a block should not be constants.")
                 }
-                IOType::Everything => todo!(),
-                IOType::Anything => todo!(),
-                IOType::_Each => todo!(),
+                IOType::Many => todo!(),
             }
 
             match self.vertices.get_mut(block_input_nid) {
@@ -924,11 +940,6 @@ impl Graph {
                         }
                         if gc.gate_type == old_type {
                             gc.gate_type = new_type.clone()
-                        }
-                    }
-                    Connection::Combinator(Combinator::_Constant(cc)) => {
-                        if cc.type_ == old_type {
-                            cc.type_ = new_type.clone()
                         }
                     }
                     Connection::Wire(_) => {}
@@ -1101,9 +1112,6 @@ impl<'a> AnysignalAssigner<'a> {
                             self.replace_if_anysignal(&mut c.right);
                             self.replace_if_anysignal(&mut c.gate_type);
                         }
-                        Combinator::_Constant(c) => {
-                            self.replace_if_anysignal(&mut c.type_);
-                        }
                     }
                 }
             }
@@ -1187,10 +1195,10 @@ mod tests {
         // Network 2: n4 -- n6
         // Network 3: n5
         let wire_kind = WireKind::Green;
-        g.push_wire(n1, n2, wire_kind.clone());
-        g.push_wire(n2, n3, wire_kind.clone());
-        g.push_wire(n3, n1, wire_kind.clone());
-        g.push_wire(n4, n6, wire_kind);
+        g.push_wire_kind(n1, n2, wire_kind.clone());
+        g.push_wire_kind(n2, n3, wire_kind.clone());
+        g.push_wire_kind(n3, n1, wire_kind.clone());
+        g.push_wire_kind(n4, n6, wire_kind);
 
         // Check network 1
         let mut network1_1 = g.get_node_network(&n1, WireKind::Green);

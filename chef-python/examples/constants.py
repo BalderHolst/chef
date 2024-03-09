@@ -5,5 +5,5 @@ var = Int("b")
 const(var, 1000)
 print("const A = 100")
 
-with Block("main", "", "int"):
-    statement(f"{var} + A")
+with Block("main", "", Int("out")):
+    statement(f"out <- {var} + A")

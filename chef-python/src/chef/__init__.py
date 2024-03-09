@@ -26,27 +26,33 @@ class Bool(Variable):
         if item is None: super().__init__(name, f"int")
         else: super().__init__(name, f"int({item})")
 
-class All(Variable):
+class Many(Variable):
     def __init__(self, name: str) -> None:
-        super().__init__(name, "all")
+        super().__init__(name, "many")
 
 class Counter(Variable):
     def __init__(self, name: str, type: str, limit: int) -> None:
         super().__init__(name, f"counter({type} : {limit})")
 
 class Block:
-    def __init__(self, name: str, args: None | list[Variable] | Variable = None, out: str | None = None) -> None:
+    def __init__(self, name: str, inputs: None | list[Variable] | Variable = None, outputs: None | list[Variable] | Variable = None) -> None:
         """Start a chef `block` with a name, arguments and output type."""
         self.name = name
 
-        if args is None:
-            self.args = []
-        elif isinstance(args, Variable):
-            self.args = [args]
+        if inputs is None:
+            self.inputs = []
+        elif isinstance(inputs, Variable):
+            self.inputs = [inputs]
         else:
-            self.args = list(args)
+            self.inputs = list(inputs)
 
-        self.out = out
+        if outputs is None:
+            self.outputs = []
+        elif isinstance(outputs, Variable):
+            self.outputs = [outputs]
+        else:
+            self.outputs = list(outputs)
+
         self.statements = []
 
     def __enter__(self):
@@ -64,9 +70,9 @@ class Block:
         print(self)
 
     def __repr__(self) -> str:
-        args = ", ".join(map(lambda a: a.definition, self.args))
-        s = f"block {self.name}({args})" 
-        if not self.out is None: s += f" -> {self.out}"
+        inputs = ", ".join(map(lambda a: a.definition, self.inputs))
+        outputs = ", ".join(map(lambda a: a.definition, self.outputs))
+        s = f"block {self.name}({inputs}) => ({outputs})" 
         s += " {\n"
         chef.indentation += 1
         indent = "\t" * chef.indentation
@@ -129,18 +135,22 @@ def const(name: str, const_expr: str):
     """Create a chef constant."""
     print(f"const {name} = {const_expr}")
         
-def statement(s):
+def statement(s, semicolon: bool = True):
     """Add a statement withing a block."""
+
+    if semicolon:
+        s += ";"
+
     if len(chef.compound_statement_stack) == 0:
         if not chef.current_block is None:
-            chef.current_block.statements.append(str(s))
+            chef.current_block.statements.append(s)
         else:
             raise Exception("Statements must be within blocks.")
     elif chef.compound_statement_stack[-1].is_inside:
         chef.compound_statement_stack[-1].add_statement(s)
     else:
         chef.compound_statement_stack.pop()
-        chef.current_block.statements.append(str(s))
+        chef.current_block.statements.append(s)
 
 if __name__ == "__main__":
     pass

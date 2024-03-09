@@ -2,14 +2,13 @@
 
 mod placement;
 
-use std::{collections::HashMap, fmt::Display, num::NonZeroUsize};
+use std::{collections::HashMap, fmt::Display};
 
 use factorio_blueprint as fb;
 use fb::{
     objects::{
-        self as fbo, ArithmeticConditions, Blueprint, ControlBehavior, ControlFilter,
-        DeciderConditions, Entity, EntityConnections, EntityNumber, OneBasedIndex, Position,
-        SignalID, SignalIDType,
+        self as fbo, ArithmeticConditions, Blueprint, ControlBehavior, DeciderConditions, Entity,
+        EntityConnections, EntityNumber, OneBasedIndex, Position, SignalID, SignalIDType,
     },
     Container,
 };
@@ -132,7 +131,7 @@ impl FactorioCombinator {
             graph::Combinator::Arithmetic(_) => "arithmetic-combinator",
             graph::Combinator::Decider(_) => "decider-combinator",
             graph::Combinator::Gate(_) => "decider-combinator",
-            graph::Combinator::_Constant(_) => "constant-combinator",
+            // graph::Combinator::Constant(_) => "constant-combinator",
         }
         .to_string();
 
@@ -230,25 +229,24 @@ impl FactorioCombinator {
                     filters: None,
                     is_on: None,
                 }
-            }
-            graph::Combinator::_Constant(cc) => {
-                let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
-                ControlBehavior {
-                    arithmetic_conditions: None,
-                    decider_conditions: None,
-                    filters: {
-                        Some(vec![ControlFilter {
-                            signal: SignalID {
-                                name: signal,
-                                type_,
-                            },
-                            index: NonZeroUsize::new(1).unwrap(),
-                            count: cc.count,
-                        }])
-                    },
-                    is_on: Some(true),
-                }
-            }
+            } // graph::Combinator::Constant(cc) => {
+              //     let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
+              //     ControlBehavior {
+              //         arithmetic_conditions: None,
+              //         decider_conditions: None,
+              //         filters: {
+              //             Some(vec![ControlFilter {
+              //                 signal: SignalID {
+              //                     name: signal,
+              //                     type_,
+              //                 },
+              //                 index: NonZeroUsize::new(1).unwrap(),
+              //                 count: cc.count,
+              //             }])
+              //         },
+              //         is_on: Some(true),
+              //     }
+              // }
         }
     }
 
@@ -270,6 +268,18 @@ impl FactorioCombinator {
             DeciderOperation::LessThanOrEqual => "<=",
             DeciderOperation::Equals => "=",
             DeciderOperation::NotEquals => "!=",
+            DeciderOperation::EveryEquals => todo!(),
+            DeciderOperation::EveryLargerThan => todo!(),
+            DeciderOperation::EveryLargerThanEquals => todo!(),
+            DeciderOperation::EveryLessThan => todo!(),
+            DeciderOperation::EveryLessThanEquals => todo!(),
+            DeciderOperation::EveryNotEquals => todo!(),
+            DeciderOperation::AnyEquals => todo!(),
+            DeciderOperation::AnyLargerThan => todo!(),
+            DeciderOperation::AnyLargerThanEquals => todo!(),
+            DeciderOperation::AnyLessThan => todo!(),
+            DeciderOperation::AnyLessThanEquals => todo!(),
+            DeciderOperation::AnyNotEquals => todo!(),
         }
         .to_string()
     }
@@ -298,27 +308,11 @@ impl FactorioCombinator {
                 )
             }
             graph::IOType::Constant(n) => (Some(*n), None),
-            graph::IOType::Everything => (
+            graph::IOType::Many => (
                 None,
                 Some(SignalID {
                     // TODO: check that "everything" is correct
                     name: "signal-everything".to_string(),
-                    type_: SignalIDType::Virtual,
-                }),
-            ),
-            graph::IOType::Anything => (
-                None,
-                Some(SignalID {
-                    // TODO: check that "everything" is correct
-                    name: "signal-anything".to_string(),
-                    type_: SignalIDType::Virtual,
-                }),
-            ),
-            graph::IOType::_Each => (
-                None,
-                Some(SignalID {
-                    // TODO: check that "everything" is correct
-                    name: "signal-each".to_string(),
                     type_: SignalIDType::Virtual,
                 }),
             ),
@@ -332,14 +326,12 @@ impl FactorioCombinator {
 
     // TODO: Convert return type to union
     // Get the corresponding (signal_type, signal_string) pair
-    fn iotype_to_signal_pair(t: IOType) -> (SignalIDType, String) {
+    fn _iotype_to_signal_pair(t: IOType) -> (SignalIDType, String) {
         match t {
             IOType::Signal(s) => (Self::get_signal_type(s.as_str()), s),
             IOType::Constant(_) => todo!(),
             IOType::ConstantSignal(_) => todo!(),
-            IOType::Everything => todo!(),
-            IOType::Anything => todo!(),
-            IOType::_Each => todo!(),
+            IOType::Many => todo!(),
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
             graph::IOType::ConstantAny(_) => {
                 panic!("ConstantAny should be eradicated at this point.")

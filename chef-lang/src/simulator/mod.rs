@@ -185,6 +185,10 @@ impl Simulator {
         }
     }
 
+    pub fn graph(&self) -> &Graph {
+        &self.graph
+    }
+
     fn step(&mut self) {
         let mut new_contents = self.constant_inputs.clone();
 
@@ -211,7 +215,7 @@ impl Simulator {
 
             let conn_inputs = combine_items(conn_inputs);
 
-            let output = match conn {
+            let mut output = match conn {
                 Combinator::Arithmetic(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);
@@ -234,6 +238,18 @@ impl Simulator {
                         DeciderOperation::LessThanOrEqual => left <= right,
                         DeciderOperation::Equals => left == right,
                         DeciderOperation::NotEquals => left != right,
+                        DeciderOperation::EveryEquals => todo!(),
+                        DeciderOperation::EveryLargerThan => todo!(),
+                        DeciderOperation::EveryLargerThanEquals => todo!(),
+                        DeciderOperation::EveryLessThan => todo!(),
+                        DeciderOperation::EveryLessThanEquals => todo!(),
+                        DeciderOperation::EveryNotEquals => todo!(),
+                        DeciderOperation::AnyEquals => todo!(),
+                        DeciderOperation::AnyLargerThan => todo!(),
+                        DeciderOperation::AnyLargerThanEquals => todo!(),
+                        DeciderOperation::AnyLessThan => todo!(),
+                        DeciderOperation::AnyLessThanEquals => todo!(),
+                        DeciderOperation::AnyNotEquals => todo!(),
                     } as i32;
                     Item::new(c.output, result)
                 }
@@ -247,6 +263,18 @@ impl Simulator {
                         DeciderOperation::LessThanOrEqual => left <= right,
                         DeciderOperation::Equals => left == right,
                         DeciderOperation::NotEquals => left != right,
+                        DeciderOperation::EveryEquals => todo!(),
+                        DeciderOperation::EveryLargerThan => todo!(),
+                        DeciderOperation::EveryLargerThanEquals => todo!(),
+                        DeciderOperation::EveryLessThan => todo!(),
+                        DeciderOperation::EveryLessThanEquals => todo!(),
+                        DeciderOperation::EveryNotEquals => todo!(),
+                        DeciderOperation::AnyEquals => todo!(),
+                        DeciderOperation::AnyLargerThan => todo!(),
+                        DeciderOperation::AnyLargerThanEquals => todo!(),
+                        DeciderOperation::AnyLessThan => todo!(),
+                        DeciderOperation::AnyLessThanEquals => todo!(),
+                        DeciderOperation::AnyNotEquals => todo!(),
                     };
 
                     let count = match should_pass {
@@ -255,8 +283,11 @@ impl Simulator {
                     };
                     Item::new(c.gate_type, count)
                 }
-                Combinator::_Constant(c) => Item::new(c.type_, c.count),
             };
+
+            if self.step == 0 {
+                output.count = 0;
+            }
 
             for to_network_id in to_network_ids {
                 new_contents
@@ -276,6 +307,8 @@ impl Simulator {
         }
 
         self.network_contents = new_contents;
+
+        self.step += 1;
     }
 
     fn get_node_contents(&self, nid: &NId) -> Vec<Item> {

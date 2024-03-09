@@ -1,7 +1,7 @@
-block add(a: int, b: int) -> int {
-    out a + b;
+block add(a: int, b: int) => (out: int) {
+    out <- a + b;
 }
 
-block main(in: all) -> int(pipe) {
-    out add(in[tank], in[car]) + add(in[rail], in[pipe]) + add(in[roboport], in[pump]);
+block main(in: many) => (out: int(pipe)) {
+    out <- add(in[tank], in[car]) + add(in[rail], in[pipe]) + add(in[roboport], in[pump]);
 }

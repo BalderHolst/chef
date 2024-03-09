@@ -33,8 +33,8 @@ fn report_incorrect_block_arguments() {
 fn boolean_expressions() {
     let code = Rc::new(SourceText::from_str(
         "
-    block main() -> bool(landfill) {
-        1+2*3+4==9
+    block main() => (out: bool(landfill)) {
+        out <- 1+2*3+4==9;
     }
 ",
     ));
@@ -53,8 +53,8 @@ fn compile_constant_expressions() {
     const B = 2
     const C = 2+A*B
 
-    block main() -> int(landfill) {
-        C
+    block main() => (out: int(landfill)) {
+        out <- C;
     }
 ",
     ));

@@ -2,14 +2,14 @@
 - Call to other executables
 
 #### Builtins
-- Latch
-- Not picks
 - Binary and Hex literals
+- Get variable signal with '?': `var?`
 
 #### Standard Library
 - "Arrays" (bitpacking)
 - Random Number Generator
 - Shift register
+- Latch
 
 ### Codesnippets that do strange things:
 - `c = c`
@@ -21,3 +21,4 @@
 
 ### Other 
 - _ in variable names
+- make `(a @ b)[signal]` work
