@@ -364,7 +364,7 @@ impl Expression {
             ExpressionKind::Pick(_) => ExpressionReturnType::Int,
             ExpressionKind::Index(_) => ExpressionReturnType::Int,
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
-            ExpressionKind::BlockLink(e) => e.return_type(),
+            ExpressionKind::BlockLink(e) => e.return_type(true),
             ExpressionKind::Error => ExpressionReturnType::None,
         }
     }
@@ -496,8 +496,13 @@ impl BlockLinkExpression {
         Self { block, inputs }
     }
 
-    fn return_type(&self) -> ExpressionReturnType {
-        todo!("Create tuple type")
+    fn return_type(&self, return_int: bool) -> ExpressionReturnType {
+        match self.block.outputs.len() {
+            0 => ExpressionReturnType::None,
+            // In expressions, we want the block link to act as a single value
+            1 if return_int => self.block.outputs[0].return_type(),
+            _ => ExpressionReturnType::Many,
+        }
     }
 }
 

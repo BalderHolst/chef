@@ -30,7 +30,6 @@ where
 
 /// Find the python executable in the system's PATH
 fn find_python() -> Option<PathBuf> {
-    println!("Finding python");
     find_executable("python3").or(find_executable("python"))
 }
 

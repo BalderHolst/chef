@@ -2,7 +2,6 @@
 - Call to other executables
 
 #### Builtins
-- Not picks
 - Binary and Hex literals
 - Get variable signal with '?': `var?`
 

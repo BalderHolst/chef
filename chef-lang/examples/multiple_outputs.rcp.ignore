@@ -1,0 +1,12 @@
+block f(a: int, b: int) => (out1: int, out2: int) {
+    out1 <- a + b;
+    out2 <- a - b;
+}
+
+
+block main(input: many) {
+    c: int;
+    d: int;
+
+    (c, d) <- f(input[SIGNAL-BLUE], input[SIGNAL-RED]);
+}

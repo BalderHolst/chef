@@ -277,7 +277,7 @@ fn simulate_order_of_operations_any_signals_factorio_time() {
 ",
     );
     let mut sim = Simulator::new(g, inputs![]);
-    sim.dump_simulation(10, "out");
+    sim.simulate(10);
     assert_eq!(sim.get_output(), outputs!["rail": 11]);
 }
 
@@ -316,7 +316,7 @@ fn simulate_negative_numbers() {
 ",
     );
     let mut sim = Simulator::new(g, inputs![]);
-    sim.dump_simulation(7, "out");
+    sim.simulate(7);
 
     assert_eq!(sim.get_output(), outputs!["pump": -10]);
 }

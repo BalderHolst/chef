@@ -1,5 +1,5 @@
 from chef import *
 
-with Block("main", [], "int"):
-    statement("c: counter(rail : 300);")
-    statement("c")
+with Block("main", [], Int("out")):
+    statement("c: counter(rail : 300)")
+    statement("out <- c")
