@@ -75,11 +75,26 @@ impl Scope {
         graph: &mut Graph,
         var_id: VariableId,
         nid: NId,
+        nid_type: IOType,
         wk: WireKind,
     ) -> bool {
         match self.variables.get(&var_id) {
-            Some((var_nid, _var_type)) => {
-                graph.push_wire_kind(nid, *var_nid, wk);
+            Some((var_nid, var_type)) => {
+                // If we try to assign a variable to a different type, convert it.
+                if nid_type != *var_type {
+                    println!(
+                        "Variable type mismatch. Expected: {}, found: {}",
+                        var_type, nid_type
+                    );
+                    let (c1, c2) = graph.push_connection(Connection::new_convert(
+                        nid_type.to_combinator_type(),
+                        var_type.to_combinator_type(),
+                    ));
+                    graph.push_wire(nid, c1);
+                    graph.push_wire_kind(c2, *var_nid, wk);
+                } else {
+                    graph.push_wire_kind(nid, *var_nid, wk);
+                }
                 true
             }
             None => false,
@@ -195,9 +210,9 @@ impl GraphCompiler {
                 let (var_input_nid, var_nid) =
                     graph.push_combinator(Combinator::new_pick(var_type.clone()));
                 graph.push_wire(var_input_nid, var_nid);
-                self.declare_variable(graph, var.id, var_type)?;
-                self.define_variable(graph, var.id, var_nid, WireKind::Red)?;
-                self.define_variable(graph, var.id, var_nid, WireKind::Green)?;
+                self.declare_variable(graph, var.id, var_type.clone())?;
+                self.define_variable(graph, var.id, var_nid, var_type.clone(), WireKind::Red)?;
+                self.define_variable(graph, var.id, var_nid, var_type, WireKind::Green)?;
                 Ok(())
             }
             VariableType::Counter((_, limit_expr)) => {
@@ -220,9 +235,9 @@ impl GraphCompiler {
                 // Connect counter to limit to input
                 graph.push_wire_kind(limit_nid, counter_input_nid, WireKind::Green);
 
-                self.declare_variable(graph, var.id, var_type)?;
-                self.define_variable(graph, var.id, counter_nid, WireKind::Red)?;
-                self.define_variable(graph, var.id, counter_nid, WireKind::Green)?;
+                self.declare_variable(graph, var.id, var_type.clone())?;
+                self.define_variable(graph, var.id, counter_nid, var_type.clone(), WireKind::Red)?;
+                self.define_variable(graph, var.id, counter_nid, var_type, WireKind::Green)?;
                 Ok(())
             }
             _ => self.declare_variable(graph, var.id, var_type),
@@ -287,7 +302,7 @@ impl GraphCompiler {
             None => expr_out_nid,
         };
 
-        self.define_variable(graph, var.id, output_nid, wk)
+        self.define_variable(graph, var.id, output_nid, var_iotype, wk)
     }
 
     fn compile_mutation_statement(
@@ -775,10 +790,11 @@ impl GraphCompiler {
         graph: &mut Graph,
         var_id: VariableId,
         nid: NId,
+        nid_type: IOType,
         wk: WireKind,
     ) -> CompilationResult<()> {
         for scope in self.scopes.iter_mut().rev() {
-            if scope.define_variable(graph, var_id, nid, wk.clone()) {
+            if scope.define_variable(graph, var_id, nid, nid_type.clone(), wk.clone()) {
                 return Ok(());
             }
         }

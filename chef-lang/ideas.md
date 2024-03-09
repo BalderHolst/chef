@@ -55,3 +55,31 @@ It would be nice to be able to route blocks into each other like this
 ```
 out <- block1 <- block2 <- block3(input)
 ```
+
+## Variable Operators
+
+#### Total
+```
+a: many;
+b: int;
+
+// Get the sum of all signals that a variable carries.
+c: int <- |a|;
+
+// This should also be an operation on `int` as they can carry different values on red and green wires.
+d: int <- |b|;
+
+// And used to operate on expressions like this
+e: int <- |a @ b|;
+```
+
+
+#### NOP
+Sometimes you just want to delay the signal propagation by a single time step.
+```
+// Assign a value to `a` with one tick delay
+a: int = 1000!
+
+// You add `!` to create more delay
+b: int = 1000!!!!!!
+```

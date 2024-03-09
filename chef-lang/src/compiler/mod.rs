@@ -20,7 +20,6 @@ pub fn compile(ast: AST) -> CompilationResult<Graph> {
     let mut graph = graph_compiler.compile()?;
     let mut graph_optimizer = GraphOptimizer::new(&mut graph);
     graph_optimizer.optimize();
-    graph.print(); // TODO: Remove
     graph.assign_anysignals();
     Ok(graph)
 }

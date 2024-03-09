@@ -66,8 +66,6 @@ block main() => (out: int(tank)) {
 ",
     );
 
-    graph.print();
-
     let mut sim = Simulator::new(graph, vec![]);
 
     sim.simulate(17);
@@ -145,7 +143,7 @@ fn simulate_multiple_blocks() {
                                  "signal-C": 1000 // Should be ignored
         ],
     );
-    sim.dump_simulation(steps, "out");
+    sim.simulate(steps);
 
     sim.graph().print();
 
