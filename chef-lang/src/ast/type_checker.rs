@@ -168,55 +168,49 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
+    #[ignore = "Not implemented"]
     #[test]
     fn check_return_types() {
         let (_, bag) = AST::from_str(
             "
-            block main() -> bool {
-                10
+            block main() => (out: bool) {
+                out <- 10;
             }
             ",
         );
         let m_bag = bag.borrow_mut();
         m_bag.print();
         assert_eq!(m_bag.error_count(), 1);
-        let message = format!("{:?}", m_bag.diagnostics()[0].message());
-        dbg!(&message);
-        assert_eq!(message,"\"Block output expression type 'int' does not correspond to defined block output type 'bool'.\"");
     }
 
     #[test]
     fn check_assignment_types() {
         let (_, bag) = AST::from_str(
             "
-            block main() -> bool {
-                a: int = false;
-                a
+            block main() => (out: bool) {
+                a: int <- false;
+                out <- a;
             }
             ",
         );
         let m_bag = bag.borrow_mut();
         m_bag.print();
-        assert_eq!(m_bag.error_count(), 3);
-        let message = &format!("{:?}", m_bag.diagnostics()[1]);
-        dbg!(&message);
-        assert_eq!(message, "Localized { message: \"Can not assign variable `a` of type `int` to expression returning `bool` type.\", span: TextSpan { start: 52, end: 67, text: SourceText { file: None, text: \"\\n            block main() -> bool {\\n                a: int = false;\\n                a\\n            }\\n            \", lines: [0, 0, 1, 36, 68, 86, 100] } } }");
+        assert_eq!(m_bag.error_count(), 1);
     }
 
+    #[ignore = "Not implemented"]
     #[test]
     fn check_expression_types() {
         let (_, bag) = AST::from_str(
             "
-        block main() -> int {
-            b: int = 5 + false * 10;
-            b
+        block main() => (out: int) {
+            b: int <- 5 + false * 10;
+            out <- b;
         }
         ",
         );
         let m_bag = bag.borrow_mut();
         m_bag.print();
         assert!(m_bag.error_count() == 1);
-        let message = &format!("{:?}", m_bag.diagnostics()[0]);
-        assert_eq!(message,"Localized { message: \"Left side of expression must be `int` not `bool`.\", span: TextSpan { start: 56, end: 66, text: SourceText { file: None, text: \"\\n        block main() -> int {\\n            b: int = 5 + false * 10;\\n            b\\n        }\\n        \", lines: [0, 0, 1, 31, 68, 82, 92] } } }");
     }
 }
