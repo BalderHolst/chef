@@ -1,11 +1,11 @@
+use std::env;
 use std::process::exit;
 use std::rc::Rc;
-use std::{env, io};
 
 use ast::AST;
 use clap::Parser;
 use cli::{AddCommand, Command, CookOpts, Opts, SimulateOpts};
-use diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
+use diagnostics::{CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
 use simulator::Simulator;
 use text::SourceText;
 use utils::VisualizerError;

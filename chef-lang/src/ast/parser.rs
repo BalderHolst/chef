@@ -811,7 +811,7 @@ impl Parser {
     }
 
     fn parse_when_statement(&mut self) -> Result<StatementKind, CompilationError> {
-        let start_token = self.consume().clone(); // Consume "when" token
+        let _start_token = self.consume().clone(); // Consume "when" token
         let condition = self.parse_expression()?;
 
         self.enter_scope();

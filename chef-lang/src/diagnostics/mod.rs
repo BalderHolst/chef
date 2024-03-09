@@ -129,7 +129,7 @@ impl DiagnosticsBag {
     }
 
     /// Report unexpected token error.
-    pub fn report_unexpected_token(&mut self, token: &Token, expected: TokenKind) {
+    pub fn _report_unexpected_token(&mut self, token: &Token, expected: TokenKind) {
         let message = format!("Expected `{}` but found `{}`.", expected, token.kind);
         self.diagnostics
             .push(Diagnostic::new_localized(message, token.span.clone()))
@@ -172,12 +172,5 @@ impl DiagnosticsBag {
         if self.has_errored() {
             self.exit_with_errors();
         }
-    }
-}
-
-#[cfg(test)]
-impl DiagnosticsBag {
-    pub fn diagnostics(&self) -> Vec<Diagnostic> {
-        self.diagnostics.clone()
     }
 }

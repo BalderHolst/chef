@@ -134,6 +134,15 @@ impl Visitor for TypeChecker {
         if let StatementKind::DeclarationDefinition(assignment) = &statement.kind {
             let var_type = assignment.variable.return_type();
             let expr_type = &assignment.expression.return_type();
+            if var_type != *expr_type {
+                self.diagnostics_bag.borrow_mut().report_error(
+                    &assignment.expression.span,
+                    &format!(
+                        "Can not assign expression returning `{}` type to variable `{}` of type `{}`.",
+                        expr_type, assignment.variable.name, var_type
+                    ),
+                );
+            }
         }
 
         self.do_visit_statement(statement);
@@ -195,7 +204,7 @@ mod tests {
         );
         let m_bag = bag.borrow_mut();
         m_bag.print();
-        assert_eq!(m_bag.error_count(), 1);
+        assert_eq!(m_bag.error_count(), 2);
     }
 
     #[ignore = "Not implemented"]

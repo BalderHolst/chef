@@ -283,7 +283,6 @@ impl Simulator {
                     };
                     Item::new(c.gate_type, count)
                 }
-                Combinator::Constant(c) => Item::new(c.type_, c.count),
             };
 
             if self.step == 0 {

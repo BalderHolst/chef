@@ -68,7 +68,7 @@ pub enum TokenKind {
 
 impl TokenKind {
     pub fn is_assignment_operator(&self) -> bool {
-        return matches!(self, TokenKind::LeftArrow | TokenKind::LeftCurlyArrow);
+        matches!(self, TokenKind::LeftArrow | TokenKind::LeftCurlyArrow)
     }
 }
 

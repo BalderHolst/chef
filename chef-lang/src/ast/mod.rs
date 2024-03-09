@@ -144,7 +144,6 @@ impl Statement {
 /// Kinds of statement.
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatementKind {
-    Expression(Expression),
     When(WhenStatement),
     Declaration(Declaration),
     DeclarationDefinition(DeclarationDefinition),
@@ -288,14 +287,6 @@ impl DeclarationDefinition {
             kind,
         }
     }
-
-    pub fn to_definition(self) -> Definition {
-        Definition {
-            variable: self.variable,
-            expression: self.expression,
-            kind: self.kind,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -319,6 +310,16 @@ impl Definition {
             variable,
             expression,
             kind,
+        }
+    }
+}
+
+impl From<DeclarationDefinition> for Definition {
+    fn from(value: DeclarationDefinition) -> Self {
+        Self {
+            variable: value.variable,
+            expression: value.expression,
+            kind: value.kind,
         }
     }
 }

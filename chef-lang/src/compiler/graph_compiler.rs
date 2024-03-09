@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::ast::{
     BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
@@ -8,8 +8,6 @@ use crate::ast::{
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
 use crate::diagnostics::{CompilationError, CompilationResult};
-
-use super::RESERVED_SIGNAL;
 
 struct Scope {
     variables: HashMap<VariableId, (NId, IOType)>,
@@ -101,10 +99,6 @@ impl Scope {
         }
     }
 
-    fn variable_is_declared(&self, var_id: VariableId) -> bool {
-        self.variables.contains_key(&var_id)
-    }
-
     fn search(&self, var_id: VariableId) -> Option<(NId, IOType)> {
         self.variables.get(&var_id).cloned()
     }
@@ -163,9 +157,6 @@ impl GraphCompiler {
         gate: Option<(NId, IOType)>,
     ) -> Result<(), CompilationError> {
         match statement.kind.clone() {
-            StatementKind::Expression(expr) => {
-                self.compile_expression(graph, &expr, None)?;
-            }
             StatementKind::Declaration(dec) => {
                 self.compile_declaration_statement(graph, dec)?;
             }
@@ -205,6 +196,7 @@ impl GraphCompiler {
         let var_type = self.variable_type_to_iotype(&var.type_);
 
         // Wire up and define memory cell variables.
+        // TODO: Make `var` and `counter` into expressions instead.
         match &var.type_ {
             VariableType::Var(_) => {
                 let (var_input_nid, var_nid) =
@@ -217,7 +209,7 @@ impl GraphCompiler {
             }
             VariableType::Counter((_, limit_expr)) => {
                 // Get counter limit
-                let (limit_nid, limit_type) = self.compile_expression(graph, &limit_expr, None)?;
+                let (limit_nid, limit_type) = self.compile_expression(graph, limit_expr, None)?;
 
                 let (counter_input_nid, counter_nid) =
                     graph.push_connection(Connection::new_gate(GateCombinator {
@@ -253,7 +245,7 @@ impl GraphCompiler {
         let var = &dec_def.variable;
         let var_type = self.variable_type_to_iotype(&var.type_);
         self.declare_variable(graph, var.id, var_type.clone())?;
-        let definition = dec_def.to_definition();
+        let definition: Definition = dec_def.into();
         self.compile_definition_statement(graph, definition, gate, Some(var_type))
     }
 
@@ -305,18 +297,19 @@ impl GraphCompiler {
         self.define_variable(graph, var.id, output_nid, var_iotype, wk)
     }
 
+    // TODO: remove mutation_statement
     fn compile_mutation_statement(
         &mut self,
         graph: &mut Graph,
         mutation_statement: Mutation,
-        gate: Option<(NId, IOType)>,
+        _gate: Option<(NId, IOType)>,
     ) -> Result<(), CompilationError> {
         // TODO: Create test for expect
-        let var_nid = self.search_scope(mutation_statement.var_ref.var.id).expect("The parser should make sure that mutation statements only happen on defined variables.");
+        let _var_nid = self.search_scope(mutation_statement.var_ref.var.id).expect("The parser should make sure that mutation statements only happen on defined variables.");
         let var_type = mutation_statement.var_ref.var.type_.clone();
         let var_iotype = self.variable_type_to_iotype(&var_type);
 
-        let (expr_out_nid, expr_out_type) =
+        let (_expr_out_nid, expr_out_type) =
             self.compile_expression(graph, &mutation_statement.expression, None)?;
 
         // TODO: convert expr_out_type if this happens
@@ -365,8 +358,6 @@ impl GraphCompiler {
         //         graph.push_wire(c_output, var_nid, WireKind::Green);
         //     }
         // };
-
-        Ok(())
     }
 
     /// Returns a typle:: (output_vid, output_type)
@@ -502,7 +493,7 @@ impl GraphCompiler {
     fn compile_index_expression(
         &mut self,
         _graph: &mut Graph,
-        index_expr: &IndexExpression,
+        _index_expr: &IndexExpression,
     ) -> Result<(NId, IOType), CompilationError> {
         todo!()
         // let index = index_expr.index;
