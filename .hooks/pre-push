@@ -2,30 +2,38 @@
 
 manifest="chef-lang/Cargo.toml"
 
+echo -n "Checking format... "
+
 cargo fmt --manifest-path "$manifest" --check 2> /dev/null  || {
     echo -e "\nPlease format your code."
     exit 1
 }
 
-echo "PASSED: Format"
+echo "PASSED"
+
+echo -n "Running clippy... "
 
 cargo clippy --manifest-path "$manifest" -- --deny warnings 2> /dev/null || {
     echo -e "\nClippy is angry."
     exit 1
 }
 
-echo "PASSED: Clippy"
+echo "PASSED"
+
+echo -n "Running tests... "
 
 cargo test --manifest-path "$manifest" > /dev/null 2> /dev/null || {
     echo -e "\nSome cargo tests have failed"
     exit 1
 }
 
-echo "PASSED: Tests"
+echo "PASSED"
+
+echo -n "Compiling python examples... "
 
 ./chef-python/test.py > /dev/null 2> /dev/null || {
     echo -e "\nFailed to compile some python scipts."
     exit 1
 }
 
-echo "PASSED: Compile python examples"
+echo "PASSED"
