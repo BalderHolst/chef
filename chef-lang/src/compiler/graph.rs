@@ -886,7 +886,9 @@ impl Graph {
                 IOType::Constant(_) => {
                     panic!("Compiler Error: Inputs to a block should not be constants.")
                 }
-                IOType::Many => todo!(),
+                IOType::Many => {
+                    self.push_wire(*block_input_nid, other_input_nid);
+                }
             }
 
             match self.vertices.get_mut(block_input_nid) {
