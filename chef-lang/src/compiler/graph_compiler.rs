@@ -653,9 +653,9 @@ impl GraphCompiler {
                     let block = self
                         .ast
                         .get_block(name, id)
-                        .expect(&format!(
-                            "Block '{name}' should exist. This is probably a parser bug."
-                        ))
+                        .unwrap_or_else(|| {
+                            panic!("Block '{name}' should exist. This is probably a parser bug.")
+                        })
                         .clone();
 
                     let block_graph = self.compile_block(&block)?;

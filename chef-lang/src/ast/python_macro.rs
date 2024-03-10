@@ -6,7 +6,6 @@ use std::{
 };
 
 use crate::{
-    ast::Variable,
     cli::Opts,
     diagnostics::{CompilationError, CompilationResult},
     text::{SourceText, TextSpan},
@@ -32,12 +31,6 @@ where
 /// Find the python executable in the system's PATH
 fn find_python() -> Option<PathBuf> {
     find_executable("python3").or(find_executable("python"))
-}
-
-struct MacroArgs {
-    name: String,
-    inputs: Vec<Rc<Variable>>,
-    outputs: Vec<Rc<Variable>>,
 }
 
 /// Run a python script and return the output as a chef source code
@@ -77,8 +70,8 @@ pub(crate) fn run_python_import(
             .args([&python, &path.to_string(), &name, &inputs, &outputs])
             .output()
     } else {
-        let inputs = inputs.replace("\"", "\\\"");
-        let outputs = outputs.replace("\"", "\\\"");
+        let inputs = inputs.replace('\"', "\\\"");
+        let outputs = outputs.replace('\"', "\\\"");
 
         let name = format!("\"{}\"", name);
         let inputs = format!("\"{}\"", inputs);

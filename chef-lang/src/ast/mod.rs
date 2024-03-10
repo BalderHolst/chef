@@ -1,12 +1,11 @@
 //! Module for lexing and parsing chef source code into an abstract syntax tree and checking for errors.
 
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::ast::visitors::Visitor;
-use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBagRef};
+use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::{SourceText, TextSpan};
 use crate::Opts;
 
@@ -79,19 +78,6 @@ impl DynBlock {
             opts,
         }
     }
-
-    fn evaluate(&self) -> CompilationResult<Block> {
-        let text = python_macro::run_python_import(
-            self.opts.clone(),
-            Some(self.span.clone()),
-            self.script_path.to_str().unwrap(),
-            todo!(),
-            todo!(),
-            todo!(),
-        )?;
-
-        todo!()
-    }
 }
 
 /// The abstract syntax tree.
@@ -117,7 +103,7 @@ impl AST {
         diagnostics_bag: DiagnosticsBagRef,
         opts: Rc<Opts>,
     ) -> Self {
-        let lexer = Lexer::from_source(diagnostics_bag.clone(), text);
+        let lexer = Lexer::from_source(text);
         let tokens: Vec<Token> = lexer.collect();
         let parser = Parser::new(tokens, diagnostics_bag.clone(), opts);
         let mut ast = AST::new(diagnostics_bag);
@@ -276,39 +262,11 @@ pub enum VariableSignalType {
 
 pub type VariableId = usize;
 
-#[derive(Debug, Clone)]
-struct BlockLinkArgs {
-    args: Vec<BlockLinkArg>,
-}
-
-impl BlockLinkArgs {
-    fn new() -> Self {
-        Self { args: vec![] }
-    }
-
-    fn from_vec(args: Vec<BlockLinkArg>) -> Self {
-        Self { args }
-    }
-
-    fn add(&mut self, arg: BlockLinkArg) {
-        self.args.push(arg);
-    }
-}
-
 /// An argument to a block definition.
 #[derive(Debug, Clone)]
 pub enum BlockArg {
     Var(Rc<Variable>),
     Literal(String),
-}
-
-impl BlockArg {
-    pub fn name(&self) -> String {
-        match self {
-            Self::Var(var) => var.name.clone(),
-            Self::Literal(name) => name.clone(),
-        }
-    }
 }
 
 /// An argument to a block link.
@@ -322,7 +280,7 @@ impl BlockLinkArg {
     fn span(&self) -> &TextSpan {
         match self {
             Self::Expr(expr) => &expr.span,
-            Self::Literal(span) => &span,
+            Self::Literal(span) => span,
         }
     }
 }

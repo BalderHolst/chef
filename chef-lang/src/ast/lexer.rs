@@ -3,7 +3,6 @@
 use std::fmt::Display;
 use std::rc::Rc;
 
-use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::{SourceText, TextSpan};
 
 /// Kinds of lexer tokens.
@@ -162,16 +161,14 @@ impl Token {
 pub struct Lexer {
     source: Rc<SourceText>,
     cursor: usize,
-    diagnostics_bag: DiagnosticsBagRef,
     placed_end_token: bool,
 }
 
 impl Lexer {
     /// Instantiate a [Lexer] with a [SourceText] for parsing and a [DiagnosticsBagRef] for
     /// reporting errors.
-    pub fn from_source(diagnostics_bag: DiagnosticsBagRef, source: Rc<SourceText>) -> Self {
+    pub fn from_source(source: Rc<SourceText>) -> Self {
         Lexer {
-            diagnostics_bag,
             source,
             cursor: 0,
             placed_end_token: false,
@@ -475,7 +472,7 @@ impl Iterator for Lexer {
 
 #[cfg(test)]
 impl Lexer {
-    pub fn new_bundle(s: &str) -> (Rc<SourceText>, DiagnosticsBagRef, Self) {
+    pub fn new_bundle(s: &str) -> (Rc<SourceText>, crate::diagnostics::DiagnosticsBagRef, Self) {
         let text = Rc::new(SourceText::from_str(s));
         let diagnostics_bag = Rc::new(std::cell::RefCell::new(
             crate::diagnostics::DiagnosticsBag::new(
@@ -483,7 +480,7 @@ impl Lexer {
                 text.clone(),
             ),
         ));
-        let lexer = Self::from_source(diagnostics_bag.clone(), text.clone());
+        let lexer = Self::from_source(text.clone());
         (text, diagnostics_bag, lexer)
     }
 
