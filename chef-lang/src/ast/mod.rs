@@ -1,5 +1,6 @@
 //! Module for lexing and parsing chef source code into an abstract syntax tree and checking for errors.
 
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -27,6 +28,7 @@ pub struct Block {
     pub outputs: Vec<Rc<Variable>>,
     pub statements: Vec<Statement>,
     pub span: TextSpan,
+    pub dyn_block_id: Option<usize>,
 }
 
 impl Block {
@@ -44,6 +46,7 @@ impl Block {
             outputs,
             statements,
             span,
+            dyn_block_id: None,
         }
     }
 }
@@ -132,6 +135,12 @@ impl AST {
     /// Add a statement to the [AST].
     pub fn add_block(&mut self, block: Block) {
         self.blocks.push(block);
+    }
+
+    pub fn get_block(&self, name: &str) -> Option<&Block> {
+        self.blocks
+            .iter()
+            .find(|b| b.name == name && b.dyn_block_id == b.dyn_block_id)
     }
 
     /// Print the [AST] to stout.

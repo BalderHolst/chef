@@ -555,7 +555,7 @@ impl GraphCompiler {
         }
 
         let block_graph = self.get_block_graph(&block_link_expr.block.name).expect(
-            "Block is defined if a BlockLinkExpression exists. This is probably a parser bug.",
+            "Block should be defined if a BlockLinkExpression exists. This is probably a parser bug.",
         );
 
         let outputs = match graph.stitch_graph(block_graph, args) {
