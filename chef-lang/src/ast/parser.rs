@@ -8,8 +8,8 @@ use std::rc::Rc;
 
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
-    BinaryExpression, BinaryOperator, Expression, ExpressionKind, ParenthesizedExpression,
-    Statement, StatementKind, Variable, VariableType,
+    python_macro, BinaryExpression, BinaryOperator, Expression, ExpressionKind,
+    ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
 };
 use crate::cli::Opts;
 use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
@@ -17,10 +17,12 @@ use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
 use super::{
-    Block, BlockArg, BlockLinkArg, BlockLinkArgs, BlockLinkExpression, DeclarationDefinition,
-    DynBlock, PickExpression, VariableRef, VariableSignalType,
+    Block, BlockArg, BlockLinkArg, BlockLinkExpression, DeclarationDefinition, DynBlock,
+    PickExpression, VariableRef, VariableSignalType,
 };
 use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement};
+
+const MACRO_ARG_SEP: &str = "; ";
 
 // TODO: Add example
 /// A list of statements with an optional return expression at its end.
@@ -667,6 +669,8 @@ impl Parser {
         while !matches!(self.current().kind, TokenKind::RightParen | TokenKind::End) {
             let var_span = self.current().span.clone();
 
+            let checkpoint = self.cursor;
+
             let block_arg = match self.parse_variable() {
                 Ok(ParsedVariable::Dec(v)) => Ok(BlockArg::Var(Rc::new(v))),
 
@@ -683,6 +687,7 @@ impl Parser {
 
                 // Parse literal
                 Err(_) => {
+                    self.cursor = checkpoint;
                     let name = self.consume_word()?.to_string();
                     self.consume_and_expect(TokenKind::Colon)?;
                     let type_ = self.consume_word()?.to_string();
@@ -731,6 +736,7 @@ impl Parser {
     fn parse_dyn_block_link_arguments(&mut self) -> CompilationResult<Vec<BlockLinkArg>> {
         let mut inputs: Vec<BlockLinkArg> = vec![];
         self.consume_and_expect(TokenKind::LeftParen)?;
+
         loop {
             println!("current: {:?}", self.current().kind);
 
@@ -1240,12 +1246,60 @@ impl Parser {
 
     fn parse_dyn_block_link(
         &mut self,
-        dyn_block: DynBlock,
+        def: DynBlock,
     ) -> Result<BlockLinkExpression, CompilationError> {
-        let start = self.peak(-1).span.start;
+        let start_span = self.peak(-1).span.clone();
+
         let inputs = self.parse_dyn_block_link_arguments()?;
-        dbg!(&inputs[1].span().text());
-        let end = self.current().span.clone();
+
+        if def.inputs.len() != inputs.len() {
+            let end_span = &self.current().span;
+            return Err(CompilationError::new_localized(
+                &format!(
+                    "Expected {} arguments for dynamic block '{}'. Found {}.",
+                    def.inputs.len(),
+                    def.name,
+                    inputs.len(),
+                ),
+                TextSpan::from_spans(&start_span, end_span),
+            ));
+        }
+
+        // Create input string for macro
+        let inputs = def
+            .inputs
+            .iter()
+            .enumerate()
+            .map(|(i, arg)| match arg {
+                BlockArg::Var(var) => {
+                    format!("{}: {}", var.name, var.type_.signature())
+                }
+                BlockArg::Literal(lit) => {
+                    format!("{}: {}", lit, inputs[i].span().text())
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(MACRO_ARG_SEP);
+
+        // Create output string for macro
+        let outputs = def
+            .outputs
+            .iter()
+            .map(|v| format!("{}: {}", v.name, v.type_.signature()))
+            .collect::<Vec<String>>()
+            .join(MACRO_ARG_SEP);
+
+        // Run python macro
+        let code = python_macro::run_python_import(
+            self.options.clone(),
+            Some(TextSpan::from_spans(&start_span, &self.peak(-1).span)),
+            def.script_path.to_str().unwrap(),
+            Some(def.name),
+            Some(inputs),
+            Some(outputs),
+        )?;
+
+        println!("{}", code.text());
 
         todo!()
     }

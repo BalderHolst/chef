@@ -72,15 +72,18 @@ pub(crate) fn run_python_import(
         None => "".to_string(),
     };
 
-    let name = format!("\"{}\"", name);
-    let inputs = format!("\"{}\"", inputs);
-    let outputs = format!("\"{}\"", outputs);
-
     let output = if cfg!(target_os = "windows") {
         Command::new("cmd")
             .args([&python, &path.to_string(), &name, &inputs, &outputs])
             .output()
     } else {
+        let inputs = inputs.replace("\"", "\\\"");
+        let outputs = outputs.replace("\"", "\\\"");
+
+        let name = format!("\"{}\"", name);
+        let inputs = format!("\"{}\"", inputs);
+        let outputs = format!("\"{}\"", outputs);
+
         let cmd = python + " " + path + " " + &name + " " + &inputs + " " + &outputs;
 
         if opts.verbose {

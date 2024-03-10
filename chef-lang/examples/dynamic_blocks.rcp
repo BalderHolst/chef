@@ -1,4 +1,4 @@
-dyn block pick_multiple(input: many, picks: many) => (out: many) {
+dyn block pick_multiple(input: many, picks: lit) => (out: many) {
 
     # This defines `INPUTS`
     from chef import *

@@ -211,6 +211,20 @@ pub enum VariableType {
 }
 
 impl VariableType {
+    /// Get the variable type as expressed in the chef language
+    pub fn signature(&self) -> String {
+        match self {
+            VariableType::Bool(_) => "bool".to_string(),
+            VariableType::Int(_) => "int".to_string(),
+            VariableType::Var(_) => "var".to_string(),
+            VariableType::Many => "many".to_string(),
+            VariableType::ConstInt(n) => format!("{n}"),
+            VariableType::ConstBool(b) => format!("{b}"),
+            VariableType::Counter(_) => "counter".to_string(),
+            VariableType::Register(_) => "register".to_string(),
+        }
+    }
+
     pub fn return_type(&self) -> ExpressionReturnType {
         match self {
             VariableType::Bool(_) => ExpressionReturnType::Bool,
@@ -274,9 +288,18 @@ impl BlockLinkArgs {
 
 /// An argument to a block definition.
 #[derive(Debug, Clone)]
-enum BlockArg {
+pub enum BlockArg {
     Var(Rc<Variable>),
     Literal(String),
+}
+
+impl BlockArg {
+    pub fn name(&self) -> String {
+        match self {
+            Self::Var(var) => var.name.clone(),
+            Self::Literal(name) => name.clone(),
+        }
+    }
 }
 
 /// An argument to a block link.
@@ -789,7 +812,7 @@ impl Display for VariableType {
             },
             VariableType::ConstInt(_) => "ConstInt".to_string(),
             VariableType::ConstBool(_) => "ConstBool".to_string(),
-            VariableType::Many => "All".to_string(),
+            VariableType::Many => "Many".to_string(),
             VariableType::Register(n) => format!("Register({n})"),
         };
         write!(f, "{s}")
