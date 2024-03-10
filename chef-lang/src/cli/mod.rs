@@ -18,10 +18,12 @@ pub struct Opts {
     #[arg(short('P'), long)]
     pub(crate) python: Option<String>,
 
+    /// Directory to store temporary files
+    #[arg(short('T'), long)]
+    pub(crate) tmp_dir: Option<String>,
+
     #[command(subcommand)]
     pub(crate) command: Command,
-
-    pub(crate) tmp_dir: Option<String>,
 }
 
 #[cfg(test)]
