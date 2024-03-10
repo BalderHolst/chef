@@ -135,14 +135,6 @@ impl DiagnosticsBag {
             .push(Diagnostic::new_localized(message, token.span.clone()))
     }
 
-    /// Report bad token error.
-    pub fn report_bad_token(&mut self, token: &Token) {
-        self.diagnostics.push(Diagnostic::new_localized(
-            "Bad token.".to_string(),
-            token.span.clone(),
-        ))
-    }
-
     pub fn report_compilation_error(&mut self, error: CompilationError) {
         self.diagnostics
             .push(Diagnostic::from_compilation_error(error))

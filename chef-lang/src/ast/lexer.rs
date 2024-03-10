@@ -469,10 +469,6 @@ impl Iterator for Lexer {
         let end = self.cursor;
         let token = Token::new(kind, TextSpan::new(start, end, self.source.clone()));
 
-        if token.kind == TokenKind::Bad {
-            self.diagnostics_bag.borrow_mut().report_bad_token(&token);
-        }
-
         Some(token)
     }
 }
