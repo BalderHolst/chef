@@ -633,13 +633,6 @@ impl GraphCompiler {
             },
             VariableType::Many => IOType::Many,
             VariableType::Register(_) => IOType::Many, // TODO: make dependent on the type of input
-            // expression
-            VariableType::ConstInt(_) => {
-                panic!("ConstInt expression should never need to be converted to IOType.")
-            }
-            VariableType::ConstBool(_) => {
-                panic!("ConstBool expression should never need to be converted to IOType.")
-            }
         }
     }
 

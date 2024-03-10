@@ -141,11 +141,7 @@ impl MutVisitor for ConstantEvaluator {
                     BinaryOperator::AnyNotEquals => return,
                 }
             }
-            ExpressionKind::VariableRef(var_ref) => match var_ref.var.type_ {
-                super::VariableType::ConstInt(i) => ConstantValue::Int(i),
-                super::VariableType::ConstBool(b) => ConstantValue::Bool(b),
-                _ => return,
-            },
+            ExpressionKind::VariableRef(_) => return,
             ExpressionKind::Negative(negative_expr) => match &mut negative_expr.kind {
                 ExpressionKind::Int(n) => ConstantValue::Int(*n * -1),
                 _ => {

@@ -455,8 +455,6 @@ impl Parser {
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
             VariableType::Many => {}
-            VariableType::ConstInt(_) => {}
-            VariableType::ConstBool(_) => {}
         };
 
         let variable = Rc::new(variable);

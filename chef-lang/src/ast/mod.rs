@@ -192,15 +192,12 @@ pub enum StatementKind {
 }
 
 /// Chef variable types.
-#[allow(dead_code)] // TODO: Remove
 #[derive(Debug, Clone, PartialEq)]
 pub enum VariableType {
     Bool(VariableSignalType),
     Int(VariableSignalType),
     Var(VariableSignalType),
     Many,
-    ConstInt(i32),
-    ConstBool(bool),
     Counter((VariableSignalType, Box<Expression>)),
     Register(u16),
 }
@@ -213,8 +210,6 @@ impl VariableType {
             VariableType::Int(_) => "int".to_string(),
             VariableType::Var(_) => "var".to_string(),
             VariableType::Many => "many".to_string(),
-            VariableType::ConstInt(n) => format!("{n}"),
-            VariableType::ConstBool(b) => format!("{b}"),
             VariableType::Counter(_) => "counter".to_string(),
             VariableType::Register(_) => "register".to_string(),
         }
@@ -226,8 +221,6 @@ impl VariableType {
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Var(_) => ExpressionReturnType::Int,
             VariableType::Many => ExpressionReturnType::Many,
-            VariableType::ConstInt(_) => ExpressionReturnType::Int,
-            VariableType::ConstBool(_) => ExpressionReturnType::Bool,
             VariableType::Counter(_) => ExpressionReturnType::Int,
             VariableType::Register(_) => ExpressionReturnType::Many,
         }
@@ -239,8 +232,6 @@ impl VariableType {
             VariableType::Int(s) => Some(s),
             VariableType::Var(s) => Some(s),
             VariableType::Many => None,
-            VariableType::ConstInt(_) => None,
-            VariableType::ConstBool(_) => None,
             VariableType::Counter((s, _lim)) => Some(s),
             VariableType::Register(_) => None,
         }
@@ -777,8 +768,6 @@ impl Display for VariableType {
                 VariableSignalType::Signal(n) => format!("Counter({n})"),
                 VariableSignalType::Any => "Counter(Any)".to_string(),
             },
-            VariableType::ConstInt(_) => "ConstInt".to_string(),
-            VariableType::ConstBool(_) => "ConstBool".to_string(),
             VariableType::Many => "Many".to_string(),
             VariableType::Register(n) => format!("Register({n})"),
         };
