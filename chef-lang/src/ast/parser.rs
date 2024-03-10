@@ -1324,7 +1324,7 @@ impl Parser {
         let err_span = TextSpan::from_spans(&start_span, &self.peak(-1).span);
 
         let mut block = ast
-            .get_block(&def.name)
+            .get_block(&def.name, None)
             .ok_or(CompilationError::new_localized(
                 &format!("Block '{}' was not defined by generated code.", def.name),
                 err_span.clone(),

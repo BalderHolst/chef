@@ -122,11 +122,11 @@ impl GraphCompiler {
     }
 
     pub fn compile(&mut self) -> Result<Graph, CompilationError> {
-        for block in self.ast.blocks.clone() {
-            let block_graph = self.compile_block(&block)?;
-            self.add_block_graph(block.name.clone(), block_graph);
-        }
-        self.get_graph()
+        // for block in self.ast.blocks.clone() {
+        //     let block_graph = self.compile_block(&block)?;
+        //     self.add_block_graph(block.name.clone(), block_graph);
+        // }
+        self.get_graph("main", None)
     }
 
     fn compile_block(&mut self, block: &Block) -> Result<Graph, CompilationError> {
@@ -554,11 +554,12 @@ impl GraphCompiler {
             args.push((arg_nid, arg_type));
         }
 
-        let block_graph = self.get_block_graph(&block_link_expr.block.name).expect(
-            "Block should be defined if a BlockLinkExpression exists. This is probably a parser bug.",
-        );
+        let block_graph = self.get_graph(
+            &block_link_expr.block.name,
+            block_link_expr.block.dyn_block_id,
+        )?;
 
-        let outputs = match graph.stitch_graph(block_graph, args) {
+        let outputs = match graph.stitch_graph(&block_graph, args) {
             Ok(v) => v,
             Err(e) => {
                 panic!("Errored in stitch_graph: {}.", e) // TODO: handle correctly
@@ -642,14 +643,31 @@ impl GraphCompiler {
         }
     }
 
-    pub fn get_graph(&self) -> Result<Graph, CompilationError> {
-        match self.block_graphs.get("main") {
+    pub fn get_graph(&mut self, name: &str, id: Option<usize>) -> Result<Graph, CompilationError> {
+        match self.get_block_graph(name) {
             Some(g) => Ok(g.clone()),
             None => match self.ast.blocks.is_empty() {
                 true => Err(CompilationError::new_generic("No statements in program.")),
-                false => Err(CompilationError::new_generic(
-                    "No `main` block found. All chef programs must have a `main` block.",
-                )),
+                false => {
+                    // TODO: Do something about the clone??
+                    let block = self
+                        .ast
+                        .get_block(name, id)
+                        .expect(&format!(
+                            "Block '{name}' should exist. This is probably a parser bug."
+                        ))
+                        .clone();
+
+                    let block_graph = self.compile_block(&block)?;
+
+                    self.add_block_graph(name.to_string(), block_graph);
+
+                    // TODO: Another expensive clone
+                    Ok(self
+                        .get_block_graph(name)
+                        .expect("We just added it.")
+                        .clone())
+                }
             },
         }
     }
@@ -658,7 +676,7 @@ impl GraphCompiler {
         self.block_graphs.insert(name, graph);
     }
 
-    fn get_block_graph(&mut self, name: &String) -> Option<&Graph> {
+    fn get_block_graph(&mut self, name: &str) -> Option<&Graph> {
         self.block_graphs.get(name)
     }
 

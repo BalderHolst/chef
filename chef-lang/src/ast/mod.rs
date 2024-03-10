@@ -137,10 +137,10 @@ impl AST {
         self.blocks.push(block);
     }
 
-    pub fn get_block(&self, name: &str) -> Option<&Block> {
+    pub fn get_block(&self, name: &str, id: Option<usize>) -> Option<&Block> {
         self.blocks
             .iter()
-            .find(|b| b.name == name && b.dyn_block_id == b.dyn_block_id)
+            .find(|b| b.name == name && b.dyn_block_id == id)
     }
 
     /// Print the [AST] to stout.
