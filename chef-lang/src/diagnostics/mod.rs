@@ -9,7 +9,6 @@ use crate::text::{SourceText, TextSpan};
 use crate::the_chef;
 
 use std::cell::RefCell;
-use std::process::{ExitCode, Termination};
 use std::rc::Rc;
 
 pub type CompilationResult<T> = std::result::Result<T, CompilationError>;
@@ -18,13 +17,6 @@ pub type CompilationResult<T> = std::result::Result<T, CompilationError>;
 pub struct CompilationError {
     pub desctiption: String,
     pub span: Option<TextSpan>,
-}
-
-impl Termination for CompilationError {
-    fn report(self) -> ExitCode {
-        eprintln!("{}", self.desctiption);
-        1.into()
-    }
 }
 
 impl CompilationError {
@@ -51,6 +43,11 @@ impl CompilationError {
     pub fn new_unexpected_token(token: Token, expected: TokenKind) -> Self {
         let desctiption = format!("Expected `{}` but found `{}`.", expected, token.kind);
         Self::new_localized(desctiption, token.span)
+    }
+
+    // TODO: Move implementation in diagnostic printer here
+    pub fn stringify(&self) -> &str {
+        &self.desctiption
     }
 }
 

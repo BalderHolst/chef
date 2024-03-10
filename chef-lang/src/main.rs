@@ -1,6 +1,6 @@
-use std::env;
 use std::process::exit;
 use std::rc::Rc;
+use std::{env, process::ExitCode};
 
 use ast::AST;
 use clap::Parser;
@@ -26,7 +26,7 @@ mod tests;
 pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
     let path = &cook_opts.file;
 
-    let text = SourceText::from_file(path, opts.clone()).unwrap();
+    let text = SourceText::from_file(path, opts.clone())?;
     let text = Rc::new(text);
 
     let diagnostics_bag: DiagnosticsBagRef = DiagnosticsBag::new_ref(opts.clone(), text.clone());
@@ -100,7 +100,7 @@ fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) -> CompilationResult<()> {
     Ok(())
 }
 
-fn main() -> CompilationResult<()> {
+fn run() -> CompilationResult<()> {
     let opts = Rc::new(Opts::parse());
 
     match &opts.command {
@@ -121,5 +121,15 @@ fn main() -> CompilationResult<()> {
                 Ok(())
             }
         },
+    }
+}
+
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("{}", e.stringify());
+            ExitCode::FAILURE
+        }
     }
 }
