@@ -2,6 +2,8 @@
 
 use std::cmp::min;
 use std::collections::{HashMap, VecDeque};
+use std::fs;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::ast::lexer::{Token, TokenKind};
@@ -15,8 +17,8 @@ use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
 use super::{
-    Block, BlockLinkExpression, DeclarationDefinition, PickExpression, VariableRef,
-    VariableSignalType,
+    Block, BlockArg, BlockLinkArg, BlockLinkArgs, BlockLinkExpression, DeclarationDefinition,
+    DynBlock, PickExpression, VariableRef, VariableSignalType,
 };
 use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement};
 
@@ -42,6 +44,7 @@ enum Constant {
 
 enum Directive {
     Block(Block),
+    DynBlock(DynBlock),
     Constant,
     Unknown,
 }
@@ -53,6 +56,7 @@ pub struct Parser {
     tokens: Vec<Token>,
     cursor: usize,
     scopes: Vec<HashMap<String, ScopedItem>>,
+    dynamic_blocks: Vec<DynBlock>,
     blocks: Vec<Rc<Block>>,
     diagnostics_bag: DiagnosticsBagRef,
     options: Rc<Opts>,
@@ -72,6 +76,7 @@ impl Parser {
             cursor: 0,
             scopes: vec![HashMap::new()],
             blocks: vec![],
+            dynamic_blocks: vec![],
             diagnostics_bag,
             options,
             next_blocks: VecDeque::new(),
@@ -91,6 +96,7 @@ impl Parser {
             cursor: 0,
             scopes: vec![HashMap::new()],
             blocks: vec![],
+            dynamic_blocks: vec![],
             diagnostics_bag,
             options,
             next_blocks: VecDeque::new(),
@@ -126,6 +132,21 @@ impl Parser {
         self.peak(-1)
     }
 
+    fn consume_until(&mut self, token_kind: &TokenKind) -> &Token {
+        loop {
+            let current = self.current().kind.clone();
+
+            if current == *token_kind {
+                break;
+            } else if current == TokenKind::End {
+                break;
+            }
+            self.consume();
+        }
+
+        self.consume() // Consume and return ending token
+    }
+
     /// Comsume a token and expect it to be a word. Return the word as a slice.
     fn consume_word(&mut self) -> CompilationResult<&str> {
         let token = self.consume();
@@ -159,13 +180,13 @@ impl Parser {
     }
 
     /// Consume and error if the token is not what was expected.
-    fn consume_and_expect(&mut self, expected: TokenKind) -> Result<TokenKind, CompilationError> {
+    fn consume_and_expect(&mut self, expected: TokenKind) -> Result<Token, CompilationError> {
         let token = self.consume().clone();
         let is_correct = token.kind == expected;
         if !is_correct {
             Err(CompilationError::new_unexpected_token(token, expected))
         } else {
-            Ok(token.kind)
+            Ok(token)
         }
     }
 
@@ -188,6 +209,17 @@ impl Parser {
         for block in &self.blocks {
             if block.name.as_str() == name {
                 return Some(block.clone());
+            }
+        }
+        None
+    }
+
+    /// Search for a dynamic block by name.
+    fn search_dynamic_blocks(&self, name: &str) -> Option<DynBlock> {
+        println!("searching for dynamic block: {}", name);
+        for dyn_block in &self.dynamic_blocks {
+            if dyn_block.name.as_str() == name {
+                return Some(dyn_block.clone());
             }
         }
         None
@@ -252,6 +284,21 @@ impl Parser {
                     let block = self.parse_block()?;
                     self.blocks.push(Rc::new(block.clone()));
                     Ok(Directive::Block(block))
+                }
+                "dyn" => {
+                    self.consume(); // Consume "dyn" word
+                    if self.consume_word()? != "block" {
+                        return Err(CompilationError::new_localized(
+                            "`dyn` keywork can only be followed by `block`.",
+                            start_token.span.clone(),
+                        ));
+                    }
+
+                    let dyn_block = self.parse_dyn_block()?;
+
+                    self.dynamic_blocks.push(dyn_block.clone());
+
+                    Ok(Directive::DynBlock(dyn_block))
                 }
                 "import" => {
                     let blocks = self.parse_import()?;
@@ -576,45 +623,130 @@ impl Parser {
         }
     }
 
+    fn parse_literal_block_link_argument(&mut self) -> Result<TextSpan, CompilationError> {
+        let start_token = self.current().clone();
+
+        println!("  literal start: {:?}", self.current().kind);
+
+        loop {
+            let current = self.current();
+
+            println!("  literal current: {:?}", current.kind);
+
+            match &current.kind {
+                TokenKind::LeftCurly => {
+                    self.consume_until(&TokenKind::RightCurly);
+                }
+                TokenKind::LeftSquare => {
+                    self.consume_until(&TokenKind::RightSquare);
+                    println!("DONE");
+                }
+                TokenKind::Comma | TokenKind::RightParen => {
+                    break;
+                }
+                TokenKind::End => {
+                    return Err(CompilationError::new_localized(
+                        "Runaway literal.",
+                        TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
+                    ))
+                }
+                _ => {
+                    self.consume();
+                }
+            }
+        }
+
+        let span = TextSpan::from_spans(&start_token.span, &self.peak(-1).span);
+
+        Ok(span)
+    }
+
     /// Parse arguments for `block` definition.
-    fn parse_block_arguments(&mut self) -> Result<Vec<Rc<Variable>>, CompilationError> {
-        let mut arguments: Vec<Rc<Variable>> = vec![];
-        while self.current().kind != TokenKind::RightParen {
+    fn parse_block_arguments(&mut self) -> CompilationResult<Vec<BlockArg>> {
+        let mut arguments: Vec<BlockArg> = vec![];
+        while !matches!(self.current().kind, TokenKind::RightParen | TokenKind::End) {
             let var_span = self.current().span.clone();
-            let var = match self.parse_variable()? {
-                ParsedVariable::Dec(v) => Ok(v),
+
+            let block_arg = match self.parse_variable() {
+                Ok(ParsedVariable::Dec(v)) => Ok(BlockArg::Var(Rc::new(v))),
 
                 // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
-                ParsedVariable::Ref(_) => Err(CompilationError::new_localized(
+                Ok(ParsedVariable::Ref(_)) => Err(CompilationError::new_localized(
                     "Please give variable a type.".to_string(),
                     var_span,
                 )),
 
-                ParsedVariable::Const(_) => Err(CompilationError::new_localized(
+                Ok(ParsedVariable::Const(_)) => Err(CompilationError::new_localized(
                     "Constants cannot be block inputs.".to_string(),
                     var_span,
                 )),
+
+                // Parse literal
+                Err(_) => {
+                    let name = self.consume_word()?.to_string();
+                    self.consume_and_expect(TokenKind::Colon)?;
+                    let type_ = self.consume_word()?.to_string();
+
+                    if &type_ != "lit" {
+                        return Err(CompilationError::new_localized(
+                            format!("Invalid type '{}'.", type_),
+                            TextSpan::from_spans(&var_span, &self.peak(-1).span),
+                        ));
+                    }
+                    Ok(BlockArg::Literal(name))
+                }
             }?;
-            let var_ref = Rc::new(var);
-            self.add_var_to_scope(var_ref.clone());
-            arguments.push(var_ref);
+
             self.consume_if(TokenKind::Comma);
+
+            match &block_arg {
+                BlockArg::Var(v) => {
+                    self.add_var_to_scope(v.clone());
+                }
+                _ => {}
+            }
+
+            arguments.push(block_arg);
         }
         Ok(arguments)
     }
 
-    /// Parse arguments for `block` links.
-    fn parse_block_link_arguments(&mut self) -> Result<Vec<Expression>, CompilationError> {
-        let mut inputs: Vec<Expression> = vec![];
+    fn parse_block_link_arguments(&mut self) -> CompilationResult<Vec<Expression>> {
+        let args = self.parse_dyn_block_link_arguments()?;
+        let mut inputs = vec![];
+        for arg in args {
+            match arg {
+                BlockLinkArg::Expr(e) => inputs.push(e),
+                BlockLinkArg::Literal(span) => {
+                    return Err(CompilationError::new_localized(
+                        "Literal arguments are only allowed in dynamic block links.".to_string(),
+                        span,
+                    ))
+                }
+            }
+        }
+        Ok(inputs)
+    }
+
+    fn parse_dyn_block_link_arguments(&mut self) -> CompilationResult<Vec<BlockLinkArg>> {
+        let mut inputs: Vec<BlockLinkArg> = vec![];
         self.consume_and_expect(TokenKind::LeftParen)?;
         loop {
-            if self.current().kind == TokenKind::Comma {
-                self.consume();
+            println!("current: {:?}", self.current().kind);
+
+            match self.parse_expression() {
+                Ok(expr) => inputs.push(BlockLinkArg::Expr(expr)),
+                Err(e) => match self.parse_literal_block_link_argument() {
+                    Ok(lit) => inputs.push(BlockLinkArg::Literal(lit)),
+                    Err(_) => return Err(e),
+                },
             }
-            if self.current().kind == TokenKind::RightParen {
+
+            self.consume_if(TokenKind::Comma);
+
+            if matches!(self.current().kind, TokenKind::RightParen | TokenKind::End) {
                 break;
             }
-            inputs.push(self.parse_expression()?);
         }
         self.consume_and_expect(TokenKind::RightParen)?;
         Ok(inputs)
@@ -641,7 +773,7 @@ impl Parser {
 
         let file_token = self.consume().clone();
 
-        if let TokenKind::Literal(file) = &file_token.kind {
+        if let TokenKind::StringLiteral(file) = &file_token.kind {
             let text = SourceText::from_file(file, self.options.clone())?;
             let text = Rc::new(text);
 
@@ -657,7 +789,7 @@ impl Parser {
         } else {
             Err(CompilationError::new_unexpected_token(
                 file_token.clone(),
-                TokenKind::Literal("path".to_string()),
+                TokenKind::StringLiteral("path".to_string()),
             ))
         }
     }
@@ -693,6 +825,140 @@ impl Parser {
 
         self.enter_scope();
 
+        let (block_name, input_args, outputs) = self.parse_block_signature()?;
+
+        let mut inputs = vec![];
+        for arg in input_args {
+            match arg {
+                BlockArg::Var(v) => inputs.push(v),
+                BlockArg::Literal(_) => {
+                    return Err(CompilationError::new_localized(
+                        "Only dynamic blocks can have literal inputs".to_string(),
+                        start_token.span.clone(),
+                    ))
+                }
+            }
+        }
+
+        let statements = self.parse_statement_list()?;
+
+        Ok(Block::new(
+            block_name,
+            inputs,
+            outputs,
+            statements,
+            TextSpan {
+                start: start_token.span.start,
+                end: self.peak(-1).span.end,
+                text: start_token.span.text,
+            },
+        ))
+    }
+
+    fn parse_dyn_block(&mut self) -> CompilationResult<DynBlock> {
+        let start_token = self.current().clone();
+
+        self.enter_scope();
+
+        let (block_name, inputs, outputs) = self.parse_block_signature()?;
+
+        let dyn_block = match self.current().kind {
+            // Use external script
+            TokenKind::LessThan => {
+                self.consume(); // Consume "<" token
+                let path = self.consume_word()?.to_string();
+                let path = PathBuf::from(path);
+                self.consume_and_expect(TokenKind::LargerThan)?;
+                DynBlock::new(
+                    block_name,
+                    inputs,
+                    outputs,
+                    path,
+                    TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
+                    self.options.clone(),
+                )
+            }
+
+            _ => {
+                // We use the end of '{' token as start of the source, to include the beginning white space
+                let code_start = self.consume_and_expect(TokenKind::LeftCurly)?.span.end;
+
+                // Consume code tokens
+                while !matches!(self.current().kind, TokenKind::RightCurly | TokenKind::End) {
+                    self.consume();
+                }
+
+                let code_end = self.peak(-1).span.end;
+
+                // consume '}'
+                self.consume();
+
+                let tmp_dir = std::env::temp_dir().join("chef");
+                let _ = fs::create_dir(&tmp_dir);
+
+                let python_file_path = tmp_dir.join(format!("{}.py", block_name));
+
+                let source = start_token.span.text.text();
+                let code_text = &source[code_start..code_end];
+
+                // get amount of leading white space in the first (non empty) line
+                let leading_whitespace = code_text
+                    .lines()
+                    .filter(|line| !line.is_empty())
+                    .next()
+                    .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
+                    .unwrap_or(0);
+
+                let mut code = String::new();
+                for (n, line) in code_text.lines().enumerate() {
+                    if line.chars().all(|c| c.is_whitespace()) {
+                        code.push('\n');
+                    } else if line
+                        .chars()
+                        .take(leading_whitespace)
+                        .all(|c| c.is_whitespace())
+                    {
+                        code = code + &line[leading_whitespace..] + "\n";
+                    } else {
+                        return Err(CompilationError::new_localized(
+                            format!("Not enough whitespace in front of line {}.", n),
+                            TextSpan {
+                                start: code_start,
+                                end: code_end,
+                                text: self.current().span.text.clone(),
+                            },
+                        ));
+                    }
+                }
+
+                let block_span = TextSpan::from_spans(&start_token.span, &self.peak(-1).span);
+
+                fs::write(&python_file_path, code).map_err(|e| {
+                    CompilationError::new_localized(
+                        format!("Could not write to file: {}", e),
+                        block_span.clone(),
+                    )
+                })?;
+
+                DynBlock::new(
+                    block_name,
+                    inputs,
+                    outputs,
+                    python_file_path,
+                    TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
+                    self.options.clone(),
+                )
+            }
+        };
+
+        self.exit_scope();
+
+        Ok(dyn_block)
+    }
+
+    fn parse_block_signature(
+        &mut self,
+    ) -> CompilationResult<(String, Vec<BlockArg>, Vec<Rc<Variable>>)> {
         let block_name: String = if let TokenKind::Word(s) = &self.consume().kind {
             s.clone()
         } else {
@@ -706,27 +972,41 @@ impl Parser {
         let inputs = self.parse_block_arguments()?;
         self.consume_and_expect(TokenKind::RightParen)?;
 
-        self.consume_and_expect(TokenKind::RightFatArrow)?;
+        let outputs_start_span = self.current().span.clone();
 
-        self.consume_and_expect(TokenKind::LeftParen)?;
-        let outputs = self.parse_block_arguments()?;
-        self.consume_and_expect(TokenKind::RightParen)?;
+        // Blocks can be defined without outputs
+        let outputs = match self.current().kind {
+            TokenKind::RightFatArrow => {
+                self.consume();
+                self.consume_and_expect(TokenKind::LeftParen)?;
+                let outputs = self.parse_block_arguments()?;
 
-        let statements = self.parse_statement_list()?;
+                let mut vars = vec![];
+                for output in outputs {
+                    match output {
+                        BlockArg::Var(v) => vars.push(v),
+                        BlockArg::Literal(_) => {
+                            return Err(CompilationError::new_localized(
+                                "Block outputs can not contain literals.".to_string(),
+                                TextSpan::from_spans(&outputs_start_span, &self.peak(-1).span),
+                            ))
+                        }
+                    }
+                }
 
-        self.exit_scope();
+                self.consume_and_expect(TokenKind::RightParen)?;
+                vars
+            }
+            TokenKind::LeftCurly => vec![],
+            _ => {
+                return Err(CompilationError::new_localized(
+                    "Expected '=>' or '{' after block name.".to_string(),
+                    self.peak(-1).span.clone(),
+                ))
+            }
+        };
 
-        Ok(Block::new(
-            block_name,
-            inputs,
-            outputs,
-            statements,
-            TextSpan {
-                start: start_token.span.start,
-                end: self.peak(-1).span.end,
-                text: start_token.span.text,
-            },
-        ))
+        Ok((block_name, inputs, outputs))
     }
 
     /// Parse chef expression.
@@ -886,11 +1166,18 @@ impl Parser {
                         let span = self.get_span_from(&start_token.span);
                         Expression { kind, span }
                     })
+                } else if let Some(dyn_block) = self.search_dynamic_blocks(word) {
+                    println!("Found dyn block: {}", word);
+                    let block_link_expr = self.parse_dyn_block_link(dyn_block)?;
+                    Ok({
+                        let kind = ExpressionKind::BlockLink(block_link_expr);
+                        let span = self.get_span_from(&start_token.span);
+                        Expression { kind, span }
+                    })
                 } else {
-                    self.diagnostics_bag.borrow_mut().report_error(
-                        &start_token.span,
-                        &format!("Variable `{}` not defined.", word),
-                    );
+                    self.diagnostics_bag
+                        .borrow_mut()
+                        .report_error(&start_token.span, &format!("`{}` not defined.", word));
                     Ok({
                         let kind = ExpressionKind::Error;
                         let span = self.get_span_from(&start_token.span);
@@ -949,6 +1236,18 @@ impl Parser {
             kind: expr_kind,
             span,
         })
+    }
+
+    fn parse_dyn_block_link(
+        &mut self,
+        dyn_block: DynBlock,
+    ) -> Result<BlockLinkExpression, CompilationError> {
+        let start = self.peak(-1).span.start;
+        let inputs = self.parse_dyn_block_link_arguments()?;
+        dbg!(&inputs[1].span().text());
+        let end = self.current().span.clone();
+
+        todo!()
     }
 
     /// Parse a chef block link.

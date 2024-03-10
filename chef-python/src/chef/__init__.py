@@ -1,16 +1,42 @@
 import chef
+import sys
 
 chef.current_block = None
 chef.compound_statement_stack = []
 chef.indentation = 0
+
+class ChefMacroError(Exception): pass
 
 class Variable:
     def __init__(self, name: str, type: str) -> None:
         self.name = name
         self.type = type
 
+    @classmethod
+    def from_string(cls, s: str):
+        name, type = s.split(":")
+        name = name.strip()
+        type = type.strip()
+
+        if type == "int": return Int(name)
+        elif type == "bool": return Bool(name)
+        elif type == "many": return Many(name)
+        elif type.startswith("counter"):
+            type = type.split("(")[1].split(")")[0]
+            type, limit = type.split(":")
+            return Counter(name, type, int(limit))
+        elif type.startswith("int"):
+            item = type.split("(")[1].split(")")[0]
+            return Int(name, item)
+        elif type.startswith("bool"):
+            item = type.split("(")[1].split(")")[0]
+            return Bool(name, item)
+
+        return None
+
     @property
     def definition(self) -> str:
+
         return f"{self.name}: {self.type}"
 
     def __repr__(self) -> str:
@@ -82,6 +108,24 @@ class Block:
         chef.indentation -= 1
         return s
 
+class DynBlock(Block):
+    def __init__(self) -> None:
+
+        input_vars = []
+        for var in INPUTS.values():
+            if isinstance(var, Variable):
+                input_vars.append(var)
+
+        output_vars = []
+        for var in OUTPUTS.values():
+            if isinstance(var, Variable):
+                output_vars.append(var)
+
+        if not NAME:
+            raise ChefMacroError("Name for dynanic block mut be provided through command line arguments.")
+
+        super().__init__(NAME, input_vars, output_vars)
+
 class CompoundStatement:
     """Generic class inherited by compound statements."""
     def __init__(self) -> None:
@@ -152,5 +196,45 @@ def statement(s, semicolon: bool = True):
         chef.compound_statement_stack.pop()
         chef.current_block.statements.append(s)
 
+def parse_string_args(s: str) -> dict:
+    vars = {}
+    for arg in s.split(";"):
+        var_name, var_type = arg.split(":")
+
+        var_name = var_name.strip()
+        var_type = var_type.strip()
+
+        var = Variable.from_string(arg)
+
+        if not var:
+            var = eval(var_type)
+
+        vars[var_name] = var
+
+    return vars
+
+def get_input_output() -> tuple[str, dict, dict]:
+    """Get inputs from the command line."""
+
+    if len(sys.argv) <= 1: return (None, {}, {})
+
+    name = sys.argv[1].strip()
+
+    if len(sys.argv) <= 2: return (name, {}, {})
+    input_string = sys.argv[2]
+
+    inputs = parse_string_args(input_string)
+
+    if len(sys.argv) <= 3: return (name, inputs, {})
+
+    output_string = sys.argv[3]
+    outputs = parse_string_args(output_string)
+
+    return (name, inputs, outputs)
+
+
+NAME, INPUTS, OUTPUTS = get_input_output()
+
 if __name__ == "__main__":
     pass
+

@@ -20,6 +20,8 @@ pub struct Opts {
 
     #[command(subcommand)]
     pub(crate) command: Command,
+
+    pub(crate) tmp_dir: Option<String>,
 }
 
 #[cfg(test)]
@@ -37,6 +39,7 @@ impl Opts {
             verbose: true,
             command,
             python: None,
+            tmp_dir: None,
         }
     }
 }

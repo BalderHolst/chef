@@ -11,7 +11,7 @@ use crate::text::{SourceText, TextSpan};
 pub enum TokenKind {
     Number(u16),
     Word(String),
-    Literal(String),
+    StringLiteral(String),
     Plus,
     PlusEquals,
     Minus,
@@ -77,7 +77,7 @@ impl Display for TokenKind {
         let string_rep = match self {
             TokenKind::Number(_) => "number",
             TokenKind::Word(_) => "word",
-            TokenKind::Literal(_) => "literal",
+            TokenKind::StringLiteral(_) => "literal",
             TokenKind::Plus => "+",
             TokenKind::PlusEquals => "+=",
             TokenKind::Minus => "-",
@@ -414,7 +414,7 @@ impl Lexer {
             text.push(c)
         }
 
-        TokenKind::Literal(text)
+        TokenKind::StringLiteral(text)
     }
 
     fn consume_word(&mut self) -> TokenKind {
@@ -536,7 +536,7 @@ this is a "literal"
         TokenKind::Whitespace,
         TokenKind::Word("a".to_string()),
         TokenKind::Whitespace,
-        TokenKind::Literal("literal".to_string()),
+        TokenKind::StringLiteral("literal".to_string()),
         TokenKind::Whitespace,
         TokenKind::End,
     ];

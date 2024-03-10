@@ -1,10 +1,11 @@
 //! Module for lexing and parsing chef source code into an abstract syntax tree and checking for errors.
 
 use std::fmt::Display;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::ast::visitors::Visitor;
-use crate::diagnostics::DiagnosticsBagRef;
+use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBagRef};
 use crate::text::{SourceText, TextSpan};
 use crate::Opts;
 
@@ -44,6 +45,49 @@ impl Block {
             statements,
             span,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DynBlock {
+    pub name: String,
+    pub inputs: Vec<BlockArg>,
+    pub outputs: Vec<Rc<Variable>>,
+    pub script_path: PathBuf,
+    pub span: TextSpan,
+    pub opts: Rc<Opts>,
+}
+
+impl DynBlock {
+    fn new(
+        name: String,
+        inputs: Vec<BlockArg>,
+        outputs: Vec<Rc<Variable>>,
+        script_path: PathBuf,
+        span: TextSpan,
+        opts: Rc<Opts>,
+    ) -> Self {
+        Self {
+            name,
+            inputs,
+            outputs,
+            script_path,
+            span,
+            opts,
+        }
+    }
+
+    fn evaluate(&self) -> CompilationResult<Block> {
+        let text = python_macro::run_python_import(
+            self.opts.clone(),
+            Some(self.span.clone()),
+            self.script_path.to_str().unwrap(),
+            todo!(),
+            todo!(),
+            todo!(),
+        )?;
+
+        todo!()
     }
 }
 
@@ -208,6 +252,48 @@ pub enum VariableSignalType {
 }
 
 pub type VariableId = usize;
+
+#[derive(Debug, Clone)]
+struct BlockLinkArgs {
+    args: Vec<BlockLinkArg>,
+}
+
+impl BlockLinkArgs {
+    fn new() -> Self {
+        Self { args: vec![] }
+    }
+
+    fn from_vec(args: Vec<BlockLinkArg>) -> Self {
+        Self { args }
+    }
+
+    fn add(&mut self, arg: BlockLinkArg) {
+        self.args.push(arg);
+    }
+}
+
+/// An argument to a block definition.
+#[derive(Debug, Clone)]
+enum BlockArg {
+    Var(Rc<Variable>),
+    Literal(String),
+}
+
+/// An argument to a block link.
+#[derive(Debug, Clone)]
+enum BlockLinkArg {
+    Expr(Expression),
+    Literal(TextSpan),
+}
+
+impl BlockLinkArg {
+    fn span(&self) -> &TextSpan {
+        match self {
+            Self::Expr(expr) => &expr.span,
+            Self::Literal(span) => &span,
+        }
+    }
+}
 
 /// A chef variable.
 #[derive(Debug, Clone, PartialEq)]

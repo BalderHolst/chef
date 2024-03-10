@@ -6,6 +6,7 @@ use std::{
 };
 
 use crate::{
+    ast::Variable,
     cli::Opts,
     diagnostics::{CompilationError, CompilationResult},
     text::{SourceText, TextSpan},
@@ -33,11 +34,20 @@ fn find_python() -> Option<PathBuf> {
     find_executable("python3").or(find_executable("python"))
 }
 
+struct MacroArgs {
+    name: String,
+    inputs: Vec<Rc<Variable>>,
+    outputs: Vec<Rc<Variable>>,
+}
+
 /// Run a python script and return the output as a chef source code
 pub(crate) fn run_python_import(
     opts: Rc<Opts>,
     span: Option<TextSpan>,
     path: &str,
+    name: Option<String>,
+    inputs: Option<String>,
+    outputs: Option<String>,
 ) -> CompilationResult<SourceText> {
     let python = match &opts.python {
         Some(default_python) => default_python.clone(),
@@ -47,19 +57,37 @@ pub(crate) fn run_python_import(
         },
     };
 
-    if opts.verbose {
-        println!("Running external command: `{python} {path}`")
-    }
+    let name = match name {
+        Some(name) => name,
+        None => "".to_string(),
+    };
+
+    let inputs = match inputs {
+        Some(inputs) => inputs,
+        None => "".to_string(),
+    };
+
+    let outputs = match outputs {
+        Some(outputs) => outputs,
+        None => "".to_string(),
+    };
+
+    let name = format!("\"{}\"", name);
+    let inputs = format!("\"{}\"", inputs);
+    let outputs = format!("\"{}\"", outputs);
 
     let output = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args([&python, &path.to_string()])
+            .args([&python, &path.to_string(), &name, &inputs, &outputs])
             .output()
     } else {
-        Command::new("sh")
-            .arg("-c")
-            .arg(python + " " + path)
-            .output()
+        let cmd = python + " " + path + " " + &name + " " + &inputs + " " + &outputs;
+
+        if opts.verbose {
+            println!("Running external command: `{cmd}`")
+        }
+
+        Command::new("sh").arg("-c").arg(cmd).output()
     }
     .map_err(|e| {
         let message = format!("Failed to execute external macro command : {e}");

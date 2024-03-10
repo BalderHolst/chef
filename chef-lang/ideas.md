@@ -7,7 +7,7 @@ chef cook <file>
 ```
 This will copy the blueprint to your clipboard, and show a rough sketch of the layout in the terminal.
 
-## Simulatoin
+## Simulation
 Simulate a chef program.
 ```bash
 chef simulate <file>
