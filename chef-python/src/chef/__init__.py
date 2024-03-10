@@ -197,9 +197,14 @@ def statement(s, semicolon: bool = True):
         chef.current_block.statements.append(s)
 
 def parse_string_args(s: str) -> dict:
+
+    if s == "": return {}
+
     vars = {}
     for arg in s.split(";"):
-        var_name, var_type = arg.split(":")
+        parts = arg.split(":")
+
+        var_name, var_type = parts
 
         var_name = var_name.strip()
         var_type = var_type.strip()

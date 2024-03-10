@@ -30,7 +30,7 @@ def parent(path: str, n=1):
 
 GIT_DIR = parent(__file__, 2)
 PYTHON_PACKAGE_DIR = GIT_DIR + "/chef-python"
-EXAMPLES_DIR = PYTHON_PACKAGE_DIR + "/examples"
+INCLUDE_TESTS = PYTHON_PACKAGE_DIR + "/test/includes"
 CHEF_RUST_DIR = GIT_DIR + "/chef-lang"
 CHEF_EXE = CHEF_RUST_DIR + "/target/debug/chef"
 
@@ -42,10 +42,10 @@ subprocess.run(
 print()
 
 info("Compiling examples:")
-for example in os.listdir(EXAMPLES_DIR):
+for example in os.listdir(INCLUDE_TESTS):
     print(f"    {example} ... ", end="")
     out = subprocess.run(
-        [CHEF_EXE, "cook", f"{EXAMPLES_DIR}/{example}"],
+        [CHEF_EXE, "cook", f"{INCLUDE_TESTS}/{example}"],
         capture_output=True,
         env={
             'PYTHONPATH': f"{PYTHON_PACKAGE_DIR}/src",
