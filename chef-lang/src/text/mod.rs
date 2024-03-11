@@ -49,7 +49,7 @@ pub struct SourceText {
 impl SourceText {
     pub fn from_file(path: &str, opts: Rc<Opts>) -> CompilationResult<Self> {
         if path.ends_with(".py") {
-            return run_python_import(opts, None, path, None, None, None);
+            return run_python_import(opts, None, path, None, None);
         };
 
         let text = fs::read_to_string(path).map_err(|e| {

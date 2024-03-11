@@ -53,8 +53,7 @@ impl Block {
 #[derive(Debug, Clone)]
 pub struct DynBlock {
     pub name: String,
-    pub inputs: Vec<BlockArg>,
-    pub outputs: Vec<Rc<Variable>>,
+    pub inputs: Vec<DynBlockArg>,
     pub script_path: PathBuf,
     pub span: TextSpan,
     pub opts: Rc<Opts>,
@@ -63,8 +62,7 @@ pub struct DynBlock {
 impl DynBlock {
     fn new(
         name: String,
-        inputs: Vec<BlockArg>,
-        outputs: Vec<Rc<Variable>>,
+        inputs: Vec<DynBlockArg>,
         script_path: PathBuf,
         span: TextSpan,
         opts: Rc<Opts>,
@@ -72,7 +70,6 @@ impl DynBlock {
         Self {
             name,
             inputs,
-            outputs,
             script_path,
             span,
             opts,
@@ -255,7 +252,7 @@ pub type VariableId = usize;
 
 /// An argument to a block definition.
 #[derive(Debug, Clone)]
-pub enum BlockArg {
+pub enum DynBlockArg {
     Var(Rc<Variable>),
     Literal(String),
 }

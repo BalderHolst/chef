@@ -17,12 +17,14 @@ use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
 use super::{
-    Block, BlockArg, BlockLinkArg, BlockLinkExpression, DeclarationDefinition, DynBlock,
+    Block, BlockLinkArg, BlockLinkExpression, DeclarationDefinition, DynBlock, DynBlockArg,
     PickExpression, VariableRef, VariableSignalType,
 };
 use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement};
 
 const MACRO_ARG_SEP: &str = "; ";
+
+type BlockArgs = Vec<Rc<Variable>>;
 
 // TODO: Add example
 /// A list of statements with an optional return expression at its end.
@@ -669,15 +671,46 @@ impl Parser {
     }
 
     /// Parse arguments for `block` definition.
-    fn parse_block_arguments(&mut self) -> CompilationResult<Vec<BlockArg>> {
-        let mut arguments: Vec<BlockArg> = vec![];
+    fn parse_block_arguments(&mut self) -> CompilationResult<Vec<Rc<Variable>>> {
+        let mut arguments: Vec<Rc<Variable>> = vec![];
+
+        while !matches!(self.current().kind, TokenKind::RightParen | TokenKind::End) {
+            let var_span = self.current().span.clone();
+
+            let arg = match self.parse_variable()? {
+                ParsedVariable::Dec(v) => Ok(Rc::new(v)),
+
+                // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
+                ParsedVariable::Ref(_) => Err(CompilationError::new_localized(
+                    "Please give variable a type.".to_string(),
+                    var_span,
+                )),
+
+                ParsedVariable::Const(_) => Err(CompilationError::new_localized(
+                    "Constants cannot be block inputs.".to_string(),
+                    var_span,
+                )),
+            }?;
+
+            self.consume_if(TokenKind::Comma);
+
+            self.add_var_to_scope(arg.clone());
+
+            arguments.push(arg);
+        }
+        Ok(arguments)
+    }
+
+    /// Parse arguments for `dyn block` definition.
+    fn parse_dyn_block_arguments(&mut self) -> CompilationResult<Vec<DynBlockArg>> {
+        let mut arguments: Vec<DynBlockArg> = vec![];
         while !matches!(self.current().kind, TokenKind::RightParen | TokenKind::End) {
             let var_span = self.current().span.clone();
 
             let checkpoint = self.cursor;
 
             let block_arg = match self.parse_variable() {
-                Ok(ParsedVariable::Dec(v)) => Ok(BlockArg::Var(Rc::new(v))),
+                Ok(ParsedVariable::Dec(v)) => Ok(DynBlockArg::Var(Rc::new(v))),
 
                 // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
                 Ok(ParsedVariable::Ref(_)) => Err(CompilationError::new_localized(
@@ -703,13 +736,13 @@ impl Parser {
                             TextSpan::from_spans(&var_span, &self.peak(-1).span),
                         ));
                     }
-                    Ok(BlockArg::Literal(name))
+                    Ok(DynBlockArg::Literal(name))
                 }
             }?;
 
             self.consume_if(TokenKind::Comma);
 
-            if let BlockArg::Var(v) = &block_arg {
+            if let DynBlockArg::Var(v) = &block_arg {
                 self.add_var_to_scope(v.clone());
             }
 
@@ -839,20 +872,7 @@ impl Parser {
 
         self.enter_scope();
 
-        let (block_name, input_args, outputs) = self.parse_block_signature()?;
-
-        let mut inputs = vec![];
-        for arg in input_args {
-            match arg {
-                BlockArg::Var(v) => inputs.push(v),
-                BlockArg::Literal(_) => {
-                    return Err(CompilationError::new_localized(
-                        "Only dynamic blocks can have literal inputs".to_string(),
-                        start_token.span.clone(),
-                    ))
-                }
-            }
-        }
+        let (block_name, inputs, outputs) = self.parse_block_signature()?;
 
         let statements = self.parse_statement_list()?;
 
@@ -874,7 +894,7 @@ impl Parser {
 
         self.enter_scope();
 
-        let (block_name, inputs, outputs) = self.parse_block_signature()?;
+        let (block_name, inputs) = self.parse_dyn_block_signature()?;
 
         let dyn_block = match self.current().kind {
             // Use external script
@@ -886,7 +906,6 @@ impl Parser {
                 DynBlock::new(
                     block_name,
                     inputs,
-                    outputs,
                     path,
                     TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
                     self.options.clone(),
@@ -956,7 +975,6 @@ impl Parser {
                 DynBlock::new(
                     block_name,
                     inputs,
-                    outputs,
                     python_file_path,
                     TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
                     self.options.clone(),
@@ -969,9 +987,7 @@ impl Parser {
         Ok(dyn_block)
     }
 
-    fn parse_block_signature(
-        &mut self,
-    ) -> CompilationResult<(String, Vec<BlockArg>, Vec<Rc<Variable>>)> {
+    fn parse_block_signature(&mut self) -> CompilationResult<(String, BlockArgs, BlockArgs)> {
         let block_name: String = if let TokenKind::Word(s) = &self.consume().kind {
             s.clone()
         } else {
@@ -985,30 +1001,16 @@ impl Parser {
         let inputs = self.parse_block_arguments()?;
         self.consume_and_expect(TokenKind::RightParen)?;
 
-        let outputs_start_span = self.current().span.clone();
-
         // Blocks can be defined without outputs
         let outputs = match self.current().kind {
             TokenKind::RightFatArrow => {
                 self.consume();
+
                 self.consume_and_expect(TokenKind::LeftParen)?;
                 let outputs = self.parse_block_arguments()?;
-
-                let mut vars = vec![];
-                for output in outputs {
-                    match output {
-                        BlockArg::Var(v) => vars.push(v),
-                        BlockArg::Literal(_) => {
-                            return Err(CompilationError::new_localized(
-                                "Block outputs can not contain literals.".to_string(),
-                                TextSpan::from_spans(&outputs_start_span, &self.peak(-1).span),
-                            ))
-                        }
-                    }
-                }
-
                 self.consume_and_expect(TokenKind::RightParen)?;
-                vars
+
+                outputs
             }
             TokenKind::LeftCurly => vec![],
             _ => {
@@ -1020,6 +1022,35 @@ impl Parser {
         };
 
         Ok((block_name, inputs, outputs))
+    }
+
+    fn parse_dyn_block_signature(&mut self) -> CompilationResult<(String, Vec<DynBlockArg>)> {
+        let block_name: String = if let TokenKind::Word(s) = &self.consume().kind {
+            s.clone()
+        } else {
+            self.diagnostics_bag
+                .borrow_mut()
+                .report_error(&self.peak(-1).span, "No name for `dyn block` was given.");
+            "".to_string()
+        };
+
+        self.consume_and_expect(TokenKind::LeftParen)?;
+        let inputs = self.parse_dyn_block_arguments()?;
+        self.consume_and_expect(TokenKind::RightParen)?;
+
+        match self.current().kind {
+            TokenKind::LeftCurly => Ok(()),
+            TokenKind::RightFatArrow => Err(CompilationError::new_localized(
+                "Outputs of dynamic blocks should be declared by the genated code.",
+                self.current().span.clone(),
+            )),
+            _ => Err(CompilationError::new_localized(
+                "Expected '{' after dynamic block name.",
+                self.peak(-1).span.clone(),
+            )),
+        }?;
+
+        Ok((block_name, inputs))
     }
 
     /// Parse chef expression.
@@ -1278,21 +1309,13 @@ impl Parser {
             .iter()
             .enumerate()
             .map(|(i, arg)| match arg {
-                BlockArg::Var(var) => {
+                DynBlockArg::Var(var) => {
                     format!("{}: {}", var.name, var.type_.signature())
                 }
-                BlockArg::Literal(lit) => {
+                DynBlockArg::Literal(lit) => {
                     format!("{}: {}", lit, inputs[i].span().text())
                 }
             })
-            .collect::<Vec<String>>()
-            .join(MACRO_ARG_SEP);
-
-        // Create output string for macro
-        let outputs_str = def
-            .outputs
-            .iter()
-            .map(|v| format!("{}: {}", v.name, v.type_.signature()))
             .collect::<Vec<String>>()
             .join(MACRO_ARG_SEP);
 
@@ -1303,7 +1326,6 @@ impl Parser {
             def.script_path.to_str().unwrap(),
             Some(def.name.clone()),
             Some(inputs_str),
-            Some(outputs_str),
         )?;
 
         println!("{}", code.text());
@@ -1348,8 +1370,8 @@ impl Parser {
             .inputs
             .iter()
             .filter_map(|arg| match arg {
-                BlockArg::Var(v) => Some(v),
-                BlockArg::Literal(_) => None,
+                DynBlockArg::Var(v) => Some(v),
+                DynBlockArg::Literal(_) => None,
             })
             .collect::<Vec<_>>();
 
@@ -1366,19 +1388,6 @@ impl Parser {
             ));
         }
 
-        // Make sure the generated block has the same OUTPUTS as the definition
-        if block.outputs.len() != def.outputs.len() {
-            return Err(CompilationError::new_localized(
-                format!(
-                    "Expected {} outputs for generated block '{}'. Found {}.",
-                    block.outputs.len(),
-                    def.name,
-                    def.outputs.len(),
-                ),
-                err_span,
-            ));
-        }
-
         // Make sure the generated block has the same INPUT types as the definition
         for (i, def_input) in var_inputs.iter().enumerate() {
             if def_input.type_ != block.inputs[i].type_ {
@@ -1388,21 +1397,6 @@ impl Parser {
                         block.inputs[i].type_.signature(),
                         def_input.name,
                         def_input.type_.signature(),
-                    ),
-                    err_span,
-                ));
-            }
-        }
-
-        // Make sure the generated block has the same OUTPUT types as the definition
-        for (i, def_output) in def.outputs.iter().enumerate() {
-            if def_output.type_ != block.outputs[i].type_ {
-                return Err(CompilationError::new_localized(
-                    format!(
-                        "Expected type '{}' for output '{}'. Found '{}'.",
-                        block.outputs[i].type_.signature(),
-                        def_output.name,
-                        def_output.type_.signature(),
                     ),
                     err_span,
                 ));

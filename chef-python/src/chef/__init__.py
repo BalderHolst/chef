@@ -109,22 +109,20 @@ class Block:
         return s
 
 class DynBlock(Block):
-    def __init__(self) -> None:
+    def __init__(self, outputs: list[Variable] | Variable) -> None:
 
         input_vars = []
         for var in INPUTS.values():
             if isinstance(var, Variable):
                 input_vars.append(var)
 
-        output_vars = []
-        for var in OUTPUTS.values():
-            if isinstance(var, Variable):
-                output_vars.append(var)
+        if isinstance(outputs, Variable):
+            outputs = [outputs]
 
         if not NAME:
             raise ChefMacroError("Name for dynanic block mut be provided through command line arguments.")
 
-        super().__init__(NAME, input_vars, output_vars)
+        super().__init__(NAME, input_vars, outputs)
 
 class CompoundStatement:
     """Generic class inherited by compound statements."""

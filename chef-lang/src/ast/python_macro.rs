@@ -40,7 +40,6 @@ pub(crate) fn run_python_import(
     path: &str,
     name: Option<String>,
     inputs: Option<String>,
-    outputs: Option<String>,
 ) -> CompilationResult<SourceText> {
     let python = match &opts.python {
         Some(default_python) => default_python.clone(),
@@ -60,24 +59,17 @@ pub(crate) fn run_python_import(
         None => "".to_string(),
     };
 
-    let outputs = match outputs {
-        Some(outputs) => outputs,
-        None => "".to_string(),
-    };
-
     let output = if cfg!(target_os = "windows") {
         Command::new("cmd")
-            .args([&python, &path.to_string(), &name, &inputs, &outputs])
+            .args([&python, &path.to_string(), &name, &inputs])
             .output()
     } else {
         let inputs = inputs.replace('\"', "\\\"");
-        let outputs = outputs.replace('\"', "\\\"");
 
         let name = format!("\"{}\"", name);
         let inputs = format!("\"{}\"", inputs);
-        let outputs = format!("\"{}\"", outputs);
 
-        let cmd = python + " " + path + " " + &name + " " + &inputs + " " + &outputs;
+        let cmd = python + " " + path + " " + &name + " " + &inputs;
 
         if opts.verbose {
             println!("Running external command: `{cmd}`")

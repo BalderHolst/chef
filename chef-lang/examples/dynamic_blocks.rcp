@@ -1,4 +1,4 @@
-dyn block pick_multiple(input: many, picks: lit) => (out: many) {
+dyn block pick_multiple(input: many, picks: lit) {
 
     # This defines `INPUTS`
     from chef import *
@@ -7,7 +7,7 @@ dyn block pick_multiple(input: many, picks: lit) => (out: many) {
     # Get parsed `picks` literal
     pick_signals: list[str] = INPUTS["picks"]
     
-    with DynBlock():
+    with DynBlock(Many("out")):
         for signal in pick_signals:
             statement(f"out <- input[{signal}]")
 
