@@ -1,3 +1,4 @@
+use std::fs;
 use std::process::exit;
 use std::rc::Rc;
 use std::{env, process::ExitCode};
@@ -5,7 +6,7 @@ use std::{env, process::ExitCode};
 use ast::AST;
 use clap::Parser;
 use cli::{AddCommand, Command, CookOpts, Opts, SimulateOpts};
-use diagnostics::{CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
+use diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
 use simulator::Simulator;
 use text::SourceText;
 use utils::VisualizerError;
@@ -22,6 +23,8 @@ mod utils;
 
 #[cfg(test)]
 mod tests;
+
+const DEFAULT_SIMULATION_DIR: &str = "sim";
 
 pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
     let path = &cook_opts.file;
@@ -95,7 +98,15 @@ fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) -> CompilationResult<()> {
 
     let mut sim = Simulator::new(graph, vec![]);
 
-    sim.dump_simulation(sim_opts.iterations, "./test");
+    let out_dir = sim_opts
+        .output
+        .clone()
+        .unwrap_or_else(|| DEFAULT_SIMULATION_DIR.to_string());
+
+    fs::create_dir_all(&out_dir).map_err(|e| {
+        CompilationError::new_generic(format!("Could not create output directory: {}", e))
+    })?;
+    sim.dump_simulation(sim_opts.iterations, &out_dir);
 
     Ok(())
 }
