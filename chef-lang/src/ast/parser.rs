@@ -1036,7 +1036,7 @@ impl Parser {
             _ => {
                 return Err(CompilationError::new_localized(
                     "Expected '=>' or '{' after block name.".to_string(),
-                    self.peak(-1).span.clone(),
+                    self.current().span.clone(),
                 ))
             }
         };
