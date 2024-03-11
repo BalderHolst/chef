@@ -22,7 +22,7 @@ echo "PASSED"
 
 echo -n "Running tests... "
 
-cargo test --manifest-path "$manifest" > /dev/null 2> /dev/null || {
+make test-lang > /dev/null 2>&1 || {
     echo -e "\nSome cargo tests have failed"
     exit 1
 }
@@ -31,7 +31,7 @@ echo "PASSED"
 
 echo -n "Compiling python examples... "
 
-./chef-python/test.py > /dev/null 2> /dev/null || {
+make test-python > /dev/null 2>&1 || {
     echo -e "\nFailed to compile some python scipts."
     exit 1
 }
