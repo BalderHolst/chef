@@ -1250,6 +1250,22 @@ impl Parser {
                 self.consume_and_expect(TokenKind::RightParen)?;
                 Ok(expr)
             }
+            TokenKind::Period => {
+                let mut delay = 0;
+                while self.current().kind == TokenKind::Period {
+                    self.consume();
+                    delay += 1;
+                }
+
+                let expr = self.parse_expression()?;
+
+                let end = expr.span.end;
+
+                Ok(Expression::new(
+                    ExpressionKind::Delay(super::DelayExpression::new(Box::new(expr), delay)),
+                    TextSpan::new(start_token.span.start, end, start_token.span.text.clone()),
+                ))
+            }
             _ => Err(CompilationError::new_localized(
                 format!(
                     "Primary expressions can not start with `{}`.",

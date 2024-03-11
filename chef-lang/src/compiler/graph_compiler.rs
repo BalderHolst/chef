@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use crate::ast::{
     BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
-    DeclarationDefinition, Definition, Expression, ExpressionKind, IndexExpression, PickExpression,
-    VariableId, VariableRef, VariableSignalType, WhenStatement, AST,
+    DeclarationDefinition, Definition, DelayExpression, Expression, ExpressionKind,
+    IndexExpression, PickExpression, VariableId, VariableRef, VariableSignalType, WhenStatement,
+    AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
@@ -310,6 +311,7 @@ impl GraphCompiler {
             ExpressionKind::Negative(expr) => self.compile_negative_expression(graph, expr, out_type),
             ExpressionKind::Binary(bin_expr) => self.compile_binary_expression(graph, bin_expr, out_type),
             ExpressionKind::BlockLink(block_link_expr) =>  self.compile_block_link_expression(graph, block_link_expr, out_type),
+            ExpressionKind::Delay(delay_expr) => self.compile_delay_expression(graph, delay_expr, out_type),
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }
     }
@@ -591,6 +593,27 @@ impl GraphCompiler {
                 "Blocks used withing expressions must return exactly one output.",
             )),
         }
+    }
+
+    fn compile_delay_expression(
+        &mut self,
+        graph: &mut Graph,
+        delay_expr: &DelayExpression,
+        out_type: Option<IOType>,
+    ) -> Result<(NId, IOType), CompilationError> {
+        let (delay_nid, delay_type) =
+            self.compile_expression(graph, &delay_expr.expression, out_type)?;
+
+        let mut out_nid = delay_nid;
+
+        for _ in 0..delay_expr.delay {
+            let (delay_input, delay_output) =
+                graph.push_combinator(Combinator::new_delay(delay_type.clone()));
+            graph.push_wire(out_nid, delay_input);
+            out_nid = delay_output;
+        }
+
+        Ok((out_nid, delay_type))
     }
 
     fn compile_when_statement(

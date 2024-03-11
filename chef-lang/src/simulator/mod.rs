@@ -283,6 +283,8 @@ impl Simulator {
                     };
                     Item::new(c.gate_type, count)
                 }
+
+                Combinator::Delay(dc) => todo!("Simulate delay"),
             };
 
             if self.step == 0 {

@@ -223,6 +223,17 @@ pub struct GateCombinator {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct DelayCombinator {
+    pub output: IOType,
+}
+
+impl DelayCombinator {
+    pub fn new(output: IOType) -> Self {
+        Self { output }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ConstantCombinator {
     pub type_: IOType,
     pub count: i32,
@@ -249,6 +260,9 @@ pub enum Combinator {
     Arithmetic(ArithmeticCombinator),
     Decider(DeciderCombinator),
     Gate(GateCombinator),
+
+    /// Causes one tick of delay
+    Delay(DelayCombinator),
 }
 
 impl Combinator {
@@ -260,11 +274,16 @@ impl Combinator {
         Self::Arithmetic(ArithmeticCombinator::new_convert(in_signal, out_signal))
     }
 
+    pub fn new_delay(output: IOType) -> Self {
+        Self::Delay(DelayCombinator::new(output))
+    }
+
     pub fn get_output_iotype(&self) -> IOType {
         match self {
             Self::Arithmetic(ac) => ac.output.clone(),
             Self::Decider(dc) => dc.output.clone(),
             Self::Gate(gc) => gc.gate_type.clone(),
+            Self::Delay(dc) => dc.output.clone(),
         }
     }
 
@@ -304,6 +323,7 @@ impl Display for Combinator {
                 "GATE: {}\n{}: {}, {}",
                 gate.gate_type, gate.operation, gate.left, gate.right
             ),
+            Combinator::Delay(dc) => format!("DELAY: {}", dc.output),
         };
         write!(f, "{s}")
     }
@@ -944,6 +964,11 @@ impl Graph {
                             gc.gate_type = new_type.clone()
                         }
                     }
+                    Connection::Combinator(Combinator::Delay(dc)) => {
+                        if dc.output == old_type {
+                            dc.output = new_type.clone()
+                        }
+                    }
                     Connection::Wire(_) => {}
                 }
             }
@@ -1113,6 +1138,9 @@ impl<'a> AnysignalAssigner<'a> {
                             self.replace_if_anysignal(&mut c.left);
                             self.replace_if_anysignal(&mut c.right);
                             self.replace_if_anysignal(&mut c.gate_type);
+                        }
+                        Combinator::Delay(c) => {
+                            self.replace_if_anysignal(&mut c.output);
                         }
                     }
                 }

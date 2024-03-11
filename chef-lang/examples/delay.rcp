@@ -1,0 +1,6 @@
+block main() => (out: int(pump)) {
+
+    // Delay by 10 cycles
+    out <- .......... 20;
+
+}

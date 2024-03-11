@@ -7,8 +7,9 @@
 
 use super::{
     parser::StatementList, BinaryExpression, Block, BlockLinkExpression, Declaration,
-    DeclarationDefinition, Definition, Expression, ExpressionKind, IndexExpression,
-    ParenthesizedExpression, PickExpression, Statement, StatementKind, VariableRef, WhenStatement,
+    DeclarationDefinition, Definition, DelayExpression, Expression, ExpressionKind,
+    IndexExpression, ParenthesizedExpression, PickExpression, Statement, StatementKind,
+    VariableRef, WhenStatement,
 };
 
 // For documentation references
@@ -68,6 +69,9 @@ pub trait Visitor {
             }
             ExpressionKind::BlockLink(block) => {
                 self.visit_block_link(block);
+            }
+            ExpressionKind::Delay(delay) => {
+                self.visit_delay(delay);
             }
             ExpressionKind::Error => {
                 self.visit_error_expression();
@@ -137,6 +141,10 @@ pub trait Visitor {
         for expr in &block.inputs {
             self.visit_expression(expr);
         }
+    }
+
+    fn visit_delay(&mut self, delay: &DelayExpression) {
+        self.visit_expression(&delay.expression);
     }
 
     fn visit_when_statement(&mut self, when: &WhenStatement) {
@@ -218,6 +226,9 @@ pub trait MutVisitor {
             ExpressionKind::BlockLink(block) => {
                 self.visit_block_link(block);
             }
+            ExpressionKind::Delay(delay) => {
+                self.visit_delay(delay);
+            }
             ExpressionKind::Error => {
                 self.visit_error_expression();
             }
@@ -286,6 +297,10 @@ pub trait MutVisitor {
         for expr in &mut block.inputs {
             self.visit_expression(expr);
         }
+    }
+
+    fn visit_delay(&mut self, delay: &mut DelayExpression) {
+        self.visit_expression(&mut delay.expression);
     }
 
     fn visit_when_statement(&mut self, when: &mut WhenStatement) {

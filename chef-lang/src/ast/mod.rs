@@ -410,6 +410,7 @@ impl Expression {
             ExpressionKind::Index(_) => ExpressionReturnType::Int,
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(true),
+            ExpressionKind::Delay(e) => e.return_type(),
             ExpressionKind::Error => ExpressionReturnType::None,
         }
     }
@@ -481,6 +482,7 @@ pub enum ExpressionKind {
     Index(IndexExpression),
     VariableRef(VariableRef),
     BlockLink(BlockLinkExpression),
+    Delay(DelayExpression),
     Error,
 }
 
@@ -548,6 +550,23 @@ impl BlockLinkExpression {
             1 if return_int => self.block.outputs[0].return_type(),
             _ => ExpressionReturnType::Many,
         }
+    }
+}
+
+/// An expression that is delayed by a number of cycles.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DelayExpression {
+    pub expression: Box<Expression>,
+    pub delay: usize,
+}
+
+impl DelayExpression {
+    fn new(expression: Box<Expression>, delay: usize) -> Self {
+        Self { expression, delay }
+    }
+
+    fn return_type(&self) -> ExpressionReturnType {
+        self.expression.return_type()
     }
 }
 
@@ -850,6 +869,13 @@ impl Visitor for Printer {
         self.print("Expression:");
         self.indent();
         self.do_visit_expression(expression);
+        self.unindent();
+    }
+
+    fn visit_delay(&mut self, delay: &DelayExpression) {
+        self.print(&format!("Delay: {}", delay.delay));
+        self.indent();
+        self.visit_expression(&delay.expression);
         self.unindent();
     }
 

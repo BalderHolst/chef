@@ -77,6 +77,7 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
         ExpressionKind::Index(_) => None,
         ExpressionKind::VariableRef(_) => None,
         ExpressionKind::BlockLink(_) => None,
+        ExpressionKind::Delay(de) => get_constant_int(&de.expression),
         ExpressionKind::Error => None,
     }
 }

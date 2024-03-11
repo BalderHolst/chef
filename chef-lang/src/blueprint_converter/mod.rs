@@ -131,7 +131,7 @@ impl FactorioCombinator {
             graph::Combinator::Arithmetic(_) => "arithmetic-combinator",
             graph::Combinator::Decider(_) => "decider-combinator",
             graph::Combinator::Gate(_) => "decider-combinator",
-            // graph::Combinator::Constant(_) => "constant-combinator",
+            graph::Combinator::Delay(_) => todo!(),
         }
         .to_string();
 
@@ -229,24 +229,26 @@ impl FactorioCombinator {
                     filters: None,
                     is_on: None,
                 }
-            } // graph::Combinator::Constant(cc) => {
-              //     let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
-              //     ControlBehavior {
-              //         arithmetic_conditions: None,
-              //         decider_conditions: None,
-              //         filters: {
-              //             Some(vec![ControlFilter {
-              //                 signal: SignalID {
-              //                     name: signal,
-              //                     type_,
-              //                 },
-              //                 index: NonZeroUsize::new(1).unwrap(),
-              //                 count: cc.count,
-              //             }])
-              //         },
-              //         is_on: Some(true),
-              //     }
-              // }
+            }
+            graph::Combinator::Delay(_) => todo!(),
+            // graph::Combinator::Constant(cc) => {
+            //     let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
+            //     ControlBehavior {
+            //         arithmetic_conditions: None,
+            //         decider_conditions: None,
+            //         filters: {
+            //             Some(vec![ControlFilter {
+            //                 signal: SignalID {
+            //                     name: signal,
+            //                     type_,
+            //                 },
+            //                 index: NonZeroUsize::new(1).unwrap(),
+            //                 count: cc.count,
+            //             }])
+            //         },
+            //         is_on: Some(true),
+            //     }
+            // }
         }
     }
 

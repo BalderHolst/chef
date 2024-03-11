@@ -101,6 +101,7 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
             Combinator::Arithmetic(_) => "orange",
             Combinator::Decider(_) => "purple",
             Combinator::Gate(_) => "teal",
+            Combinator::Delay(_) => "brown",
         };
         dot += &format!(
             "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",

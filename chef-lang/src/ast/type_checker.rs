@@ -86,6 +86,7 @@ impl Visitor for TypeChecker {
             ExpressionKind::VariableRef(_) => {}
             ExpressionKind::BlockLink(_) => {}
             ExpressionKind::Error => {}
+            ExpressionKind::Delay(_) => {}
 
             ExpressionKind::Index(index_expr) => {
                 match &index_expr.var_ref.type_() {

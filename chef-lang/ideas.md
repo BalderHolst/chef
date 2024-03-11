@@ -78,8 +78,8 @@ e: int <- |a @ b|;
 Sometimes you just want to delay the signal propagation by a single time step.
 ```
 // Assign a value to `a` with one tick delay
-a: int = 1000!
+a: int = . 1000
 
-// You add `!` to create more delay
-b: int = 1000!!!!!!
+// You more `.` to create longer delay
+b: int = ..... 1000
 ```
