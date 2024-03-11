@@ -137,6 +137,7 @@ impl Parser {
         self.peak(-1)
     }
 
+    /// Consume until and with provided token kind
     fn consume_until(&mut self, token_kind: &TokenKind) -> &Token {
         loop {
             let current = self.current().kind.clone();
@@ -896,13 +897,16 @@ impl Parser {
 
         let (block_name, inputs) = self.parse_dyn_block_signature()?;
 
-        let dyn_block = match self.current().kind {
+        let dyn_block = match self.current().kind.clone() {
             // Use external script
             TokenKind::LessThan => {
-                self.consume(); // Consume "<" token
-                let path = self.consume_word()?.to_string();
-                let path = PathBuf::from(path);
-                self.consume_and_expect(TokenKind::LargerThan)?;
+                // Parse `<path/to/script.py>`
+                let start = self.consume().span.end; // Consume "<" token
+                let end_span = self.consume_until(&TokenKind::LargerThan).span.clone();
+                let span = TextSpan::new(start, end_span.start, end_span.text);
+
+                let path = PathBuf::from(span.text());
+
                 DynBlock::new(
                     block_name,
                     inputs,
@@ -912,7 +916,7 @@ impl Parser {
                 )
             }
 
-            _ => {
+            TokenKind::LeftCurly => {
                 // We use the end of '{' token as start of the source, to include the beginning white space
                 let code_start = self.consume_and_expect(TokenKind::LeftCurly)?.span.end;
 
@@ -980,6 +984,22 @@ impl Parser {
                     self.options.clone(),
                 )
             }
+            TokenKind::RightFatArrow => {
+                return Err(CompilationError::new_localized(
+                    "Outputs of dynamic blocks should be declared by the genated code.",
+                    self.current().span.clone(),
+                ))
+            }
+
+            other => {
+                return Err(CompilationError::new_localized(
+                    format!(
+                        "Expected '{{' or '<' after dynamic block name, found: {}",
+                        other
+                    ),
+                    self.current().span.clone(),
+                ))
+            }
         };
 
         self.exit_scope();
@@ -1037,18 +1057,6 @@ impl Parser {
         self.consume_and_expect(TokenKind::LeftParen)?;
         let inputs = self.parse_dyn_block_arguments()?;
         self.consume_and_expect(TokenKind::RightParen)?;
-
-        match self.current().kind {
-            TokenKind::LeftCurly => Ok(()),
-            TokenKind::RightFatArrow => Err(CompilationError::new_localized(
-                "Outputs of dynamic blocks should be declared by the genated code.",
-                self.current().span.clone(),
-            )),
-            _ => Err(CompilationError::new_localized(
-                "Expected '{' after dynamic block name.",
-                self.peak(-1).span.clone(),
-            )),
-        }?;
 
         Ok((block_name, inputs))
     }
