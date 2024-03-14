@@ -411,6 +411,7 @@ impl Expression {
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(true),
             ExpressionKind::Delay(e) => e.return_type(),
+            ExpressionKind::SizeOf(e) => e.return_type(),
             ExpressionKind::Error => ExpressionReturnType::None,
         }
     }
@@ -483,6 +484,7 @@ pub enum ExpressionKind {
     VariableRef(VariableRef),
     BlockLink(BlockLinkExpression),
     Delay(DelayExpression),
+    SizeOf(SizeOfExpression),
     Error,
 }
 
@@ -567,6 +569,21 @@ impl DelayExpression {
 
     fn return_type(&self) -> ExpressionReturnType {
         self.expression.return_type()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SizeOfExpression {
+    pub expression: Box<Expression>,
+}
+
+impl SizeOfExpression {
+    fn new(expression: Box<Expression>) -> Self {
+        Self { expression }
+    }
+
+    fn return_type(&self) -> ExpressionReturnType {
+        ExpressionReturnType::Int
     }
 }
 

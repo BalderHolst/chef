@@ -132,6 +132,7 @@ impl FactorioCombinator {
             graph::Combinator::Decider(_) => "decider-combinator",
             graph::Combinator::Gate(_) => "decider-combinator",
             graph::Combinator::Delay(_) => todo!(),
+            graph::Combinator::Sum(_) => todo!(),
         }
         .to_string();
 
@@ -231,6 +232,7 @@ impl FactorioCombinator {
                 }
             }
             graph::Combinator::Delay(_) => todo!(),
+            graph::Combinator::Sum(_) => todo!(),
             // graph::Combinator::Constant(cc) => {
             //     let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
             //     ControlBehavior {

@@ -1,0 +1,3 @@
+block main(input: many) => (out: int(signal-T)) {
+    out <- |input|;
+}

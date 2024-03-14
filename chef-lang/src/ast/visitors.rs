@@ -8,8 +8,8 @@
 use super::{
     parser::StatementList, BinaryExpression, Block, BlockLinkExpression, Declaration,
     DeclarationDefinition, Definition, DelayExpression, Expression, ExpressionKind,
-    IndexExpression, ParenthesizedExpression, PickExpression, Statement, StatementKind,
-    VariableRef, WhenStatement,
+    IndexExpression, ParenthesizedExpression, PickExpression, SizeOfExpression, Statement,
+    StatementKind, VariableRef, WhenStatement,
 };
 
 // For documentation references
@@ -73,6 +73,9 @@ pub trait Visitor {
             ExpressionKind::Delay(delay) => {
                 self.visit_delay(delay);
             }
+            ExpressionKind::SizeOf(expr) => {
+                self.visit_size_of(expr);
+            }
             ExpressionKind::Error => {
                 self.visit_error_expression();
             }
@@ -92,6 +95,10 @@ pub trait Visitor {
 
     fn do_visit_definition(&mut self, assignment: &Definition) {
         self.visit_expression(&assignment.expression)
+    }
+
+    fn do_visit_size_of(&mut self, expr: &SizeOfExpression) {
+        self.visit_expression(&expr.expression);
     }
 
     fn visit_statement(&mut self, statement: &Statement) {
@@ -145,6 +152,10 @@ pub trait Visitor {
 
     fn visit_delay(&mut self, delay: &DelayExpression) {
         self.visit_expression(&delay.expression);
+    }
+
+    fn visit_size_of(&mut self, expr: &SizeOfExpression) {
+        self.do_visit_size_of(expr);
     }
 
     fn visit_when_statement(&mut self, when: &WhenStatement) {
@@ -229,6 +240,9 @@ pub trait MutVisitor {
             ExpressionKind::Delay(delay) => {
                 self.visit_delay(delay);
             }
+            ExpressionKind::SizeOf(expr) => {
+                self.visit_size_of(expr);
+            }
             ExpressionKind::Error => {
                 self.visit_error_expression();
             }
@@ -248,6 +262,10 @@ pub trait MutVisitor {
 
     fn do_visit_definition(&mut self, def: &mut Definition) {
         self.visit_expression(&mut def.expression);
+    }
+
+    fn do_visit_size_of(&mut self, expr: &mut SizeOfExpression) {
+        self.visit_expression(&mut expr.expression);
     }
 
     fn visit_statement(&mut self, statement: &mut Statement) {
@@ -301,6 +319,10 @@ pub trait MutVisitor {
 
     fn visit_delay(&mut self, delay: &mut DelayExpression) {
         self.visit_expression(&mut delay.expression);
+    }
+
+    fn visit_size_of(&mut self, expr: &mut SizeOfExpression) {
+        self.do_visit_size_of(expr);
     }
 
     fn visit_when_statement(&mut self, when: &mut WhenStatement) {

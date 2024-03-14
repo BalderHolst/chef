@@ -61,6 +61,7 @@ pub enum TokenKind {
     AnyBangEquals,
     Whitespace,
     QuestionMark,
+    Bar,
     Bad,
     End,
 }
@@ -127,6 +128,7 @@ impl Display for TokenKind {
             TokenKind::AnyBangEquals => "?!=",
             TokenKind::QuestionMark => "?",
             TokenKind::Whitespace => "whitespace",
+            TokenKind::Bar => "|",
             TokenKind::Bad => "bad-token",
             TokenKind::End => "end-of-program",
         };
@@ -281,6 +283,7 @@ impl Lexer {
             Some(']') => TokenKind::RightSquare,
             Some('{') => TokenKind::LeftCurly,
             Some('}') => TokenKind::RightCurly,
+            Some('|') => TokenKind::Bar,
             Some('\'') => TokenKind::SingleQuote,
             Some('"') => TokenKind::DoubleQuote,
             Some('=') => match self.consume() {

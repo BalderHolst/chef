@@ -18,7 +18,7 @@ use crate::text::{SourceText, TextSpan};
 use super::lexer::Lexer;
 use super::{
     Block, BlockLinkArg, BlockLinkExpression, DeclarationDefinition, DynBlock, DynBlockArg,
-    PickExpression, VariableRef, VariableSignalType,
+    PickExpression, SizeOfExpression, VariableRef, VariableSignalType,
 };
 use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement};
 
@@ -1264,6 +1264,16 @@ impl Parser {
                 Ok(Expression::new(
                     ExpressionKind::Delay(super::DelayExpression::new(Box::new(expr), delay)),
                     TextSpan::new(start_token.span.start, end, start_token.span.text.clone()),
+                ))
+            }
+            TokenKind::Bar => {
+                self.consume(); // Consume "|"
+                let expr = self.parse_expression()?;
+                self.consume(); // Consume "|"
+
+                Ok(Expression::new(
+                    ExpressionKind::SizeOf(SizeOfExpression::new(Box::new(expr))),
+                    TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
                 ))
             }
             _ => Err(CompilationError::new_localized(

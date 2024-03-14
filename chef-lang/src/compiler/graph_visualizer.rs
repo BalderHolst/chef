@@ -89,6 +89,7 @@ pub fn create_dot(graph: &Graph) -> String {
             Combinator::Decider(_) => "purple",
             Combinator::Gate(_) => "teal",
             Combinator::Delay(_) => "brown",
+            Combinator::Sum(_) => "lightgray",
         };
         dot += &format!(
             "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",

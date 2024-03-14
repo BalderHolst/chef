@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use crate::ast::{
     BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
     DeclarationDefinition, Definition, DelayExpression, Expression, ExpressionKind,
-    IndexExpression, PickExpression, VariableId, VariableRef, VariableSignalType, WhenStatement,
-    AST,
+    IndexExpression, PickExpression, SizeOfExpression, VariableId, VariableRef, VariableSignalType,
+    WhenStatement, AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
@@ -312,6 +312,7 @@ impl GraphCompiler {
             ExpressionKind::Binary(bin_expr) => self.compile_binary_expression(graph, bin_expr, out_type),
             ExpressionKind::BlockLink(block_link_expr) =>  self.compile_block_link_expression(graph, block_link_expr, out_type),
             ExpressionKind::Delay(delay_expr) => self.compile_delay_expression(graph, delay_expr, out_type),
+            ExpressionKind::SizeOf(size_of_expr) => self.compile_size_of_expression(graph, size_of_expr, out_type),
             ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
         }
     }
@@ -614,6 +615,31 @@ impl GraphCompiler {
         }
 
         Ok((out_nid, delay_type))
+    }
+
+    fn compile_size_of_expression(
+        &mut self,
+        graph: &mut Graph,
+        size_of_expr: &SizeOfExpression,
+        out_type: Option<IOType>,
+    ) -> Result<(NId, IOType), CompilationError> {
+        let (size_of_nid, size_of_type) =
+            self.compile_expression(graph, &size_of_expr.expression, None)?;
+
+        // This should be checked by the type checker before compiling
+        debug_assert_eq!(size_of_type, IOType::Many);
+
+        let out_type = match out_type {
+            Some(t) => t,
+            None => self.get_new_anysignal(),
+        };
+
+        let (size_of_input, size_of_output) =
+            graph.push_combinator(Combinator::Sum(SumCombinator::new(out_type.clone())));
+
+        graph.push_wire(size_of_nid, size_of_input);
+
+        Ok((size_of_output, out_type))
     }
 
     fn compile_when_statement(

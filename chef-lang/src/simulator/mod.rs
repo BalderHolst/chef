@@ -284,7 +284,8 @@ impl Simulator {
                     Item::new(c.gate_type, count)
                 }
 
-                Combinator::Delay(dc) => todo!("Simulate delay"),
+                Combinator::Delay(_dc) => todo!("Simulate delay"),
+                Combinator::Sum(_sc) => todo!("Simulate sum"),
             };
 
             if self.step == 0 {

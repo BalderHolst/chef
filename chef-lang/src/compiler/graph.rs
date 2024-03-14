@@ -234,6 +234,17 @@ impl DelayCombinator {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct SumCombinator {
+    pub output: IOType,
+}
+
+impl SumCombinator {
+    pub fn new(output: IOType) -> Self {
+        Self { output }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ConstantCombinator {
     pub type_: IOType,
     pub count: i32,
@@ -263,6 +274,9 @@ pub enum Combinator {
 
     /// Causes one tick of delay
     Delay(DelayCombinator),
+
+    /// Calculates the sum of all its inputs
+    Sum(SumCombinator),
 }
 
 impl Combinator {
@@ -284,6 +298,7 @@ impl Combinator {
             Self::Decider(dc) => dc.output.clone(),
             Self::Gate(gc) => gc.gate_type.clone(),
             Self::Delay(dc) => dc.output.clone(),
+            Self::Sum(sc) => sc.output.clone(),
         }
     }
 
@@ -324,6 +339,7 @@ impl Display for Combinator {
                 gate.gate_type, gate.operation, gate.left, gate.right
             ),
             Combinator::Delay(dc) => format!("DELAY: {}", dc.output),
+            Combinator::Sum(sc) => format!("SUM: {}", sc.output),
         };
         write!(f, "{s}")
     }
@@ -969,6 +985,11 @@ impl Graph {
                             dc.output = new_type.clone()
                         }
                     }
+                    Connection::Combinator(Combinator::Sum(sc)) => {
+                        if sc.output == old_type {
+                            sc.output = new_type.clone()
+                        }
+                    }
                     Connection::Wire(_) => {}
                 }
             }
@@ -1140,6 +1161,9 @@ impl<'a> AnysignalAssigner<'a> {
                             self.replace_if_anysignal(&mut c.gate_type);
                         }
                         Combinator::Delay(c) => {
+                            self.replace_if_anysignal(&mut c.output);
+                        }
+                        Combinator::Sum(c) => {
                             self.replace_if_anysignal(&mut c.output);
                         }
                     }
