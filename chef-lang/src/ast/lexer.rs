@@ -162,6 +162,7 @@ impl Token {
 /// ```
 pub struct Lexer {
     source: Rc<SourceText>,
+    chars: Vec<char>,
     cursor: usize,
     placed_end_token: bool,
 }
@@ -170,20 +171,22 @@ impl Lexer {
     /// Instantiate a [Lexer] with a [SourceText] for parsing and a [DiagnosticsBagRef] for
     /// reporting errors.
     pub fn from_source(source: Rc<SourceText>) -> Self {
+        let chars = source.text().chars().collect();
         Lexer {
             source,
+            chars,
             cursor: 0,
             placed_end_token: false,
         }
     }
 
-    fn _peak(&self, offset: isize) -> Option<char> {
+    fn peak(&self, offset: isize) -> Option<char> {
         let index = self.cursor as isize + offset;
-        self.source.text().chars().nth((index) as usize)
+        self.chars.get(index as usize).copied()
     }
 
     fn current(&self) -> Option<char> {
-        self.source.text().chars().nth(self.cursor)
+        self.peak(0)
     }
 
     fn consume(&mut self) -> Option<char> {
