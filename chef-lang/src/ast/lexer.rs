@@ -26,7 +26,6 @@ pub enum TokenKind {
     LeftCurly,
     RightCurly,
     SingleQuote,
-    DoubleQuote,
     Equals,
     Comma,
     At,
@@ -93,7 +92,6 @@ impl Display for TokenKind {
             TokenKind::LeftCurly => "{",
             TokenKind::RightCurly => "}",
             TokenKind::SingleQuote => "'",
-            TokenKind::DoubleQuote => "\"",
             TokenKind::Equals => "=",
             TokenKind::Comma => ",",
             TokenKind::Period => ".",
@@ -246,162 +244,60 @@ impl Lexer {
 
     /// Lexes punctuation. Returns `None` if the punctuation is a comment.
     fn consume_punctuation(&mut self) -> Option<TokenKind> {
-        let kind = match self.consume() {
-            Some('+') => match self.current() {
-                Some('=') => {
-                    self.consume();
-                    TokenKind::PlusEquals
-                }
-                _ => TokenKind::Plus,
-            },
-            Some('-') => match self.consume() {
-                Some('=') => TokenKind::MinusEquals,
-                Some('>') => TokenKind::RightArrow,
-                _ => {
-                    self.backtrack(1);
-                    TokenKind::Minus
-                }
-            },
-            Some('*') => match self.current() {
-                Some('=') => {
-                    self.consume();
-                    TokenKind::AsteriskEquals
-                }
-                _ => TokenKind::Asterisk,
-            },
-            Some('/') => match self.current() {
-                Some('=') => {
-                    self.consume();
-                    TokenKind::SlashEquals
-                }
-                Some('/') => {
-                    self.consume_comment();
-                    return None;
-                }
-                _ => TokenKind::Slash,
-            },
-            Some('(') => TokenKind::LeftParen,
-            Some(')') => TokenKind::RightParen,
-            Some('[') => TokenKind::LeftSquare,
-            Some(']') => TokenKind::RightSquare,
-            Some('{') => TokenKind::LeftCurly,
-            Some('}') => TokenKind::RightCurly,
-            Some('|') => TokenKind::Bar,
-            Some('\'') => TokenKind::SingleQuote,
-            Some('"') => TokenKind::DoubleQuote,
-            Some('=') => match self.consume() {
-                Some('=') => TokenKind::DoubleEquals,
-                Some('>') => TokenKind::RightFatArrow,
-                _ => {
-                    self.backtrack(1);
-                    TokenKind::Equals
-                }
-            },
-            Some(',') => TokenKind::Comma,
-            Some('.') => TokenKind::Period,
-            Some(':') => TokenKind::Colon,
-            Some(';') => TokenKind::Semicolon,
-            Some('#') => TokenKind::Hashtag,
-            Some('@') => match self.consume() {
-                Some('=') => match self.consume() {
-                    Some('=') => TokenKind::EveryDoubleEquals,
-                    _ => {
-                        self.backtrack(2);
-                        TokenKind::At
-                    }
-                },
-                Some('>') => match self.consume() {
-                    Some('=') => TokenKind::EveryLargerThanEquals,
-                    _ => {
-                        self.backtrack(1);
-                        TokenKind::EveryLargerThan
-                    }
-                },
-                Some('<') => match self.consume() {
-                    Some('=') => TokenKind::EveryLessThanEquals,
-                    _ => {
-                        self.backtrack(1);
-                        TokenKind::EveryLessThan
-                    }
-                },
-                Some('!') => match self.consume() {
-                    Some('=') => TokenKind::EveryBangEquals,
-                    _ => {
-                        self.backtrack(2);
-                        TokenKind::At
-                    }
-                },
-                _ => {
-                    self.backtrack(1);
-                    TokenKind::At
-                }
-            },
-            Some('?') => match self.consume() {
-                Some('=') => match self.consume() {
-                    Some('=') => TokenKind::AnyDoubleEquals,
-                    _ => {
-                        self.backtrack(2);
-                        TokenKind::At
-                    }
-                },
-                Some('>') => match self.consume() {
-                    Some('=') => TokenKind::AnyLargerThanEquals,
-                    _ => {
-                        self.backtrack(1);
-                        TokenKind::AnyLargerThan
-                    }
-                },
-                Some('<') => match self.consume() {
-                    Some('=') => TokenKind::AnyLessThanEquals,
-                    _ => {
-                        self.backtrack(1);
-                        TokenKind::AnyLessThan
-                    }
-                },
-                Some('!') => match self.consume() {
-                    Some('=') => TokenKind::AnyBangEquals,
-                    _ => {
-                        self.backtrack(2);
-                        TokenKind::QuestionMark
-                    }
-                },
-                _ => {
-                    self.backtrack(1);
-                    TokenKind::QuestionMark
-                }
-            },
-            Some('>') => match self.consume() {
-                Some('=') => TokenKind::LargerThanEquals,
-                _ => {
-                    self.backtrack(1);
-                    TokenKind::LargerThan
-                }
-            },
-            Some('<') => match self.consume() {
-                Some('=') => TokenKind::LessThanEquals,
-                Some('-') => TokenKind::LeftArrow,
-                Some('~') => TokenKind::LeftCurlyArrow,
-                _ => {
-                    self.backtrack(1);
-                    TokenKind::LessThan
-                }
-            },
-            Some('!') => match self.consume() {
-                Some('=') => TokenKind::BangEquals,
-                _ => {
-                    self.backtrack(1);
-                    TokenKind::Bang
-                }
-            },
-            Some('&') => match self.consume() {
-                Some('&') => TokenKind::DoubleAnd,
-                _ => {
-                    self.backtrack(1);
-                    TokenKind::And
-                }
-            },
-            _ => TokenKind::Bad,
+        #[rustfmt::skip]
+        let (len, kind) = match (self.peak(0), self.peak(1), self.peak(2)) {
+            (Some('+'), Some('='), _,       ) => (2, TokenKind::PlusEquals),
+            (Some('+'), _,         _,       ) => (1, TokenKind::Plus),
+            (Some('-'), Some('='), _,       ) => (2, TokenKind::MinusEquals),
+            (Some('-'), Some('>'), _,       ) => (2, TokenKind::RightArrow),
+            (Some('-'), _,         _,       ) => (1, TokenKind::Minus),
+            (Some('*'), Some('='), _,       ) => (2, TokenKind::AsteriskEquals),
+            (Some('*'), _,         _,       ) => (1, TokenKind::Asterisk),
+            (Some('/'), Some('='), _,       ) => (2, TokenKind::SlashEquals),
+            (Some('/'), Some('/'), _,       ) => { self.consume_comment(); return None; }
+            (Some('/'), _,         _,       ) => (1, TokenKind::Slash),
+            (Some('('), _,         _,       ) => (1, TokenKind::LeftParen),
+            (Some(')'), _,         _,       ) => (1, TokenKind::RightParen),
+            (Some('['), _,         _,       ) => (1, TokenKind::LeftSquare),
+            (Some(']'), _,         _,       ) => (1, TokenKind::RightSquare),
+            (Some('{'), _,         _,       ) => (1, TokenKind::LeftCurly),
+            (Some('}'), _,         _,       ) => (1, TokenKind::RightCurly),
+            (Some('|'), _,         _,       ) => (1, TokenKind::Bar),
+            (Some('\''),_,         _,       ) => (1, TokenKind::SingleQuote),
+            (Some('='), Some('='), _,       ) => (2, TokenKind::DoubleEquals),
+            (Some('='), Some('>'), _,       ) => (2, TokenKind::RightFatArrow),
+            (Some('='), _,         _,       ) => (1, TokenKind::Equals),
+            (Some(','), _,         _,       ) => (1, TokenKind::Comma),
+            (Some('.'), _,         _,       ) => (1, TokenKind::Period),
+            (Some(':'), _,         _,       ) => (1, TokenKind::Colon),
+            (Some(';'), _,         _,       ) => (1, TokenKind::Semicolon),
+            (Some('#'), _,         _,       ) => (1, TokenKind::Hashtag),
+            (Some('@'), Some('='), Some('=')) => (3, TokenKind::EveryDoubleEquals),
+            (Some('@'), Some('>'), Some('=')) => (3, TokenKind::EveryLargerThanEquals),
+            (Some('@'), Some('>'), _,       ) => (2, TokenKind::EveryLargerThan),
+            (Some('@'), Some('<'), Some('=')) => (3, TokenKind::EveryLessThanEquals),
+            (Some('@'), Some('<'), _,       ) => (2, TokenKind::EveryLessThan),
+            (Some('@'), Some('!'), Some('=')) => (3, TokenKind::EveryBangEquals),
+            (Some('@'), _,         _,       ) => (1, TokenKind::At),
+            (Some('?'), Some('='), Some('=')) => (3, TokenKind::AnyDoubleEquals),
+            (Some('?'), Some('>'), Some('=')) => (3, TokenKind::AnyLargerThanEquals),
+            (Some('?'), Some('>'), _,       ) => (2, TokenKind::AnyLargerThan),
+            (Some('?'), Some('<'), Some('=')) => (3, TokenKind::AnyLessThanEquals),
+            (Some('?'), Some('<'), _,       ) => (2, TokenKind::AnyLessThan),
+            (Some('?'), Some('!'), Some('=')) => (3, TokenKind::AnyBangEquals),
+            (Some('?'), _,         _,       ) => (1, TokenKind::QuestionMark),
+            (Some('>'), Some('='), _,       ) => (2, TokenKind::LargerThanEquals),
+            (Some('>'), _,         _,       ) => (1, TokenKind::LargerThan),
+            (Some('<'), Some('='), _,       ) => (2, TokenKind::LessThanEquals),
+            (Some('<'), Some('-'), _,       ) => (2, TokenKind::LeftArrow),
+            (Some('<'), Some('~'), _,       ) => (2, TokenKind::LeftCurlyArrow),
+            (Some('<'), _,         _,       ) => (1, TokenKind::LessThan),
+            (Some('!'), Some('='), _,       ) => (2, TokenKind::BangEquals),
+            (Some('&'), Some('&'), _,       ) => (2, TokenKind::DoubleAnd),
+            (Some('&'), _,         _,       ) => (1, TokenKind::And),
+            _ => (1, TokenKind::Bad),
         };
+        self.cursor += len;
         Some(kind)
     }
 
@@ -567,7 +463,7 @@ fn lex_2_char_operators() {
 
 #[test]
 fn lex_all_tokens() {
-    let code = "10hello+-*/()[]{}=,.:;==&->&&  @";
+    let code = "10hello+-*/()[]{}=,.:;==&->&&  @@==@!=@>@>=@<@<=?==?!=?>?>=?<?<='\"literal'\"";
     let expected_tokens = vec![
         TokenKind::Number(10),
         TokenKind::Word("hello".to_string()),
@@ -592,6 +488,20 @@ fn lex_all_tokens() {
         TokenKind::DoubleAnd,
         TokenKind::Whitespace,
         TokenKind::At,
+        TokenKind::EveryDoubleEquals,
+        TokenKind::EveryBangEquals,
+        TokenKind::EveryLargerThan,
+        TokenKind::EveryLargerThanEquals,
+        TokenKind::EveryLessThan,
+        TokenKind::EveryLessThanEquals,
+        TokenKind::AnyDoubleEquals,
+        TokenKind::AnyBangEquals,
+        TokenKind::AnyLargerThan,
+        TokenKind::AnyLargerThanEquals,
+        TokenKind::AnyLessThan,
+        TokenKind::AnyLessThanEquals,
+        TokenKind::SingleQuote,
+        TokenKind::StringLiteral("literal'".to_string()),
         TokenKind::End,
     ];
     let (_text, _diagnostics_bag, lexer) = Lexer::new_bundle(code);
