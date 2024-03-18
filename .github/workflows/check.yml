@@ -13,17 +13,19 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+    - uses: cachix/install-nix-action@v18
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+    - uses: rrbutani/use-nix-shell-action@v1
+      with:
+        devShell: .#ci
     - uses: actions/checkout@v3
-    - uses: dtolnay/rust-toolchain@stable
     - name: Build
       run: cargo build -v --manifest-path chef-lang/Cargo.toml
     - name: Run language tests
       run: cargo test -v --manifest-path chef-lang/Cargo.toml
-    - uses: actions/setup-python@v4
-      with:
-          python-version: '3.10' 
     - name: Run python module tests
-      run: PYTHONPATH="$(pwd)/chef-python/src" python ./chef-python/test.py
+      run: $GITHUB_WORKSPACE/chef-python/src python ./chef-python/test.py
 
   clippy:
     runs-on: ubuntu-latest

@@ -35,20 +35,36 @@
         };
 
         # Development shell
-        devShells."${system}".default =
-        pkgs.mkShell {
-            packages = [
-                pkgs.cargo     # compiler and build system
-                pkgs.graphviz  # for creating visual graphs
-                pkgs.gnome.eog # svg viewer
-            ];
+        devShells."${system}" = {
+            default = pkgs.mkShell {
+                packages = [
+                    pkgs.cargo     # compiler and build system
+                    pkgs.graphviz  # for creating visual graphs
+                    pkgs.gnome.eog # svg viewer
+                ];
 
-            shellHook = ''
-                root="$(pwd)"
-                [[ ! "$(basename $root)" = "chef" ]] && echo -e "\nWARNING: Paths may are not set correctly. Please run in the 'chef' root directory."
-                export PATH="$root/chef-lang/target/debug:$PATH"
-                export PYTHONPATH="$root/chef-python/src"
-            '';
+                shellHook = ''
+                    root="$(pwd)"
+                    [[ ! "$(basename $root)" = "chef" ]] && echo -e "\nWARNING: Paths may are not set correctly. Please run in the 'chef' root directory."
+                    export PATH="$root/chef-lang/target/debug:$PATH"
+                    export PYTHONPATH="$root/chef-python/src"
+                '';
+            };
+            ci = pkgs.mkShell {
+                packages = [ pkgs.cargo ];
+
+                shellHook = ''
+                    [[ -z "$GITHUB_WORKSPACE" ]] && {
+                        echo -e "\nWARNING: GITHUB_WORKSPACE is not set. Please run in a GitHub Actions environment."
+                        GITHUB_WORKSPACE=$(pwd)
+                        echo "Using '$GITHUB_WORKSPACE' instead."
+                    }
+                    root="$GITHUB_WORKSPACE"
+                    [[ ! "$(basename $root)" = "chef" ]] && echo -e "\nWARNING: Paths may are not set correctly. Please run in the 'chef' root directory."
+                    export PATH="$root/chef-lang/target/debug:$PATH"
+                    export PYTHONPATH="$root/chef-python/src"
+                '';
+            };
         };
     };
 }
