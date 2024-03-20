@@ -16,16 +16,13 @@ jobs:
     - uses: cachix/install-nix-action@v18
       with:
         nix_path: nixpkgs=channel:nixos-unstable
-    - uses: rrbutani/use-nix-shell-action@v1
-      with:
-        devShell: .#ci
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build -v --manifest-path chef-lang/Cargo.toml
+      run: nix develop --command sh -c "make build"
     - name: Run language tests
-      run: cargo test -v --manifest-path chef-lang/Cargo.toml
+      run: nix develop --command sh -c "make test-lang"
     - name: Run python module tests
-      run: $GITHUB_WORKSPACE/chef-python/src python ./chef-python/test.py
+      run: nix develop --command sh -c "make test-python"
 
   clippy:
     runs-on: ubuntu-latest
