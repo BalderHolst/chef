@@ -1,3 +1,5 @@
 __pycache__
 chef
 result
+.envrc
+.direnv/
