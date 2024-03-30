@@ -17,8 +17,8 @@ use crate::{
     utils::BASE_SIGNALS,
 };
 
-use self::placement::TurdMaster2000;
 use placement::Placer;
+use placement::TurdMaster2000;
 
 type Operation = graph::Operation;
 
@@ -98,6 +98,16 @@ impl Operation {
     }
 }
 
+// TODO: verify that this works
+macro_rules! each {
+    () => {
+        factorio_blueprint::objects::SignalID {
+            name: "signal-each".to_string(),
+            type_: fbo::SignalIDType::Virtual,
+        }
+    };
+}
+
 impl FactorioCombinator {
     pub fn to_blueprint_entity(&self) -> fbo::Entity {
         let output_connections: Vec<fbo::ConnectionData> = self
@@ -125,10 +135,10 @@ impl FactorioCombinator {
         let name = match &self.operation {
             graph::Operation::Arithmetic(_) => "arithmetic-combinator",
             graph::Operation::Decider(_) => "decider-combinator",
-            graph::Operation::Pick(_) => todo!(),
+            graph::Operation::Pick(_) => "arithmetic-combinator",
             graph::Operation::Gate(_) => "decider-combinator",
-            graph::Operation::Delay(_) => todo!(),
-            graph::Operation::Sum(_) => todo!(),
+            graph::Operation::Delay(_) => "arithmetic-combinator",
+            graph::Operation::Sum(_) => "arithmetic-combinator",
         }
         .to_string();
 
@@ -208,7 +218,26 @@ impl FactorioCombinator {
                 }
             }
 
-            graph::Operation::Pick(_) => todo!(),
+            graph::Operation::Pick(pc) => {
+                let (first_constant, first_signal) = Self::iotype_to_const_signal_pair(&pc.output);
+                let (second_constant, second_signal) = (Some(0), None);
+                let output_signal = first_signal.clone();
+                let operation = "+".to_string();
+
+                fbo::ControlBehavior {
+                    arithmetic_conditions: Some(fbo::ArithmeticConditions {
+                        first_constant,
+                        first_signal,
+                        second_constant,
+                        second_signal,
+                        operation,
+                        output_signal,
+                    }),
+                    decider_conditions: None,
+                    filters: None,
+                    is_on: None,
+                }
+            }
 
             graph::Operation::Gate(gc) => {
                 let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&gc.left);
@@ -230,26 +259,47 @@ impl FactorioCombinator {
                     is_on: None,
                 }
             }
-            graph::Operation::Delay(_) => todo!(),
-            graph::Operation::Sum(_) => todo!(),
-            // graph::Combinator::Constant(cc) => {
-            //     let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
-            //     ControlBehavior {
-            //         arithmetic_conditions: None,
-            //         decider_conditions: None,
-            //         filters: {
-            //             Some(vec![ControlFilter {
-            //                 signal: SignalID {
-            //                     name: signal,
-            //                     type_,
-            //                 },
-            //                 index: NonZeroUsize::new(1).unwrap(),
-            //                 count: cc.count,
-            //             }])
-            //         },
-            //         is_on: Some(true),
-            //     }
-            // }
+            graph::Operation::Delay(_dc) => {
+                let (first_constant, first_signal) = (None, Some(each!()));
+                let (second_constant, second_signal) = (Some(0), None);
+                let output_signal = Some(each!());
+                let operation = "+".to_string();
+
+                fbo::ControlBehavior {
+                    arithmetic_conditions: Some(fbo::ArithmeticConditions {
+                        first_constant,
+                        first_signal,
+                        second_constant,
+                        second_signal,
+                        operation,
+                        output_signal,
+                    }),
+                    decider_conditions: None,
+                    filters: None,
+                    is_on: None,
+                }
+            }
+
+            graph::Operation::Sum(sc) => {
+                let (first_constant, first_signal) = (None, Some(each!()));
+                let (second_constant, second_signal) = (Some(0), None);
+                let (_, output_signal) = Self::iotype_to_const_signal_pair(&sc.output);
+                let operation = "+".to_string();
+
+                fbo::ControlBehavior {
+                    arithmetic_conditions: Some(fbo::ArithmeticConditions {
+                        first_constant,
+                        first_signal,
+                        second_constant,
+                        second_signal,
+                        operation,
+                        output_signal,
+                    }),
+                    decider_conditions: None,
+                    filters: None,
+                    is_on: None,
+                }
+            }
         }
     }
 

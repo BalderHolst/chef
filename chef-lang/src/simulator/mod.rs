@@ -254,8 +254,8 @@ impl Simulator {
                     Item::new(c.output, result)
                 }
                 Operation::Pick(p) => {
-                    let sig = get_count(&conn_inputs, &p.signal);
-                    Item::new(p.signal, sig)
+                    let sig = get_count(&conn_inputs, &p.output);
+                    Item::new(p.output, sig)
                 }
                 Operation::Gate(c) => {
                     let left = get_count(&conn_inputs, &c.left);

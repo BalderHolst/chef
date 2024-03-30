@@ -200,12 +200,12 @@ impl ArithmeticOp {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PickOp {
-    pub signal: IOType,
+    pub output: IOType,
 }
 
 impl PickOp {
     pub fn new(pick: IOType) -> Self {
-        Self { signal: pick }
+        Self { output: pick }
     }
 }
 
@@ -292,7 +292,7 @@ impl Operation {
         match self {
             Self::Arithmetic(ac) => ac.output.clone(),
             Self::Decider(dc) => dc.output.clone(),
-            Self::Pick(pc) => pc.signal.clone(),
+            Self::Pick(pc) => pc.output.clone(),
             Self::Gate(gc) => gc.gate_type.clone(),
             Self::Delay(dc) => dc.output.clone(),
             Self::Sum(sc) => sc.output.clone(),
@@ -312,7 +312,7 @@ impl Display for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Operation::Pick(pc) => {
-                format!("PICK: {}", pc.signal)
+                format!("PICK: {}", pc.output)
             }
             Operation::Arithmetic(ac) if ac.is_convert() => {
                 format!("CONVERT: {} -> {}", ac.left, ac.output)
@@ -959,8 +959,8 @@ impl Graph {
                         }
                     }
                     Connection::Combinator(Operation::Pick(pc)) => {
-                        if pc.signal == old_type {
-                            pc.signal = new_type.clone()
+                        if pc.output == old_type {
+                            pc.output = new_type.clone()
                         }
                     }
                     Connection::Combinator(Operation::Gate(gc)) => {
@@ -1150,7 +1150,7 @@ impl<'a> AnysignalAssigner<'a> {
                             self.replace_if_anysignal(&mut c.output);
                         }
                         Operation::Pick(pc) => {
-                            self.replace_if_anysignal(&mut pc.signal);
+                            self.replace_if_anysignal(&mut pc.output);
                         }
                         Operation::Gate(c) => {
                             self.replace_if_anysignal(&mut c.left);
