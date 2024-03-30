@@ -13,6 +13,7 @@ use noisy_float::types::R64;
 use crate::{
     compiler::{
         graph::{self, ArithmeticOperation, DeciderOperation, Graph, IOType, NetworkId},
+        // TODO: remove reserved signal
         RESERVED_SIGNAL,
     },
     utils::BASE_SIGNALS,
@@ -396,7 +397,8 @@ impl FactorioCombinator {
         for line in BASE_SIGNALS.lines() {
             let (type_, sig) = line
                 .split_once(':')
-                .expect("Eact line in signale files should be formattet like this: type:signal");
+                // TODO: better error handling
+                .expect("Each line in signale files should be formattet like this: type:signal");
             if s == sig {
                 return match type_ {
                     "item" => fbo::SignalIDType::Item,
