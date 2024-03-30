@@ -5,11 +5,14 @@ mod visualizer;
 use std::{fmt::Display, io};
 
 use crate::compiler::graph::{
-    ArithmeticOperation, DeciderOperation, Graph, IOType, NId, NetworkId, Operation,
+    ArithmeticOperation, DeciderOperation, Graph, IOType, NId, Operation,
 };
 use fnv::FnvHashMap;
 
 use self::visualizer::visualize_simulator;
+
+/// Identifier for a network of nodes directly connected by wires.
+pub type NetworkId = usize;
 
 /// Create inputs for a graph ergonomically
 #[macro_export]

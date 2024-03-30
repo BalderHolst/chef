@@ -412,9 +412,6 @@ impl Node {
 /// Index of a node in a [Graph].
 pub type NId = u64;
 
-/// Identifier for a network of nodes directly connected by wires.
-pub type NetworkId = usize;
-
 // TODO: Make `print` the debug or display function
 /// A graph for storing connection and nodes representing factorio combinators.
 #[derive(Clone)]

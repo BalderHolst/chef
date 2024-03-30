@@ -101,68 +101,117 @@ impl TurdMaster2000 {
         let mut input_network_exists = false;
         let mut output_network_exists = false;
 
-        let mut input_combinators = vec![];
-        let mut output_combinators = vec![];
+        let mut input_combinators_red = vec![];
+        let mut output_combinators_red = vec![];
+        let mut input_combinators_green = vec![];
+        let mut output_combinators_green = vec![];
 
         // TODO: This can result in skipped entity numbers. Make this that this is ok.
         let this_entity_number = self.get_next_entity_number();
 
         // Check that wire can reach the necessary placed combinators in this position
         for other in &mut self.placed_combinators.values_mut() {
+            // Red networks
             if input_network_red.contains(&other.output_nid) {
                 input_network_exists = true;
                 if is_in_range(&input_coord, &other.position.output) {
-                    input_combinators.push(other);
+                    input_combinators_red.push(other.clone());
                 }
             } else if output_network_red.contains(&other.input_nid) {
                 output_network_exists = true;
                 if is_in_range(&output_coord, &other.position.input) {
-                    output_combinators.push((other, ConnectionPointType::Input));
+                    output_combinators_red.push((
+                        other.clone(),
+                        ConnectionPointType::Input,
+                        WireKind::Red,
+                    ));
                 }
             } else if output_network_red.contains(&other.output_nid) {
                 output_network_exists = true;
                 if is_in_range(&output_coord, &other.position.output) {
-                    output_combinators.push((other, ConnectionPointType::Output));
+                    output_combinators_red.push((
+                        other.clone(),
+                        ConnectionPointType::Output,
+                        WireKind::Red,
+                    ));
+                }
+            }
+
+            // Green networks
+            if input_network_green.contains(&other.output_nid) {
+                input_network_exists = true;
+                if is_in_range(&input_coord, &other.position.output) {
+                    input_combinators_green.push(other);
+                }
+            } else if output_network_green.contains(&other.input_nid) {
+                output_network_exists = true;
+                if is_in_range(&output_coord, &other.position.input) {
+                    output_combinators_green.push((
+                        other,
+                        ConnectionPointType::Input,
+                        WireKind::Green,
+                    ));
+                }
+            } else if output_network_green.contains(&other.output_nid) {
+                output_network_exists = true;
+                if is_in_range(&output_coord, &other.position.output) {
+                    output_combinators_green.push((
+                        other,
+                        ConnectionPointType::Output,
+                        WireKind::Green,
+                    ));
                 }
             }
         }
 
         // TODO: Connect with input network
 
-        if (input_network_exists && input_combinators.is_empty())
-            || (output_network_exists && output_combinators.is_empty())
+        if (input_network_exists && input_combinators_red.is_empty())
+            || (output_network_exists && output_combinators_red.is_empty())
         {
             return None; // Could not connect to the input or output network from this position
         }
 
-        // Update input combinator
-        for input_com in input_combinators {
+        // Update input combinators
+        for input_com in &mut input_combinators_red {
             input_com.output_entities.push((
                 this_entity_number,
                 operation.get_input_connection_point().try_into().unwrap(),
+                WireKind::Red,
+            ));
+        }
+        for input_com in &mut input_combinators_green {
+            input_com.output_entities.push((
+                this_entity_number,
+                operation.get_input_connection_point().try_into().unwrap(),
+                WireKind::Green,
             ));
         }
 
-        let mut output_entities: Vec<(EntityNumber, ConnectionPoint)> = output_combinators
-            .iter()
-            .map(|(output_com, point_type)| {
-                let point = match point_type {
-                    ConnectionPointType::Input => output_com.operation.get_input_connection_point(),
-                    ConnectionPointType::Output => {
-                        output_com.operation.get_output_connection_point()
+        let mut output_entities: Vec<(EntityNumber, ConnectionPoint, WireKind)> =
+            output_combinators_red
+                .iter()
+                .map(|(output_com, point_type, wire_kind)| {
+                    let point = match point_type {
+                        ConnectionPointType::Input => {
+                            output_com.operation.get_input_connection_point()
+                        }
+                        ConnectionPointType::Output => {
+                            output_com.operation.get_output_connection_point()
+                        }
                     }
-                }
-                .try_into()
-                .unwrap();
-                (output_com.entity_number, point)
-            })
-            .collect();
+                    .try_into()
+                    .unwrap();
+                    (output_com.entity_number, point, wire_kind.clone())
+                })
+                .collect();
 
         // Add itself as output if output and input networks are the same
         if input_network_red == output_network_red {
             output_entities.push((
                 this_entity_number,
                 operation.get_input_connection_point().try_into().unwrap(),
+                WireKind::Red,
             )) // loopback
         }
 
