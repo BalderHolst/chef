@@ -6,8 +6,8 @@ use std::{
 use factorio_blueprint::objects::EntityNumber;
 
 use crate::{
-    blueprint::{ConnectionPoint, NetworkId, Operation},
-    compiler::graph::{Graph, NId, WireKind},
+    blueprint::ConnectionPoint,
+    compiler::graph::{Graph, NId, Operation, WireKind},
 };
 
 use super::{CombinatorPosition, ConnectionPointType, CoordSet, FactorioCombinator, WIRE_RANGE};
@@ -48,7 +48,6 @@ fn test_is_in_range() {
 /// 6. When placed, connect wires to the other combinators that were placed.
 pub struct TurdMaster2000 {
     graph: Graph,
-    networks: Vec<(Vec<NId>, WireKind)>,
     placed_combinators: HashMap<EntityNumber, FactorioCombinator>,
     placed_positions: HashSet<CoordSet>,
     max_x: i64,
@@ -60,10 +59,8 @@ pub struct TurdMaster2000 {
 
 impl TurdMaster2000 {
     pub fn new(graph: Graph) -> Self {
-        let networks = graph.get_networks();
         Self {
             graph,
-            networks,
             placed_combinators: HashMap::new(),
             placed_positions: HashSet::new(),
             max_x: 0,
@@ -82,8 +79,8 @@ impl TurdMaster2000 {
         &mut self,
         x: i64,
         y: i64,
-        input_network: NetworkId,
-        output_network: NetworkId,
+        input_nid: NId,
+        output_nid: NId,
         operation: &Operation,
     ) -> Option<FactorioCombinator> {
         let input_coord = (x, y * 2);
@@ -93,7 +90,12 @@ impl TurdMaster2000 {
             return None;
         }
 
-        // True if any combinators with inputs or outputs the same as this combinator has been
+        let input_network_red = self.graph.get_node_network(&input_nid, WireKind::Red);
+        let output_network_red = self.graph.get_node_network(&output_nid, WireKind::Red);
+        let input_network_green = self.graph.get_node_network(&input_nid, WireKind::Green);
+        let output_network_green = self.graph.get_node_network(&output_nid, WireKind::Green);
+
+        // `true` if any combinators with inputs or outputs the same as this combinator has been
         // placed. If they have, we have to be able to connect to the network from the current
         // position.
         let mut input_network_exists = false;
@@ -105,19 +107,19 @@ impl TurdMaster2000 {
         // TODO: This can result in skipped entity numbers. Make this that this is ok.
         let this_entity_number = self.get_next_entity_number();
 
-        // Check that wire can reach the nessecery placed combinators in this position
+        // Check that wire can reach the necessary placed combinators in this position
         for other in &mut self.placed_combinators.values_mut() {
-            if other.output_network == input_network {
+            if input_network_red.contains(&other.output_nid) {
                 input_network_exists = true;
                 if is_in_range(&input_coord, &other.position.output) {
                     input_combinators.push(other);
                 }
-            } else if other.input_network == output_network {
+            } else if output_network_red.contains(&other.input_nid) {
                 output_network_exists = true;
                 if is_in_range(&output_coord, &other.position.input) {
                     output_combinators.push((other, ConnectionPointType::Input));
                 }
-            } else if other.output_network == output_network {
+            } else if output_network_red.contains(&other.output_nid) {
                 output_network_exists = true;
                 if is_in_range(&output_coord, &other.position.output) {
                     output_combinators.push((other, ConnectionPointType::Output));
@@ -156,8 +158,8 @@ impl TurdMaster2000 {
             })
             .collect();
 
-        // Add itself as output if outpu and input networks are the same
-        if input_network == output_network {
+        // Add itself as output if output and input networks are the same
+        if input_network_red == output_network_red {
             output_entities.push((
                 this_entity_number,
                 operation.get_input_connection_point().try_into().unwrap(),
@@ -171,8 +173,8 @@ impl TurdMaster2000 {
 
         Some(FactorioCombinator {
             entity_number: this_entity_number,
-            input_network,
-            output_network,
+            input_nid,
+            output_nid,
             operation: operation.clone(),
             output_entities,
             position: CombinatorPosition {
@@ -187,17 +189,6 @@ impl TurdMaster2000 {
         self.next_entity_number = self.next_entity_number.checked_add(1).unwrap();
         en
     }
-
-    fn get_node_network(&self, nid: NId) -> NetworkId {
-        for (network_id, (network, _wk)) in self.networks.iter().enumerate() {
-            for network_nid in network {
-                if network_nid == &nid {
-                    return network_id;
-                }
-            }
-        }
-        panic!("Node has no network... this should not be possible.")
-    }
 }
 
 impl Placer for TurdMaster2000 {
@@ -205,12 +196,10 @@ impl Placer for TurdMaster2000 {
         let coms: Vec<_> = self.graph.iter_combinators().collect();
 
         'next_combinator: for (input_nid, output_nid, operation) in coms {
-            let input_network = self.get_node_network(input_nid);
-            let output_network = self.get_node_network(output_nid);
             for y in self.min_y - 1..=self.max_y + 1 {
                 for x in self.min_x - 1..=self.max_x + 1 {
                     if let Some(combinator) =
-                        self.try_place_combinator(x, y, input_network, output_network, &operation)
+                        self.try_place_combinator(x, y, input_nid, output_nid, &operation)
                     {
                         self.placed_combinators
                             .insert(combinator.entity_number, combinator);

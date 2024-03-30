@@ -1,6 +1,6 @@
-block main() => (out: int(pump)) {
+block main(input: many) => (out: many) {
 
     // Delay by 10 cycles
-    out <- .......... 20;
+    out <- .......... input;
 
 }

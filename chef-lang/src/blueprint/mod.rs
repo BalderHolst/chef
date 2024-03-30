@@ -69,8 +69,8 @@ enum ConnectionPointType {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FactorioCombinator {
     pub entity_number: fbo::EntityNumber,
-    pub input_network: NetworkId,
-    pub output_network: NetworkId,
+    pub input_nid: graph::NId,
+    pub output_nid: graph::NId,
     pub operation: Operation,
     pub output_entities: Vec<(fbo::EntityNumber, ConnectionPoint)>,
     pub position: CombinatorPosition,
@@ -421,10 +421,13 @@ impl Display for FactorioCombinator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} -> {} (input for: {:?}): [{}] {} {{{}}}",
-            self.input_network,
-            self.output_network,
-            self.output_entities,
+            "{} -> {} (input for: {:?}):\t[{}] {} {{{}}}",
+            self.input_nid,
+            self.output_nid,
+            self.output_entities
+                .iter()
+                .map(|(en, _)| en)
+                .collect::<Vec<_>>(),
             self.entity_number,
             self.operation,
             self.position
