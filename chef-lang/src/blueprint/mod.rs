@@ -99,7 +99,6 @@ impl Operation {
     }
 }
 
-// TODO: verify that this works
 macro_rules! each {
     () => {
         factorio_blueprint::objects::SignalID {
