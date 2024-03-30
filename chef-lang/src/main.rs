@@ -12,7 +12,7 @@ use text::SourceText;
 use utils::VisualizerError;
 
 mod ast;
-mod blueprint_converter;
+mod blueprint;
 mod cli;
 mod compiler;
 mod diagnostics;
@@ -73,11 +73,9 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
         exit(0);
     }
 
-    let blueprint_str = blueprint_converter::convert_to_graph_to_blueprint_string(
-        graph,
-        opts.verbose || cook_opts.verbose,
-    )
-    .unwrap();
+    let blueprint_str =
+        blueprint::convert_to_graph_to_blueprint_string(graph, opts.verbose || cook_opts.verbose)
+            .unwrap();
     println!("{blueprint_str}");
     eprintln!();
 

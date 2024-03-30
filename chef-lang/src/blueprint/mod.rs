@@ -21,9 +21,9 @@ use crate::{
     },
     utils::BASE_SIGNALS,
 };
-use placement::Placer;
 
 use self::placement::TurdMaster2000;
+use placement::Placer;
 
 type Operation = graph::Operation;
 

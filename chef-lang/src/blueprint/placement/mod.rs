@@ -6,7 +6,7 @@ use std::{
 use factorio_blueprint::objects::EntityNumber;
 
 use crate::{
-    blueprint_converter::{ConnectionPoint, NetworkId, Operation},
+    blueprint::{ConnectionPoint, NetworkId, Operation},
     compiler::graph::{Graph, NId, WireKind},
 };
 
