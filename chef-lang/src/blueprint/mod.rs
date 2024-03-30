@@ -5,13 +5,8 @@ mod placement;
 use std::{collections::HashMap, fmt::Display};
 
 use factorio_blueprint as fb;
-use fb::{
-    objects::{
-        self as fbo, ArithmeticConditions, Blueprint, ControlBehavior, DeciderConditions, Entity,
-        EntityConnections, EntityNumber, OneBasedIndex, Position, SignalID, SignalIDType,
-    },
-    Container,
-};
+use factorio_blueprint::objects as fbo;
+
 use noisy_float::types::R64;
 
 use crate::{
@@ -39,7 +34,7 @@ pub struct CombinatorPosition {
 }
 
 impl CombinatorPosition {
-    pub fn factorio_pos(&self) -> Position {
+    pub fn factorio_pos(&self) -> fbo::Position {
         let (x1, y1) = self.input;
         let (x2, y2) = self.output;
 
@@ -49,7 +44,7 @@ impl CombinatorPosition {
         let x = R64::new(x);
         let y = R64::new(y);
 
-        Position { x, y }
+        fbo::Position { x, y }
     }
 }
 
@@ -71,11 +66,11 @@ enum ConnectionPointType {
 /// Placed Factorio Combinator
 #[derive(Clone, Debug, PartialEq)]
 pub struct FactorioCombinator {
-    pub entity_number: EntityNumber,
+    pub entity_number: fbo::EntityNumber,
     pub input_network: NetworkId,
     pub output_network: NetworkId,
     pub operation: Operation,
-    pub output_entities: Vec<(EntityNumber, ConnectionPoint)>,
+    pub output_entities: Vec<(fbo::EntityNumber, ConnectionPoint)>,
     pub position: CombinatorPosition,
 }
 
@@ -104,7 +99,7 @@ impl Operation {
 }
 
 impl FactorioCombinator {
-    pub fn to_blueprint_entity(&self) -> Entity {
+    pub fn to_blueprint_entity(&self) -> fbo::Entity {
         let output_connections: Vec<fbo::ConnectionData> = self
             .output_entities
             .iter()
@@ -115,9 +110,9 @@ impl FactorioCombinator {
             .collect();
 
         let output_connection_point = self.operation.get_output_connection_point();
-        let mut connections: HashMap<EntityNumber, fbo::Connection> = HashMap::new();
+        let mut connections: HashMap<fbo::EntityNumber, fbo::Connection> = HashMap::new();
         connections.insert(
-            OneBasedIndex::new(output_connection_point).unwrap(),
+            fbo::OneBasedIndex::new(output_connection_point).unwrap(),
             fbo::Connection {
                 red: None,
                 green: Some(output_connections),
@@ -137,13 +132,13 @@ impl FactorioCombinator {
         }
         .to_string();
 
-        Entity {
+        fbo::Entity {
             entity_number: self.entity_number,
             name,
             position: self.position.factorio_pos(),
             direction: None,
             orientation: None,
-            connections: Some(EntityConnections::NumberIdx(connections)),
+            connections: Some(fbo::EntityConnections::NumberIdx(connections)),
             control_behavior: Some(control_behavior),
             items: None,
             recipe: None,
@@ -170,7 +165,7 @@ impl FactorioCombinator {
         }
     }
 
-    fn get_control_behavior(&self) -> ControlBehavior {
+    fn get_control_behavior(&self) -> fbo::ControlBehavior {
         match &self.operation {
             graph::Operation::Arithmetic(ac) => {
                 let (first_constant, first_signal) = Self::iotype_to_const_signal_pair(&ac.left);
@@ -178,8 +173,8 @@ impl FactorioCombinator {
                 let (_, output_signal) = Self::iotype_to_const_signal_pair(&ac.output);
                 let operation = Self::arithmetic_operation_to_op_string(&ac.operation);
 
-                ControlBehavior {
-                    arithmetic_conditions: Some(ArithmeticConditions {
+                fbo::ControlBehavior {
+                    arithmetic_conditions: Some(fbo::ArithmeticConditions {
                         first_constant,
                         first_signal,
                         second_constant,
@@ -198,9 +193,9 @@ impl FactorioCombinator {
                 let (_, output_signal) = Self::iotype_to_const_signal_pair(&dc.output);
                 let operation = Self::decider_operation_to_op_string(&dc.operation);
 
-                ControlBehavior {
+                fbo::ControlBehavior {
                     arithmetic_conditions: None,
-                    decider_conditions: Some(DeciderConditions {
+                    decider_conditions: Some(fbo::DeciderConditions {
                         first_signal,
                         second_signal,
                         constant: second_constant,
@@ -221,9 +216,9 @@ impl FactorioCombinator {
                 let (_, gate_signal) = Self::iotype_to_const_signal_pair(&gc.gate_type);
                 let operation = Self::decider_operation_to_op_string(&gc.operation);
 
-                ControlBehavior {
+                fbo::ControlBehavior {
                     arithmetic_conditions: None,
-                    decider_conditions: Some(DeciderConditions {
+                    decider_conditions: Some(fbo::DeciderConditions {
                         first_signal,
                         second_signal,
                         constant: second_constant,
@@ -293,13 +288,13 @@ impl FactorioCombinator {
     }
 
     /// Returns (first_constant, first_signal)
-    fn iotype_to_const_signal_pair(t: &graph::IOType) -> (Option<i32>, Option<SignalID>) {
+    fn iotype_to_const_signal_pair(t: &graph::IOType) -> (Option<i32>, Option<fbo::SignalID>) {
         match t {
             graph::IOType::Signal(s) => {
                 let type_ = Self::get_signal_type(s.as_str());
                 (
                     None,
-                    Some(SignalID {
+                    Some(fbo::SignalID {
                         name: s.clone(),
                         type_,
                     }),
@@ -309,7 +304,7 @@ impl FactorioCombinator {
                 let type_ = Self::get_signal_type(s.as_str());
                 (
                     Some(*n),
-                    Some(SignalID {
+                    Some(fbo::SignalID {
                         name: s.clone(),
                         type_,
                     }),
@@ -318,10 +313,10 @@ impl FactorioCombinator {
             graph::IOType::Constant(n) => (Some(*n), None),
             graph::IOType::Many => (
                 None,
-                Some(SignalID {
+                Some(fbo::SignalID {
                     // TODO: check that "everything" is correct
                     name: "signal-everything".to_string(),
-                    type_: SignalIDType::Virtual,
+                    type_: fbo::SignalIDType::Virtual,
                 }),
             ),
 
@@ -334,7 +329,7 @@ impl FactorioCombinator {
 
     // TODO: Convert return type to union
     // Get the corresponding (signal_type, signal_string) pair
-    fn _iotype_to_signal_pair(t: IOType) -> (SignalIDType, String) {
+    fn _iotype_to_signal_pair(t: IOType) -> (fbo::SignalIDType, String) {
         match t {
             IOType::Signal(s) => (Self::get_signal_type(s.as_str()), s),
             IOType::Constant(_) => todo!(),
@@ -347,20 +342,20 @@ impl FactorioCombinator {
         }
     }
 
-    fn get_signal_type(s: &str) -> SignalIDType {
+    fn get_signal_type(s: &str) -> fbo::SignalIDType {
         for line in BASE_SIGNALS.lines() {
             let (type_, sig) = line
                 .split_once(':')
                 .expect("Eact line in signale files should be formattet like this: type:signal");
             if s == sig {
                 return match type_ {
-                    "item" => SignalIDType::Item,
-                    "fluid" => SignalIDType::Fluid,
-                    "virtual" => SignalIDType::Virtual,
+                    "item" => fbo::SignalIDType::Item,
+                    "fluid" => fbo::SignalIDType::Fluid,
+                    "virtual" => fbo::SignalIDType::Virtual,
                     _ => panic!("Invalid signal type in signal file: `{}`.", type_),
                 };
             } else if s == RESERVED_SIGNAL {
-                return SignalIDType::Virtual;
+                return fbo::SignalIDType::Virtual;
             }
         }
         panic!(
@@ -406,18 +401,18 @@ fn place_combinators(placer: impl Placer) -> Vec<FactorioCombinator> {
 }
 
 /// Create a [Blueprint] from a list of combinators
-fn combinators_to_blueprint(combinators: Vec<FactorioCombinator>) -> Container {
-    let entities: Vec<Entity> = combinators
+fn combinators_to_blueprint(combinators: Vec<FactorioCombinator>) -> fb::Container {
+    let entities: Vec<fbo::Entity> = combinators
         .iter()
         .map(|c| c.to_blueprint_entity())
         .collect();
     let blueprint = create_blueprint(entities);
-    Container::Blueprint(blueprint)
+    fb::Container::Blueprint(blueprint)
 }
 
 /// Create a [Blueprint] containing some entities
-fn create_blueprint(entities: Vec<Entity>) -> Blueprint {
-    Blueprint {
+fn create_blueprint(entities: Vec<fbo::Entity>) -> fbo::Blueprint {
+    fbo::Blueprint {
         item: "Blueprint".to_string(),
         label: "Circuit".to_string(),
         label_color: None,
