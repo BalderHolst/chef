@@ -405,9 +405,8 @@ impl GraphCompiler {
 
         let pick_type = IOType::signal(pick_expr.pick_signal.clone());
 
-        let (com_input, picked_nid) = graph.push_connection(Connection::new_arithmetic(
-            ArithmeticCombinator::new_pick(pick_type.clone().to_combinator_type()),
-        ));
+        let (com_input, picked_nid) =
+            graph.push_connection(Connection::new_pick(pick_type.clone().to_combinator_type()));
         graph.push_wire(var_out_nid, com_input);
 
         let (out_nid, out_type) = match out_type {

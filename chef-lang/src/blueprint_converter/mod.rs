@@ -130,6 +130,7 @@ impl FactorioCombinator {
         let name = match &self.operation {
             graph::Combinator::Arithmetic(_) => "arithmetic-combinator",
             graph::Combinator::Decider(_) => "decider-combinator",
+            graph::Combinator::Pick(_) => todo!(),
             graph::Combinator::Gate(_) => "decider-combinator",
             graph::Combinator::Delay(_) => todo!(),
             graph::Combinator::Sum(_) => todo!(),
@@ -211,6 +212,9 @@ impl FactorioCombinator {
                     is_on: None,
                 }
             }
+
+            graph::Combinator::Pick(_) => todo!(),
+
             graph::Combinator::Gate(gc) => {
                 let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&gc.left);
                 let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&gc.right);

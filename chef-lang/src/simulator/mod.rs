@@ -253,6 +253,10 @@ impl Simulator {
                     } as i32;
                     Item::new(c.output, result)
                 }
+                Combinator::Pick(p) => {
+                    let sig = get_count(&conn_inputs, &p.signal);
+                    Item::new(p.signal, sig)
+                }
                 Combinator::Gate(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);

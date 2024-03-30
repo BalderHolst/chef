@@ -182,16 +182,6 @@ impl ArithmeticCombinator {
         }
     }
 
-    pub fn new_pick(signal: IOType) -> Self {
-        let signal = signal.to_combinator_type();
-        Self::new(
-            signal.clone(),
-            IOType::Constant(0),
-            ArithmeticOperation::Add,
-            signal,
-        )
-    }
-
     pub fn new_convert(in_signal: IOType, out_signal: IOType) -> Self {
         Self::new(
             in_signal.to_combinator_type(),
@@ -201,16 +191,21 @@ impl ArithmeticCombinator {
         )
     }
 
-    fn is_pick(&self) -> bool {
-        self.right == IOType::Constant(0)
-            && self.operation == ArithmeticOperation::Add
-            && self.output == self.left
-    }
-
     fn is_convert(&self) -> bool {
         self.right == IOType::Constant(0)
             && self.operation == ArithmeticOperation::Add
             && self.output != self.left
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PickCombinator {
+    pub signal: IOType,
+}
+
+impl PickCombinator {
+    pub fn new(pick: IOType) -> Self {
+        Self { signal: pick }
     }
 }
 
@@ -271,6 +266,7 @@ pub enum Combinator {
     Arithmetic(ArithmeticCombinator),
     Decider(DeciderCombinator),
     Gate(GateCombinator),
+    Pick(PickCombinator),
 
     /// Causes one tick of delay
     Delay(DelayCombinator),
@@ -281,7 +277,7 @@ pub enum Combinator {
 
 impl Combinator {
     pub fn new_pick(signal: IOType) -> Self {
-        Self::Arithmetic(ArithmeticCombinator::new_pick(signal))
+        Self::Pick(PickCombinator::new(signal))
     }
 
     pub fn new_convert(in_signal: IOType, out_signal: IOType) -> Self {
@@ -296,18 +292,11 @@ impl Combinator {
         match self {
             Self::Arithmetic(ac) => ac.output.clone(),
             Self::Decider(dc) => dc.output.clone(),
+            Self::Pick(pc) => pc.signal.clone(),
             Self::Gate(gc) => gc.gate_type.clone(),
             Self::Delay(dc) => dc.output.clone(),
             Self::Sum(sc) => sc.output.clone(),
         }
-    }
-
-    #[allow(irrefutable_let_patterns)]
-    pub fn is_pick(&self) -> bool {
-        if let Self::Arithmetic(ac) = self {
-            return ac.is_pick();
-        }
-        false
     }
 
     #[allow(irrefutable_let_patterns)]
@@ -322,8 +311,8 @@ impl Combinator {
 impl Display for Combinator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Combinator::Arithmetic(ac) if ac.is_pick() => {
-                format!("PICK: {}", ac.output)
+            Combinator::Pick(pc) => {
+                format!("PICK: {}", pc.signal)
             }
             Combinator::Arithmetic(ac) if ac.is_convert() => {
                 format!("CONVERT: {} -> {}", ac.left, ac.output)
@@ -969,6 +958,11 @@ impl Graph {
                             dc.output = new_type.clone()
                         }
                     }
+                    Connection::Combinator(Combinator::Pick(pc)) => {
+                        if pc.signal == old_type {
+                            pc.signal = new_type.clone()
+                        }
+                    }
                     Connection::Combinator(Combinator::Gate(gc)) => {
                         if gc.left == old_type {
                             gc.left = new_type.clone()
@@ -1154,6 +1148,9 @@ impl<'a> AnysignalAssigner<'a> {
                             self.replace_if_anysignal(&mut c.left);
                             self.replace_if_anysignal(&mut c.right);
                             self.replace_if_anysignal(&mut c.output);
+                        }
+                        Combinator::Pick(pc) => {
+                            self.replace_if_anysignal(&mut pc.signal);
                         }
                         Combinator::Gate(c) => {
                             self.replace_if_anysignal(&mut c.left);
