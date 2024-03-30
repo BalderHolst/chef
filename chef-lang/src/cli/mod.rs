@@ -50,6 +50,7 @@ impl Opts {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Compile source code
+    #[clap(alias = "build")]
     Cook(CookOpts),
 
     /// Simulate a chef program
@@ -57,6 +58,9 @@ pub enum Command {
 
     /// Add signals to your project
     Add(AddOpts),
+
+    /// View a blueprint as json
+    Inspect(InspectOpts),
 }
 
 /// Options for the cli `cook` subcommand.
@@ -136,6 +140,11 @@ fn get_term_width() -> Option<usize> {
     } else {
         None
     }
+}
+
+#[derive(Debug, clap::Args)]
+pub(crate) struct InspectOpts {
+    pub(crate) blueprint: String,
 }
 
 /// Print a centered string in the terminsl padded by '='.

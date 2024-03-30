@@ -1,6 +1,7 @@
 //! Converted combinator graphs to factorio blueprints.
 
 mod placement;
+pub mod utils;
 
 use std::{collections::HashMap, fmt::Display};
 

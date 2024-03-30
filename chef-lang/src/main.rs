@@ -130,6 +130,13 @@ fn run() -> CompilationResult<()> {
                 Ok(())
             }
         },
+        Command::Inspect(inspect_opts) => {
+            match blueprint::utils::blueprint_to_json(&inspect_opts.blueprint) {
+                Ok(json) => println!("{json}"),
+                Err(e) => eprintln!("{e}"),
+            }
+            Ok(())
+        }
     }
 }
 
