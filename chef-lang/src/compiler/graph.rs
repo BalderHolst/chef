@@ -65,14 +65,14 @@ impl Display for DeciderOperation {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct DeciderCombinator {
+pub struct DeciderOp {
     pub left: IOType,
     pub right: IOType,
     pub operation: DeciderOperation,
     pub output: IOType,
 }
 
-impl DeciderCombinator {
+impl DeciderOp {
     pub fn new(left: IOType, right: IOType, operation: DeciderOperation, output: IOType) -> Self {
         Self {
             left,
@@ -160,14 +160,14 @@ impl Display for IOType {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ArithmeticCombinator {
+pub struct ArithmeticOp {
     pub left: IOType,
     pub right: IOType,
     pub operation: ArithmeticOperation,
     pub output: IOType,
 }
 
-impl ArithmeticCombinator {
+impl ArithmeticOp {
     pub fn new(
         left: IOType,
         right: IOType,
@@ -199,18 +199,18 @@ impl ArithmeticCombinator {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct PickCombinator {
+pub struct PickOp {
     pub signal: IOType,
 }
 
-impl PickCombinator {
+impl PickOp {
     pub fn new(pick: IOType) -> Self {
         Self { signal: pick }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct GateCombinator {
+pub struct GateOp {
     pub left: IOType,
     pub right: IOType,
     pub operation: DeciderOperation,
@@ -218,22 +218,22 @@ pub struct GateCombinator {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct DelayCombinator {
+pub struct DelayOp {
     pub output: IOType,
 }
 
-impl DelayCombinator {
+impl DelayOp {
     pub fn new(output: IOType) -> Self {
         Self { output }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SumCombinator {
+pub struct SumOp {
     pub output: IOType,
 }
 
-impl SumCombinator {
+impl SumOp {
     pub fn new(output: IOType) -> Self {
         Self { output }
     }
@@ -262,30 +262,30 @@ impl Display for WireKind {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Combinator {
-    Arithmetic(ArithmeticCombinator),
-    Decider(DeciderCombinator),
-    Gate(GateCombinator),
-    Pick(PickCombinator),
+pub enum Operation {
+    Arithmetic(ArithmeticOp),
+    Decider(DeciderOp),
+    Gate(GateOp),
+    Pick(PickOp),
 
     /// Causes one tick of delay
-    Delay(DelayCombinator),
+    Delay(DelayOp),
 
     /// Calculates the sum of all its inputs
-    Sum(SumCombinator),
+    Sum(SumOp),
 }
 
-impl Combinator {
+impl Operation {
     pub fn new_pick(signal: IOType) -> Self {
-        Self::Pick(PickCombinator::new(signal))
+        Self::Pick(PickOp::new(signal))
     }
 
     pub fn new_convert(in_signal: IOType, out_signal: IOType) -> Self {
-        Self::Arithmetic(ArithmeticCombinator::new_convert(in_signal, out_signal))
+        Self::Arithmetic(ArithmeticOp::new_convert(in_signal, out_signal))
     }
 
     pub fn new_delay(output: IOType) -> Self {
-        Self::Delay(DelayCombinator::new(output))
+        Self::Delay(DelayOp::new(output))
     }
 
     pub fn get_output_iotype(&self) -> IOType {
@@ -308,27 +308,27 @@ impl Combinator {
     }
 }
 
-impl Display for Combinator {
+impl Display for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Combinator::Pick(pc) => {
+            Operation::Pick(pc) => {
                 format!("PICK: {}", pc.signal)
             }
-            Combinator::Arithmetic(ac) if ac.is_convert() => {
+            Operation::Arithmetic(ac) if ac.is_convert() => {
                 format!("CONVERT: {} -> {}", ac.left, ac.output)
             }
-            Combinator::Arithmetic(ac) => {
+            Operation::Arithmetic(ac) => {
                 format!("{}: {}, {}", ac.operation, ac.left, ac.right)
             }
-            Combinator::Decider(dc) => {
+            Operation::Decider(dc) => {
                 format!("{}: {}, {}", dc.operation, dc.left, dc.right)
             }
-            Combinator::Gate(gate) => format!(
+            Operation::Gate(gate) => format!(
                 "GATE: {}\n{}: {}, {}",
                 gate.gate_type, gate.operation, gate.left, gate.right
             ),
-            Combinator::Delay(dc) => format!("DELAY: {}", dc.output),
-            Combinator::Sum(sc) => format!("SUM: {}", sc.output),
+            Operation::Delay(dc) => format!("DELAY: {}", dc.output),
+            Operation::Sum(sc) => format!("SUM: {}", sc.output),
         };
         write!(f, "{s}")
     }
@@ -337,32 +337,32 @@ impl Display for Combinator {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Connection {
     Wire(WireKind),
-    Combinator(Combinator),
+    Combinator(Operation),
 }
 
 impl Connection {
-    fn new_combinator(com: Combinator) -> Self {
+    fn new_combinator(com: Operation) -> Self {
         Self::Combinator(com)
     }
 
-    pub fn new_arithmetic(ac: ArithmeticCombinator) -> Self {
-        Self::new_combinator(Combinator::Arithmetic(ac))
+    pub fn new_arithmetic(ac: ArithmeticOp) -> Self {
+        Self::new_combinator(Operation::Arithmetic(ac))
     }
 
-    pub fn new_decider(dc: DeciderCombinator) -> Self {
-        Self::new_combinator(Combinator::Decider(dc))
+    pub fn new_decider(dc: DeciderOp) -> Self {
+        Self::new_combinator(Operation::Decider(dc))
     }
 
-    pub fn new_gate(gate: GateCombinator) -> Self {
-        Self::new_combinator(Combinator::Gate(gate))
+    pub fn new_gate(gate: GateOp) -> Self {
+        Self::new_combinator(Operation::Gate(gate))
     }
 
     pub fn new_pick(signal: IOType) -> Self {
-        Self::new_combinator(Combinator::new_pick(signal))
+        Self::new_combinator(Operation::new_pick(signal))
     }
 
     pub fn new_convert(input_signal: IOType, output_signal: IOType) -> Self {
-        Self::new_combinator(Combinator::new_convert(input_signal, output_signal))
+        Self::new_combinator(Operation::new_convert(input_signal, output_signal))
     }
 }
 
@@ -594,7 +594,7 @@ impl Graph {
         })
     }
 
-    pub fn iter_combinators(&self) -> impl Iterator<Item = (NId, NId, Combinator)> + '_ {
+    pub fn iter_combinators(&self) -> impl Iterator<Item = (NId, NId, Operation)> + '_ {
         self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
             to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
                 Connection::Combinator(com) => Some((*from_nid, *to_nid, com.clone())),
@@ -721,12 +721,12 @@ impl Graph {
         self.adjacency.entry(n2).or_default().push((n1, wire));
     }
 
-    pub fn push_combinator(&mut self, com: Combinator) -> (NId, NId) {
+    pub fn push_combinator(&mut self, com: Operation) -> (NId, NId) {
         self.push_connection(Connection::Combinator(com))
     }
 
     pub fn push_gate_connection(&mut self, cond_type: IOType, gate_type: IOType) -> (NId, NId) {
-        self.push_connection(Connection::new_gate(GateCombinator {
+        self.push_connection(Connection::new_gate(GateOp {
             left: cond_type.to_combinator_type(),
             right: IOType::Constant(0),
             operation: DeciderOperation::LargerThan,
@@ -884,7 +884,7 @@ impl Graph {
                     self.push_raw_connection(
                         *block_input_nid,
                         middle_node,
-                        Connection::new_arithmetic(ArithmeticCombinator::new_convert(
+                        Connection::new_arithmetic(ArithmeticOp::new_convert(
                             input_type,
                             block_input_type.clone(),
                         )),
@@ -893,7 +893,7 @@ impl Graph {
                     self.push_raw_connection(
                         middle_node,
                         other_input_nid,
-                        Connection::new_arithmetic(ArithmeticCombinator::new_convert(
+                        Connection::new_arithmetic(ArithmeticOp::new_convert(
                             block_input_type.clone(),
                             other_input_type,
                         )),
@@ -936,7 +936,7 @@ impl Graph {
         for (_, to_vec) in self.adjacency.iter_mut() {
             for (_, conn) in to_vec {
                 match conn {
-                    Connection::Combinator(Combinator::Arithmetic(ac)) => {
+                    Connection::Combinator(Operation::Arithmetic(ac)) => {
                         if ac.left == old_type {
                             ac.left = new_type.clone()
                         }
@@ -947,7 +947,7 @@ impl Graph {
                             ac.output = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Combinator::Decider(dc)) => {
+                    Connection::Combinator(Operation::Decider(dc)) => {
                         if dc.left == old_type {
                             dc.left = new_type.clone()
                         }
@@ -958,12 +958,12 @@ impl Graph {
                             dc.output = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Combinator::Pick(pc)) => {
+                    Connection::Combinator(Operation::Pick(pc)) => {
                         if pc.signal == old_type {
                             pc.signal = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Combinator::Gate(gc)) => {
+                    Connection::Combinator(Operation::Gate(gc)) => {
                         if gc.left == old_type {
                             gc.left = new_type.clone()
                         }
@@ -974,12 +974,12 @@ impl Graph {
                             gc.gate_type = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Combinator::Delay(dc)) => {
+                    Connection::Combinator(Operation::Delay(dc)) => {
                         if dc.output == old_type {
                             dc.output = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Combinator::Sum(sc)) => {
+                    Connection::Combinator(Operation::Sum(sc)) => {
                         if sc.output == old_type {
                             sc.output = new_type.clone()
                         }
@@ -1139,28 +1139,28 @@ impl<'a> AnysignalAssigner<'a> {
             for (_, conn) in to_vec {
                 if let Connection::Combinator(com) = conn {
                     match com {
-                        Combinator::Arithmetic(c) => {
+                        Operation::Arithmetic(c) => {
                             self.replace_if_anysignal(&mut c.left);
                             self.replace_if_anysignal(&mut c.right);
                             self.replace_if_anysignal(&mut c.output);
                         }
-                        Combinator::Decider(c) => {
+                        Operation::Decider(c) => {
                             self.replace_if_anysignal(&mut c.left);
                             self.replace_if_anysignal(&mut c.right);
                             self.replace_if_anysignal(&mut c.output);
                         }
-                        Combinator::Pick(pc) => {
+                        Operation::Pick(pc) => {
                             self.replace_if_anysignal(&mut pc.signal);
                         }
-                        Combinator::Gate(c) => {
+                        Operation::Gate(c) => {
                             self.replace_if_anysignal(&mut c.left);
                             self.replace_if_anysignal(&mut c.right);
                             self.replace_if_anysignal(&mut c.gate_type);
                         }
-                        Combinator::Delay(c) => {
+                        Operation::Delay(c) => {
                             self.replace_if_anysignal(&mut c.output);
                         }
-                        Combinator::Sum(c) => {
+                        Operation::Sum(c) => {
                             self.replace_if_anysignal(&mut c.output);
                         }
                     }
@@ -1234,7 +1234,7 @@ mod tests {
     #[test]
     fn test_get_node_network() {
         let mut g = Graph::new();
-        let conn = Connection::Combinator(Combinator::new_pick(IOType::Signal("test".to_string())));
+        let conn = Connection::Combinator(Operation::new_pick(IOType::Signal("test".to_string())));
 
         let n1 = g.push_inner_node();
         let n2 = g.push_inner_node();

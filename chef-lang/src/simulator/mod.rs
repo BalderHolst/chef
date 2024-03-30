@@ -5,7 +5,7 @@ mod visualizer;
 use std::{fmt::Display, io};
 
 use crate::compiler::graph::{
-    ArithmeticOperation, Combinator, DeciderOperation, Graph, IOType, NId, NetworkId,
+    ArithmeticOperation, DeciderOperation, Graph, IOType, NId, NetworkId, Operation,
 };
 use fnv::FnvHashMap;
 
@@ -216,7 +216,7 @@ impl Simulator {
             let conn_inputs = combine_items(conn_inputs);
 
             let mut output = match conn {
-                Combinator::Arithmetic(c) => {
+                Operation::Arithmetic(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);
                     let result = match c.operation {
@@ -228,7 +228,7 @@ impl Simulator {
                     };
                     Item::new(c.output, result)
                 }
-                Combinator::Decider(c) => {
+                Operation::Decider(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);
                     let result = match c.operation {
@@ -253,11 +253,11 @@ impl Simulator {
                     } as i32;
                     Item::new(c.output, result)
                 }
-                Combinator::Pick(p) => {
+                Operation::Pick(p) => {
                     let sig = get_count(&conn_inputs, &p.signal);
                     Item::new(p.signal, sig)
                 }
-                Combinator::Gate(c) => {
+                Operation::Gate(c) => {
                     let left = get_count(&conn_inputs, &c.left);
                     let right = get_count(&conn_inputs, &c.right);
                     let should_pass = match c.operation {
@@ -288,8 +288,8 @@ impl Simulator {
                     Item::new(c.gate_type, count)
                 }
 
-                Combinator::Delay(_dc) => todo!("Simulate delay"),
-                Combinator::Sum(_sc) => todo!("Simulate sum"),
+                Operation::Delay(_dc) => todo!("Simulate delay"),
+                Operation::Sum(_sc) => todo!("Simulate sum"),
             };
 
             if self.step == 0 {

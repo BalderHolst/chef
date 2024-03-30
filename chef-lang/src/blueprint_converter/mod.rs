@@ -25,7 +25,7 @@ use placement::Placer;
 
 use self::placement::TurdMaster2000;
 
-type Operation = graph::Combinator;
+type Operation = graph::Operation;
 
 pub(crate) type Coord = i64;
 
@@ -128,12 +128,12 @@ impl FactorioCombinator {
 
         // Internal factorio name of combinator
         let name = match &self.operation {
-            graph::Combinator::Arithmetic(_) => "arithmetic-combinator",
-            graph::Combinator::Decider(_) => "decider-combinator",
-            graph::Combinator::Pick(_) => todo!(),
-            graph::Combinator::Gate(_) => "decider-combinator",
-            graph::Combinator::Delay(_) => todo!(),
-            graph::Combinator::Sum(_) => todo!(),
+            graph::Operation::Arithmetic(_) => "arithmetic-combinator",
+            graph::Operation::Decider(_) => "decider-combinator",
+            graph::Operation::Pick(_) => todo!(),
+            graph::Operation::Gate(_) => "decider-combinator",
+            graph::Operation::Delay(_) => todo!(),
+            graph::Operation::Sum(_) => todo!(),
         }
         .to_string();
 
@@ -172,7 +172,7 @@ impl FactorioCombinator {
 
     fn get_control_behavior(&self) -> ControlBehavior {
         match &self.operation {
-            graph::Combinator::Arithmetic(ac) => {
+            graph::Operation::Arithmetic(ac) => {
                 let (first_constant, first_signal) = Self::iotype_to_const_signal_pair(&ac.left);
                 let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&ac.right);
                 let (_, output_signal) = Self::iotype_to_const_signal_pair(&ac.output);
@@ -192,7 +192,7 @@ impl FactorioCombinator {
                     is_on: None,
                 }
             }
-            graph::Combinator::Decider(dc) => {
+            graph::Operation::Decider(dc) => {
                 let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&dc.left);
                 let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&dc.right);
                 let (_, output_signal) = Self::iotype_to_const_signal_pair(&dc.output);
@@ -213,9 +213,9 @@ impl FactorioCombinator {
                 }
             }
 
-            graph::Combinator::Pick(_) => todo!(),
+            graph::Operation::Pick(_) => todo!(),
 
-            graph::Combinator::Gate(gc) => {
+            graph::Operation::Gate(gc) => {
                 let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&gc.left);
                 let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&gc.right);
                 let (_, gate_signal) = Self::iotype_to_const_signal_pair(&gc.gate_type);
@@ -235,8 +235,8 @@ impl FactorioCombinator {
                     is_on: None,
                 }
             }
-            graph::Combinator::Delay(_) => todo!(),
-            graph::Combinator::Sum(_) => todo!(),
+            graph::Operation::Delay(_) => todo!(),
+            graph::Operation::Sum(_) => todo!(),
             // graph::Combinator::Constant(cc) => {
             //     let (type_, signal) = Self::iotype_to_signal_pair(cc.type_.clone());
             //     ControlBehavior {

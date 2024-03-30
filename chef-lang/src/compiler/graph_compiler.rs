@@ -197,7 +197,7 @@ impl GraphCompiler {
         match &var.type_ {
             VariableType::Var(_) => {
                 let (var_input_nid, var_nid) =
-                    graph.push_combinator(Combinator::new_pick(var_type.clone()));
+                    graph.push_combinator(Operation::new_pick(var_type.clone()));
                 graph.push_wire(var_input_nid, var_nid);
                 self.declare_variable(graph, var.id, var_type.clone())?;
                 self.define_variable(graph, var.id, var_nid, var_type.clone(), WireKind::Red)?;
@@ -209,7 +209,7 @@ impl GraphCompiler {
                 let (limit_nid, limit_type) = self.compile_expression(graph, limit_expr, None)?;
 
                 let (counter_input_nid, counter_nid) =
-                    graph.push_connection(Connection::new_gate(GateCombinator {
+                    graph.push_connection(Connection::new_gate(GateOp {
                         left: var_type.clone().to_combinator_type(),
                         right: limit_type.clone().to_combinator_type(),
                         operation: DeciderOperation::LessThan,
@@ -375,7 +375,7 @@ impl GraphCompiler {
         let (c_input, negative_out_nid) = graph.push_connection(
             // expr_out_nid,
             // negative_out_nid,
-            Connection::new_arithmetic(ArithmeticCombinator::new(
+            Connection::new_arithmetic(ArithmeticOp::new(
                 out_type.clone(),
                 IOType::Constant(-1),
                 ArithmeticOperation::Multiply,
@@ -509,7 +509,7 @@ impl GraphCompiler {
         // The connection doing the actual operation
         Ok(match operation {
             ReturnValue::Int(op) => {
-                let arithmetic_connection = ArithmeticCombinator::new(
+                let arithmetic_connection = ArithmeticOp::new(
                     left_type.to_combinator_type(),
                     right_type.to_combinator_type(),
                     op,
@@ -523,7 +523,7 @@ impl GraphCompiler {
                 (output_nid, out_type)
             }
             ReturnValue::Bool(op) => {
-                let decider_connection = DeciderCombinator::new(
+                let decider_connection = DeciderOp::new(
                     left_type.to_combinator_type(),
                     right_type.to_combinator_type(),
                     op,
@@ -608,7 +608,7 @@ impl GraphCompiler {
 
         for _ in 0..delay_expr.delay {
             let (delay_input, delay_output) =
-                graph.push_combinator(Combinator::new_delay(delay_type.clone()));
+                graph.push_combinator(Operation::new_delay(delay_type.clone()));
             graph.push_wire(out_nid, delay_input);
             out_nid = delay_output;
         }
@@ -634,7 +634,7 @@ impl GraphCompiler {
         };
 
         let (size_of_input, size_of_output) =
-            graph.push_combinator(Combinator::Sum(SumCombinator::new(out_type.clone())));
+            graph.push_combinator(Operation::Sum(SumOp::new(out_type.clone())));
 
         graph.push_wire(size_of_nid, size_of_input);
 

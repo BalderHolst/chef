@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs::OpenOptions, io::Write};
 
 use crate::utils::{self, VisualizerError};
 
-use super::graph::{Combinator, Connection, Graph, Node, WireConnection};
+use super::graph::{Connection, Graph, Node, Operation, WireConnection};
 
 pub fn create_dot(graph: &Graph) -> String {
     let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();
@@ -84,12 +84,12 @@ pub fn create_dot(graph: &Graph) -> String {
     for (from_nid, to_nid, com) in combinators {
         let color = match &com {
             com if com.is_convert() => "blue",
-            Combinator::Arithmetic(_) => "orange",
-            Combinator::Decider(_) => "purple",
-            Combinator::Pick(_) => "black",
-            Combinator::Gate(_) => "teal",
-            Combinator::Delay(_) => "brown",
-            Combinator::Sum(_) => "lightgray",
+            Operation::Arithmetic(_) => "orange",
+            Operation::Decider(_) => "purple",
+            Operation::Pick(_) => "black",
+            Operation::Gate(_) => "teal",
+            Operation::Delay(_) => "brown",
+            Operation::Sum(_) => "lightgray",
         };
         dot += &format!(
             "\t{} -> {}\t[label=\"{}\" color={} fontcolor={}]\n",
