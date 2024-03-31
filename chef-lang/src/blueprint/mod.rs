@@ -11,6 +11,7 @@ use std::{
 use factorio_blueprint as fb;
 use factorio_blueprint::objects as fbo;
 
+use fb::objects::OneBasedIndex;
 use fnv::FnvHashMap;
 use noisy_float::types::R64;
 
@@ -33,35 +34,6 @@ pub(crate) type Coord = i64;
 
 /// 2D Coordinate inside the Factorio world
 pub(crate) type CoordSet = (Coord, Coord);
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CombinatorPosition {
-    pub input: CoordSet,
-    pub output: CoordSet,
-}
-
-impl CombinatorPosition {
-    pub fn factorio_pos(&self) -> fbo::Position {
-        let (x1, y1) = self.input;
-        let (x2, y2) = self.output;
-
-        let x = (x1 + x2) as f64 / 2.0;
-        let y = (y1 + y2) as f64 / 2.0;
-
-        let x = R64::new(x);
-        let y = R64::new(y);
-
-        fbo::Position { x, y }
-    }
-}
-
-impl Display for CombinatorPosition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (x1, y1) = self.input;
-        let (x2, y2) = self.output;
-        write!(f, "{{({}, {}) -> ({}, {})}}", x1, y1, x2, y2)
-    }
-}
 
 type ConnectionPoint = i32;
 
@@ -134,6 +106,20 @@ struct ConstantCombinator {
     entity_number: fbo::EntityNumber,
     position: CoordSet,
     signals: Vec<(fbo::SignalID, FactorioConstant)>,
+    connections: Vec<(fbo::EntityNumber, ConnectionPoint, WireKind)>,
+}
+
+fn wire_connetion(connections: Vec<fbo::ConnectionData>, wk: WireKind) -> fbo::Connection {
+    match wk {
+        WireKind::Red => fbo::Connection {
+            red: Some(connections),
+            green: None,
+        },
+        WireKind::Green => fbo::Connection {
+            red: None,
+            green: Some(connections),
+        },
+    }
 }
 
 impl FactorioEntity for ConstantCombinator {
@@ -142,7 +128,7 @@ impl FactorioEntity for ConstantCombinator {
     }
 
     fn output_conn_point() -> usize {
-        1
+        Self::input_conn_point()
     }
 
     fn dimensions() -> (usize, usize) {
@@ -150,7 +136,108 @@ impl FactorioEntity for ConstantCombinator {
     }
 
     fn to_blueprint_entity(&self) -> fbo::Entity {
-        todo!()
+        let mut connections_red = vec![];
+        let mut connections_green = vec![];
+
+        for (other_en, to_conn_point, wk) in &self.connections {
+            let conn_data = fbo::ConnectionData {
+                entity_id: *other_en,
+                circuit_id: Some(*to_conn_point),
+            };
+
+            match wk {
+                WireKind::Red => connections_red.push(conn_data),
+                WireKind::Green => connections_green.push(conn_data),
+            }
+        }
+
+        let mut connections = HashMap::new();
+        connections.insert(
+            Self::output_conn_point().try_into().unwrap(),
+            fbo::Connection {
+                red: Some(connections_red),
+                green: Some(connections_green),
+            },
+        );
+
+        fbo::Entity {
+            entity_number: self.entity_number,
+            name: "constant-combinator".to_string(),
+            position: fbo::Position {
+                x: R64::new(self.position.0 as f64),
+                y: R64::new(self.position.1 as f64),
+            },
+            direction: None,
+            orientation: None,
+            connections: Some(fbo::EntityConnections::NumberIdx(connections)),
+            control_behavior: Some(fbo::ControlBehavior {
+                arithmetic_conditions: None,
+                decider_conditions: None,
+                filters: Some(
+                    self.signals
+                        .iter()
+                        .enumerate()
+                        .map(|(n, (signal_id, count))| fbo::ControlFilter {
+                            signal: signal_id.clone(),
+                            index: OneBasedIndex::try_from(n + 1).unwrap(),
+                            count: *count,
+                        })
+                        .collect(),
+                ),
+                is_on: None,
+            }),
+            items: None,
+            recipe: None,
+            bar: None,
+            inventory: None,
+            infinity_settings: None,
+            type_: None,
+            input_priority: None,
+            output_priority: None,
+            filter: None,
+            filters: None,
+            filter_mode: None,
+            override_stack_size: None,
+            drop_position: None,
+            pickup_position: None,
+            request_filters: None,
+            request_from_buffers: None,
+            parameters: None,
+            alert_parameters: None,
+            auto_launch: None,
+            variation: None,
+            color: None,
+            station: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CombinatorPosition {
+    pub input: CoordSet,
+    pub output: CoordSet,
+}
+
+impl CombinatorPosition {
+    pub fn factorio_pos(&self) -> fbo::Position {
+        let (x1, y1) = self.input;
+        let (x2, y2) = self.output;
+
+        let x = (x1 + x2) as f64 / 2.0;
+        let y = (y1 + y2) as f64 / 2.0;
+
+        let x = R64::new(x);
+        let y = R64::new(y);
+
+        fbo::Position { x, y }
+    }
+}
+
+impl Display for CombinatorPosition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (x1, y1) = self.input;
+        let (x2, y2) = self.output;
+        write!(f, "{{({}, {}) -> ({}, {})}}", x1, y1, x2, y2)
     }
 }
 
