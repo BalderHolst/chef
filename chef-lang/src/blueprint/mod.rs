@@ -12,7 +12,7 @@ use noisy_float::types::R64;
 
 use crate::{
     compiler::{
-        graph::{self, ArithmeticOperation, DeciderOperation, Graph, IOType, NetworkId},
+        graph::{self, ArithmeticOperation, DeciderOperation, Graph, IOType, WireKind},
         // TODO: remove reserved signal
         RESERVED_SIGNAL,
     },
@@ -72,7 +72,7 @@ pub struct FactorioCombinator {
     pub input_nid: graph::NId,
     pub output_nid: graph::NId,
     pub operation: Operation,
-    pub output_entities: Vec<(fbo::EntityNumber, ConnectionPoint)>,
+    pub output_entities: Vec<(fbo::EntityNumber, ConnectionPoint, WireKind)>,
     pub position: CombinatorPosition,
 }
 
@@ -111,22 +111,29 @@ macro_rules! each {
 
 impl FactorioCombinator {
     pub fn to_blueprint_entity(&self) -> fbo::Entity {
-        let output_connections: Vec<fbo::ConnectionData> = self
-            .output_entities
-            .iter()
-            .map(|(out_en, to_conn_point)| fbo::ConnectionData {
-                entity_id: *out_en,
-                circuit_id: Some(*to_conn_point),
-            })
-            .collect();
+        let mut output_connections_red = vec![];
+        let mut output_connections_green = vec![];
+
+        for (out_en, to_conn_point, wk) in &self.output_entities {
+            match wk {
+                WireKind::Green => output_connections_green.push(fbo::ConnectionData {
+                    entity_id: *out_en,
+                    circuit_id: Some(*to_conn_point),
+                }),
+                WireKind::Red => output_connections_red.push(fbo::ConnectionData {
+                    entity_id: *out_en,
+                    circuit_id: Some(*to_conn_point),
+                }),
+            }
+        }
 
         let output_connection_point = self.operation.get_output_connection_point();
         let mut connections: HashMap<fbo::EntityNumber, fbo::Connection> = HashMap::new();
         connections.insert(
             fbo::OneBasedIndex::new(output_connection_point).unwrap(),
             fbo::Connection {
-                red: None,
-                green: Some(output_connections),
+                red: Some(output_connections_red),
+                green: Some(output_connections_green),
             },
         );
 
@@ -419,7 +426,7 @@ impl Display for FactorioCombinator {
             self.output_nid,
             self.output_entities
                 .iter()
-                .map(|(en, _)| en)
+                .map(|(en, _to_conn_pont, _wk)| en)
                 .collect::<Vec<_>>(),
             self.entity_number,
             self.operation,

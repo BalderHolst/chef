@@ -140,29 +140,34 @@ impl TurdMaster2000 {
             input_com.output_entities.push((
                 this_entity_number,
                 operation.get_input_connection_point().try_into().unwrap(),
+                WireKind::Red, // TODO: This is hardcoded
             ));
         }
 
-        let mut output_entities: Vec<(EntityNumber, ConnectionPoint)> = output_combinators
-            .iter()
-            .map(|(output_com, point_type)| {
-                let point = match point_type {
-                    ConnectionPointType::Input => output_com.operation.get_input_connection_point(),
-                    ConnectionPointType::Output => {
-                        output_com.operation.get_output_connection_point()
+        let mut output_entities: Vec<(EntityNumber, ConnectionPoint, WireKind)> =
+            output_combinators
+                .iter()
+                .map(|(output_com, point_type)| {
+                    let point = match point_type {
+                        ConnectionPointType::Input => {
+                            output_com.operation.get_input_connection_point()
+                        }
+                        ConnectionPointType::Output => {
+                            output_com.operation.get_output_connection_point()
+                        }
                     }
-                }
-                .try_into()
-                .unwrap();
-                (output_com.entity_number, point)
-            })
-            .collect();
+                    .try_into()
+                    .unwrap();
+                    (output_com.entity_number, point, WireKind::Red) // TODO: Wirekind is hardcoded
+                })
+                .collect();
 
         // Add itself as output if output and input networks are the same
         if input_network_red == output_network_red {
             output_entities.push((
                 this_entity_number,
                 operation.get_input_connection_point().try_into().unwrap(),
+                WireKind::Red, // TODO: This is hardcoded
             )) // loopback
         }
 
