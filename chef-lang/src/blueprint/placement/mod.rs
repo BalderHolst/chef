@@ -1,9 +1,11 @@
 use std::{
     cmp,
     collections::{HashMap, HashSet},
+    num::NonZeroUsize,
 };
 
 use factorio_blueprint::objects::EntityNumber;
+use fnv::FnvHashMap;
 
 use crate::{
     blueprint::ConnectionPoint,
@@ -90,10 +92,8 @@ impl TurdMaster2000 {
             return None;
         }
 
-        let input_network_red = self.graph.get_node_network(&input_nid, WireKind::Red);
-        let output_network_red = self.graph.get_node_network(&output_nid, WireKind::Red);
-        let input_network_green = self.graph.get_node_network(&input_nid, WireKind::Green);
-        let output_network_green = self.graph.get_node_network(&output_nid, WireKind::Green);
+        let input_network = self.graph.get_node_network_all(&input_nid);
+        let output_network = self.graph.get_node_network_all(&output_nid);
 
         // `true` if any combinators with inputs or outputs the same as this combinator has been
         // placed. If they have, we have to be able to connect to the network from the current
@@ -101,33 +101,78 @@ impl TurdMaster2000 {
         let mut input_network_exists = false;
         let mut output_network_exists = false;
 
-        let mut input_combinators = vec![];
-        let mut output_combinators = vec![];
+        let mut input_combinators: FnvHashMap<
+            NonZeroUsize,
+            (&mut FactorioCombinator, HashSet<WireKind>),
+        > = FnvHashMap::default();
+
+        let mut output_combinators: FnvHashMap<
+            NonZeroUsize,
+            (
+                &mut FactorioCombinator,
+                ConnectionPointType,
+                HashSet<WireKind>,
+            ),
+        > = FnvHashMap::default();
 
         // TODO: This can result in skipped entity numbers. Make this that this is ok.
         let this_entity_number = self.get_next_entity_number();
 
         // Check that wire can reach the necessary placed combinators in this position
         for other in &mut self.placed_combinators.values_mut() {
-            if input_network_red.contains(&other.output_nid) {
+            let other_output_nid = other.output_nid;
+            let other_input_nid = other.input_nid;
+
+            // Red connections
+            if input_network.contains(&(other_output_nid, WireKind::Red)) {
                 input_network_exists = true;
                 if is_in_range(&input_coord, &other.position.output) {
-                    input_combinators.push(other);
+                    input_combinators
+                        .entry(other.entity_number)
+                        .and_modify(|(_entity, wires)| {
+                            let _ = wires.insert(WireKind::Red);
+                        })
+                        .or_insert((other, HashSet::from_iter([WireKind::Red])));
                 }
-            } else if output_network_red.contains(&other.input_nid) {
+            } else if output_network.contains(&(other_input_nid, WireKind::Red)) {
                 output_network_exists = true;
                 if is_in_range(&output_coord, &other.position.input) {
-                    output_combinators.push((other, ConnectionPointType::Input));
+                    output_combinators
+                        .entry(other.entity_number)
+                        .and_modify(|(_entity, _point_type, wires)| {
+                            let _ = wires.insert(WireKind::Red);
+                        })
+                        .or_insert((
+                            other,
+                            ConnectionPointType::Input,
+                            HashSet::from([WireKind::Red]),
+                        ));
                 }
-            } else if output_network_red.contains(&other.output_nid) {
+            } else if output_network.contains(&(other_input_nid, WireKind::Red)) {
                 output_network_exists = true;
                 if is_in_range(&output_coord, &other.position.output) {
-                    output_combinators.push((other, ConnectionPointType::Output));
+                    output_combinators
+                        .entry(other.entity_number)
+                        .and_modify(|(_entity, _point_type, wires)| {
+                            let _ = wires.insert(WireKind::Red);
+                        })
+                        .or_insert((
+                            other,
+                            ConnectionPointType::Output,
+                            HashSet::from([WireKind::Red]),
+                        ));
                 }
             }
-        }
 
-        // TODO: Connect with input network
+            // Green connections
+            if input_network.contains(&(other_output_nid, WireKind::Green)) {
+                todo!();
+            } else if output_network.contains(&(other_input_nid, WireKind::Green)) {
+                todo!();
+            } else if output_network.contains(&(other_output_nid, WireKind::Green)) {
+                todo!();
+            }
+        }
 
         if (input_network_exists && input_combinators.is_empty())
             || (output_network_exists && output_combinators.is_empty())
@@ -136,18 +181,21 @@ impl TurdMaster2000 {
         }
 
         // Update input combinator
-        for input_com in input_combinators {
-            input_com.output_entities.push((
-                this_entity_number,
-                operation.get_input_connection_point().try_into().unwrap(),
-                WireKind::Red, // TODO: This is hardcoded
-            ));
+        for (input_com, wks) in input_combinators.values_mut() {
+            input_com
+                .output_entities
+                .entry(this_entity_number)
+                .and_modify(|(_entity, wires)| wires.extend(wks.iter().cloned()))
+                .or_insert((
+                    operation.get_input_connection_point().try_into().unwrap(),
+                    wks.clone(),
+                ));
         }
 
-        let mut output_entities: Vec<(EntityNumber, ConnectionPoint, WireKind)> =
+        let mut output_entities: FnvHashMap<EntityNumber, (ConnectionPoint, HashSet<WireKind>)> =
             output_combinators
-                .iter()
-                .map(|(output_com, point_type)| {
+                .values()
+                .map(|(output_com, point_type, wires)| {
                     let point = match point_type {
                         ConnectionPointType::Input => {
                             output_com.operation.get_input_connection_point()
@@ -158,17 +206,19 @@ impl TurdMaster2000 {
                     }
                     .try_into()
                     .unwrap();
-                    (output_com.entity_number, point, WireKind::Red) // TODO: Wirekind is hardcoded
+                    (output_com.entity_number, (point, wires.clone()))
                 })
                 .collect();
 
         // Add itself as output if output and input networks are the same
-        if input_network_red == output_network_red {
-            output_entities.push((
-                this_entity_number,
-                operation.get_input_connection_point().try_into().unwrap(),
-                WireKind::Red, // TODO: This is hardcoded
-            )) // loopback
+        if input_network == output_network {
+            output_entities.insert(
+                this_entity_number, // loopback
+                (
+                    operation.get_input_connection_point().try_into().unwrap(),
+                    HashSet::from([WireKind::Red]), // TODO: This is hardcoded
+                ),
+            );
         }
 
         self.placed_positions.insert(input_coord);

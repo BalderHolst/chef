@@ -3,11 +3,15 @@
 mod placement;
 pub mod utils;
 
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+};
 
 use factorio_blueprint as fb;
 use factorio_blueprint::objects as fbo;
 
+use fnv::FnvHashMap;
 use noisy_float::types::R64;
 
 use crate::{
@@ -29,7 +33,7 @@ pub(crate) type Coord = i64;
 /// 2D Coordinate inside the Factorio world
 pub(crate) type CoordSet = (Coord, Coord);
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CombinatorPosition {
     pub input: CoordSet,
     pub output: CoordSet,
@@ -72,7 +76,7 @@ pub struct FactorioCombinator {
     pub input_nid: graph::NId,
     pub output_nid: graph::NId,
     pub operation: Operation,
-    pub output_entities: Vec<(fbo::EntityNumber, ConnectionPoint, WireKind)>,
+    pub output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
     pub position: CombinatorPosition,
 }
 
@@ -114,16 +118,28 @@ impl FactorioCombinator {
         let mut output_connections_red = vec![];
         let mut output_connections_green = vec![];
 
-        for (out_en, to_conn_point, wk) in &self.output_entities {
-            match wk {
-                WireKind::Green => output_connections_green.push(fbo::ConnectionData {
-                    entity_id: *out_en,
-                    circuit_id: Some(*to_conn_point),
-                }),
-                WireKind::Red => output_connections_red.push(fbo::ConnectionData {
-                    entity_id: *out_en,
-                    circuit_id: Some(*to_conn_point),
-                }),
+        for (out_en, (to_conn_point, wires)) in self.output_entities.iter() {
+            let conn_data = fbo::ConnectionData {
+                entity_id: *out_en,
+                circuit_id: Some(*to_conn_point),
+            };
+            match wires.len() {
+                1 if wires.contains(&WireKind::Red) => {
+                    output_connections_red.push(conn_data);
+                }
+                1 if wires.contains(&WireKind::Green) => {
+                    output_connections_green.push(conn_data);
+                }
+                2 => {
+                    output_connections_red.push(conn_data.clone());
+                    output_connections_green.push(conn_data);
+                }
+                other => {
+                    panic!(
+                        "Invalid number of wires for connection: {}. Should only be 1 or 2.",
+                        other
+                    );
+                }
             }
         }
 
@@ -426,7 +442,7 @@ impl Display for FactorioCombinator {
             self.output_nid,
             self.output_entities
                 .iter()
-                .map(|(en, _to_conn_pont, _wk)| en)
+                .map(|(en, _)| en)
                 .collect::<Vec<_>>(),
             self.entity_number,
             self.operation,

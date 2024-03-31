@@ -245,7 +245,7 @@ pub struct ConstantCombinator {
     pub count: i32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum WireKind {
     Green,
     Red,
@@ -458,6 +458,21 @@ impl Graph {
                 }
             }
         }
+        network
+    }
+
+    pub fn get_node_network_all(&self, nid: &NId) -> Vec<(NId, WireKind)> {
+        let mut network = vec![];
+        network.extend(
+            self.get_node_network(nid, WireKind::Green)
+                .iter()
+                .map(|nid| (*nid, WireKind::Green)),
+        );
+        network.extend(
+            self.get_node_network(nid, WireKind::Red)
+                .iter()
+                .map(|nid| (*nid, WireKind::Red)),
+        );
         network
     }
 
