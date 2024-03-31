@@ -147,7 +147,7 @@ pub struct InspectOpts {
     pub blueprint: String,
 }
 
-/// Print a centered string in the terminsl padded by '='.
+/// Print a centered string in the terminal padded by '='.
 pub(crate) fn print_label(label: &'static str) {
     match get_term_width() {
         Some(width) => {
