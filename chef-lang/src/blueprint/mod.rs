@@ -369,14 +369,7 @@ impl FactorioCombinator {
                 )
             }
             graph::IOType::Constant(n) => (Some(*n), None),
-            graph::IOType::Many => (
-                None,
-                Some(fbo::SignalID {
-                    // TODO: check that "everything" is correct
-                    name: "signal-everything".to_string(),
-                    type_: fbo::SignalIDType::Virtual,
-                }),
-            ),
+            graph::IOType::Many => (None, Some(each!())),
 
             graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
             graph::IOType::ConstantAny(_) => {
