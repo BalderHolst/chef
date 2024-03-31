@@ -27,6 +27,7 @@ use placement::Placer;
 use placement::TurdMaster2000;
 
 type Operation = graph::Operation;
+type FactorioConstant = i32;
 
 pub(crate) type Coord = i64;
 
@@ -69,6 +70,90 @@ enum ConnectionPointKind {
     Output,
 }
 
+pub trait FactorioEntity {
+    /// Get the input connection point for the entity
+    fn input_conn_point() -> usize;
+
+    /// Get the output connection point for the entity
+    fn output_conn_point() -> usize;
+
+    /// Returns the (width, height) of the entity
+    fn dimensions() -> (usize, usize);
+
+    /// Converts the entity to a [fbo::Entity] to be included in a blueprint
+    fn to_blueprint_entity(&self) -> fbo::Entity;
+}
+
+struct Substation {
+    entity_number: fbo::EntityNumber,
+    position: CoordSet,
+}
+
+impl FactorioEntity for Substation {
+    fn input_conn_point() -> usize {
+        1
+    }
+
+    fn output_conn_point() -> usize {
+        1
+    }
+
+    fn dimensions() -> (usize, usize) {
+        (2, 2)
+    }
+
+    fn to_blueprint_entity(&self) -> fbo::Entity {
+        todo!()
+    }
+}
+
+struct MediumElectricPole {
+    entity_number: fbo::EntityNumber,
+    position: CoordSet,
+}
+
+impl FactorioEntity for MediumElectricPole {
+    fn input_conn_point() -> usize {
+        1
+    }
+
+    fn output_conn_point() -> usize {
+        1
+    }
+
+    fn dimensions() -> (usize, usize) {
+        (1, 1)
+    }
+
+    fn to_blueprint_entity(&self) -> fbo::Entity {
+        todo!()
+    }
+}
+
+struct ConstantCombinator {
+    entity_number: fbo::EntityNumber,
+    position: CoordSet,
+    signals: Vec<(fbo::SignalID, FactorioConstant)>,
+}
+
+impl FactorioEntity for ConstantCombinator {
+    fn input_conn_point() -> usize {
+        1
+    }
+
+    fn output_conn_point() -> usize {
+        1
+    }
+
+    fn dimensions() -> (usize, usize) {
+        (1, 1)
+    }
+
+    fn to_blueprint_entity(&self) -> fbo::Entity {
+        todo!()
+    }
+}
+
 /// Placed Factorio Combinator
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
@@ -80,30 +165,6 @@ pub struct Combinator {
     pub position: CombinatorPosition,
 }
 
-impl Operation {
-    // TODO: remove this with removing constants as connections
-    fn get_output_connection_point(&self) -> usize {
-        2
-        // match self {
-        //     Connection::Arithmetic(_) => 2,
-        //     Connection::Decider(_) => 2,
-        //     Connection::Gate(_) => 2,
-        //     Connection::Constant(_) => 1,
-        // }
-    }
-
-    // TODO: remove this with removing constants as connections
-    fn get_input_connection_point(&self) -> usize {
-        1
-        // match self {
-        //     Connection::Arithmetic(_) => 1,
-        //     Connection::Decider(_) => 1,
-        //     Connection::Gate(_) => 1,
-        //     Connection::Constant(_) => 1,
-        // }
-    }
-}
-
 macro_rules! each {
     () => {
         factorio_blueprint::objects::SignalID {
@@ -113,11 +174,19 @@ macro_rules! each {
     };
 }
 
-pub trait FactorioEntity {
-    fn to_blueprint_entity(&self) -> fbo::Entity;
-}
-
 impl FactorioEntity for Combinator {
+    fn input_conn_point() -> usize {
+        1
+    }
+
+    fn output_conn_point() -> usize {
+        2
+    }
+
+    fn dimensions() -> (usize, usize) {
+        (1, 2)
+    }
+
     fn to_blueprint_entity(&self) -> fbo::Entity {
         let mut output_connections_red = vec![];
         let mut output_connections_green = vec![];
@@ -147,7 +216,7 @@ impl FactorioEntity for Combinator {
             }
         }
 
-        let output_connection_point = self.operation.get_output_connection_point();
+        let output_connection_point = Combinator::output_conn_point();
         let mut connections: HashMap<fbo::EntityNumber, fbo::Connection> = HashMap::new();
         connections.insert(
             fbo::OneBasedIndex::new(output_connection_point).unwrap(),

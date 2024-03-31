@@ -12,7 +12,9 @@ use crate::{
     compiler::graph::{Graph, NId, Operation, WireKind},
 };
 
-use super::{Combinator, CombinatorPosition, ConnectionPointKind, CoordSet, WIRE_RANGE};
+use super::{
+    Combinator, CombinatorPosition, ConnectionPointKind, CoordSet, FactorioEntity, WIRE_RANGE,
+};
 
 pub trait Placer {
     fn place(self) -> Vec<Combinator>;
@@ -181,7 +183,7 @@ impl TurdMaster2000 {
                 .entry(this_entity_number)
                 .and_modify(|(_entity, wires)| wires.extend(wks.iter().cloned()))
                 .or_insert((
-                    operation.get_input_connection_point().try_into().unwrap(),
+                    Combinator::input_conn_point().try_into().unwrap(),
                     wks.clone(),
                 ));
         }
@@ -191,12 +193,8 @@ impl TurdMaster2000 {
                 .values()
                 .map(|(output_com, point_type, wires)| {
                     let point = match point_type {
-                        ConnectionPointKind::Input => {
-                            output_com.operation.get_input_connection_point()
-                        }
-                        ConnectionPointKind::Output => {
-                            output_com.operation.get_output_connection_point()
-                        }
+                        ConnectionPointKind::Input => Combinator::input_conn_point(),
+                        ConnectionPointKind::Output => Combinator::output_conn_point(),
                     }
                     .try_into()
                     .unwrap();
@@ -209,7 +207,7 @@ impl TurdMaster2000 {
             output_entities.insert(
                 this_entity_number, // loopback
                 (
-                    operation.get_input_connection_point().try_into().unwrap(),
+                    Combinator::input_conn_point().try_into().unwrap(),
                     HashSet::from([WireKind::Red]), // TODO: This is hardcoded
                 ),
             );
