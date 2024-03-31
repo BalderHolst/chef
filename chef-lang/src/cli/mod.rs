@@ -143,8 +143,8 @@ fn get_term_width() -> Option<usize> {
 }
 
 #[derive(Debug, clap::Args)]
-pub(crate) struct InspectOpts {
-    pub(crate) blueprint: String,
+pub struct InspectOpts {
+    pub blueprint: String,
 }
 
 /// Print a centered string in the terminsl padded by '='.
