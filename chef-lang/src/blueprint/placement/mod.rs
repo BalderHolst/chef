@@ -12,10 +12,10 @@ use crate::{
     compiler::graph::{Graph, NId, Operation, WireKind},
 };
 
-use super::{CombinatorPosition, ConnectionPointType, CoordSet, FactorioCombinator, WIRE_RANGE};
+use super::{Combinator, CombinatorPosition, ConnectionPointKind, CoordSet, WIRE_RANGE};
 
 pub trait Placer {
-    fn place(self) -> Vec<FactorioCombinator>;
+    fn place(self) -> Vec<Combinator>;
 }
 
 pub(crate) fn is_in_range(p1: &CoordSet, p2: &CoordSet) -> bool {
@@ -50,7 +50,7 @@ fn test_is_in_range() {
 /// 6. When placed, connect wires to the other combinators that were placed.
 pub struct TurdMaster2000 {
     graph: Graph,
-    placed_combinators: HashMap<EntityNumber, FactorioCombinator>,
+    placed_combinators: HashMap<EntityNumber, Combinator>,
     placed_positions: HashSet<CoordSet>,
     max_x: i64,
     min_x: i64,
@@ -84,7 +84,7 @@ impl TurdMaster2000 {
         input_nid: NId,
         output_nid: NId,
         operation: &Operation,
-    ) -> Option<FactorioCombinator> {
+    ) -> Option<Combinator> {
         let input_coord = (x, y * 2);
         let output_coord = (x, y * 2 + 1);
 
@@ -101,18 +101,12 @@ impl TurdMaster2000 {
         let mut input_network_exists = false;
         let mut output_network_exists = false;
 
-        let mut input_combinators: FnvHashMap<
-            NonZeroUsize,
-            (&mut FactorioCombinator, HashSet<WireKind>),
-        > = FnvHashMap::default();
+        let mut input_combinators: FnvHashMap<NonZeroUsize, (&mut Combinator, HashSet<WireKind>)> =
+            FnvHashMap::default();
 
         let mut output_combinators: FnvHashMap<
             NonZeroUsize,
-            (
-                &mut FactorioCombinator,
-                ConnectionPointType,
-                HashSet<WireKind>,
-            ),
+            (&mut Combinator, ConnectionPointKind, HashSet<WireKind>),
         > = FnvHashMap::default();
 
         // TODO: This can result in skipped entity numbers. Make this that this is ok.
@@ -144,7 +138,7 @@ impl TurdMaster2000 {
                         })
                         .or_insert((
                             other,
-                            ConnectionPointType::Input,
+                            ConnectionPointKind::Input,
                             HashSet::from([WireKind::Red]),
                         ));
                 }
@@ -158,7 +152,7 @@ impl TurdMaster2000 {
                         })
                         .or_insert((
                             other,
-                            ConnectionPointType::Output,
+                            ConnectionPointKind::Output,
                             HashSet::from([WireKind::Red]),
                         ));
                 }
@@ -197,10 +191,10 @@ impl TurdMaster2000 {
                 .values()
                 .map(|(output_com, point_type, wires)| {
                     let point = match point_type {
-                        ConnectionPointType::Input => {
+                        ConnectionPointKind::Input => {
                             output_com.operation.get_input_connection_point()
                         }
-                        ConnectionPointType::Output => {
+                        ConnectionPointKind::Output => {
                             output_com.operation.get_output_connection_point()
                         }
                     }
@@ -226,7 +220,7 @@ impl TurdMaster2000 {
         self.max_x = cmp::max(self.max_x, x);
         self.max_y = cmp::max(self.max_y, y);
 
-        Some(FactorioCombinator {
+        Some(Combinator {
             entity_number: this_entity_number,
             input_nid,
             output_nid,
@@ -247,7 +241,7 @@ impl TurdMaster2000 {
 }
 
 impl Placer for TurdMaster2000 {
-    fn place(mut self) -> Vec<FactorioCombinator> {
+    fn place(mut self) -> Vec<Combinator> {
         let coms: Vec<_> = self.graph.iter_combinators().collect();
 
         'next_combinator: for (input_nid, output_nid, operation) in coms {

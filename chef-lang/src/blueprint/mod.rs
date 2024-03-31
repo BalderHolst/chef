@@ -64,14 +64,14 @@ impl Display for CombinatorPosition {
 
 type ConnectionPoint = i32;
 
-enum ConnectionPointType {
+enum ConnectionPointKind {
     Input,
     Output,
 }
 
 /// Placed Factorio Combinator
 #[derive(Clone, Debug, PartialEq)]
-pub struct FactorioCombinator {
+pub struct Combinator {
     pub entity_number: fbo::EntityNumber,
     pub input_nid: graph::NId,
     pub output_nid: graph::NId,
@@ -113,8 +113,12 @@ macro_rules! each {
     };
 }
 
-impl FactorioCombinator {
-    pub fn to_blueprint_entity(&self) -> fbo::Entity {
+pub trait FactorioEntity {
+    fn to_blueprint_entity(&self) -> fbo::Entity;
+}
+
+impl FactorioEntity for Combinator {
+    fn to_blueprint_entity(&self) -> fbo::Entity {
         let mut output_connections_red = vec![];
         let mut output_connections_green = vec![];
 
@@ -198,7 +202,9 @@ impl FactorioCombinator {
             station: None,
         }
     }
+}
 
+impl Combinator {
     fn get_control_behavior(&self) -> fbo::ControlBehavior {
         match &self.operation {
             graph::Operation::Arithmetic(ac) => {
@@ -433,7 +439,7 @@ impl FactorioCombinator {
     }
 }
 
-impl Display for FactorioCombinator {
+impl Display for Combinator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -467,12 +473,12 @@ pub fn convert_to_graph_to_blueprint_string(graph: Graph, verbose: bool) -> fb::
     fb::BlueprintCodec::encode_string(&container)
 }
 
-fn place_combinators(placer: impl Placer) -> Vec<FactorioCombinator> {
+fn place_combinators(placer: impl Placer) -> Vec<Combinator> {
     placer.place()
 }
 
 /// Create a [Blueprint] from a list of combinators
-fn combinators_to_blueprint(combinators: Vec<FactorioCombinator>) -> fb::Container {
+fn combinators_to_blueprint(combinators: Vec<Combinator>) -> fb::Container {
     let entities: Vec<fbo::Entity> = combinators
         .iter()
         .map(|c| c.to_blueprint_entity())
