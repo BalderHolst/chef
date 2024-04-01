@@ -120,19 +120,6 @@ struct ConstantCombinator {
     connections: Vec<(fbo::EntityNumber, ConnectionPoint, WireKind)>,
 }
 
-fn wire_connetion(connections: Vec<fbo::ConnectionData>, wk: WireKind) -> fbo::Connection {
-    match wk {
-        WireKind::Red => fbo::Connection {
-            red: Some(connections),
-            green: None,
-        },
-        WireKind::Green => fbo::Connection {
-            red: None,
-            green: Some(connections),
-        },
-    }
-}
-
 impl FactorioEntity for ConstantCombinator {
     fn input_conn_point() -> usize {
         1
