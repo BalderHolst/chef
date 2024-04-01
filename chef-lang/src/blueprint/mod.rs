@@ -24,7 +24,6 @@ use crate::{
     utils::BASE_SIGNALS,
 };
 
-use placement::Placer;
 use placement::TurdMaster2000;
 
 type Operation = graph::Operation;
@@ -42,7 +41,8 @@ enum ConnectionPointKind {
     Output,
 }
 
-pub trait FactorioEntity {
+/// An entity that can be placed in Factorio
+trait FactorioEntity: BlueprintEntity {
     /// Get the input connection point for the entity
     fn input_conn_point() -> usize;
 
@@ -51,9 +51,16 @@ pub trait FactorioEntity {
 
     /// Returns the (width, height) of the entity
     fn dimensions() -> (usize, usize);
+}
 
+/// An entity that can be converted to a [fbo::Entity] to be included in a blueprint
+pub trait BlueprintEntity {
     /// Converts the entity to a [fbo::Entity] to be included in a blueprint
     fn to_blueprint_entity(&self) -> fbo::Entity;
+}
+
+pub trait Placer {
+    fn place(self) -> Vec<Box<dyn BlueprintEntity>>;
 }
 
 struct Substation {
@@ -73,7 +80,9 @@ impl FactorioEntity for Substation {
     fn dimensions() -> (usize, usize) {
         (2, 2)
     }
+}
 
+impl BlueprintEntity for Substation {
     fn to_blueprint_entity(&self) -> fbo::Entity {
         todo!()
     }
@@ -96,7 +105,9 @@ impl FactorioEntity for MediumElectricPole {
     fn dimensions() -> (usize, usize) {
         (1, 1)
     }
+}
 
+impl BlueprintEntity for MediumElectricPole {
     fn to_blueprint_entity(&self) -> fbo::Entity {
         todo!()
     }
@@ -134,7 +145,9 @@ impl FactorioEntity for ConstantCombinator {
     fn dimensions() -> (usize, usize) {
         (1, 1)
     }
+}
 
+impl BlueprintEntity for ConstantCombinator {
     fn to_blueprint_entity(&self) -> fbo::Entity {
         let mut connections_red = vec![];
         let mut connections_green = vec![];
@@ -273,7 +286,9 @@ impl FactorioEntity for Combinator {
     fn dimensions() -> (usize, usize) {
         (1, 2)
     }
+}
 
+impl BlueprintEntity for Combinator {
     fn to_blueprint_entity(&self) -> fbo::Entity {
         let mut output_connections_red = vec![];
         let mut output_connections_green = vec![];
@@ -618,23 +633,16 @@ const WIRE_RANGE: f64 = 9.0;
 
 pub fn convert_to_graph_to_blueprint_string(graph: Graph, verbose: bool) -> fb::Result<String> {
     let combinators = place_combinators(TurdMaster2000::new(graph));
-    if verbose {
-        println!("Combinators:");
-        for c in &combinators {
-            println!("\t{c}")
-        }
-        println!()
-    }
     let container = combinators_to_blueprint(combinators);
     fb::BlueprintCodec::encode_string(&container)
 }
 
-fn place_combinators(placer: impl Placer) -> Vec<Combinator> {
+fn place_combinators(placer: impl Placer) -> Vec<Box<dyn BlueprintEntity>> {
     placer.place()
 }
 
 /// Create a [Blueprint] from a list of combinators
-fn combinators_to_blueprint(combinators: Vec<Combinator>) -> fb::Container {
+fn combinators_to_blueprint(combinators: Vec<Box<impl BlueprintEntity + ?Sized>>) -> fb::Container {
     let entities: Vec<fbo::Entity> = combinators
         .iter()
         .map(|c| c.to_blueprint_entity())

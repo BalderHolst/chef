@@ -13,12 +13,9 @@ use crate::{
 };
 
 use super::{
-    Combinator, CombinatorPosition, ConnectionPointKind, CoordSet, FactorioEntity, WIRE_RANGE,
+    BlueprintEntity, Combinator, CombinatorPosition, ConnectionPointKind, CoordSet, FactorioEntity,
+    Placer, WIRE_RANGE,
 };
-
-pub trait Placer {
-    fn place(self) -> Vec<Combinator>;
-}
 
 pub(crate) fn is_in_range(p1: &CoordSet, p2: &CoordSet) -> bool {
     let dx = (p2.0 - p1.0) as f64;
@@ -41,7 +38,7 @@ fn test_is_in_range() {
 
 // TODO: Create more placers
 
-/// Tries to arrange combinators in a horrizontal line facing north.
+/// Tries to arrange combinators in a horizontal line facing north.
 ///
 /// ### Steps for finding the location of a combinator.
 /// 1. Check if any input or output combinators to this one have been placed.
@@ -239,7 +236,7 @@ impl TurdMaster2000 {
 }
 
 impl Placer for TurdMaster2000 {
-    fn place(mut self) -> Vec<Combinator> {
+    fn place(mut self) -> Vec<Box<dyn BlueprintEntity>> {
         let coms: Vec<_> = self.graph.iter_combinators().collect();
 
         'next_combinator: for (input_nid, output_nid, operation) in coms {
@@ -257,6 +254,9 @@ impl Placer for TurdMaster2000 {
             todo!("COULD NOT PLACE COMBINATOR");
         }
 
-        self.placed_combinators.into_values().collect()
+        self.placed_combinators
+            .into_values()
+            .map(|c| Box::new(c) as _)
+            .collect()
     }
 }
