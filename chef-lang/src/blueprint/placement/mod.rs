@@ -4,6 +4,7 @@ use std::{
     num::NonZeroUsize,
 };
 
+use factorio_blueprint::objects as fbo;
 use factorio_blueprint::objects::EntityNumber;
 use fnv::FnvHashMap;
 use noisy_float::prelude::*;
@@ -13,9 +14,7 @@ use crate::{
     compiler::graph::{Graph, NId, Operation, WireKind},
 };
 
-use super::{
-    BlueprintEntity, CircuitEntity, Combinator, ConnectionPointKind, CoordSet, Placer, WIRE_RANGE,
-};
+use super::{CircuitEntity, Combinator, ConnectionPointKind, CoordSet, Placer, WIRE_RANGE};
 
 pub(crate) fn is_in_range(p1: &CoordSet, p2: &CoordSet) -> bool {
     let dx = p2.0 - p1.0;
@@ -248,7 +247,7 @@ impl TurdMaster2000 {
 }
 
 impl Placer for TurdMaster2000 {
-    fn place(mut self) -> Vec<Box<dyn BlueprintEntity>> {
+    fn place(mut self) -> Vec<fbo::Entity> {
         let coms: Vec<_> = self.graph.iter_combinators().collect();
 
         'next_combinator: for (input_nid, output_nid, operation) in coms {
@@ -268,7 +267,7 @@ impl Placer for TurdMaster2000 {
 
         self.placed_combinators
             .into_values()
-            .map(|c| Box::new(c) as _)
+            .map(|c| c.to_blueprint_entity())
             .collect()
     }
 }

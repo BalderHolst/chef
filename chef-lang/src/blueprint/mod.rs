@@ -42,7 +42,7 @@ enum ConnectionPointKind {
 }
 
 /// An entity that can part of Factorio circuit networks
-trait CircuitEntity: BlueprintEntity {
+trait CircuitEntity {
     /// Get the input connection point for the entity
     fn input_conn_point() -> usize;
 
@@ -57,16 +57,13 @@ trait CircuitEntity: BlueprintEntity {
 
     /// Returns the output coordinate to the entity
     fn output_pos(&self) -> CoordSet;
-}
 
-/// An entity that can be converted to a [fbo::Entity] to be included in a blueprint
-pub trait BlueprintEntity {
     /// Converts the entity to a [fbo::Entity] to be included in a blueprint
     fn to_blueprint_entity(&self) -> fbo::Entity;
 }
 
 pub trait Placer {
-    fn place(self) -> Vec<Box<dyn BlueprintEntity>>;
+    fn place(self) -> Vec<fbo::Entity>;
 }
 
 struct Substation {
@@ -95,9 +92,7 @@ impl CircuitEntity for Substation {
     fn output_pos(&self) -> CoordSet {
         self.position
     }
-}
 
-impl BlueprintEntity for Substation {
     fn to_blueprint_entity(&self) -> fbo::Entity {
         let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
         fbo::Entity {
@@ -163,9 +158,7 @@ impl CircuitEntity for MediumElectricPole {
     fn output_pos(&self) -> CoordSet {
         self.position
     }
-}
 
-impl BlueprintEntity for MediumElectricPole {
     fn to_blueprint_entity(&self) -> fbo::Entity {
         let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
         fbo::Entity {
@@ -202,35 +195,6 @@ impl BlueprintEntity for MediumElectricPole {
             color: None,
             station: None,
         }
-    }
-}
-
-struct ConstantCombinator {
-    entity_number: fbo::EntityNumber,
-    position: CoordSet,
-    signals: Vec<(fbo::SignalID, FactorioConstant)>,
-    output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
-}
-
-impl CircuitEntity for ConstantCombinator {
-    fn input_conn_point() -> usize {
-        1
-    }
-
-    fn output_conn_point() -> usize {
-        Self::input_conn_point()
-    }
-
-    fn dimensions() -> (usize, usize) {
-        (1, 1)
-    }
-
-    fn input_pos(&self) -> CoordSet {
-        self.position
-    }
-
-    fn output_pos(&self) -> CoordSet {
-        self.position
     }
 }
 
@@ -278,7 +242,34 @@ fn to_factorio_conns(
     connections
 }
 
-impl BlueprintEntity for ConstantCombinator {
+struct ConstantCombinator {
+    entity_number: fbo::EntityNumber,
+    position: CoordSet,
+    signals: Vec<(fbo::SignalID, FactorioConstant)>,
+    output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
+}
+
+impl CircuitEntity for ConstantCombinator {
+    fn input_conn_point() -> usize {
+        1
+    }
+
+    fn output_conn_point() -> usize {
+        Self::input_conn_point()
+    }
+
+    fn dimensions() -> (usize, usize) {
+        (1, 1)
+    }
+
+    fn input_pos(&self) -> CoordSet {
+        self.position
+    }
+
+    fn output_pos(&self) -> CoordSet {
+        self.position
+    }
+
     fn to_blueprint_entity(&self) -> fbo::Entity {
         let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
 
@@ -374,9 +365,7 @@ impl CircuitEntity for Combinator {
     fn output_pos(&self) -> CoordSet {
         (self.position.0, self.position.1 + 0.5)
     }
-}
 
-impl BlueprintEntity for Combinator {
     fn to_blueprint_entity(&self) -> fbo::Entity {
         let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
 
@@ -692,16 +681,12 @@ pub fn convert_to_graph_to_blueprint_string(graph: Graph) -> fb::Result<String> 
     fb::BlueprintCodec::encode_string(&container)
 }
 
-fn place_combinators(placer: impl Placer) -> Vec<Box<dyn BlueprintEntity>> {
+fn place_combinators(placer: impl Placer) -> Vec<fbo::Entity> {
     placer.place()
 }
 
 /// Create a [Blueprint] from a list of combinators
-fn combinators_to_blueprint(combinators: Vec<Box<impl BlueprintEntity + ?Sized>>) -> fb::Container {
-    let entities: Vec<fbo::Entity> = combinators
-        .iter()
-        .map(|c| c.to_blueprint_entity())
-        .collect();
+fn combinators_to_blueprint(entities: Vec<fbo::Entity>) -> fb::Container {
     let blueprint = create_blueprint(entities);
     fb::Container::Blueprint(blueprint)
 }
