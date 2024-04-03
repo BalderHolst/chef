@@ -20,9 +20,6 @@ use super::AST;
 pub trait Visitor {
     fn do_visit_statement(&mut self, statement: &Statement) {
         match &statement.kind {
-            StatementKind::Out(expr) => {
-                self.visit_out(expr);
-            }
             StatementKind::Declaration(declaration) => {
                 self.visit_declaration(declaration);
             }
@@ -187,9 +184,6 @@ pub trait Visitor {
 pub trait MutVisitor {
     fn do_visit_statement(&mut self, statement: &mut Statement) {
         match &mut statement.kind {
-            StatementKind::Out(expr) => {
-                self.visit_out(expr);
-            }
             StatementKind::Declaration(dec) => {
                 self.visit_declaration(dec);
             }

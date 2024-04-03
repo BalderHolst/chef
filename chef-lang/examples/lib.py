@@ -1,5 +1,5 @@
 print("""
       block answer() => (out: int) {
-          42
+          out <- 42;
       }
       """)

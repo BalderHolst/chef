@@ -358,10 +358,13 @@ impl Parser {
                     "when" => self.parse_when_statement(),
                     _ if self.is_at_declaration_statment() => self.parse_declaration_statement(),
                     _ if self.is_at_definition_statment() => self.parse_definition_statement(),
-                    _ => match self.parse_expression() {
-                        Ok(expr) => Ok(StatementKind::Out(expr)),
-                        Err(e) => Err(e),
-                    },
+                    _ => {
+                        self.consume_bad_statement();
+                        Err(CompilationError::new_localized(
+                            "Invalid statement.",
+                            TextSpan::from_spans(&start_token.span, &self.current().span),
+                        ))
+                    }
                 };
                 let kind = match kind {
                     Ok(k) => k,
@@ -385,19 +388,10 @@ impl Parser {
             TokenKind::End => None,
             TokenKind::RightCurly => None,
             _ => {
-                // Assume statement to be an `out` statement if nothing else.
-                let out_expr = match self.parse_expression() {
-                    Ok(expr) => expr,
-                    Err(e) => {
-                        self.diagnostics_bag
-                            .borrow_mut()
-                            .report_compilation_error(e);
-                        return None;
-                    }
-                };
-                Some(Ok(Statement::new(
-                    StatementKind::Out(out_expr),
-                    self.get_span_from(&start_token.span),
+                self.consume_bad_statement();
+                Some(Err(CompilationError::new_localized(
+                    "Statements have to begin with a `word`.",
+                    start_token.span,
                 )))
             }
         }

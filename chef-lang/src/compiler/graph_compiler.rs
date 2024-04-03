@@ -170,14 +170,6 @@ impl GraphCompiler {
             StatementKind::Definition(def) => {
                 self.compile_definition_statement(graph, def, gate, None)?;
             }
-            StatementKind::Out(expr) => {
-                // TODO: Remove
-                let (expr_nid, out_type) = self.compile_expression(graph, &expr, None)?;
-                let out_nid = graph.push_output_node(todo!(), out_type.clone());
-                let (c_input, c_ouput) = graph.push_connection(Connection::new_pick(out_type));
-                graph.push_wire(expr_nid, c_input);
-                graph.push_wire(c_ouput, out_nid);
-            }
             StatementKind::Error => {
                 // TODO: Remove error statements
                 panic!("There should not be error statements when compilation has started.")

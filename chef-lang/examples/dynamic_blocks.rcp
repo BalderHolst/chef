@@ -13,6 +13,6 @@ dyn block pick_multiple(input: many, picks: lit) {
 
 }
 
-block main(input: many) {
-    pick_multiple(input, ["signal-A", "signal-B", "signal-C"])
+block main(input: many) => (out: many) {
+    out <- pick_multiple(input, ["signal-A", "signal-B", "signal-C"]);
 }

@@ -184,7 +184,6 @@ pub enum StatementKind {
     Declaration(Declaration),
     DeclarationDefinition(DeclarationDefinition),
     Definition(Definition),
-    Out(Expression),
     Error,
 }
 
