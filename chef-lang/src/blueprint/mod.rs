@@ -310,6 +310,33 @@ struct ConstantCombinator {
     output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
 }
 
+fn char_to_signal(c: char) -> (String, fbo::SignalIDType) {
+    match c.to_uppercase().next() {
+        Some(c) if c.is_ascii() && c.is_alphabetic() => {
+            (format!("signal-{c}"), fbo::SignalIDType::Virtual)
+        }
+        _ => ("signal-unknown".to_string(), fbo::SignalIDType::Virtual),
+    }
+}
+
+impl ConstantCombinator {
+    pub fn new_sign(message: &str, en: OneBasedIndex, nid: graph::NId, position: CoordSet) -> Self {
+        let signals: Vec<_> = message
+            .chars()
+            .map(char_to_signal)
+            .map(|(sig, type_)| (fbo::SignalID { name: sig, type_ }, 0))
+            .collect();
+
+        Self {
+            entity_number: en,
+            nid,
+            position,
+            signals,
+            output_entities: HashMap::default(),
+        }
+    }
+}
+
 impl CircuitEntity for ConstantCombinator {
     fn input_conn_point(&self) -> usize {
         1

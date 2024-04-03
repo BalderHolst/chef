@@ -381,15 +381,24 @@ pub enum Node {
     Inner,
 
     /// Variable node that is an input to the graph
-    InputVariable(IOType),
+    InputVariable {
+        kind: IOType,
+        name: String,
+    },
 
     /// Variable node that is integrated in the graph
-    Variable(IOType),
+    Variable {
+        kind: IOType,
+        name: String,
+    },
 
     /// An output of the entire graph
     // TODO: This can probably be removed, as output nodes and their output types can be derived
     // from the graph structure itself.
-    Output(IOType),
+    Output {
+        kind: IOType,
+        name: String,
+    },
 
     // TODO: Maybe this should just contain the constant and not a generic iotype?
     Constant(IOType),
@@ -563,13 +572,13 @@ impl Graph {
 
         // Check for INPUT nodes in network
         for other_id in &green_network_nids {
-            if let Some(Node::InputVariable(t)) = self.get_node(other_id) {
-                input_types.push((t.clone(), WireKind::Green))
+            if let Some(Node::InputVariable { kind, name: _ }) = self.get_node(other_id) {
+                input_types.push((kind.clone(), WireKind::Green))
             }
         }
         for other_id in &red_network_nids {
-            if let Some(Node::InputVariable(t)) = self.get_node(other_id) {
-                input_types.push((t.clone(), WireKind::Red))
+            if let Some(Node::InputVariable { kind, name: _ }) = self.get_node(other_id) {
+                input_types.push((kind.clone(), WireKind::Red))
             }
         }
 
@@ -687,8 +696,11 @@ impl Graph {
     }
 
     /// Push a node of type [InputNode].
-    pub fn push_input_node(&mut self, input: IOType) -> NId {
-        self.push_node(Node::InputVariable(input))
+    pub fn push_input_node(&mut self, name: String, variable_type: IOType) -> NId {
+        self.push_node(Node::InputVariable {
+            kind: variable_type,
+            name,
+        })
     }
 
     /// Push a node of type [InnerNode].
@@ -696,12 +708,18 @@ impl Graph {
         self.push_node(Node::Inner)
     }
 
-    pub fn push_output_node(&mut self, output_type: IOType) -> NId {
-        self.push_node(Node::Output(output_type))
+    pub fn push_output_node(&mut self, name: String, output_type: IOType) -> NId {
+        self.push_node(Node::Output {
+            kind: output_type,
+            name,
+        })
     }
 
-    pub fn push_var_node(&mut self, variable_type: IOType) -> NId {
-        self.push_node(Node::Variable(variable_type))
+    pub fn push_var_node(&mut self, variable_type: IOType, name: String) -> NId {
+        self.push_node(Node::Variable {
+            kind: variable_type,
+            name,
+        })
     }
 
     /// Push a connection between two nodes.
@@ -773,34 +791,26 @@ impl Graph {
         }
     }
 
-    /// Get all nodes of type [InputNode].
-    pub fn get_input_nodes(&self) -> Vec<NId> {
-        let mut inputs: Vec<NId> = vec![];
+    /// Get names and node ids of all nodes of type [InputNode].
+    pub fn get_input_nodes(&self) -> Vec<(String, NId)> {
+        let mut inputs = vec![];
         for (nid, node) in &self.vertices {
-            if let Node::InputVariable(_) = node {
-                inputs.push(*nid);
+            if let Node::InputVariable { kind: _, name } = node {
+                inputs.push((name.clone(), *nid));
             }
         }
         inputs
     }
 
     /// Get all nodes of type [OutputNode].
-    pub fn get_output_nodes(&self) -> Vec<NId> {
-        let mut outputs: Vec<NId> = vec![];
+    pub fn get_output_nodes(&self) -> Vec<(String, NId)> {
+        let mut outputs: Vec<_> = vec![];
         for (nid, node) in &self.vertices {
-            if let Node::Output(_) = node {
-                outputs.push(*nid);
+            if let Node::Output { kind: _, name } = node {
+                outputs.push((name.clone(), *nid));
             }
         }
         outputs
-    }
-
-    /// Check if a node is of type [Node::Output].
-    fn _is_output(&self, nid: NId) -> bool {
-        if let Some(Node::Output(_)) = self.get_node(&nid) {
-            return true;
-        }
-        false
     }
 
     pub fn is_wire_only_node(&self, nid: NId) -> bool {
@@ -838,7 +848,11 @@ impl Graph {
             nid_converter.insert(old_nid, new_nid);
 
             // Note this node as output
-            if let Node::Output(output_type) = node {
+            if let Node::Output {
+                kind: output_type,
+                name: _,
+            } = node
+            {
                 other_graph_outputs.insert(new_nid, output_type);
             }
         }
@@ -871,7 +885,10 @@ impl Graph {
 
             // Get the input type
             let other_input_type = match &other_input_node {
-                Node::InputVariable(input_type) => input_type.clone(),
+                Node::InputVariable {
+                    kind: input_type,
+                    name: _,
+                } => input_type.clone(),
                 _ => panic!("There should only be input nodes here..."),
             };
 
@@ -932,7 +949,7 @@ impl Graph {
             }
 
             match self.vertices.get_mut(block_input_nid) {
-                Some(Node::Output(_)) => {
+                Some(Node::Output { kind: _, name: _ }) => {
                     self.override_node(*block_input_nid, Node::Inner);
                 }
                 _ => {}
@@ -1025,7 +1042,7 @@ impl Graph {
         self.vertices
             .iter()
             .filter(|(nid, node)| {
-                if let Node::Output(_) = node {
+                if let Node::Output { kind: _, name: _ } = node {
                     match self.adjacency.get(nid) {
                         Some(v) => v.is_empty(),
                         None => true,
@@ -1043,7 +1060,11 @@ impl Graph {
         self.vertices
             .iter()
             .filter(|(_nid, node)| {
-                if let Node::InputVariable(input_type) = node {
+                if let Node::InputVariable {
+                    kind: input_type,
+                    name: _,
+                } = node
+                {
                     !matches!(input_type, IOType::Constant(_))
                 } else {
                     false
@@ -1068,9 +1089,9 @@ impl Graph {
             }
             let repr = match node {
                 Node::Inner => "INNER",
-                Node::InputVariable(_) => "INPUT_VAR",
-                Node::Variable(_) => "VAR",
-                Node::Output(_) => "OUTPUT",
+                Node::InputVariable { kind: _, name: _ } => "INPUT_VAR",
+                Node::Variable { kind: _, name: _ } => "VAR",
+                Node::Output { kind: _, name: _ } => "OUTPUT",
                 Node::Constant(_) => "CONST",
             };
             println!("\t\t{} : {} : {:?}", nid, repr, self.get_input_iotypes(nid))
@@ -1186,9 +1207,9 @@ impl<'a> AnysignalAssigner<'a> {
         // Convert anysignals in nodes
         for node in graph.vertices.values_mut() {
             match node {
-                Node::InputVariable(t) => self.replace_if_anysignal(t),
-                Node::Variable(t) => self.replace_if_anysignal(t),
-                Node::Output(t) => self.replace_if_anysignal(t),
+                Node::InputVariable { kind, name: _ } => self.replace_if_anysignal(kind),
+                Node::Variable { kind, name: _ } => self.replace_if_anysignal(kind),
+                Node::Output { kind, name: _ } => self.replace_if_anysignal(kind),
                 Node::Constant(t) => self.replace_if_anysignal(t),
                 Node::Inner => {}
             }

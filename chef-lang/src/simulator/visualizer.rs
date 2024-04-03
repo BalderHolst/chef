@@ -34,9 +34,9 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
         // Node color
         let color = match node {
             Node::Inner => "white",
-            Node::InputVariable(_) => "lightgreen",
-            Node::Variable(_) => "lightblue",
-            Node::Output(_) => "orange",
+            Node::InputVariable { kind: _, name: _ } => "lightgreen",
+            Node::Variable { kind: _, name: _ } => "lightblue",
+            Node::Output { kind: _, name: _ } => "orange",
             Node::Constant(_) => "lightgray",
         };
 

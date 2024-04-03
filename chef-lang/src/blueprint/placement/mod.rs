@@ -14,7 +14,10 @@ use crate::{
     compiler::graph::{Graph, NId, Operation, WireKind},
 };
 
-use super::{CircuitEntity, Combinator, ConnectionPointKind, CoordSet, Placer, WIRE_RANGE};
+use super::{
+    CircuitEntity, Combinator, ConnectionPointKind, ConstantCombinator, CoordSet, Placer,
+    WIRE_RANGE,
+};
 
 pub(crate) fn is_in_range(p1: &CoordSet, p2: &CoordSet) -> bool {
     let dx = p2.0 - p1.0;
@@ -24,23 +27,20 @@ pub(crate) fn is_in_range(p1: &CoordSet, p2: &CoordSet) -> bool {
 }
 
 #[test]
+#[rustfmt::skip]
 fn test_is_in_range() {
     let wire_range = r64(WIRE_RANGE);
     assert!(is_in_range(&(r64(0.0), r64(0.0)), &(r64(0.0), wire_range)));
     assert!(is_in_range(&(r64(0.0), r64(0.0)), &(wire_range, r64(0.0))));
     assert!(!is_in_range(&(r64(0.0), r64(0.0)), &(wire_range, r64(1.0))));
-    assert!(!is_in_range(
-        &(r64(0.0), r64(0.0)),
-        &(wire_range, r64(-1.0))
-    ));
+    assert!(!is_in_range(&(r64(0.0), r64(0.0)), &(wire_range, r64(-1.0))));
     assert!(is_in_range(&(r64(0.0), wire_range), &(r64(0.0), r64(0.0))));
     assert!(is_in_range(&(wire_range, r64(0.0)), &(r64(0.0), r64(0.0))));
     assert!(!is_in_range(&(wire_range, r64(1.0)), &(r64(0.0), r64(0.0))));
-    assert!(!is_in_range(
-        &(wire_range, r64(-1.0)),
-        &(r64(0.0), r64(0.0))
-    ));
+    assert!(!is_in_range(&(wire_range, r64(-1.0)), &(r64(0.0), r64(0.0))));
 }
+
+type TilePos = (i64, i64);
 
 // TODO: Create more placers
 
@@ -56,7 +56,7 @@ fn test_is_in_range() {
 pub struct TurdMaster2000 {
     graph: Graph,
     placed_entities: HashMap<EntityNumber, Box<dyn CircuitEntity>>,
-    placed_positions: HashSet<CoordSet>,
+    placed_positions: HashSet<TilePos>,
     max_x: i64,
     min_x: i64,
     max_y: i64,
@@ -78,8 +78,8 @@ impl TurdMaster2000 {
         }
     }
 
-    fn coordset_is_occupied(&self, coordset: &CoordSet) -> bool {
-        self.placed_positions.get(coordset).is_some()
+    fn tile_is_occupied(&self, tile: &TilePos) -> bool {
+        self.placed_positions.get(tile).is_some()
     }
 
     fn try_place_combinator(
@@ -90,19 +90,19 @@ impl TurdMaster2000 {
         output_nid: NId,
         operation: &Operation,
     ) -> Option<Combinator> {
-        let input_coord = (x, y * 2);
-        let output_coord = (x, y * 2 + 1);
+        let input_tile = (x, y * 2);
+        let output_tile = (x, y * 2 + 1);
 
         // Convert to floats
-        let input_coord = (r64(input_coord.0 as f64), r64(input_coord.1 as f64));
-        let output_coord = (r64(output_coord.0 as f64), r64(output_coord.1 as f64));
+        let input_coord = (r64(input_tile.0 as f64), r64(input_tile.1 as f64));
+        let output_coord = (r64(output_tile.0 as f64), r64(output_tile.1 as f64));
 
         let combinator_position = (
             (input_coord.0 + output_coord.0) / 2.0,
             (input_coord.1 + output_coord.1) / 2.0,
         );
 
-        if self.coordset_is_occupied(&combinator_position) {
+        if self.tile_is_occupied(&(input_tile)) || self.tile_is_occupied(&(output_tile)) {
             return None;
         }
 
@@ -240,7 +240,8 @@ impl TurdMaster2000 {
             );
         }
 
-        self.placed_positions.insert(combinator_position);
+        self.placed_positions.insert(input_tile);
+        self.placed_positions.insert(output_tile);
         self.max_x = cmp::max(self.max_x, x);
         self.max_y = cmp::max(self.max_y, y);
 
@@ -256,8 +257,34 @@ impl TurdMaster2000 {
 
 impl Placer for TurdMaster2000 {
     fn place(mut self) -> Vec<fbo::Entity> {
-        let coms: Vec<_> = self.graph.iter_combinators().collect();
+        // Place input combinators
+        for (n, (name, input_nid)) in self.graph.get_input_nodes().iter().enumerate() {
+            let x = (n / 2) as i64;
+            let y = (n % 2) as i64;
+            let pos: CoordSet = (r64(x as f64), r64(y as f64));
+            let en = self.get_next_entity_number();
+            let const_com = ConstantCombinator::new_sign(name, en, *input_nid, pos);
+            self.placed_entities.insert(en, Box::new(const_com));
+            self.placed_positions.insert((x, y));
+            self.max_x = cmp::max(self.max_x, x);
+            self.max_y = cmp::max(self.max_y, y);
+        }
 
+        // Place output combinators
+        for (n, (name, output_nid)) in self.graph.get_output_nodes().iter().enumerate() {
+            let x = (n / 2) as i64 + self.max_x + 1;
+            let y = (n % 2) as i64;
+            let pos: CoordSet = (r64(x as f64), r64(y as f64));
+            let en = self.get_next_entity_number();
+            let const_com = ConstantCombinator::new_sign(name, en, *output_nid, pos);
+            self.placed_entities.insert(en, Box::new(const_com));
+            self.placed_positions.insert((x, y));
+            self.max_x = cmp::max(self.max_x, x);
+            self.max_y = cmp::max(self.max_y, y);
+        }
+
+        // Place combinators
+        let coms: Vec<_> = self.graph.iter_combinators().collect();
         'next_combinator: for (input_nid, output_nid, operation) in coms {
             for y in self.min_y - 1..=self.max_y + 1 {
                 for x in self.min_x - 1..=self.max_x + 1 {
