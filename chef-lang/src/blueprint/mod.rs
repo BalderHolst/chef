@@ -65,6 +65,7 @@ pub trait Placer {
 
 struct Substation {
     entity_number: fbo::EntityNumber,
+    connections: Vec<(fbo::EntityNumber, ConnectionPoint, WireKind)>,
     position: CoordSet,
 }
 
@@ -90,6 +91,7 @@ impl BlueprintEntity for Substation {
 
 struct MediumElectricPole {
     entity_number: fbo::EntityNumber,
+    output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
     position: CoordSet,
 }
 
@@ -109,7 +111,41 @@ impl FactorioEntity for MediumElectricPole {
 
 impl BlueprintEntity for MediumElectricPole {
     fn to_blueprint_entity(&self) -> fbo::Entity {
-        todo!()
+        let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
+        fbo::Entity {
+            entity_number: self.entity_number,
+            name: "medium-electric-pole".to_string(),
+            position: fbo::Position {
+                x: R64::new(self.position.0 as f64),
+                y: R64::new(self.position.1 as f64),
+            },
+            direction: None,
+            orientation: None,
+            connections: Some(fbo::EntityConnections::NumberIdx(connections)),
+            control_behavior: None,
+            items: None,
+            recipe: None,
+            bar: None,
+            inventory: None,
+            infinity_settings: None,
+            type_: None,
+            input_priority: None,
+            output_priority: None,
+            filter: None,
+            filters: None,
+            filter_mode: None,
+            override_stack_size: None,
+            drop_position: None,
+            pickup_position: None,
+            request_filters: None,
+            request_from_buffers: None,
+            parameters: None,
+            alert_parameters: None,
+            auto_launch: None,
+            variation: None,
+            color: None,
+            station: None,
+        }
     }
 }
 
@@ -117,7 +153,7 @@ struct ConstantCombinator {
     entity_number: fbo::EntityNumber,
     position: CoordSet,
     signals: Vec<(fbo::SignalID, FactorioConstant)>,
-    connections: Vec<(fbo::EntityNumber, ConnectionPoint, WireKind)>,
+    output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
 }
 
 impl FactorioEntity for ConstantCombinator {
@@ -134,31 +170,53 @@ impl FactorioEntity for ConstantCombinator {
     }
 }
 
-impl BlueprintEntity for ConstantCombinator {
-    fn to_blueprint_entity(&self) -> fbo::Entity {
-        let mut connections_red = vec![];
-        let mut connections_green = vec![];
+fn to_factorio_conns(
+    output_entities: &FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
+    output_conn_point: usize,
+) -> HashMap<OneBasedIndex, fbo::ConnectionPoint> {
+    let mut connections_red = vec![];
+    let mut connections_green = vec![];
 
-        for (other_en, to_conn_point, wk) in &self.connections {
-            let conn_data = fbo::ConnectionData {
-                entity_id: *other_en,
-                circuit_id: Some(*to_conn_point),
-            };
-
-            match wk {
-                WireKind::Red => connections_red.push(conn_data),
-                WireKind::Green => connections_green.push(conn_data),
+    for (out_en, (to_conn_point, wires)) in output_entities.iter() {
+        let conn_data = fbo::ConnectionData {
+            entity_id: *out_en,
+            circuit_id: Some(*to_conn_point),
+        };
+        match wires.len() {
+            1 if wires.contains(&WireKind::Red) => {
+                connections_red.push(conn_data);
+            }
+            1 if wires.contains(&WireKind::Green) => {
+                connections_green.push(conn_data);
+            }
+            2 => {
+                connections_red.push(conn_data.clone());
+                connections_green.push(conn_data);
+            }
+            other => {
+                panic!(
+                    "Invalid number of wires for connection: {}. Should only be 1 or 2.",
+                    other
+                );
             }
         }
+    }
 
-        let mut connections = HashMap::new();
-        connections.insert(
-            Self::output_conn_point().try_into().unwrap(),
-            fbo::Connection {
-                red: Some(connections_red),
-                green: Some(connections_green),
-            },
-        );
+    let mut connections = HashMap::new();
+    connections.insert(
+        OneBasedIndex::new(output_conn_point).unwrap(),
+        fbo::Connection {
+            red: Some(connections_red),
+            green: Some(connections_green),
+        },
+    );
+
+    connections
+}
+
+impl BlueprintEntity for ConstantCombinator {
+    fn to_blueprint_entity(&self) -> fbo::Entity {
+        let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
 
         fbo::Entity {
             entity_number: self.entity_number,
@@ -277,43 +335,7 @@ impl FactorioEntity for Combinator {
 
 impl BlueprintEntity for Combinator {
     fn to_blueprint_entity(&self) -> fbo::Entity {
-        let mut output_connections_red = vec![];
-        let mut output_connections_green = vec![];
-
-        for (out_en, (to_conn_point, wires)) in self.output_entities.iter() {
-            let conn_data = fbo::ConnectionData {
-                entity_id: *out_en,
-                circuit_id: Some(*to_conn_point),
-            };
-            match wires.len() {
-                1 if wires.contains(&WireKind::Red) => {
-                    output_connections_red.push(conn_data);
-                }
-                1 if wires.contains(&WireKind::Green) => {
-                    output_connections_green.push(conn_data);
-                }
-                2 => {
-                    output_connections_red.push(conn_data.clone());
-                    output_connections_green.push(conn_data);
-                }
-                other => {
-                    panic!(
-                        "Invalid number of wires for connection: {}. Should only be 1 or 2.",
-                        other
-                    );
-                }
-            }
-        }
-
-        let output_connection_point = Combinator::output_conn_point();
-        let mut connections: HashMap<fbo::EntityNumber, fbo::Connection> = HashMap::new();
-        connections.insert(
-            fbo::OneBasedIndex::new(output_connection_point).unwrap(),
-            fbo::Connection {
-                red: Some(output_connections_red),
-                green: Some(output_connections_green),
-            },
-        );
+        let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
 
         let control_behavior = self.get_control_behavior();
 
