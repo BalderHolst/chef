@@ -14,7 +14,7 @@ use crate::{
 };
 
 use super::{
-    BlueprintEntity, Combinator, ConnectionPointKind, CoordSet, FactorioEntity, Placer, WIRE_RANGE,
+    BlueprintEntity, CircuitEntity, Combinator, ConnectionPointKind, CoordSet, Placer, WIRE_RANGE,
 };
 
 pub(crate) fn is_in_range(p1: &CoordSet, p2: &CoordSet) -> bool {

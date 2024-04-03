@@ -41,8 +41,8 @@ enum ConnectionPointKind {
     Output,
 }
 
-/// An entity that can be placed in Factorio
-trait FactorioEntity: BlueprintEntity {
+/// An entity that can part of Factorio circuit networks
+trait CircuitEntity: BlueprintEntity {
     /// Get the input connection point for the entity
     fn input_conn_point() -> usize;
 
@@ -75,7 +75,7 @@ struct Substation {
     position: CoordSet,
 }
 
-impl FactorioEntity for Substation {
+impl CircuitEntity for Substation {
     fn input_conn_point() -> usize {
         1
     }
@@ -109,7 +109,7 @@ struct MediumElectricPole {
     position: CoordSet,
 }
 
-impl FactorioEntity for MediumElectricPole {
+impl CircuitEntity for MediumElectricPole {
     fn input_conn_point() -> usize {
         1
     }
@@ -178,7 +178,7 @@ struct ConstantCombinator {
     output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
 }
 
-impl FactorioEntity for ConstantCombinator {
+impl CircuitEntity for ConstantCombinator {
     fn input_conn_point() -> usize {
         1
     }
@@ -320,7 +320,7 @@ macro_rules! each {
     };
 }
 
-impl FactorioEntity for Combinator {
+impl CircuitEntity for Combinator {
     fn input_conn_point() -> usize {
         1
     }
