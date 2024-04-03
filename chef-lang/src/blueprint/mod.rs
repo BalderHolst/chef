@@ -71,7 +71,7 @@ pub trait Placer {
 
 struct Substation {
     entity_number: fbo::EntityNumber,
-    connections: Vec<(fbo::EntityNumber, ConnectionPoint, WireKind)>,
+    output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
     position: CoordSet,
 }
 
@@ -99,7 +99,41 @@ impl CircuitEntity for Substation {
 
 impl BlueprintEntity for Substation {
     fn to_blueprint_entity(&self) -> fbo::Entity {
-        todo!()
+        let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
+        fbo::Entity {
+            entity_number: self.entity_number,
+            name: "substation".to_string(),
+            position: fbo::Position {
+                x: self.position.0,
+                y: self.position.1,
+            },
+            direction: None,
+            orientation: None,
+            connections: Some(fbo::EntityConnections::NumberIdx(connections)),
+            control_behavior: None,
+            items: None,
+            recipe: None,
+            bar: None,
+            inventory: None,
+            infinity_settings: None,
+            type_: None,
+            input_priority: None,
+            output_priority: None,
+            filter: None,
+            filters: None,
+            filter_mode: None,
+            override_stack_size: None,
+            drop_position: None,
+            pickup_position: None,
+            request_filters: None,
+            request_from_buffers: None,
+            parameters: None,
+            alert_parameters: None,
+            auto_launch: None,
+            variation: None,
+            color: None,
+            station: None,
+        }
     }
 }
 
