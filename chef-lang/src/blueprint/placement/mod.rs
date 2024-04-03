@@ -55,7 +55,7 @@ fn test_is_in_range() {
 /// 6. When placed, connect wires to the other combinators that were placed.
 pub struct TurdMaster2000 {
     graph: Graph,
-    placed_combinators: HashMap<EntityNumber, Combinator>,
+    placed_entities: HashMap<EntityNumber, Box<dyn CircuitEntity>>,
     placed_positions: HashSet<CoordSet>,
     max_x: i64,
     min_x: i64,
@@ -68,7 +68,7 @@ impl TurdMaster2000 {
     pub fn new(graph: Graph) -> Self {
         Self {
             graph,
-            placed_combinators: HashMap::new(),
+            placed_entities: HashMap::new(),
             placed_positions: HashSet::new(),
             max_x: 0,
             min_x: 1,
@@ -115,28 +115,35 @@ impl TurdMaster2000 {
         let mut input_network_exists = false;
         let mut output_network_exists = false;
 
-        let mut input_combinators: FnvHashMap<NonZeroUsize, (&mut Combinator, HashSet<WireKind>)> =
-            FnvHashMap::default();
+        let mut input_combinators: FnvHashMap<
+            NonZeroUsize,
+            (&mut Box<dyn CircuitEntity>, HashSet<WireKind>),
+        > = FnvHashMap::default();
 
         let mut output_combinators: FnvHashMap<
             NonZeroUsize,
-            (&mut Combinator, ConnectionPointKind, HashSet<WireKind>),
+            (
+                &mut Box<dyn CircuitEntity>,
+                ConnectionPointKind,
+                HashSet<WireKind>,
+            ),
         > = FnvHashMap::default();
 
         // TODO: This can result in skipped entity numbers. Make this that this is ok.
         let this_entity_number = self.get_next_entity_number();
 
         // Check that wire can reach the necessary placed combinators in this position
-        for other in &mut self.placed_combinators.values_mut() {
-            let other_output_nid = other.output_nid;
-            let other_input_nid = other.input_nid;
+        for other in &mut self.placed_entities.values_mut() {
+            let other_output_nid = other.output_nid();
+            let other_input_nid = other.input_nid();
+            let entity_number = other.entity_number();
 
             // Red connections
             if input_network.contains(&(other_output_nid, WireKind::Red)) {
                 input_network_exists = true;
                 if is_in_range(&input_coord, &other.output_pos()) {
                     input_combinators
-                        .entry(other.entity_number)
+                        .entry(entity_number)
                         .and_modify(|(_entity, wires)| {
                             let _ = wires.insert(WireKind::Red);
                         })
@@ -146,7 +153,7 @@ impl TurdMaster2000 {
                 output_network_exists = true;
                 if is_in_range(&output_coord, &other.input_pos()) {
                     output_combinators
-                        .entry(other.entity_number)
+                        .entry(entity_number)
                         .and_modify(|(_entity, _point_type, wires)| {
                             let _ = wires.insert(WireKind::Red);
                         })
@@ -160,7 +167,7 @@ impl TurdMaster2000 {
                 output_network_exists = true;
                 if is_in_range(&output_coord, &other.output_pos()) {
                     output_combinators
-                        .entry(other.entity_number)
+                        .entry(entity_number)
                         .and_modify(|(_entity, _point_type, wires)| {
                             let _ = wires.insert(WireKind::Red);
                         })
@@ -190,36 +197,44 @@ impl TurdMaster2000 {
 
         // Update input combinator
         for (input_com, wks) in input_combinators.values_mut() {
+            let input_conn_point = input_com.input_conn_point();
             input_com
-                .output_entities
+                .as_mut()
+                .output_entities_mut()
                 .entry(this_entity_number)
                 .and_modify(|(_entity, wires)| wires.extend(wks.iter().cloned()))
-                .or_insert((
-                    Combinator::input_conn_point().try_into().unwrap(),
-                    wks.clone(),
-                ));
+                .or_insert((input_conn_point.try_into().unwrap(), wks.clone()));
         }
 
-        let mut output_entities: FnvHashMap<EntityNumber, (ConnectionPoint, HashSet<WireKind>)> =
+        let output_entities: FnvHashMap<EntityNumber, (ConnectionPoint, HashSet<WireKind>)> =
             output_combinators
                 .values()
                 .map(|(output_com, point_type, wires)| {
                     let point = match point_type {
-                        ConnectionPointKind::Input => Combinator::input_conn_point(),
-                        ConnectionPointKind::Output => Combinator::output_conn_point(),
+                        ConnectionPointKind::Input => output_com.input_conn_point(),
+                        ConnectionPointKind::Output => output_com.output_conn_point(),
                     }
                     .try_into()
                     .unwrap();
-                    (output_com.entity_number, (point, wires.clone()))
+                    (output_com.entity_number(), (point, wires.clone()))
                 })
                 .collect();
 
+        let mut this_com = Combinator {
+            entity_number: this_entity_number,
+            input_nid,
+            output_nid,
+            operation: operation.clone(),
+            output_entities,
+            position: combinator_position,
+        };
+
         // Add itself as output if output and input networks are the same
         if input_network == output_network {
-            output_entities.insert(
+            this_com.output_entities.insert(
                 this_entity_number, // loopback
                 (
-                    Combinator::input_conn_point().try_into().unwrap(),
+                    this_com.input_conn_point().try_into().unwrap(),
                     HashSet::from([WireKind::Red]), // TODO: This is hardcoded
                 ),
             );
@@ -229,14 +244,7 @@ impl TurdMaster2000 {
         self.max_x = cmp::max(self.max_x, x);
         self.max_y = cmp::max(self.max_y, y);
 
-        Some(Combinator {
-            entity_number: this_entity_number,
-            input_nid,
-            output_nid,
-            operation: operation.clone(),
-            output_entities,
-            position: combinator_position,
-        })
+        Some(this_com)
     }
 
     fn get_next_entity_number(&mut self) -> EntityNumber {
@@ -256,8 +264,8 @@ impl Placer for TurdMaster2000 {
                     if let Some(combinator) =
                         self.try_place_combinator(x, y, input_nid, output_nid, &operation)
                     {
-                        self.placed_combinators
-                            .insert(combinator.entity_number, combinator);
+                        self.placed_entities
+                            .insert(combinator.entity_number, Box::new(combinator));
                         continue 'next_combinator;
                     }
                 }
@@ -265,7 +273,7 @@ impl Placer for TurdMaster2000 {
             todo!("COULD NOT PLACE COMBINATOR");
         }
 
-        self.placed_combinators
+        self.placed_entities
             .into_values()
             .map(|c| c.to_blueprint_entity())
             .collect()

@@ -44,13 +44,23 @@ enum ConnectionPointKind {
 /// An entity that can part of Factorio circuit networks
 trait CircuitEntity {
     /// Get the input connection point for the entity
-    fn input_conn_point() -> usize;
+    fn input_conn_point(&self) -> usize;
 
     /// Get the output connection point for the entity
-    fn output_conn_point() -> usize;
+    fn output_conn_point(&self) -> usize;
+
+    fn input_nid(&self) -> graph::NId;
+    fn output_nid(&self) -> graph::NId;
+    fn entity_number(&self) -> fbo::EntityNumber;
+    fn output_entities(
+        &self,
+    ) -> &FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>;
+    fn output_entities_mut(
+        &mut self,
+    ) -> &mut FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>;
 
     /// Returns the (width, height) of the entity
-    fn dimensions() -> (usize, usize);
+    fn dimensions(&self) -> (usize, usize);
 
     /// Returns the input coordinate to the entity
     fn input_pos(&self) -> CoordSet;
@@ -69,19 +79,44 @@ pub trait Placer {
 struct Substation {
     entity_number: fbo::EntityNumber,
     output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
+    nid: graph::NId,
     position: CoordSet,
 }
 
 impl CircuitEntity for Substation {
-    fn input_conn_point() -> usize {
+    fn input_conn_point(&self) -> usize {
         1
     }
 
-    fn output_conn_point() -> usize {
+    fn output_conn_point(&self) -> usize {
         1
     }
 
-    fn dimensions() -> (usize, usize) {
+    fn input_nid(&self) -> graph::NId {
+        self.nid
+    }
+
+    fn output_nid(&self) -> graph::NId {
+        self.nid
+    }
+
+    fn entity_number(&self) -> fbo::EntityNumber {
+        self.entity_number
+    }
+
+    fn output_entities(
+        &self,
+    ) -> &FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)> {
+        &self.output_entities
+    }
+
+    fn output_entities_mut(
+        &mut self,
+    ) -> &mut FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)> {
+        &mut self.output_entities
+    }
+
+    fn dimensions(&self) -> (usize, usize) {
         (2, 2)
     }
 
@@ -94,7 +129,7 @@ impl CircuitEntity for Substation {
     }
 
     fn to_blueprint_entity(&self) -> fbo::Entity {
-        let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
+        let connections = to_factorio_conns(&self.output_entities, self.output_conn_point());
         fbo::Entity {
             entity_number: self.entity_number,
             name: "substation".to_string(),
@@ -135,19 +170,44 @@ impl CircuitEntity for Substation {
 struct MediumElectricPole {
     entity_number: fbo::EntityNumber,
     output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
+    nid: graph::NId,
     position: CoordSet,
 }
 
 impl CircuitEntity for MediumElectricPole {
-    fn input_conn_point() -> usize {
+    fn input_conn_point(&self) -> usize {
         1
     }
 
-    fn output_conn_point() -> usize {
+    fn output_conn_point(&self) -> usize {
         1
     }
 
-    fn dimensions() -> (usize, usize) {
+    fn input_nid(&self) -> graph::NId {
+        self.nid
+    }
+
+    fn output_nid(&self) -> graph::NId {
+        self.nid
+    }
+
+    fn entity_number(&self) -> fbo::EntityNumber {
+        self.entity_number
+    }
+
+    fn output_entities(
+        &self,
+    ) -> &FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)> {
+        &self.output_entities
+    }
+
+    fn output_entities_mut(
+        &mut self,
+    ) -> &mut FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)> {
+        &mut self.output_entities
+    }
+
+    fn dimensions(&self) -> (usize, usize) {
         (1, 1)
     }
 
@@ -160,7 +220,7 @@ impl CircuitEntity for MediumElectricPole {
     }
 
     fn to_blueprint_entity(&self) -> fbo::Entity {
-        let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
+        let connections = to_factorio_conns(&self.output_entities, self.output_conn_point());
         fbo::Entity {
             entity_number: self.entity_number,
             name: "medium-electric-pole".to_string(),
@@ -244,21 +304,46 @@ fn to_factorio_conns(
 
 struct ConstantCombinator {
     entity_number: fbo::EntityNumber,
+    nid: graph::NId,
     position: CoordSet,
     signals: Vec<(fbo::SignalID, FactorioConstant)>,
     output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
 }
 
 impl CircuitEntity for ConstantCombinator {
-    fn input_conn_point() -> usize {
+    fn input_conn_point(&self) -> usize {
         1
     }
 
-    fn output_conn_point() -> usize {
-        Self::input_conn_point()
+    fn output_conn_point(&self) -> usize {
+        self.input_conn_point()
     }
 
-    fn dimensions() -> (usize, usize) {
+    fn input_nid(&self) -> graph::NId {
+        self.nid
+    }
+
+    fn output_nid(&self) -> graph::NId {
+        self.nid
+    }
+
+    fn entity_number(&self) -> fbo::EntityNumber {
+        self.entity_number
+    }
+
+    fn output_entities(
+        &self,
+    ) -> &FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)> {
+        &self.output_entities
+    }
+
+    fn output_entities_mut(
+        &mut self,
+    ) -> &mut FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)> {
+        &mut self.output_entities
+    }
+
+    fn dimensions(&self) -> (usize, usize) {
         (1, 1)
     }
 
@@ -271,7 +356,7 @@ impl CircuitEntity for ConstantCombinator {
     }
 
     fn to_blueprint_entity(&self) -> fbo::Entity {
-        let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
+        let connections = to_factorio_conns(&self.output_entities, self.output_conn_point());
 
         fbo::Entity {
             entity_number: self.entity_number,
@@ -346,15 +431,39 @@ macro_rules! each {
 }
 
 impl CircuitEntity for Combinator {
-    fn input_conn_point() -> usize {
+    fn input_conn_point(&self) -> usize {
         1
     }
 
-    fn output_conn_point() -> usize {
+    fn output_conn_point(&self) -> usize {
         2
     }
 
-    fn dimensions() -> (usize, usize) {
+    fn input_nid(&self) -> graph::NId {
+        self.input_nid
+    }
+
+    fn output_nid(&self) -> graph::NId {
+        self.output_nid
+    }
+
+    fn entity_number(&self) -> fbo::EntityNumber {
+        self.entity_number
+    }
+
+    fn output_entities(
+        &self,
+    ) -> &FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)> {
+        &self.output_entities
+    }
+
+    fn output_entities_mut(
+        &mut self,
+    ) -> &mut FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)> {
+        &mut self.output_entities
+    }
+
+    fn dimensions(&self) -> (usize, usize) {
         (1, 2)
     }
 
@@ -367,11 +476,11 @@ impl CircuitEntity for Combinator {
     }
 
     fn to_blueprint_entity(&self) -> fbo::Entity {
-        let connections = to_factorio_conns(&self.output_entities, Self::output_conn_point());
+        let connections = to_factorio_conns(&self.output_entities, self.output_conn_point());
 
         let control_behavior = self.get_control_behavior();
 
-        // Internal factorio name of combinator
+        // Internal Factorio name of combinator
         let name = match &self.operation {
             graph::Operation::Arithmetic(_) => "arithmetic-combinator",
             graph::Operation::Decider(_) => "decider-combinator",
