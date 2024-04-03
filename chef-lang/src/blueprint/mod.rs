@@ -29,7 +29,7 @@ use placement::TurdMaster2000;
 type Operation = graph::Operation;
 type FactorioConstant = i32;
 
-pub(crate) type Coord = i64;
+pub(crate) type Coord = R64;
 
 /// 2D Coordinate inside the Factorio world
 pub(crate) type CoordSet = (Coord, Coord);
@@ -51,6 +51,12 @@ trait FactorioEntity: BlueprintEntity {
 
     /// Returns the (width, height) of the entity
     fn dimensions() -> (usize, usize);
+
+    /// Returns the input coordinate to the entity
+    fn input_pos(&self) -> CoordSet;
+
+    /// Returns the output coordinate to the entity
+    fn output_pos(&self) -> CoordSet;
 }
 
 /// An entity that can be converted to a [fbo::Entity] to be included in a blueprint
@@ -81,6 +87,14 @@ impl FactorioEntity for Substation {
     fn dimensions() -> (usize, usize) {
         (2, 2)
     }
+
+    fn input_pos(&self) -> CoordSet {
+        self.position
+    }
+
+    fn output_pos(&self) -> CoordSet {
+        self.position
+    }
 }
 
 impl BlueprintEntity for Substation {
@@ -107,6 +121,14 @@ impl FactorioEntity for MediumElectricPole {
     fn dimensions() -> (usize, usize) {
         (1, 1)
     }
+
+    fn input_pos(&self) -> CoordSet {
+        self.position
+    }
+
+    fn output_pos(&self) -> CoordSet {
+        self.position
+    }
 }
 
 impl BlueprintEntity for MediumElectricPole {
@@ -116,8 +138,8 @@ impl BlueprintEntity for MediumElectricPole {
             entity_number: self.entity_number,
             name: "medium-electric-pole".to_string(),
             position: fbo::Position {
-                x: R64::new(self.position.0 as f64),
-                y: R64::new(self.position.1 as f64),
+                x: self.position.0,
+                y: self.position.1,
             },
             direction: None,
             orientation: None,
@@ -167,6 +189,14 @@ impl FactorioEntity for ConstantCombinator {
 
     fn dimensions() -> (usize, usize) {
         (1, 1)
+    }
+
+    fn input_pos(&self) -> CoordSet {
+        self.position
+    }
+
+    fn output_pos(&self) -> CoordSet {
+        self.position
     }
 }
 
@@ -222,8 +252,8 @@ impl BlueprintEntity for ConstantCombinator {
             entity_number: self.entity_number,
             name: "constant-combinator".to_string(),
             position: fbo::Position {
-                x: R64::new(self.position.0 as f64),
-                y: R64::new(self.position.1 as f64),
+                x: self.position.0,
+                y: self.position.1,
             },
             direction: None,
             orientation: None,
@@ -270,35 +300,6 @@ impl BlueprintEntity for ConstantCombinator {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CombinatorPosition {
-    pub input: CoordSet,
-    pub output: CoordSet,
-}
-
-impl CombinatorPosition {
-    pub fn factorio_pos(&self) -> fbo::Position {
-        let (x1, y1) = self.input;
-        let (x2, y2) = self.output;
-
-        let x = (x1 + x2) as f64 / 2.0;
-        let y = (y1 + y2) as f64 / 2.0;
-
-        let x = R64::new(x);
-        let y = R64::new(y);
-
-        fbo::Position { x, y }
-    }
-}
-
-impl Display for CombinatorPosition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (x1, y1) = self.input;
-        let (x2, y2) = self.output;
-        write!(f, "{{({}, {}) -> ({}, {})}}", x1, y1, x2, y2)
-    }
-}
-
 /// Placed Factorio Combinator
 #[derive(Clone, Debug, PartialEq)]
 pub struct Combinator {
@@ -307,7 +308,7 @@ pub struct Combinator {
     pub output_nid: graph::NId,
     pub operation: Operation,
     pub output_entities: FnvHashMap<fbo::EntityNumber, (ConnectionPoint, HashSet<WireKind>)>,
-    pub position: CombinatorPosition,
+    pub position: CoordSet,
 }
 
 macro_rules! each {
@@ -331,6 +332,14 @@ impl FactorioEntity for Combinator {
     fn dimensions() -> (usize, usize) {
         (1, 2)
     }
+
+    fn input_pos(&self) -> CoordSet {
+        (self.position.0, self.position.1 - 0.5)
+    }
+
+    fn output_pos(&self) -> CoordSet {
+        (self.position.0, self.position.1 + 0.5)
+    }
 }
 
 impl BlueprintEntity for Combinator {
@@ -353,7 +362,10 @@ impl BlueprintEntity for Combinator {
         fbo::Entity {
             entity_number: self.entity_number,
             name,
-            position: self.position.factorio_pos(),
+            position: fbo::Position {
+                x: self.position.0,
+                y: self.position.1,
+            },
             direction: None,
             orientation: None,
             connections: Some(fbo::EntityConnections::NumberIdx(connections)),
@@ -623,7 +635,7 @@ impl Display for Combinator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} -> {} (input for: {:?}):\t[{}] {} {{{}}}",
+            "{} -> {} (input for: {:?}):\t[{}] {} {{{:?}}}",
             self.input_nid,
             self.output_nid,
             self.output_entities
@@ -640,7 +652,7 @@ impl Display for Combinator {
 /// The maxinum distanct a wire can connect two points in factorio.
 const WIRE_RANGE: f64 = 9.0;
 
-pub fn convert_to_graph_to_blueprint_string(graph: Graph, verbose: bool) -> fb::Result<String> {
+pub fn convert_to_graph_to_blueprint_string(graph: Graph) -> fb::Result<String> {
     let combinators = place_combinators(TurdMaster2000::new(graph));
     let container = combinators_to_blueprint(combinators);
     fb::BlueprintCodec::encode_string(&container)

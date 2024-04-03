@@ -6,6 +6,7 @@ use std::{
 
 use factorio_blueprint::objects::EntityNumber;
 use fnv::FnvHashMap;
+use noisy_float::prelude::*;
 
 use crate::{
     blueprint::ConnectionPoint,
@@ -13,27 +14,33 @@ use crate::{
 };
 
 use super::{
-    BlueprintEntity, Combinator, CombinatorPosition, ConnectionPointKind, CoordSet, FactorioEntity,
-    Placer, WIRE_RANGE,
+    BlueprintEntity, Combinator, ConnectionPointKind, CoordSet, FactorioEntity, Placer, WIRE_RANGE,
 };
 
 pub(crate) fn is_in_range(p1: &CoordSet, p2: &CoordSet) -> bool {
-    let dx = (p2.0 - p1.0) as f64;
-    let dy = (p2.1 - p1.1) as f64;
-    let dist = f64::sqrt(dx * dx + dy * dy);
+    let dx = p2.0 - p1.0;
+    let dy = p2.1 - p1.1;
+    let dist = (dx * dx + dy * dy).sqrt();
     dist <= WIRE_RANGE
 }
 
 #[test]
 fn test_is_in_range() {
-    assert!(is_in_range(&(0, 0), &(0, WIRE_RANGE as i64)));
-    assert!(is_in_range(&(0, 0), &(WIRE_RANGE as i64, 0)));
-    assert!(!is_in_range(&(0, 0), &(WIRE_RANGE as i64, 1)));
-    assert!(!is_in_range(&(0, 0), &(WIRE_RANGE as i64, -1)));
-    assert!(is_in_range(&(0, WIRE_RANGE as i64), &(0, 0)));
-    assert!(is_in_range(&(WIRE_RANGE as i64, 0), &(0, 0)));
-    assert!(!is_in_range(&(WIRE_RANGE as i64, 1), &(0, 0)));
-    assert!(!is_in_range(&(WIRE_RANGE as i64, -1), &(0, 0)));
+    let wire_range = r64(WIRE_RANGE);
+    assert!(is_in_range(&(r64(0.0), r64(0.0)), &(r64(0.0), wire_range)));
+    assert!(is_in_range(&(r64(0.0), r64(0.0)), &(wire_range, r64(0.0))));
+    assert!(!is_in_range(&(r64(0.0), r64(0.0)), &(wire_range, r64(1.0))));
+    assert!(!is_in_range(
+        &(r64(0.0), r64(0.0)),
+        &(wire_range, r64(-1.0))
+    ));
+    assert!(is_in_range(&(r64(0.0), wire_range), &(r64(0.0), r64(0.0))));
+    assert!(is_in_range(&(wire_range, r64(0.0)), &(r64(0.0), r64(0.0))));
+    assert!(!is_in_range(&(wire_range, r64(1.0)), &(r64(0.0), r64(0.0))));
+    assert!(!is_in_range(
+        &(wire_range, r64(-1.0)),
+        &(r64(0.0), r64(0.0))
+    ));
 }
 
 // TODO: Create more placers
@@ -87,7 +94,16 @@ impl TurdMaster2000 {
         let input_coord = (x, y * 2);
         let output_coord = (x, y * 2 + 1);
 
-        if self.coordset_is_occupied(&input_coord) || self.coordset_is_occupied(&output_coord) {
+        // Convert to floats
+        let input_coord = (r64(input_coord.0 as f64), r64(input_coord.1 as f64));
+        let output_coord = (r64(output_coord.0 as f64), r64(output_coord.1 as f64));
+
+        let combinator_position = (
+            (input_coord.0 + output_coord.0) / 2.0,
+            (input_coord.1 + output_coord.1) / 2.0,
+        );
+
+        if self.coordset_is_occupied(&combinator_position) {
             return None;
         }
 
@@ -119,7 +135,7 @@ impl TurdMaster2000 {
             // Red connections
             if input_network.contains(&(other_output_nid, WireKind::Red)) {
                 input_network_exists = true;
-                if is_in_range(&input_coord, &other.position.output) {
+                if is_in_range(&input_coord, &other.output_pos()) {
                     input_combinators
                         .entry(other.entity_number)
                         .and_modify(|(_entity, wires)| {
@@ -129,7 +145,7 @@ impl TurdMaster2000 {
                 }
             } else if output_network.contains(&(other_input_nid, WireKind::Red)) {
                 output_network_exists = true;
-                if is_in_range(&output_coord, &other.position.input) {
+                if is_in_range(&output_coord, &other.input_pos()) {
                     output_combinators
                         .entry(other.entity_number)
                         .and_modify(|(_entity, _point_type, wires)| {
@@ -143,7 +159,7 @@ impl TurdMaster2000 {
                 }
             } else if output_network.contains(&(other_input_nid, WireKind::Red)) {
                 output_network_exists = true;
-                if is_in_range(&output_coord, &other.position.output) {
+                if is_in_range(&output_coord, &other.output_pos()) {
                     output_combinators
                         .entry(other.entity_number)
                         .and_modify(|(_entity, _point_type, wires)| {
@@ -210,8 +226,7 @@ impl TurdMaster2000 {
             );
         }
 
-        self.placed_positions.insert(input_coord);
-        self.placed_positions.insert(output_coord);
+        self.placed_positions.insert(combinator_position);
         self.max_x = cmp::max(self.max_x, x);
         self.max_y = cmp::max(self.max_y, y);
 
@@ -221,10 +236,7 @@ impl TurdMaster2000 {
             output_nid,
             operation: operation.clone(),
             output_entities,
-            position: CombinatorPosition {
-                input: input_coord,
-                output: output_coord,
-            },
+            position: combinator_position,
         })
     }
 
