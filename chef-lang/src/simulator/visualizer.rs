@@ -96,10 +96,10 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
 
     for (from_nid, to_nid, com) in combinators {
         let color = match &com {
-            com if com.is_convert() => "blue",
             Operation::Arithmetic(_) => "orange",
             Operation::Decider(_) => "purple",
             Operation::Pick(_) => "black",
+            Operation::Convert(_) => "blue",
             Operation::Gate(_) => "teal",
             Operation::Delay(_) => "brown",
             Operation::Sum(_) => "lightgray",

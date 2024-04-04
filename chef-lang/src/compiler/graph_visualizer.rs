@@ -1,10 +1,13 @@
-use std::{collections::HashMap, fs::OpenOptions, io::Write};
+use std::{collections::HashMap, fmt::Debug, fmt::Display, fs::OpenOptions, io::Write};
 
 use crate::utils::{self, VisualizerError};
 
-use super::graph::{Connection, Graph, Node, Operation, WireConnection};
+use super::graph::{Connection, Graph, LooseSig, Node, Operation, Signal, WireConnection};
 
-pub fn create_dot(graph: &Graph) -> String {
+pub fn create_dot<S>(graph: &Graph<S>) -> String
+where
+    S: Clone + Display + Signal<S> + PartialEq + Debug,
+{
     let mut dot = "strict digraph {\n\tnodesep=1\n".to_string();
 
     for (nid, node) in &graph.vertices {
@@ -22,10 +25,7 @@ pub fn create_dot(graph: &Graph) -> String {
                 "CONST".to_string()
             } else {
                 Vec::from_iter(inputs.iter().map(|(iotype, wc)| {
-                    let repr = match &iotype {
-                        super::graph::IOType::Signal(s) => s.to_string(),
-                        t => t.to_string(),
-                    };
+                    let repr = iotype.to_string();
                     match wc {
                         super::graph::WireKind::Green => format!("G[{repr}]"),
                         super::graph::WireKind::Red => format!("R[{repr}]"),
@@ -83,10 +83,10 @@ pub fn create_dot(graph: &Graph) -> String {
 
     for (from_nid, to_nid, com) in combinators {
         let color = match &com {
-            com if com.is_convert() => "blue",
             Operation::Arithmetic(_) => "orange",
             Operation::Decider(_) => "purple",
             Operation::Pick(_) => "black",
+            Operation::Convert(_) => "blue",
             Operation::Gate(_) => "teal",
             Operation::Delay(_) => "brown",
             Operation::Sum(_) => "lightgray",
@@ -101,7 +101,10 @@ pub fn create_dot(graph: &Graph) -> String {
     dot
 }
 
-pub fn visualize(graph: &Graph, output_path: &str) -> Result<(), VisualizerError> {
+pub fn visualize<S>(graph: &Graph<S>, output_path: &str) -> Result<(), VisualizerError>
+where
+    S: Clone + Display + Signal<S> + PartialEq + Debug,
+{
     let dot = create_dot(graph);
     let svg = utils::dot_to_svg(dot)?;
 

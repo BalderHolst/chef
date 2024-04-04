@@ -11,7 +11,7 @@ use noisy_float::prelude::*;
 
 use crate::{
     blueprint::ConnectionPoint,
-    compiler::graph::{Graph, NId, Operation, WireKind},
+    compiler::graph::{Graph, LooseSig, NId, Operation, WireKind},
 };
 
 use super::{
@@ -54,7 +54,7 @@ type TilePos = (i64, i64);
 /// 5. If nothing works, backtrack. We will just panic for now...
 /// 6. When placed, connect wires to the other combinators that were placed.
 pub struct TurdMaster2000 {
-    graph: Graph,
+    graph: Graph<LooseSig>,
     placed_entities: HashMap<EntityNumber, Box<dyn CircuitEntity>>,
     placed_positions: HashSet<TilePos>,
     max_x: i64,
@@ -65,7 +65,7 @@ pub struct TurdMaster2000 {
 }
 
 impl TurdMaster2000 {
-    pub fn new(graph: Graph) -> Self {
+    pub fn new(graph: Graph<LooseSig>) -> Self {
         Self {
             graph,
             placed_entities: HashMap::new(),
@@ -88,7 +88,7 @@ impl TurdMaster2000 {
         y: i64,
         input_nid: NId,
         output_nid: NId,
-        operation: &Operation,
+        operation: &Operation<LooseSig>,
     ) -> Option<Combinator> {
         let input_tile = (x, y * 2);
         let output_tile = (x, y * 2 + 1);

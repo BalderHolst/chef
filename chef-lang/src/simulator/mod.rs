@@ -5,7 +5,7 @@ mod visualizer;
 use std::{fmt::Display, io};
 
 use crate::compiler::graph::{
-    ArithmeticOperation, DeciderOperation, Graph, IOType, NId, NetworkId, Operation,
+    ArithmeticOperation, DeciderOperation, Graph, LooseSig, NId, NetworkId, Operation,
 };
 use fnv::FnvHashMap;
 
@@ -39,7 +39,7 @@ macro_rules! items {
     [$($name:literal:$count:expr),+] => {
         vec![
             $($crate::simulator::Item::new(
-                    $crate::compiler::graph::IOType::signal($name), $count
+                    $crate::compiler::graph::LooseSig::signal($name), $count
                     )),+
         ]
     };
@@ -47,12 +47,12 @@ macro_rules! items {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {
-    kind: IOType,
+    kind: LooseSig,
     count: i32,
 }
 
 impl Item {
-    pub fn new(kind: IOType, count: i32) -> Self {
+    pub fn new(kind: LooseSig, count: i32) -> Self {
         Self { kind, count }
     }
 
@@ -61,7 +61,7 @@ impl Item {
         S: ToString,
     {
         Self {
-            kind: IOType::Signal(name.to_string()),
+            kind: LooseSig::Signal(name.to_string()),
             count,
         }
     }
@@ -95,16 +95,16 @@ fn combine_items(input: Vec<Item>) -> Vec<Item> {
 #[test]
 fn test_combine_items() {
     let input = vec![
-        Item::new(IOType::signal("test"), 1),
-        Item::new(IOType::signal("test"), 1),
-        Item::new(IOType::signal("test"), 1),
-        Item::new(IOType::signal("other"), 1),
-        Item::new(IOType::signal("test"), 1),
-        Item::new(IOType::signal("test"), 1),
+        Item::new(LooseSig::signal("test"), 1),
+        Item::new(LooseSig::signal("test"), 1),
+        Item::new(LooseSig::signal("test"), 1),
+        Item::new(LooseSig::signal("other"), 1),
+        Item::new(LooseSig::signal("test"), 1),
+        Item::new(LooseSig::signal("test"), 1),
     ];
     let expected = vec![
-        Item::new(IOType::signal("test"), 5),
-        Item::new(IOType::signal("other"), 1),
+        Item::new(LooseSig::signal("test"), 5),
+        Item::new(LooseSig::signal("other"), 1),
     ];
     assert_eq!(combine_items(input), expected);
 }
@@ -116,7 +116,7 @@ impl Display for Item {
 }
 
 pub struct Simulator {
-    graph: Graph,
+    graph: Graph<LooseSig>,
     constant_inputs: FnvHashMap<NetworkId, Vec<Item>>,
     step: usize,
     networks: FnvHashMap<NId, Vec<NetworkId>>,
@@ -124,7 +124,7 @@ pub struct Simulator {
 }
 
 impl Simulator {
-    pub fn new(graph: Graph, mut inputs: Vec<Vec<Item>>) -> Self {
+    pub fn new(graph: Graph<LooseSig>, mut inputs: Vec<Vec<Item>>) -> Self {
         let inputs_nodes = graph.get_input_nodes();
         let input_nodes: Vec<_> = inputs_nodes.iter().map(|(_, nid)| nid).collect();
 
@@ -187,7 +187,7 @@ impl Simulator {
         }
     }
 
-    pub fn graph(&self) -> &Graph {
+    pub fn graph(&self) -> &Graph<LooseSig> {
         &self.graph
     }
 
@@ -258,6 +258,10 @@ impl Simulator {
                 Operation::Pick(p) => {
                     let sig = get_count(&conn_inputs, &p.output);
                     Item::new(p.output, sig)
+                }
+                Operation::Convert(c) => {
+                    let sig = get_count(&conn_inputs, &c.input);
+                    Item::new(c.output, sig)
                 }
                 Operation::Gate(c) => {
                     let left = get_count(&conn_inputs, &c.left);
@@ -362,8 +366,8 @@ impl Simulator {
     }
 }
 
-fn get_count(items: &Vec<Item>, iotype: &IOType) -> i32 {
-    if let IOType::Constant(n) = iotype {
+fn get_count(items: &Vec<Item>, iotype: &LooseSig) -> i32 {
+    if let LooseSig::Constant(n) = iotype {
         return *n;
     }
 

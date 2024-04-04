@@ -5,14 +5,17 @@ use std::rc::Rc;
 use crate::{
     ast::AST,
     cli::Opts,
-    compiler::{self, graph::Graph},
+    compiler::{
+        self,
+        graph::{Graph, LooseSig},
+    },
     diagnostics::{CompilationResult, DiagnosticsBag},
     inputs, outputs,
     simulator::Simulator,
     text::SourceText,
 };
 
-fn compile_source(source_text: SourceText) -> CompilationResult<Graph> {
+fn compile_source(source_text: SourceText) -> CompilationResult<Graph<LooseSig>> {
     let text = Rc::new(source_text);
     let opts = Rc::new(Opts::new_test());
     let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
@@ -21,7 +24,7 @@ fn compile_source(source_text: SourceText) -> CompilationResult<Graph> {
     compiler::compile(ast)
 }
 
-fn compile_code<S>(code: S) -> Graph
+fn compile_code<S>(code: S) -> Graph<LooseSig>
 where
     S: ToString,
 {

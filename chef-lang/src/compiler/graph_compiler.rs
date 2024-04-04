@@ -11,7 +11,7 @@ use crate::compiler::graph::*;
 use crate::diagnostics::{CompilationError, CompilationResult};
 
 struct Scope {
-    variables: HashMap<VariableId, (NId, IOType)>,
+    variables: HashMap<VariableId, (NId, LooseSig)>,
 }
 
 impl Scope {
@@ -24,9 +24,9 @@ impl Scope {
     /// TODO: DRY up these variable definitions
     fn declare_variable(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         var_id: VariableId,
-        var_type: IOType,
+        var_type: LooseSig,
         name: String,
     ) -> CompilationResult<()> {
         let nid = graph.push_var_node(var_type.clone(), name);
@@ -41,9 +41,9 @@ impl Scope {
     /// TODO: DRY up these variable definitions
     fn declare_input_variable(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         var_id: VariableId,
-        var_type: IOType,
+        var_type: LooseSig,
         name: String,
     ) -> CompilationResult<()> {
         let nid = graph.push_input_node(name, var_type.clone());
@@ -59,9 +59,9 @@ impl Scope {
     fn declare_output_variable(
         &mut self,
         name: String,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         var_id: VariableId,
-        var_type: IOType,
+        var_type: LooseSig,
     ) -> CompilationResult<()> {
         let nid = graph.push_output_node(name, var_type.clone());
         match self.variables.insert(var_id, (nid, var_type)) {
@@ -74,10 +74,10 @@ impl Scope {
 
     fn define_variable(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         var_id: VariableId,
         nid: NId,
-        nid_type: IOType,
+        nid_type: LooseSig,
         wk: WireKind,
     ) -> bool {
         match self.variables.get(&var_id) {
@@ -103,7 +103,7 @@ impl Scope {
         }
     }
 
-    fn search(&self, var_id: VariableId) -> Option<(NId, IOType)> {
+    fn search(&self, var_id: VariableId) -> Option<(NId, LooseSig)> {
         self.variables.get(&var_id).cloned()
     }
 }
@@ -111,7 +111,7 @@ impl Scope {
 pub struct GraphCompiler {
     ast: AST,
     next_anysignal: u64,
-    block_graphs: HashMap<String, Graph>,
+    block_graphs: HashMap<String, Graph<LooseSig>>,
     scopes: Vec<Scope>,
 }
 
@@ -125,7 +125,7 @@ impl GraphCompiler {
         }
     }
 
-    pub fn compile(&mut self) -> Result<Graph, CompilationError> {
+    pub fn compile(&mut self) -> Result<Graph<LooseSig>, CompilationError> {
         // for block in self.ast.blocks.clone() {
         //     let block_graph = self.compile_block(&block)?;
         //     self.add_block_graph(block.name.clone(), block_graph);
@@ -133,7 +133,7 @@ impl GraphCompiler {
         self.get_graph("main", None)
     }
 
-    fn compile_block(&mut self, block: &Block) -> Result<Graph, CompilationError> {
+    fn compile_block(&mut self, block: &Block) -> Result<Graph<LooseSig>, CompilationError> {
         let mut graph = Graph::new();
         self.enter_scope();
         for input_var in block.inputs.clone() {
@@ -156,9 +156,9 @@ impl GraphCompiler {
 
     fn compile_statement(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         statement: &Statement,
-        gate: Option<(NId, IOType)>,
+        gate: Option<(NId, LooseSig)>,
     ) -> Result<(), CompilationError> {
         match statement.kind.clone() {
             StatementKind::Declaration(dec) => {
@@ -183,7 +183,7 @@ impl GraphCompiler {
 
     fn compile_declaration_statement(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         dec: Declaration,
     ) -> Result<(), CompilationError> {
         let var = &dec.variable;
@@ -231,9 +231,9 @@ impl GraphCompiler {
 
     fn compile_declaration_definition_statement(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         dec_def: DeclarationDefinition,
-        gate: Option<(NId, IOType)>,
+        gate: Option<(NId, LooseSig)>,
     ) -> Result<(), CompilationError> {
         let var = &dec_def.variable;
         let var_type = self.variable_type_to_iotype(&var.type_);
@@ -244,10 +244,10 @@ impl GraphCompiler {
 
     fn compile_definition_statement(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         def: Definition,
-        gate: Option<(NId, IOType)>,
-        var_type: Option<IOType>,
+        gate: Option<(NId, LooseSig)>,
+        var_type: Option<LooseSig>,
     ) -> Result<(), CompilationError> {
         let var = &def.variable;
 
@@ -293,10 +293,10 @@ impl GraphCompiler {
     /// Returns a tuple: (output_vid, output_type)
     fn compile_expression(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         expr: &Expression,
-        out_type: Option<IOType>,
-    ) -> Result<(NId, IOType), CompilationError> {
+        out_type: Option<LooseSig>,
+    ) -> Result<(NId, LooseSig), CompilationError> {
         match &expr.kind {
             ExpressionKind::Int(n) => self.compile_constant(graph, *n, out_type),
             ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32, out_type),
@@ -315,10 +315,10 @@ impl GraphCompiler {
 
     fn compile_constant(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         number: i32,
-        out_type: Option<IOType>,
-    ) -> Result<(NId, IOType), CompilationError> {
+        out_type: Option<LooseSig>,
+    ) -> Result<(NId, LooseSig), CompilationError> {
         let iotype = match out_type {
             Some(out_type) => out_type.to_constant(number).unwrap(),
             None => self.get_new_const_anysignal(number),
@@ -330,10 +330,10 @@ impl GraphCompiler {
 
     fn compile_variable_ref_expression(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         var_ref: &VariableRef,
-        out_type: Option<IOType>,
-    ) -> Result<(NId, IOType), CompilationError> {
+        out_type: Option<LooseSig>,
+    ) -> Result<(NId, LooseSig), CompilationError> {
         // Get the referenced variable.
         let var = var_ref.var.clone();
         let (var_ref_nid, var_type) = self
@@ -357,10 +357,10 @@ impl GraphCompiler {
 
     fn compile_negative_expression(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         expr: &Expression,
-        out_type: Option<IOType>,
-    ) -> Result<(NId, IOType), CompilationError> {
+        out_type: Option<LooseSig>,
+    ) -> Result<(NId, LooseSig), CompilationError> {
         let out_type = match out_type {
             Some(t) => t,
             None => self.get_new_anysignal(),
@@ -373,7 +373,7 @@ impl GraphCompiler {
             // negative_out_nid,
             Connection::new_arithmetic(ArithmeticOp::new(
                 out_type.clone(),
-                IOType::Constant(-1),
+                LooseSig::Constant(-1),
                 ArithmeticOperation::Multiply,
                 out_type.clone(),
             )),
@@ -386,10 +386,10 @@ impl GraphCompiler {
 
     fn compile_pick_expression(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         pick_expr: &PickExpression,
-        out_type: Option<IOType>,
-    ) -> Result<(NId, IOType), CompilationError> {
+        out_type: Option<LooseSig>,
+    ) -> Result<(NId, LooseSig), CompilationError> {
         let var_ref = pick_expr.from.clone();
 
         let (var_out_nid, _) =
@@ -399,7 +399,7 @@ impl GraphCompiler {
                     var_ref.span,
                 ))?;
 
-        let pick_type = IOType::signal(pick_expr.pick_signal.clone());
+        let pick_type = LooseSig::signal(pick_expr.pick_signal.clone());
 
         let (com_input, picked_nid) =
             graph.push_connection(Connection::new_pick(pick_type.clone().to_combinator_type()));
@@ -423,9 +423,9 @@ impl GraphCompiler {
 
     fn compile_index_expression(
         &mut self,
-        _graph: &mut Graph,
+        _graph: &mut Graph<LooseSig>,
         _index_expr: &IndexExpression,
-    ) -> Result<(NId, IOType), CompilationError> {
+    ) -> Result<(NId, LooseSig), CompilationError> {
         todo!()
         // let index = index_expr.index;
         // if let Some((indexed_output, indexed_output_type)) = self.search_scope(index_expr.var_ref.var.id) {
@@ -441,10 +441,10 @@ impl GraphCompiler {
 
     fn compile_binary_expression(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         bin_expr: &BinaryExpression,
-        out_type: Option<IOType>,
-    ) -> Result<(NId, IOType), CompilationError> {
+        out_type: Option<LooseSig>,
+    ) -> Result<(NId, LooseSig), CompilationError> {
         let (left_nid, left_type) = self.compile_expression(graph, &bin_expr.left, None)?;
         let (right_nid, right_type) = self.compile_expression(graph, &bin_expr.right, None)?;
         // TODO: Report correctly
@@ -534,7 +534,7 @@ impl GraphCompiler {
             ReturnValue::Group => {
                 graph.push_wire(left_nid, right_nid);
                 let common_nid = left_nid;
-                (common_nid, IOType::Many)
+                (common_nid, LooseSig::Many)
             }
         })
     }
@@ -542,11 +542,11 @@ impl GraphCompiler {
     /// Compile a link to a block which only returns one statement
     fn compile_block_link_expression(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         block_link_expr: &BlockLinkExpression,
-        out_type: Option<IOType>,
-    ) -> Result<(NId, IOType), CompilationError> {
-        let mut args: Vec<(NId, IOType)> = Vec::new();
+        out_type: Option<LooseSig>,
+    ) -> Result<(NId, LooseSig), CompilationError> {
+        let mut args: Vec<(NId, LooseSig)> = Vec::new();
         for arg_expr in block_link_expr.inputs.iter() {
             let (arg_nid, arg_type) = self.compile_expression(graph, arg_expr, None)?;
             args.push((arg_nid, arg_type));
@@ -593,10 +593,10 @@ impl GraphCompiler {
 
     fn compile_delay_expression(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         delay_expr: &DelayExpression,
-        out_type: Option<IOType>,
-    ) -> Result<(NId, IOType), CompilationError> {
+        out_type: Option<LooseSig>,
+    ) -> Result<(NId, LooseSig), CompilationError> {
         let (delay_nid, delay_type) =
             self.compile_expression(graph, &delay_expr.expression, out_type)?;
 
@@ -614,15 +614,15 @@ impl GraphCompiler {
 
     fn compile_size_of_expression(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         size_of_expr: &SizeOfExpression,
-        out_type: Option<IOType>,
-    ) -> Result<(NId, IOType), CompilationError> {
+        out_type: Option<LooseSig>,
+    ) -> Result<(NId, LooseSig), CompilationError> {
         let (size_of_nid, size_of_type) =
             self.compile_expression(graph, &size_of_expr.expression, None)?;
 
         // This should be checked by the type checker before compiling
-        debug_assert_eq!(size_of_type, IOType::Many);
+        debug_assert_eq!(size_of_type, LooseSig::Many);
 
         let out_type = match out_type {
             Some(t) => t,
@@ -639,7 +639,7 @@ impl GraphCompiler {
 
     fn compile_when_statement(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         when_statement: &WhenStatement,
     ) -> Result<(), CompilationError> {
         self.enter_scope();
@@ -657,30 +657,34 @@ impl GraphCompiler {
         Ok(())
     }
 
-    fn variable_type_to_iotype(&mut self, variable_type: &VariableType) -> IOType {
+    fn variable_type_to_iotype(&mut self, variable_type: &VariableType) -> LooseSig {
         match variable_type {
             VariableType::Bool(bool_type) => match bool_type {
-                VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
+                VariableSignalType::Signal(s) => LooseSig::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
             VariableType::Int(int_type) => match int_type {
-                VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
+                VariableSignalType::Signal(s) => LooseSig::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
             VariableType::Var(var_type) => match var_type {
-                VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
+                VariableSignalType::Signal(s) => LooseSig::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
             VariableType::Counter((var_type, _lim)) => match var_type {
-                VariableSignalType::Signal(s) => IOType::Signal(s.clone()),
+                VariableSignalType::Signal(s) => LooseSig::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
-            VariableType::Many => IOType::Many,
-            VariableType::Register(_) => IOType::Many, // TODO: make dependent on the type of input
+            VariableType::Many => LooseSig::Many,
+            VariableType::Register(_) => LooseSig::Many, // TODO: make dependent on the type of input
         }
     }
 
-    pub fn get_graph(&mut self, name: &str, id: Option<usize>) -> Result<Graph, CompilationError> {
+    pub fn get_graph(
+        &mut self,
+        name: &str,
+        id: Option<usize>,
+    ) -> Result<Graph<LooseSig>, CompilationError> {
         match self.get_block_graph(name) {
             Some(g) => Ok(g.clone()),
             None => match self.ast.blocks.is_empty() {
@@ -709,11 +713,11 @@ impl GraphCompiler {
         }
     }
 
-    fn add_block_graph(&mut self, name: String, graph: Graph) {
+    fn add_block_graph(&mut self, name: String, graph: Graph<LooseSig>) {
         self.block_graphs.insert(name, graph);
     }
 
-    fn get_block_graph(&mut self, name: &str) -> Option<&Graph> {
+    fn get_block_graph(&mut self, name: &str) -> Option<&Graph<LooseSig>> {
         self.block_graphs.get(name)
     }
 
@@ -728,9 +732,9 @@ impl GraphCompiler {
     /// Declare a variable in the current scope.
     fn declare_variable(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         var_id: VariableId,
-        var_type: IOType,
+        var_type: LooseSig,
         name: String,
     ) -> CompilationResult<()> {
         self.scopes
@@ -742,9 +746,9 @@ impl GraphCompiler {
     /// Declare an INPUT variable in the current scope.
     fn declare_input_variable(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         var_id: VariableId,
-        var_type: IOType,
+        var_type: LooseSig,
         name: String,
     ) -> CompilationResult<()> {
         self.scopes
@@ -756,10 +760,10 @@ impl GraphCompiler {
     /// Declare an OUTPUT variable in the current scope.
     fn declare_output_variable(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         name: String,
         var_id: VariableId,
-        var_type: IOType,
+        var_type: LooseSig,
     ) -> CompilationResult<()> {
         self.scopes
             .last_mut()
@@ -769,10 +773,10 @@ impl GraphCompiler {
 
     fn define_variable(
         &mut self,
-        graph: &mut Graph,
+        graph: &mut Graph<LooseSig>,
         var_id: VariableId,
         nid: NId,
-        nid_type: IOType,
+        nid_type: LooseSig,
         wk: WireKind,
     ) -> CompilationResult<()> {
         for scope in self.scopes.iter_mut().rev() {
@@ -787,7 +791,7 @@ impl GraphCompiler {
         )))
     }
 
-    fn search_scope(&self, var_id: VariableId) -> Option<(NId, IOType)> {
+    fn search_scope(&self, var_id: VariableId) -> Option<(NId, LooseSig)> {
         let scopes_len = self.scopes.len();
         for i in 0..scopes_len {
             let p = scopes_len - i - 1;
@@ -798,14 +802,14 @@ impl GraphCompiler {
         None
     }
 
-    fn get_new_anysignal(&mut self) -> IOType {
-        let signal = IOType::AnySignal(self.next_anysignal);
+    fn get_new_anysignal(&mut self) -> LooseSig {
+        let signal = LooseSig::AnySignal(self.next_anysignal);
         self.next_anysignal += 1;
         signal
     }
 
-    fn get_new_const_anysignal(&mut self, n: i32) -> IOType {
-        let signal = IOType::ConstantAny((self.next_anysignal, n));
+    fn get_new_const_anysignal(&mut self, n: i32) -> LooseSig {
+        let signal = LooseSig::ConstantAny((self.next_anysignal, n));
         self.next_anysignal += 1;
         signal
     }

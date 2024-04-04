@@ -17,7 +17,7 @@ use noisy_float::types::R64;
 
 use crate::{
     compiler::{
-        graph::{self, ArithmeticOperation, DeciderOperation, Graph, IOType, WireKind},
+        graph::{self, ArithmeticOperation, DeciderOperation, DetSig, Graph, LooseSig, WireKind},
         // TODO: remove reserved signal
         RESERVED_SIGNAL,
     },
@@ -26,7 +26,7 @@ use crate::{
 
 use placement::TurdMaster2000;
 
-type Operation = graph::Operation;
+type Operation = graph::Operation<LooseSig>;
 type FactorioConstant = i32;
 
 pub(crate) type Coord = R64;
@@ -513,6 +513,7 @@ impl CircuitEntity for Combinator {
             graph::Operation::Arithmetic(_) => "arithmetic-combinator",
             graph::Operation::Decider(_) => "decider-combinator",
             graph::Operation::Pick(_) => "arithmetic-combinator",
+            graph::Operation::Convert(_) => "arithmetic-combinator",
             graph::Operation::Gate(_) => "decider-combinator",
             graph::Operation::Delay(_) => "arithmetic-combinator",
             graph::Operation::Sum(_) => "arithmetic-combinator",
@@ -621,6 +622,8 @@ impl Combinator {
                 }
             }
 
+            graph::Operation::Convert(cc) => todo!(),
+
             graph::Operation::Gate(gc) => {
                 let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&gc.left);
                 let (second_constant, second_signal) = Self::iotype_to_const_signal_pair(&gc.right);
@@ -720,9 +723,9 @@ impl Combinator {
     }
 
     /// Returns (first_constant, first_signal)
-    fn iotype_to_const_signal_pair(t: &graph::IOType) -> (Option<i32>, Option<fbo::SignalID>) {
+    fn iotype_to_const_signal_pair(t: &graph::LooseSig) -> (Option<i32>, Option<fbo::SignalID>) {
         match t {
-            graph::IOType::Signal(s) => {
+            graph::LooseSig::Signal(s) => {
                 let type_ = Self::get_signal_type(s.as_str());
                 (
                     None,
@@ -732,7 +735,7 @@ impl Combinator {
                     }),
                 )
             }
-            graph::IOType::ConstantSignal((s, n)) => {
+            graph::LooseSig::ConstantSignal((s, n)) => {
                 let type_ = Self::get_signal_type(s.as_str());
                 (
                     Some(*n),
@@ -742,11 +745,13 @@ impl Combinator {
                     }),
                 )
             }
-            graph::IOType::Constant(n) => (Some(*n), None),
-            graph::IOType::Many => (None, Some(each!())),
+            graph::LooseSig::Constant(n) => (Some(*n), None),
+            graph::LooseSig::Many => (None, Some(each!())),
 
-            graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
-            graph::IOType::ConstantAny(_) => {
+            graph::LooseSig::AnySignal(_) => {
+                panic!("AnySignals should be eradicated at this point.")
+            }
+            graph::LooseSig::ConstantAny(_) => {
                 panic!("CostantAny should be eradicated at this point.")
             }
         }
@@ -754,14 +759,16 @@ impl Combinator {
 
     // TODO: Convert return type to union
     // Get the corresponding (signal_type, signal_string) pair
-    fn _iotype_to_signal_pair(t: IOType) -> (fbo::SignalIDType, String) {
+    fn _iotype_to_signal_pair(t: LooseSig) -> (fbo::SignalIDType, String) {
         match t {
-            IOType::Signal(s) => (Self::get_signal_type(s.as_str()), s),
-            IOType::Constant(_) => todo!(),
-            IOType::ConstantSignal(_) => todo!(),
-            IOType::Many => todo!(),
-            graph::IOType::AnySignal(_) => panic!("AnySignals should be eradicated at this point."),
-            graph::IOType::ConstantAny(_) => {
+            LooseSig::Signal(s) => (Self::get_signal_type(s.as_str()), s),
+            LooseSig::Constant(_) => todo!(),
+            LooseSig::ConstantSignal(_) => todo!(),
+            LooseSig::Many => todo!(),
+            graph::LooseSig::AnySignal(_) => {
+                panic!("AnySignals should be eradicated at this point.")
+            }
+            graph::LooseSig::ConstantAny(_) => {
                 panic!("ConstantAny should be eradicated at this point.")
             }
         }
@@ -809,7 +816,7 @@ impl Display for Combinator {
 /// The maxinum distanct a wire can connect two points in factorio.
 const WIRE_RANGE: f64 = 9.0;
 
-pub fn convert_to_graph_to_blueprint_string(graph: Graph) -> fb::Result<String> {
+pub fn convert_to_graph_to_blueprint_string(graph: Graph<LooseSig>) -> fb::Result<String> {
     let combinators = place_combinators(TurdMaster2000::new(graph));
     let container = combinators_to_blueprint(combinators);
     fb::BlueprintCodec::encode_string(&container)

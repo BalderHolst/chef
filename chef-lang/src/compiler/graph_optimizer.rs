@@ -1,11 +1,11 @@
-use super::graph::Graph;
+use super::graph::{Graph, LooseSig};
 
 pub struct GraphOptimizer<'a> {
-    _graph: &'a mut Graph,
+    _graph: &'a mut Graph<LooseSig>,
 }
 
 impl<'a> GraphOptimizer<'a> {
-    pub fn new(graph: &'a mut Graph) -> Self {
+    pub fn new(graph: &'a mut Graph<LooseSig>) -> Self {
         Self { _graph: graph }
     }
 

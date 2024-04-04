@@ -3,7 +3,11 @@
 
 use crate::{ast::AST, diagnostics::CompilationResult};
 
-use self::{graph::Graph, graph_compiler::GraphCompiler, graph_optimizer::GraphOptimizer};
+use self::{
+    graph::{Graph, LooseSig},
+    graph_compiler::GraphCompiler,
+    graph_optimizer::GraphOptimizer,
+};
 
 pub mod graph;
 mod graph_compiler;
@@ -15,7 +19,7 @@ pub mod graph_visualizer;
 pub const RESERVED_SIGNAL: &str = "signal-dot";
 
 /// Compile and abstract syntax tree in to a graph and report errors.
-pub fn compile(ast: AST) -> CompilationResult<Graph> {
+pub fn compile(ast: AST) -> CompilationResult<Graph<LooseSig>> {
     let mut graph_compiler = GraphCompiler::new(ast);
     let mut graph = graph_compiler.compile()?;
     let mut graph_optimizer = GraphOptimizer::new(&mut graph);
