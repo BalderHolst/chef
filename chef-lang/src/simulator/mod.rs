@@ -155,7 +155,7 @@ impl Simulator {
         for i in 0..inputs.len() {
             let nid = input_nodes[i];
             let input = inputs[i].clone();
-            let network_ids = nid_to_networks_id.get(&nid).unwrap();
+            let network_ids = nid_to_networks_id.get(nid).unwrap();
 
             for network_id in network_ids {
                 constant_inputs

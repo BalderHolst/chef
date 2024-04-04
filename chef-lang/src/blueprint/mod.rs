@@ -36,6 +36,7 @@ pub(crate) type CoordSet = (Coord, Coord);
 
 type ConnectionPoint = i32;
 
+#[allow(dead_code)] // TODO: REMOVE
 enum ConnectionPointKind {
     Input,
     Output,
@@ -797,10 +798,7 @@ impl Display for Combinator {
             "{} -> {} (input for: {:?}):\t[{}] {} {{{:?}}}",
             self.input_nid,
             self.output_nid,
-            self.output_entities
-                .iter()
-                .map(|(en, _)| en)
-                .collect::<Vec<_>>(),
+            self.output_entities.keys().collect::<Vec<_>>(),
             self.entity_number,
             self.operation,
             self.position

@@ -120,6 +120,7 @@ impl TurdMaster2000 {
             (&mut Box<dyn CircuitEntity>, HashSet<WireKind>),
         > = FnvHashMap::default();
 
+        #[allow(clippy::type_complexity)] // TODO: REMOVE
         let mut output_combinators: FnvHashMap<
             NonZeroUsize,
             (
@@ -163,21 +164,10 @@ impl TurdMaster2000 {
                             HashSet::from([WireKind::Red]),
                         ));
                 }
-            } else if output_network.contains(&(other_input_nid, WireKind::Red)) {
-                output_network_exists = true;
-                if is_in_range(&output_coord, &other.output_pos()) {
-                    output_combinators
-                        .entry(entity_number)
-                        .and_modify(|(_entity, _point_type, wires)| {
-                            let _ = wires.insert(WireKind::Red);
-                        })
-                        .or_insert((
-                            other,
-                            ConnectionPointKind::Output,
-                            HashSet::from([WireKind::Red]),
-                        ));
-                }
             }
+
+            // TODO: Check if INPUT is in the same network as another placed combinator.
+            // TODO: Check if OUTPUT is in the same network as another placed combinator.
 
             // Green connections
             if input_network.contains(&(other_output_nid, WireKind::Green)) {
