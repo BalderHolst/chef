@@ -4,22 +4,23 @@
 use crate::{ast::AST, diagnostics::CompilationResult};
 
 use self::{
-    graph::{Graph, LooseSig},
+    graph::{DetSig, Graph},
     graph_compiler::GraphCompiler,
 };
 
 pub mod graph;
 mod graph_compiler;
 pub mod graph_visualizer;
+mod signal_assigner;
 
 /// A signal used for gates that allow all signals through. All except this reserved signal of
 /// course.
 pub const RESERVED_SIGNAL: &str = "signal-dot";
 
 /// Compile and abstract syntax tree in to a graph and report errors.
-pub fn compile(ast: AST) -> CompilationResult<Graph<LooseSig>> {
+pub fn compile(ast: AST) -> CompilationResult<Graph<DetSig>> {
     let mut graph_compiler = GraphCompiler::new(ast);
-    let mut graph = graph_compiler.compile()?;
-    graph.assign_anysignals();
+    let loose_graph = graph_compiler.compile()?;
+    let graph = signal_assigner::assign_signals(&loose_graph);
     Ok(graph)
 }

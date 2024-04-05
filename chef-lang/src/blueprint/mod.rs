@@ -602,7 +602,7 @@ impl Combinator {
             }
 
             graph::Operation::Pick(pc) => {
-                let (first_constant, first_signal) = Self::iotype_to_const_signal_pair(&pc.output);
+                let (first_constant, first_signal) = Self::iotype_to_const_signal_pair(&pc.pick);
                 let (second_constant, second_signal) = (Some(0), None);
                 let output_signal = first_signal.clone();
                 let operation = "+".to_string();

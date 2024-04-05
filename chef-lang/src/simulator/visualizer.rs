@@ -77,7 +77,7 @@ pub(crate) fn simulator_to_dot(sim: &Simulator) -> String {
                     })
                     .or_insert(WireConnection::from_wire_kind(wk));
             }
-            Connection::Combinator(com) => combinators.push((from_nid, to_nid, com.clone())),
+            Connection::Operation(com) => combinators.push((from_nid, to_nid, com.clone())),
         }
     }
 

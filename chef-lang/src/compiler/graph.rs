@@ -140,6 +140,17 @@ impl Signal<DetSig> for DetSig {
     }
 }
 
+impl Display for DetSig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DetSig::Signal(s) => write!(f, "Sig({})", s),
+            DetSig::Constant(c) => write!(f, "({})", c),
+            DetSig::ConstantSignal((s, c)) => write!(f, "Const({}, {})", s, c),
+            DetSig::Many => write!(f, "Many"),
+        }
+    }
+}
+
 /// Signals that may now have been determined yet
 #[derive(Clone, Debug, PartialEq)]
 pub enum LooseSig {
@@ -249,12 +260,12 @@ where
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PickOp<S> {
-    pub output: S,
+    pub pick: S,
 }
 
 impl<S> PickOp<S> {
     pub fn new(pick: S) -> Self {
-        Self { output: pick }
+        Self { pick }
     }
 }
 
@@ -357,7 +368,7 @@ where
         match self {
             Self::Arithmetic(ac) => ac.output.clone(),
             Self::Decider(dc) => dc.output.clone(),
-            Self::Pick(pc) => pc.output.clone(),
+            Self::Pick(pc) => pc.pick.clone(),
             Self::Convert(cc) => cc.output.clone(),
             Self::Gate(gc) => gc.gate_type.clone(),
             Self::Delay(dc) => dc.output.clone(),
@@ -373,7 +384,7 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Operation::Pick(pc) => {
-                format!("PICK: {}", pc.output)
+                format!("PICK: {}", pc.pick)
             }
             Operation::Convert(cc) => {
                 format!("CONVERT: {}, {}", cc.input, cc.output)
@@ -401,7 +412,7 @@ where
     S: Clone,
 {
     Wire(WireKind),
-    Combinator(Operation<S>),
+    Operation(Operation<S>),
 }
 
 impl<S> Connection<S>
@@ -409,7 +420,7 @@ where
     S: Clone,
 {
     fn new_combinator(com: Operation<S>) -> Self {
-        Self::Combinator(com)
+        Self::Operation(com)
     }
 
     pub fn new_arithmetic(ac: ArithmeticOp<S>) -> Self {
@@ -439,7 +450,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Self::Combinator(com) => com.to_string(),
+            Self::Operation(com) => com.to_string(),
             Self::Wire(wire) => wire.to_string(),
         };
         write!(f, "{s}")
@@ -661,7 +672,7 @@ where
         for to_vec in self.adjacency.values() {
             for (to_nid, conn) in to_vec {
                 if green_network_nids.contains(to_nid) {
-                    if let Connection::Combinator(com) = conn {
+                    if let Connection::Operation(com) = conn {
                         let input_type = com.get_output_iotype();
                         let input = (input_type, WireKind::Green);
                         if !input_types.contains(&input) {
@@ -670,7 +681,7 @@ where
                     }
                 }
                 if red_network_nids.contains(to_nid) {
-                    if let Connection::Combinator(com) = conn {
+                    if let Connection::Operation(com) = conn {
                         let input_type = com.get_output_iotype();
                         let input = (input_type, WireKind::Red);
                         if !input_types.contains(&input) {
@@ -694,10 +705,14 @@ where
         })
     }
 
+    pub fn nodes(&self) -> impl Iterator<Item = (NId, &Node<S>)> {
+        self.vertices.iter().map(|(nid, node)| (*nid, node))
+    }
+
     pub fn iter_combinators(&self) -> impl Iterator<Item = (NId, NId, Operation<S>)> + '_ {
         self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
             to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
-                Connection::Combinator(com) => Some((*from_nid, *to_nid, com.clone())),
+                Connection::Operation(com) => Some((*from_nid, *to_nid, com.clone())),
                 Connection::Wire(_) => None,
             })
         })
@@ -707,7 +722,7 @@ where
         self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
             to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
                 Connection::Wire(wk) => Some((*from_nid, *to_nid, wk)),
-                Connection::Combinator(_) => None,
+                Connection::Operation(_) => None,
             })
         })
     }
@@ -831,7 +846,7 @@ where
     }
 
     pub fn push_operation(&mut self, com: Operation<S>) -> (NId, NId) {
-        self.push_connection(Connection::Combinator(com))
+        self.push_connection(Connection::Operation(com))
     }
 
     pub fn push_gate_connection(&mut self, cond_type: S, gate_type: S) -> (NId, NId) {
@@ -892,7 +907,7 @@ where
     pub fn is_wire_only_node(&self, nid: NId) -> bool {
         for (from, to, conn) in self.iter_conns() {
             if nid == from || nid == to {
-                if let Connection::Combinator(_) = conn {
+                if let Connection::Operation(_) = conn {
                     return false;
                 }
             }
@@ -906,7 +921,7 @@ where
         for (_, to_vec) in self.adjacency.iter_mut() {
             for (_, conn) in to_vec {
                 match conn {
-                    Connection::Combinator(Operation::Arithmetic(ac)) => {
+                    Connection::Operation(Operation::Arithmetic(ac)) => {
                         if ac.left == old_type {
                             ac.left = new_type.clone()
                         }
@@ -917,7 +932,7 @@ where
                             ac.output = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Operation::Decider(dc)) => {
+                    Connection::Operation(Operation::Decider(dc)) => {
                         if dc.left == old_type {
                             dc.left = new_type.clone()
                         }
@@ -928,12 +943,12 @@ where
                             dc.output = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Operation::Pick(pc)) => {
-                        if pc.output == old_type {
-                            pc.output = new_type.clone()
+                    Connection::Operation(Operation::Pick(pc)) => {
+                        if pc.pick == old_type {
+                            pc.pick = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Operation::Convert(pc)) => {
+                    Connection::Operation(Operation::Convert(pc)) => {
                         if pc.input == old_type {
                             pc.input = new_type.clone()
                         }
@@ -941,7 +956,7 @@ where
                             pc.output = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Operation::Gate(gc)) => {
+                    Connection::Operation(Operation::Gate(gc)) => {
                         if gc.left == old_type {
                             gc.left = new_type.clone()
                         }
@@ -952,12 +967,12 @@ where
                             gc.gate_type = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Operation::Delay(dc)) => {
+                    Connection::Operation(Operation::Delay(dc)) => {
                         if dc.output == old_type {
                             dc.output = new_type.clone()
                         }
                     }
-                    Connection::Combinator(Operation::Sum(sc)) => {
+                    Connection::Operation(Operation::Sum(sc)) => {
                         if sc.output == old_type {
                             sc.output = new_type.clone()
                         }
@@ -1134,151 +1149,6 @@ where
     }
 }
 
-impl Graph<LooseSig> {
-    pub fn assign_anysignals(&mut self) {
-        AnysignalAssigner::new(self).assign();
-    }
-}
-
-struct AnysignalAssigner<'a> {
-    graph: &'a mut Graph<LooseSig>,
-    anysignal_to_signal: FnvHashMap<u64, String>,
-    next_sig_nr: u64,
-    used_signals: HashSet<String>,
-    signal_names: Vec<&'static str>,
-}
-
-impl<'a> AnysignalAssigner<'a> {
-    fn new(graph: &'a mut Graph<LooseSig>) -> Self {
-        let signal_names: Vec<&str> = BASE_SIGNALS
-            .lines()
-            .map(|l| {
-                l.split_once(':')
-                    .expect("there should always be a ':' denoting type:signal")
-                    .1
-            })
-            .collect();
-        Self {
-            graph,
-            anysignal_to_signal: FnvHashMap::default(),
-            next_sig_nr: 0,
-            used_signals: HashSet::new(),
-            signal_names,
-        }
-    }
-
-    fn get_signal(&self, signal_nr: u64) -> &str {
-        self.signal_names[signal_nr as usize]
-    }
-
-    fn get_next_signal(&mut self) -> String {
-        while self
-            .used_signals
-            .get(self.get_signal(self.next_sig_nr))
-            .is_some()
-        {
-            self.next_sig_nr += 1
-        }
-        let sig = self.get_signal(self.next_sig_nr).to_string();
-        self.next_sig_nr += 1;
-        sig
-    }
-
-    fn assign(&mut self) {
-        // Keep track of what signals are already used by the blueprint
-        for to_vec in self.graph.adjacency.values() {
-            for (_, conn) in to_vec {
-                if let Connection::Combinator(com) = conn {
-                    if let LooseSig::Signal(s) = com.get_output_iotype() {
-                        self.used_signals.insert(s);
-                    }
-                }
-            }
-        }
-
-        let mut graph = self.graph.clone();
-
-        // Convert anysignals in connections
-        for to_vec in graph.adjacency.values_mut() {
-            for (_, conn) in to_vec {
-                if let Connection::Combinator(com) = conn {
-                    match com {
-                        Operation::Arithmetic(c) => {
-                            self.replace_if_anysignal(&mut c.left);
-                            self.replace_if_anysignal(&mut c.right);
-                            self.replace_if_anysignal(&mut c.output);
-                        }
-                        Operation::Decider(c) => {
-                            self.replace_if_anysignal(&mut c.left);
-                            self.replace_if_anysignal(&mut c.right);
-                            self.replace_if_anysignal(&mut c.output);
-                        }
-                        Operation::Pick(pc) => {
-                            self.replace_if_anysignal(&mut pc.output);
-                        }
-                        Operation::Convert(c) => {
-                            self.replace_if_anysignal(&mut c.input);
-                            self.replace_if_anysignal(&mut c.output);
-                        }
-                        Operation::Gate(c) => {
-                            self.replace_if_anysignal(&mut c.left);
-                            self.replace_if_anysignal(&mut c.right);
-                            self.replace_if_anysignal(&mut c.gate_type);
-                        }
-                        Operation::Delay(c) => {
-                            self.replace_if_anysignal(&mut c.output);
-                        }
-                        Operation::Sum(c) => {
-                            self.replace_if_anysignal(&mut c.output);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Convert anysignals in nodes
-        for node in graph.vertices.values_mut() {
-            match node {
-                Node::InputVariable { kind, name: _ } => self.replace_if_anysignal(kind),
-                Node::Variable { kind, name: _ } => self.replace_if_anysignal(kind),
-                Node::Output { kind, name: _ } => self.replace_if_anysignal(kind),
-                Node::Constant(t) => self.replace_if_anysignal(t),
-                Node::Inner => {}
-            }
-        }
-
-        *self.graph = graph;
-    }
-
-    fn replace_if_anysignal(&mut self, mut iotype: &mut LooseSig) {
-        match &mut iotype {
-            LooseSig::AnySignal(n) => {
-                let sig = match self.anysignal_to_signal.get(n) {
-                    Some(s) => s.clone(),
-                    None => {
-                        let s = self.get_next_signal();
-                        self.anysignal_to_signal.insert(*n, s.clone());
-                        s
-                    }
-                };
-                *iotype = LooseSig::Signal(sig.to_string());
-            }
-            LooseSig::ConstantAny((n, count)) => {
-                let sig = match self.anysignal_to_signal.get(n) {
-                    Some(s) => s.clone(),
-                    None => {
-                        let s = self.get_next_signal();
-                        self.anysignal_to_signal.insert(*n, s.clone());
-                        s
-                    }
-                };
-                *iotype = LooseSig::ConstantSignal((sig.to_string(), *count))
-            }
-            _ => (),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum WireConnection {
     Green,
@@ -1302,8 +1172,7 @@ mod tests {
     #[test]
     fn test_get_node_network() {
         let mut g: Graph<LooseSig> = Graph::new();
-        let conn =
-            Connection::Combinator(Operation::new_pick(LooseSig::Signal("test".to_string())));
+        let conn = Connection::Operation(Operation::new_pick(LooseSig::Signal("test".to_string())));
 
         let n1 = g.push_inner_node();
         let n2 = g.push_inner_node();
