@@ -6,12 +6,10 @@ use crate::{ast::AST, diagnostics::CompilationResult};
 use self::{
     graph::{Graph, LooseSig},
     graph_compiler::GraphCompiler,
-    graph_optimizer::GraphOptimizer,
 };
 
 pub mod graph;
 mod graph_compiler;
-mod graph_optimizer;
 pub mod graph_visualizer;
 
 /// A signal used for gates that allow all signals through. All except this reserved signal of
@@ -22,8 +20,6 @@ pub const RESERVED_SIGNAL: &str = "signal-dot";
 pub fn compile(ast: AST) -> CompilationResult<Graph<LooseSig>> {
     let mut graph_compiler = GraphCompiler::new(ast);
     let mut graph = graph_compiler.compile()?;
-    let mut graph_optimizer = GraphOptimizer::new(&mut graph);
-    graph_optimizer.optimize();
     graph.assign_anysignals();
     Ok(graph)
 }
