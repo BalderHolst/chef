@@ -622,7 +622,26 @@ impl Combinator {
                 }
             }
 
-            graph::Operation::Convert(cc) => todo!(),
+            graph::Operation::Convert(cc) => {
+                let (first_constant, first_signal) = Self::iotype_to_const_signal_pair(&cc.input);
+                let (second_constant, second_signal) = (Some(0), None);
+                let (_, output_signal) = Self::iotype_to_const_signal_pair(&cc.output);
+                let operation = "+".to_string();
+
+                fbo::ControlBehavior {
+                    arithmetic_conditions: Some(fbo::ArithmeticConditions {
+                        first_constant,
+                        first_signal,
+                        second_constant,
+                        second_signal,
+                        operation,
+                        output_signal,
+                    }),
+                    decider_conditions: None,
+                    filters: None,
+                    is_on: None,
+                }
+            }
 
             graph::Operation::Gate(gc) => {
                 let (_first_constant, first_signal) = Self::iotype_to_const_signal_pair(&gc.left);

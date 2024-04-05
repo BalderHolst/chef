@@ -126,7 +126,7 @@ pub struct Simulator {
 impl Simulator {
     pub fn new(graph: Graph<LooseSig>, mut inputs: Vec<Vec<Item>>) -> Self {
         let inputs_nodes = graph.get_input_nodes();
-        let input_nodes: Vec<_> = inputs_nodes.iter().map(|(_, nid)| nid).collect();
+        let input_nodes: Vec<_> = inputs_nodes.iter().map(|(_name, nid, _sig)| nid).collect();
 
         let mut constant_inputs = FnvHashMap::default();
 

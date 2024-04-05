@@ -248,7 +248,8 @@ impl TurdMaster2000 {
 impl Placer for TurdMaster2000 {
     fn place(mut self) -> Vec<fbo::Entity> {
         // Place input combinators
-        for (n, (name, input_nid)) in self.graph.get_input_nodes().iter().enumerate() {
+        for (n, (name, input_nid, _sig)) in self.graph.clone().get_input_nodes().iter().enumerate()
+        {
             let x = (n / 2) as i64;
             let y = (n % 2) as i64;
             let pos: CoordSet = (r64(x as f64), r64(y as f64));

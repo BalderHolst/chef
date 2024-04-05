@@ -84,10 +84,6 @@ impl Scope {
             Some((var_nid, var_type)) => {
                 // If we try to assign a variable to a different type, convert it.
                 if nid_type != *var_type {
-                    println!(
-                        "Variable type mismatch. Expected: {}, found: {}",
-                        var_type, nid_type
-                    );
                     let (c1, c2) = graph.push_connection(Connection::new_convert(
                         nid_type.to_combinator_type(),
                         var_type.to_combinator_type(),
@@ -193,7 +189,7 @@ impl GraphCompiler {
         match &var.type_ {
             VariableType::Var(_) => {
                 let (var_input_nid, var_nid) =
-                    graph.push_combinator(Operation::new_pick(var_type.clone()));
+                    graph.push_operation(Operation::new_pick(var_type.clone()));
                 graph.push_wire(var_input_nid, var_nid);
                 self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
                 self.define_variable(graph, var.id, var_nid, var_type.clone(), WireKind::Red)?;
@@ -604,7 +600,7 @@ impl GraphCompiler {
 
         for _ in 0..delay_expr.delay {
             let (delay_input, delay_output) =
-                graph.push_combinator(Operation::new_delay(delay_type.clone()));
+                graph.push_operation(Operation::new_delay(delay_type.clone()));
             graph.push_wire(out_nid, delay_input);
             out_nid = delay_output;
         }
@@ -630,7 +626,7 @@ impl GraphCompiler {
         };
 
         let (size_of_input, size_of_output) =
-            graph.push_combinator(Operation::Sum(SumOp::new(out_type.clone())));
+            graph.push_operation(Operation::Sum(SumOp::new(out_type.clone())));
 
         graph.push_wire(size_of_nid, size_of_input);
 

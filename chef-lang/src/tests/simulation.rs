@@ -148,8 +148,6 @@ fn simulate_multiple_blocks() {
     );
     sim.simulate(steps);
 
-    sim.graph().print();
-
     assert_eq!(sim.get_output(), outputs!["rail": 0]);
 
     let mut sim = Simulator::new(

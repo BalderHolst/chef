@@ -748,7 +748,6 @@ impl Parser {
 
     fn parse_block_link_arguments(&mut self) -> CompilationResult<Vec<Expression>> {
         let args = self.parse_dyn_block_link_arguments()?;
-        dbg!(&args);
         let mut inputs = vec![];
         for arg in args {
             match arg {
