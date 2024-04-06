@@ -7,7 +7,7 @@ use crate::{
     utils::BASE_SIGNALS,
 };
 
-use super::graph::{ArithmeticOp, Connection, DetSig, Graph, LooseSig, Operation};
+use super::graph::{ArithmeticOp, Connection, DetSig, GateOp, Graph, LooseSig, Operation};
 
 pub fn assign_signals(graph: &Graph<LooseSig>) -> Graph<DetSig> {
     AnysignalAssigner::assign(graph)
@@ -112,7 +112,12 @@ impl<'a> AnysignalAssigner<'a> {
                             let right = ass.assign_sig(&gc.right);
                             let gate_type = ass.assign_sig(&gc.gate_type);
                             let operation = gc.operation.clone();
-                            Operation::Decider(DeciderOp::new(left, right, operation, gate_type))
+                            Operation::Gate(GateOp {
+                                left,
+                                right,
+                                operation,
+                                gate_type,
+                            })
                         }
                         Operation::Pick(pc) => {
                             let pick = ass.assign_sig(&pc.pick);
