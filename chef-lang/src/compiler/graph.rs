@@ -115,6 +115,8 @@ pub trait Signal<S> {
     fn is_const(&self) -> bool;
 
     fn new_const(c: i32) -> Self;
+
+    fn get_constant_signal(&self) -> Option<(S, i32)>;
 }
 
 /// A determined signal
@@ -124,6 +126,12 @@ pub enum DetSig {
     Constant(i32),
     ConstantSignal((String, i32)),
     Many,
+}
+
+impl DetSig {
+    pub fn signal(sig: &str) -> Self {
+        Self::Signal(sig.to_string())
+    }
 }
 
 impl Signal<DetSig> for DetSig {
@@ -137,6 +145,13 @@ impl Signal<DetSig> for DetSig {
 
     fn is_const(&self) -> bool {
         matches!(self, Self::Constant(_))
+    }
+
+    fn get_constant_signal(&self) -> Option<(DetSig, i32)> {
+        match self {
+            DetSig::ConstantSignal((sig, count)) => Some((DetSig::Signal(sig.to_string()), *count)),
+            _ => None,
+        }
     }
 }
 
@@ -173,6 +188,16 @@ impl Signal<LooseSig> for LooseSig {
 
     fn is_const(&self) -> bool {
         matches!(self, Self::Constant(_))
+    }
+
+    fn get_constant_signal(&self) -> Option<(LooseSig, i32)> {
+        match self {
+            LooseSig::ConstantSignal((sig, count)) => {
+                Some((LooseSig::Signal(sig.to_string()), *count))
+            }
+            LooseSig::ConstantAny((n, count)) => Some((LooseSig::AnySignal(*n), *count)),
+            _ => None,
+        }
     }
 }
 
@@ -485,20 +510,6 @@ pub enum Node<S> {
     Constant(S),
 }
 
-impl Node<LooseSig> {
-    pub fn get_constant_value(&self) -> Option<(LooseSig, i32)> {
-        match self {
-            Self::Constant(LooseSig::ConstantSignal((sig, count))) => {
-                Some((LooseSig::Signal(sig.to_string()), *count))
-            }
-            Self::Constant(LooseSig::ConstantAny((n, count))) => {
-                Some((LooseSig::AnySignal(*n), *count))
-            }
-            _ => None,
-        }
-    }
-}
-
 /// Index of a node in a [Graph].
 pub type NId = u64;
 
@@ -718,7 +729,7 @@ where
         })
     }
 
-    pub fn _iter_wires(&self) -> impl Iterator<Item = (NId, NId, &WireKind)> + '_ {
+    pub fn iter_wires(&self) -> impl Iterator<Item = (NId, NId, &WireKind)> + '_ {
         self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
             to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
                 Connection::Wire(wk) => Some((*from_nid, *to_nid, wk)),

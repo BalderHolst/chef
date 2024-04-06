@@ -7,7 +7,7 @@ use crate::{
     cli::Opts,
     compiler::{
         self,
-        graph::{Graph, LooseSig},
+        graph::{DetSig, Graph},
     },
     diagnostics::{CompilationResult, DiagnosticsBag},
     inputs, outputs,
@@ -15,7 +15,7 @@ use crate::{
     text::SourceText,
 };
 
-fn compile_source(source_text: SourceText) -> CompilationResult<Graph<LooseSig>> {
+fn compile_source(source_text: SourceText) -> CompilationResult<Graph<DetSig>> {
     let text = Rc::new(source_text);
     let opts = Rc::new(Opts::new_test());
     let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
@@ -24,7 +24,7 @@ fn compile_source(source_text: SourceText) -> CompilationResult<Graph<LooseSig>>
     compiler::compile(ast)
 }
 
-fn compile_code<S>(code: S) -> Graph<LooseSig>
+fn compile_code<S>(code: S) -> Graph<DetSig>
 where
     S: ToString,
 {
@@ -47,7 +47,7 @@ block main(input: many) => (out: int(inserter)) {
 
     let mut sim = Simulator::new(graph, inputs!["signal-B": 100]);
 
-    sim.simulate(10);
+    sim.dump_simulation(10, "sim");
 
     let outputs = sim.get_output();
 

@@ -17,7 +17,7 @@ use noisy_float::types::R64;
 
 use crate::{
     compiler::{
-        graph::{self, ArithmeticOperation, DeciderOperation, DetSig, Graph, LooseSig, WireKind},
+        graph::{self, ArithmeticOperation, DeciderOperation, DetSig, Graph, WireKind},
         // TODO: remove reserved signal
         RESERVED_SIGNAL,
     },
@@ -26,7 +26,7 @@ use crate::{
 
 use placement::TurdMaster2000;
 
-type Operation = graph::Operation<LooseSig>;
+type Operation = graph::Operation<DetSig>;
 type FactorioConstant = i32;
 
 pub(crate) type Coord = R64;
@@ -742,9 +742,9 @@ impl Combinator {
     }
 
     /// Returns (first_constant, first_signal)
-    fn iotype_to_const_signal_pair(t: &graph::LooseSig) -> (Option<i32>, Option<fbo::SignalID>) {
+    fn iotype_to_const_signal_pair(t: &graph::DetSig) -> (Option<i32>, Option<fbo::SignalID>) {
         match t {
-            graph::LooseSig::Signal(s) => {
+            graph::DetSig::Signal(s) => {
                 let type_ = Self::get_signal_type(s.as_str());
                 (
                     None,
@@ -754,7 +754,7 @@ impl Combinator {
                     }),
                 )
             }
-            graph::LooseSig::ConstantSignal((s, n)) => {
+            graph::DetSig::ConstantSignal((s, n)) => {
                 let type_ = Self::get_signal_type(s.as_str());
                 (
                     Some(*n),
@@ -764,32 +764,19 @@ impl Combinator {
                     }),
                 )
             }
-            graph::LooseSig::Constant(n) => (Some(*n), None),
-            graph::LooseSig::Many => (None, Some(each!())),
-
-            graph::LooseSig::AnySignal(_) => {
-                panic!("AnySignals should be eradicated at this point.")
-            }
-            graph::LooseSig::ConstantAny(_) => {
-                panic!("CostantAny should be eradicated at this point.")
-            }
+            graph::DetSig::Constant(n) => (Some(*n), None),
+            graph::DetSig::Many => (None, Some(each!())),
         }
     }
 
     // TODO: Convert return type to union
     // Get the corresponding (signal_type, signal_string) pair
-    fn _iotype_to_signal_pair(t: LooseSig) -> (fbo::SignalIDType, String) {
+    fn _iotype_to_signal_pair(t: DetSig) -> (fbo::SignalIDType, String) {
         match t {
-            LooseSig::Signal(s) => (Self::get_signal_type(s.as_str()), s),
-            LooseSig::Constant(_) => todo!(),
-            LooseSig::ConstantSignal(_) => todo!(),
-            LooseSig::Many => todo!(),
-            graph::LooseSig::AnySignal(_) => {
-                panic!("AnySignals should be eradicated at this point.")
-            }
-            graph::LooseSig::ConstantAny(_) => {
-                panic!("ConstantAny should be eradicated at this point.")
-            }
+            DetSig::Signal(s) => (Self::get_signal_type(s.as_str()), s),
+            DetSig::Constant(_) => todo!(),
+            DetSig::ConstantSignal(_) => todo!(),
+            DetSig::Many => todo!(),
         }
     }
 
@@ -835,7 +822,7 @@ impl Display for Combinator {
 /// The maxinum distanct a wire can connect two points in factorio.
 const WIRE_RANGE: f64 = 9.0;
 
-pub fn convert_to_graph_to_blueprint_string(graph: Graph<LooseSig>) -> fb::Result<String> {
+pub fn convert_to_graph_to_blueprint_string(graph: Graph<DetSig>) -> fb::Result<String> {
     let combinators = place_combinators(TurdMaster2000::new(graph));
     let container = combinators_to_blueprint(combinators);
     fb::BlueprintCodec::encode_string(&container)

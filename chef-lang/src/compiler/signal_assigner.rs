@@ -7,7 +7,7 @@ use crate::{
     utils::BASE_SIGNALS,
 };
 
-use super::graph::{ArithmeticOp, Connection, DetSig, Graph, LooseSig, Operation, Signal};
+use super::graph::{ArithmeticOp, Connection, DetSig, Graph, LooseSig, Operation};
 
 pub fn assign_signals(graph: &Graph<LooseSig>) -> Graph<DetSig> {
     AnysignalAssigner::assign(graph)
@@ -68,14 +68,14 @@ impl<'a> AnysignalAssigner<'a> {
                 }
                 Node::Variable { kind, name } => {
                     let kind = ass.assign_sig(kind);
-                    Node::InputVariable {
+                    Node::Variable {
                         kind,
                         name: name.clone(),
                     }
                 }
                 Node::Output { kind, name } => {
                     let kind = ass.assign_sig(kind);
-                    Node::InputVariable {
+                    Node::Output {
                         kind,
                         name: name.clone(),
                     }
@@ -85,62 +85,66 @@ impl<'a> AnysignalAssigner<'a> {
                     Node::Constant(t)
                 }
             };
-            ass.output_graph.vertices.insert(nid, new_node);
+            debug_assert!(ass.output_graph.vertices.insert(nid, new_node).is_none());
         }
 
         // Assign connection signals
         for (from, to, conn) in ass.input_graph.iter_conns() {
-            if let Connection::Operation(op) = conn {
-                let new_op = match op {
-                    Operation::Arithmetic(ac) => {
-                        let left = ass.assign_sig(&ac.left);
-                        let right = ass.assign_sig(&ac.right);
-                        let output = ass.assign_sig(&ac.output);
-                        let operation = ac.operation.clone();
-                        Operation::Arithmetic(ArithmeticOp::new(left, right, operation, output))
-                    }
-                    Operation::Decider(dc) => {
-                        let left = ass.assign_sig(&dc.left);
-                        let right = ass.assign_sig(&dc.right);
-                        let output = ass.assign_sig(&dc.output);
-                        let operation = dc.operation.clone();
-                        Operation::Decider(DeciderOp::new(left, right, operation, output))
-                    }
-                    Operation::Gate(gc) => {
-                        let left = ass.assign_sig(&gc.left);
-                        let right = ass.assign_sig(&gc.right);
-                        let gate_type = ass.assign_sig(&gc.gate_type);
-                        let operation = gc.operation.clone();
-                        Operation::Decider(DeciderOp::new(left, right, operation, gate_type))
-                    }
-                    Operation::Pick(pc) => {
-                        let pick = ass.assign_sig(&pc.pick);
-                        Operation::Pick(PickOp::new(pick))
-                    }
-                    Operation::Convert(cc) => {
-                        let input = ass.assign_sig(&cc.input);
-                        let output = ass.assign_sig(&cc.output);
-                        Operation::Convert(ConvertOp::new(input, output))
-                    }
-                    Operation::Delay(dc) => {
-                        let output = ass.assign_sig(&dc.output);
-                        Operation::Delay(DelayOp::new(output))
-                    }
-                    Operation::Sum(sc) => {
-                        let output = ass.assign_sig(&sc.output);
-                        Operation::Sum(SumOp::new(output))
-                    }
-                };
-                let new_conn = Connection::Operation(new_op);
-                ass.output_graph
-                    .adjacency
-                    .entry(from)
-                    .and_modify(|to_vec| to_vec.push((to, new_conn.clone())))
-                    .or_insert(vec![(to, new_conn)]);
-            }
+            let new_conn = match conn {
+                Connection::Operation(op) => {
+                    let new_op = match op {
+                        Operation::Arithmetic(ac) => {
+                            let left = ass.assign_sig(&ac.left);
+                            let right = ass.assign_sig(&ac.right);
+                            let output = ass.assign_sig(&ac.output);
+                            let operation = ac.operation.clone();
+                            Operation::Arithmetic(ArithmeticOp::new(left, right, operation, output))
+                        }
+                        Operation::Decider(dc) => {
+                            let left = ass.assign_sig(&dc.left);
+                            let right = ass.assign_sig(&dc.right);
+                            let output = ass.assign_sig(&dc.output);
+                            let operation = dc.operation.clone();
+                            Operation::Decider(DeciderOp::new(left, right, operation, output))
+                        }
+                        Operation::Gate(gc) => {
+                            let left = ass.assign_sig(&gc.left);
+                            let right = ass.assign_sig(&gc.right);
+                            let gate_type = ass.assign_sig(&gc.gate_type);
+                            let operation = gc.operation.clone();
+                            Operation::Decider(DeciderOp::new(left, right, operation, gate_type))
+                        }
+                        Operation::Pick(pc) => {
+                            let pick = ass.assign_sig(&pc.pick);
+                            Operation::Pick(PickOp::new(pick))
+                        }
+                        Operation::Convert(cc) => {
+                            let input = ass.assign_sig(&cc.input);
+                            let output = ass.assign_sig(&cc.output);
+                            Operation::Convert(ConvertOp::new(input, output))
+                        }
+                        Operation::Delay(dc) => {
+                            let output = ass.assign_sig(&dc.output);
+                            Operation::Delay(DelayOp::new(output))
+                        }
+                        Operation::Sum(sc) => {
+                            let output = ass.assign_sig(&sc.output);
+                            Operation::Sum(SumOp::new(output))
+                        }
+                    };
+                    Connection::Operation(new_op)
+                }
+                // Copy wires directly
+                Connection::Wire(wk) => Connection::Wire(wk),
+            };
+            ass.output_graph
+                .adjacency
+                .entry(from)
+                .and_modify(|to_vec| to_vec.push((to, new_conn.clone())))
+                .or_insert(vec![(to, new_conn)]);
         }
 
-        todo!()
+        ass.output_graph
     }
 
     fn assign_sig(&mut self, sig: &LooseSig) -> DetSig {
@@ -186,5 +190,60 @@ impl<'a> AnysignalAssigner<'a> {
                 s
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_graph_size() {
+        let expected_nodes = 6;
+        let expected_wires = 5 * 2;
+        let expected_conns = 11;
+
+        let mut g: Graph<LooseSig> = Graph::new();
+        let c1 = g.push_inner_node();
+        let c2 = g.push_inner_node();
+        let c3 = g.push_inner_node();
+        let c4 = g.push_inner_node();
+        let (c5, c6) = g.push_operation(Operation::Pick(PickOp::new(LooseSig::AnySignal(0))));
+        g.push_wire(c1, c2);
+        g.push_wire(c2, c3);
+        g.push_wire(c3, c4);
+        g.push_wire(c4, c5);
+        g.push_wire(c6, c1);
+
+        assert_eq!(g.vertices.len(), expected_nodes);
+        assert_eq!(g.iter_wires().count(), expected_wires);
+        assert_eq!(g.iter_conns().count(), expected_conns);
+
+        let g = assign_signals(&g);
+        assert_eq!(g.vertices.len(), expected_nodes);
+        assert_eq!(g.iter_wires().count(), expected_wires);
+        assert_eq!(g.iter_conns().count(), expected_conns);
+    }
+
+    #[test]
+    fn assign_io_nodes() {
+        let mut g: Graph<LooseSig> = Graph::new();
+        g.push_input_node(
+            "input".to_string(),
+            LooseSig::Signal("input_signal".to_string()),
+        );
+        g.push_output_node(
+            "output".to_string(),
+            LooseSig::Signal("output_signal".to_string()),
+        );
+
+        assert_eq!(g.get_input_nodes().len(), 1);
+        assert_eq!(g.get_output_nodes().len(), 1);
+
+        let g = assign_signals(&g);
+
+        assert_eq!(g.get_input_nodes().len(), 1);
+        assert_eq!(g.get_output_nodes().len(), 1);
     }
 }
