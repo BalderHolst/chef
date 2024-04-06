@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug, fmt::Display, fs::OpenOptions, io::W
 
 use crate::utils::{self, VisualizerError};
 
-use super::graph::{Connection, Graph, LooseSig, Node, Operation, Signal, WireConnection};
+use super::graph::{Connection, Graph, Node, Operation, Signal, WireConnection};
 
 pub fn create_dot<S>(graph: &Graph<S>) -> String
 where

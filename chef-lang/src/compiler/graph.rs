@@ -4,8 +4,6 @@ use fnv::FnvHashMap;
 use std::fmt::Debug;
 use std::{collections::HashSet, fmt::Display, usize};
 
-use crate::utils::BASE_SIGNALS;
-
 use super::graph_visualizer;
 
 const DEFAULT_WIRE_KIND: WireKind = WireKind::Red;
@@ -128,9 +126,13 @@ pub enum DetSig {
     Many,
 }
 
+#[cfg(test)]
 impl DetSig {
-    pub fn signal(sig: &str) -> Self {
-        Self::Signal(sig.to_string())
+    pub fn signal<S>(signal: S) -> Self
+    where
+        S: ToString,
+    {
+        Self::Signal(signal.to_string())
     }
 }
 
@@ -265,21 +267,6 @@ where
             operation,
             output,
         }
-    }
-
-    pub fn new_convert(in_signal: S, out_signal: S) -> Self {
-        Self::new(
-            in_signal,
-            S::new_const(0),
-            ArithmeticOperation::Add,
-            out_signal,
-        )
-    }
-
-    fn is_convert(&self) -> bool {
-        self.right == S::new_const(0)
-            && self.operation == ArithmeticOperation::Add
-            && self.output != self.left
     }
 }
 
@@ -716,6 +703,16 @@ where
         })
     }
 
+    #[cfg(test)]
+    pub fn iter_wires(&self) -> impl Iterator<Item = (NId, NId, &WireKind)> + '_ {
+        self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
+            to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
+                Connection::Wire(wk) => Some((*from_nid, *to_nid, wk)),
+                Connection::Operation(_) => None,
+            })
+        })
+    }
+
     pub fn nodes(&self) -> impl Iterator<Item = (NId, &Node<S>)> {
         self.vertices.iter().map(|(nid, node)| (*nid, node))
     }
@@ -727,20 +724,6 @@ where
                 Connection::Wire(_) => None,
             })
         })
-    }
-
-    pub fn iter_wires(&self) -> impl Iterator<Item = (NId, NId, &WireKind)> + '_ {
-        self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
-            to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
-                Connection::Wire(wk) => Some((*from_nid, *to_nid, wk)),
-                Connection::Operation(_) => None,
-            })
-        })
-    }
-
-    /// Get connections pointing away from the node
-    pub fn _get_from_connections(&self, nid: &NId) -> Vec<(NId, Connection<S>)> {
-        self.adjacency.get(nid).unwrap_or(&vec![]).clone()
     }
 
     /// Returns 'to' (incomming), 'from' (outgoing) and 'loop'
@@ -790,11 +773,6 @@ where
         }
         self.next_nid += 1;
         nid
-    }
-
-    /// Override a node at a given id.
-    pub fn override_node(&mut self, nid: NId, node: Node<S>) -> Option<Node<S>> {
-        self.vertices.insert(nid, node)
     }
 
     /// Push a node of type [InputNode].
@@ -924,126 +902,6 @@ where
             }
         }
         true
-    }
-
-    /// Replace an [IOType] with another throughout the whole graph. This is usefull when assigning
-    /// `IOType::Any` actual factorio signals.
-    fn replace_iotype(&mut self, old_type: S, new_type: &S) {
-        for (_, to_vec) in self.adjacency.iter_mut() {
-            for (_, conn) in to_vec {
-                match conn {
-                    Connection::Operation(Operation::Arithmetic(ac)) => {
-                        if ac.left == old_type {
-                            ac.left = new_type.clone()
-                        }
-                        if ac.right == old_type {
-                            ac.right = new_type.clone()
-                        }
-                        if ac.output == old_type {
-                            ac.output = new_type.clone()
-                        }
-                    }
-                    Connection::Operation(Operation::Decider(dc)) => {
-                        if dc.left == old_type {
-                            dc.left = new_type.clone()
-                        }
-                        if dc.right == old_type {
-                            dc.right = new_type.clone()
-                        }
-                        if dc.output == old_type {
-                            dc.output = new_type.clone()
-                        }
-                    }
-                    Connection::Operation(Operation::Pick(pc)) => {
-                        if pc.pick == old_type {
-                            pc.pick = new_type.clone()
-                        }
-                    }
-                    Connection::Operation(Operation::Convert(pc)) => {
-                        if pc.input == old_type {
-                            pc.input = new_type.clone()
-                        }
-                        if pc.output == old_type {
-                            pc.output = new_type.clone()
-                        }
-                    }
-                    Connection::Operation(Operation::Gate(gc)) => {
-                        if gc.left == old_type {
-                            gc.left = new_type.clone()
-                        }
-                        if gc.right == old_type {
-                            gc.right = new_type.clone()
-                        }
-                        if gc.gate_type == old_type {
-                            gc.gate_type = new_type.clone()
-                        }
-                    }
-                    Connection::Operation(Operation::Delay(dc)) => {
-                        if dc.output == old_type {
-                            dc.output = new_type.clone()
-                        }
-                    }
-                    Connection::Operation(Operation::Sum(sc)) => {
-                        if sc.output == old_type {
-                            sc.output = new_type.clone()
-                        }
-                    }
-                    Connection::Wire(_) => {}
-                }
-            }
-        }
-    }
-
-    pub fn get_single_input(&self, nid: &NId) -> Result<S, String> {
-        let inputs = self.get_input_iotypes(nid);
-        let t = match inputs.len() {
-            1 => &inputs[0].0,
-            2 => {
-                let (t1, _w1) = &inputs[0];
-                let (t2, _w2) = &inputs[1];
-                assert_eq!(t1, t2);
-                t1
-            }
-            _ => return Err(format!("Could not get single input: {inputs:?}")),
-        };
-
-        Ok(t.clone())
-    }
-
-    fn _get_final_outputs(&self) -> Vec<(NId, Node<S>)> {
-        self.vertices
-            .iter()
-            .filter(|(nid, node)| {
-                if let Node::Output { kind: _, name: _ } = node {
-                    match self.adjacency.get(nid) {
-                        Some(v) => v.is_empty(),
-                        None => true,
-                    }
-                } else {
-                    false
-                }
-            })
-            .map(|(nid, node)| (*nid, node.clone()))
-            .collect()
-    }
-
-    /// Get all input nodes that are not constants.
-    fn get_non_constant_inputs(&self) -> Vec<(NId, Node<S>)> {
-        self.vertices
-            .iter()
-            .filter(|(_nid, node)| {
-                if let Node::InputVariable {
-                    kind: input_type,
-                    name: _,
-                } = node
-                {
-                    !input_type.is_const()
-                } else {
-                    false
-                }
-            })
-            .map(|(nid, node)| (*nid, node.clone()))
-            .collect()
     }
 
     /// Print the graph to stout.
