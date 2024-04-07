@@ -515,6 +515,15 @@ where
     pub next_nid: NId,
 }
 
+impl<S> Default for Graph<S>
+where
+    S: Debug + Clone + PartialEq + Display + Signal<S>,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S> Graph<S>
 where
     S: Debug + Clone + PartialEq + Display + Signal<S>,
