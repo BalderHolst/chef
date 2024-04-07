@@ -1,5 +1,6 @@
 //! The chef cli.
 
+use crate::blueprint::placement::PlacerName;
 use clap::{Parser, Subcommand};
 use termion::terminal_size;
 
@@ -34,6 +35,7 @@ impl Opts {
             dot: false,
             graph: None,
             fgraph: None,
+            placer: PlacerName::default(),
             verbose: false,
         });
         Self {
@@ -54,6 +56,7 @@ pub enum Command {
     Cook(CookOpts),
 
     /// Simulate a chef program
+    #[clap(alias = "sim")]
     Simulate(SimulateOpts),
 
     /// Add signals to your project
@@ -78,9 +81,13 @@ pub struct CookOpts {
     #[arg(short, long)]
     pub(crate) graph: Option<String>,
 
-    /// Output an svg to visualize the factorio circuit connections.
+    /// Output an svg to visualize the Factorio circuit connections.
     #[arg(short('G'), long)]
     pub(crate) fgraph: Option<String>,
+
+    /// Choose the placering algorithm.
+    #[arg(short('p'), long, default_value = "turd-master2000")]
+    pub placer: PlacerName,
 
     /// Be verbose
     #[arg(short('v'), long)]
@@ -95,6 +102,7 @@ impl CookOpts {
             graph: None,
             fgraph: None,
             verbose: false,
+            placer: PlacerName::default(),
         }
     }
 }

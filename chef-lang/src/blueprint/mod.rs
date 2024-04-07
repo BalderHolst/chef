@@ -1,6 +1,6 @@
 //! Converted combinator graphs to factorio blueprints.
 
-mod placement;
+pub mod placement;
 pub mod utils;
 
 use std::{
@@ -17,14 +17,16 @@ use noisy_float::types::R64;
 
 use crate::{
     compiler::{
-        graph::{self, ArithmeticOperation, DeciderOperation, DetSig, Graph, WireKind},
+        graph::{self, ArithmeticOperation, DeciderOperation, DetSig, WireKind},
         // TODO: remove reserved signal
         RESERVED_SIGNAL,
     },
     utils::BASE_SIGNALS,
 };
 
-use placement::TurdMaster2000;
+use self::placement::PlacerName;
+
+type Graph = graph::Graph<DetSig>;
 
 type Operation = graph::Operation<DetSig>;
 type FactorioConstant = i32;
@@ -71,10 +73,6 @@ trait CircuitEntity {
 
     /// Converts the entity to a [fbo::Entity] to be included in a blueprint
     fn to_blueprint_entity(&self) -> fbo::Entity;
-}
-
-pub trait Placer {
-    fn place(self) -> Vec<fbo::Entity>;
 }
 
 struct Substation {
@@ -822,14 +820,13 @@ impl Display for Combinator {
 /// The maxinum distanct a wire can connect two points in factorio.
 const WIRE_RANGE: f64 = 9.0;
 
-pub fn convert_to_graph_to_blueprint_string(graph: Graph<DetSig>) -> fb::Result<String> {
-    let combinators = place_combinators(TurdMaster2000::new(graph));
+pub fn convert_to_graph_to_blueprint_string(
+    placer: &PlacerName,
+    graph: Graph,
+) -> fb::Result<String> {
+    let combinators = placer.place(graph);
     let container = combinators_to_blueprint(combinators);
     fb::BlueprintCodec::encode_string(&container)
-}
-
-fn place_combinators(placer: impl Placer) -> Vec<fbo::Entity> {
-    placer.place()
 }
 
 /// Create a [Blueprint] from a list of combinators
