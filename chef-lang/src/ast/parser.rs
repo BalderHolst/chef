@@ -456,7 +456,6 @@ impl Parser {
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
             VariableType::Many => {}
-            VariableType::Tuple(_) => {}
         };
 
         let variable = Rc::new(variable);

@@ -715,7 +715,6 @@ impl GraphCompiler {
             },
             VariableType::Many => LooseSig::Many,
             VariableType::Register(_) => LooseSig::Many, // TODO: make dependent on the type of input
-            VariableType::Tuple(_) => todo!(),
         }
     }
 
