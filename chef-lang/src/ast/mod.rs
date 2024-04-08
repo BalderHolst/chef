@@ -184,7 +184,7 @@ pub enum StatementKind {
     Declaration(Declaration),
     DeclarationDefinition(DeclarationDefinition),
     Definition(Definition),
-    TupleDefinitionDeclaration(TupleDefinitionDeclaration),
+    TupleDeclarationDefinition(TupleDeclarationDefinition),
     Error,
 }
 
@@ -362,6 +362,15 @@ pub enum DefinitionKind {
     Green,
 }
 
+impl Into<crate::compiler::graph::WireKind> for DefinitionKind {
+    fn into(self) -> crate::compiler::graph::WireKind {
+        match self {
+            DefinitionKind::Red => crate::compiler::graph::WireKind::Red,
+            DefinitionKind::Green => crate::compiler::graph::WireKind::Green,
+        }
+    }
+}
+
 /// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition {
@@ -393,15 +402,15 @@ impl From<DeclarationDefinition> for Definition {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutputAssignment {
-    variable: Rc<Variable>,
-    block_variable: Rc<Variable>,
+    pub variable: Rc<Variable>,
+    pub block_variable: Rc<Variable>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TupleDefinitionDeclaration {
-    defs: Vec<OutputAssignment>,
-    block_link: BlockLinkExpression,
-    def_kind: DefinitionKind,
+pub struct TupleDeclarationDefinition {
+    pub defs: Vec<OutputAssignment>,
+    pub block_link: BlockLinkExpression,
+    pub def_kind: DefinitionKind,
 }
 
 /// A chef expression.

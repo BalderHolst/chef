@@ -4,6 +4,8 @@ use fnv::FnvHashMap;
 use std::fmt::Debug;
 use std::{collections::HashSet, fmt::Display, usize};
 
+use crate::diagnostics::{CompilationError, CompilationResult};
+
 use super::graph_visualizer;
 
 const DEFAULT_WIRE_KIND: WireKind = WireKind::Red;
@@ -211,6 +213,7 @@ impl LooseSig {
         Self::Signal(signal.to_string())
     }
 
+    // TODO: Find other way to do this, if it is even needed
     pub fn to_combinator_type(&self) -> Self {
         match self {
             Self::ConstantSignal((sig, _)) => LooseSig::Signal(sig.clone()),
@@ -954,7 +957,7 @@ where
         &mut self,
         sub: &Graph<S>,              // The other graph
         main_outputs: Vec<(NId, S)>, // Inputs to the other graph
-    ) -> Result<Vec<(NId, S)>, String> {
+    ) -> CompilationResult<Vec<(NId, S)>> {
         // Hash map containing mappings from old to new node ids
         let mut nid_converter: fnv::FnvHashMap<NId, NId> = fnv::FnvHashMap::default();
 
@@ -997,11 +1000,10 @@ where
         // This should not error. It should have been checked by the type checker.
         // TODO: Handle this with error
         if sub_graph_inputs.len() != main_outputs.len() {
-            panic!(
-                "Number of arguments does not match with block definition: Expected {}, found {}. This is probably a bug in the typechecker.",
+            return Err(CompilationError::new_generic(format!("Number of arguments does not match with block definition: Expected {}, found {}. This is probably a bug in the typechecker.",
                 sub_graph_inputs.len(),
                 main_outputs.len()
-            );
+            )));
         }
 
         // Iterate over the connections of main to sub

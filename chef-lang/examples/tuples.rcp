@@ -5,4 +5,5 @@ block create_obj() => (a: int, b: int) {
 
 block main() => (out: int(signal-O)) {
     (a: int, b: int) <- create_obj();
+    out <- a;
 }

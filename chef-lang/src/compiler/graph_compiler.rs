@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use crate::ast::{
     BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
     DeclarationDefinition, Definition, DelayExpression, Expression, ExpressionKind,
-    IndexExpression, PickExpression, SizeOfExpression, VariableId, VariableRef, VariableSignalType,
-    WhenStatement, AST,
+    IndexExpression, PickExpression, SizeOfExpression, TupleDeclarationDefinition, VariableId,
+    VariableRef, VariableSignalType, WhenStatement, AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
@@ -166,7 +166,9 @@ impl GraphCompiler {
             StatementKind::Definition(def) => {
                 self.compile_definition_statement(graph, def, gate, None)?;
             }
-            StatementKind::TupleDefinitionDeclaration(_) => todo!(),
+            StatementKind::TupleDeclarationDefinition(tuple_dec_def) => {
+                self.compile_tuple_declaration_definition_statement(graph, tuple_dec_def, gate)?;
+            }
             StatementKind::Error => {
                 // TODO: Remove error statements
                 panic!("There should not be error statements when compilation has started.")
@@ -239,6 +241,56 @@ impl GraphCompiler {
         self.compile_definition_statement(graph, definition, gate, Some(var_type))
     }
 
+    fn compile_tuple_declaration_definition_statement(
+        &mut self,
+        graph: &mut Graph<LooseSig>,
+        tuple_dec_def: TupleDeclarationDefinition,
+        gate: Option<(NId, LooseSig)>,
+    ) -> Result<(), CompilationError> {
+        let block_link = tuple_dec_def.block_link;
+
+        let mut args: Vec<(NId, LooseSig)> = vec![];
+        for input in block_link.inputs {
+            args.push(self.compile_expression(graph, &input, None)?);
+        }
+
+        let block = self.compile_block(&block_link.block)?;
+
+        let output_nodes = graph.stitch_graph(&block, args)?;
+
+        if output_nodes.len() != tuple_dec_def.defs.len() {
+            return Err(CompilationError::new_generic(
+                "Number of variables in tuple declaration does not match number of outputs.",
+            ));
+        }
+
+        for i in 0..output_nodes.len() {
+            let (output_nid, out_type) = &output_nodes[i];
+            let var = &tuple_dec_def.defs[i].variable;
+            let var_type = self.variable_type_to_iotype(&var.type_);
+
+            // Convert to variable type
+            let (trans_input, trans_output) =
+                graph.push_operation(Operation::new_convert(out_type.clone(), var_type.clone()));
+            graph.push_wire(*output_nid, trans_input);
+
+            // Create and connect to variable node
+            let var_nid = graph.push_var_node(var_type.clone(), var.name.clone());
+            graph.push_wire(trans_output, var_nid);
+
+            self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
+            self.define_variable(
+                graph,
+                var.id,
+                var_nid,
+                var_type,
+                tuple_dec_def.def_kind.clone().into(),
+            )?;
+        }
+
+        Ok(())
+    }
+
     fn compile_definition_statement(
         &mut self,
         graph: &mut Graph<LooseSig>,
@@ -255,11 +307,6 @@ impl GraphCompiler {
 
         let (expr_out_nid, _) =
             self.compile_expression(graph, &def.expression, Some(var_iotype.clone()))?;
-
-        let wk = match def.kind {
-            crate::ast::DefinitionKind::Red => WireKind::Red,
-            crate::ast::DefinitionKind::Green => WireKind::Green,
-        };
 
         let output_nid = match gate {
             Some((condition_nid, condition_type)) => {
@@ -284,7 +331,7 @@ impl GraphCompiler {
             None => expr_out_nid,
         };
 
-        self.define_variable(graph, var.id, output_nid, var_iotype, wk)
+        self.define_variable(graph, var.id, output_nid, var_iotype, def.kind.into())
     }
 
     /// Returns a tuple: (output_vid, output_type)
@@ -335,7 +382,7 @@ impl GraphCompiler {
         let var = var_ref.var.clone();
         let (var_ref_nid, var_type) = self
             .search_scope(var.id)
-            .expect("Variable references should always point to defined variables");
+            .expect(&format!("Variable references should always point to defined variables. Could not find var '{}' with id {}.", var.name, var.id));
 
         match out_type {
             Some(out_type) => {
@@ -554,13 +601,7 @@ impl GraphCompiler {
             block_link_expr.block.dyn_block_id,
         )?;
 
-        let outputs = match graph.stitch_graph(&block_graph, args) {
-            Ok(v) => v,
-            Err(e) => {
-                panic!("Errored in stitch_graph: {}.", e) // TODO: handle correctly
-                                                          // return Err(CompilationError::new(e, expr.span.clone()))
-            }
-        };
+        let outputs = graph.stitch_graph(&block_graph, args)?;
 
         match outputs.len() {
             1 => {

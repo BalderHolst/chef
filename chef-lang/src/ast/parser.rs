@@ -18,7 +18,7 @@ use crate::text::{SourceText, TextSpan};
 use super::lexer::Lexer;
 use super::{
     Block, BlockLinkArg, BlockLinkExpression, DeclarationDefinition, DynBlock, DynBlockArg,
-    PickExpression, SizeOfExpression, TupleDefinitionDeclaration, VariableRef, VariableSignalType,
+    PickExpression, SizeOfExpression, TupleDeclarationDefinition, VariableRef, VariableSignalType,
 };
 use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement};
 
@@ -1514,6 +1514,8 @@ impl Parser {
             let var = vars[i].clone();
             let block_output = &block_outputs[i];
 
+            self.add_var_to_scope(var.clone());
+
             let def = OutputAssignment {
                 variable: var,
                 block_variable: block_output.clone(),
@@ -1522,7 +1524,7 @@ impl Parser {
             defs.push(def);
         }
 
-        let kind = StatementKind::TupleDefinitionDeclaration(TupleDefinitionDeclaration {
+        let kind = StatementKind::TupleDeclarationDefinition(TupleDeclarationDefinition {
             defs,
             block_link,
             def_kind,

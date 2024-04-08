@@ -9,7 +9,7 @@ use super::{
     parser::StatementList, BinaryExpression, Block, BlockLinkExpression, Declaration,
     DeclarationDefinition, Definition, DelayExpression, Expression, ExpressionKind,
     IndexExpression, ParenthesizedExpression, PickExpression, SizeOfExpression, Statement,
-    StatementKind, TupleDefinitionDeclaration, VariableRef, WhenStatement,
+    StatementKind, TupleDeclarationDefinition, VariableRef, WhenStatement,
 };
 
 // For documentation references
@@ -32,7 +32,7 @@ pub trait Visitor {
             StatementKind::When(when) => {
                 self.visit_when_statement(when);
             }
-            StatementKind::TupleDefinitionDeclaration(tuple_dec_def) => {
+            StatementKind::TupleDeclarationDefinition(tuple_dec_def) => {
                 self.visit_tuple_definition_declaration_statement(tuple_dec_def);
             }
             StatementKind::Error => {
@@ -167,7 +167,7 @@ pub trait Visitor {
 
     fn visit_tuple_definition_declaration_statement(
         &mut self,
-        tuple_dec_def: &TupleDefinitionDeclaration,
+        tuple_dec_def: &TupleDeclarationDefinition,
     ) {
         self.visit_block_link(&tuple_dec_def.block_link)
     }
@@ -206,7 +206,7 @@ pub trait MutVisitor {
             StatementKind::When(when) => {
                 self.visit_when_statement(when);
             }
-            StatementKind::TupleDefinitionDeclaration(tuple_dec_def) => {
+            StatementKind::TupleDeclarationDefinition(tuple_dec_def) => {
                 self.visit_tuple_definition_declaration_statement(tuple_dec_def);
             }
             StatementKind::Error => {
@@ -341,7 +341,7 @@ pub trait MutVisitor {
 
     fn visit_tuple_definition_declaration_statement(
         &mut self,
-        tuple_dec_def: &mut TupleDefinitionDeclaration,
+        tuple_dec_def: &mut TupleDeclarationDefinition,
     ) {
         self.visit_block_link(&mut tuple_dec_def.block_link)
     }
