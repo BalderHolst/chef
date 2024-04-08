@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::ast::{
-    BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
+    AssignmentType, BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
     DeclarationDefinition, Definition, DelayExpression, Expression, ExpressionKind,
     IndexExpression, PickExpression, SizeOfExpression, TupleDeclarationDefinition, VariableId,
     VariableRef, VariableSignalType, WhenStatement, AST,
@@ -29,11 +29,12 @@ impl Scope {
         var_type: LooseSig,
         name: String,
     ) -> CompilationResult<()> {
-        let nid = graph.push_var_node(var_type.clone(), name);
+        let nid = graph.push_var_node(var_type.clone(), name.clone());
+        println!("Declared variable: {}", name);
         match self.variables.insert(var_id, (nid, var_type)) {
-            Some(_) => Err(CompilationError::new_generic(
-                "Variable already declared in this scope.",
-            )),
+            Some(_) => Err(CompilationError::new_generic(format!(
+                "Variable '{name}' already declared in this scope."
+            ))),
             None => Ok(()),
         }
     }
@@ -266,7 +267,8 @@ impl GraphCompiler {
 
         for i in 0..output_nodes.len() {
             let (output_nid, out_type) = &output_nodes[i];
-            let var = &tuple_dec_def.defs[i].variable;
+            let def = &tuple_dec_def.defs[i];
+            let var = &def.variable;
             let var_type = self.variable_type_to_iotype(&var.type_);
 
             // Convert to variable type
@@ -278,7 +280,13 @@ impl GraphCompiler {
             let var_nid = graph.push_var_node(var_type.clone(), var.name.clone());
             graph.push_wire(trans_output, var_nid);
 
-            self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
+            match &def.assignment_type {
+                AssignmentType::Declaration => {
+                    self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?
+                }
+                AssignmentType::Definition => {}
+            }
+
             self.define_variable(
                 graph,
                 var.id,

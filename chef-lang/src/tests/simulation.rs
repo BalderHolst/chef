@@ -321,3 +321,75 @@ fn simulate_negative_numbers() {
 
     assert_eq!(sim.get_output(), outputs!["pump": -10]);
 }
+
+#[test]
+fn test_declaration_tuple_unpacking() {
+    let g = compile_code(
+        "
+    block values() => (a: int, b: int) {
+        a <- 1;
+        b <- 2;
+    }
+
+    block main() => (out: int(signal-E)) {
+        (x: int, y: int) <- values();
+        out <- x - y;
+    }
+",
+    );
+    let mut sim = Simulator::new(g, inputs![]);
+    sim.simulate(7);
+
+    assert_eq!(sim.get_output(), outputs!["signal-E": -1]);
+}
+
+#[test]
+fn test_definition_tuple_unpacking() {
+    let g = compile_code(
+        "
+    block values() => (a: int, b: int, c: int) {
+        a <- 1;
+        b <- 2;
+        c <- 3;
+    }
+
+    block main() => (out: int(signal-E)) {
+        x: int;
+        y: int;
+        z: int;
+        (x, y, z) <- values();
+        out <- -x - y + z;
+    }
+",
+    );
+    let mut sim = Simulator::new(g, inputs![]);
+    sim.simulate(10);
+
+    assert_eq!(sim.get_output(), outputs!["signal-E": 0]);
+}
+
+#[test]
+fn test_mixed_tuple_unpacking() {
+    let g = compile_code(
+        "
+    block values() => (a: int, b: int, c: bool) {
+        a <- 100;
+        b <- -11;
+        c <- true;
+    }
+
+    block main() => (out: int(signal-E)) {
+        x: int;
+        z: bool;
+        (x, y: int, z) <- values();
+        when z {
+            out <- x - y;
+        }
+    }
+",
+    );
+    let mut sim = Simulator::new(g, inputs![]);
+    sim.simulate(10);
+
+    assert_eq!(sim.get_output(), outputs!["signal-E": 111]);
+}

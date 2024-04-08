@@ -389,9 +389,16 @@ impl From<DeclarationDefinition> for Definition {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum AssignmentType {
+    Definition,
+    Declaration,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct OutputAssignment {
     pub variable: Rc<Variable>,
     pub block_variable: Rc<Variable>,
+    pub assignment_type: AssignmentType,
 }
 
 #[derive(Debug, Clone, PartialEq)]

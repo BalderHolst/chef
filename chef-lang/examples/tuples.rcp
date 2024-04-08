@@ -1,9 +1,16 @@
-block create_obj() => (a: int, b: int) {
+block add(a: int, b: int) => (out: int) {
+    out <- a + b;
+}
+
+block create_values() => (a: int, b: int) {
     a <- 20;
     b <- 40;
 }
 
-block main() => (out: int(signal-O)) {
-    (a: int, b: int) <- create_obj();
+block main() => (out: many) {
+
+    // Unpack multiple values from a block
+    (a: int, b: int) <- create_values();
+
     out <- a;
 }

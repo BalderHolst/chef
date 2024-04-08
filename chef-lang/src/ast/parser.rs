@@ -17,8 +17,9 @@ use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
 use super::{
-    Block, BlockLinkArg, BlockLinkExpression, DeclarationDefinition, DynBlock, DynBlockArg,
-    PickExpression, SizeOfExpression, TupleDeclarationDefinition, VariableRef, VariableSignalType,
+    AssignmentType, Block, BlockLinkArg, BlockLinkExpression, DeclarationDefinition, DynBlock,
+    DynBlockArg, PickExpression, SizeOfExpression, TupleDeclarationDefinition, VariableRef,
+    VariableSignalType,
 };
 use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement};
 
@@ -385,7 +386,7 @@ impl Parser {
                     ),
                 )))
             }
-            TokenKind::LeftParen => match self.parse_tuple_definition_statement() {
+            TokenKind::LeftParen => match self.parse_unpack_statement() {
                 Ok(s) => Some(Ok(s)),
                 Err(e) => Some(Err(e)),
             },
@@ -1453,13 +1454,22 @@ impl Parser {
         Ok(BlockLinkExpression::new(block, inputs))
     }
 
-    fn parse_tuple_definition_statement(&mut self) -> CompilationResult<Statement> {
+    fn parse_unpack_statement(&mut self) -> CompilationResult<Statement> {
         let start_token = self.consume_and_expect(TokenKind::LeftParen)?;
         let mut vars = vec![];
 
         while self.current().kind != TokenKind::RightParen {
-            let var = self.parse_variable_declaration()?;
-            vars.push(Rc::new(var));
+            match self.parse_variable()? {
+                ParsedVariable::Dec(var) => {
+                    let var = Rc::new(var);
+                    self.add_var_to_scope(var.clone());
+                    vars.push((var, AssignmentType::Declaration));
+                }
+                ParsedVariable::Ref(var_ref) => {
+                    vars.push((var_ref.var.clone(), AssignmentType::Definition))
+                }
+                ParsedVariable::Const(_c) => todo!(),
+            }
             self.consume_if(TokenKind::Comma);
         }
 
@@ -1490,21 +1500,20 @@ impl Parser {
                     block_name,
                     block_outputs.len()
                 ),
-                self.peak(-1).span.clone(),
+                TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
             ));
         }
 
         let mut defs = vec![];
 
         for i in 0..vars.len() {
-            let var = vars[i].clone();
+            let (var, assignment_type) = vars[i].clone();
             let block_output = &block_outputs[i];
-
-            self.add_var_to_scope(var.clone());
 
             let def = OutputAssignment {
                 variable: var,
                 block_variable: block_output.clone(),
+                assignment_type,
             };
 
             defs.push(def);
