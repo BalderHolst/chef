@@ -185,7 +185,7 @@ impl Parser {
     }
 
     /// Consume and error if the token is not what was expected.
-    fn consume_and_expect(&mut self, expected: TokenKind) -> Result<Token, CompilationError> {
+    fn consume_and_expect(&mut self, expected: TokenKind) -> CompilationResult<Token> {
         let token = self.consume().clone();
         let is_correct = token.kind == expected;
         if !is_correct {
@@ -425,7 +425,7 @@ impl Parser {
         matches!(&self.peak(1).kind, TokenKind::Colon)
     }
 
-    fn parse_declaration_statement(&mut self) -> Result<StatementKind, CompilationError> {
+    fn parse_declaration_statement(&mut self) -> CompilationResult<StatementKind> {
         let variable = self.parse_variable_declaration()?;
 
         match &variable.type_ {
@@ -479,7 +479,7 @@ impl Parser {
         ))
     }
 
-    fn parse_assignment_operator(&mut self) -> Result<DefinitionKind, CompilationError> {
+    fn parse_assignment_operator(&mut self) -> CompilationResult<DefinitionKind> {
         let start_span = self.current().span.clone();
 
         let kind = match &self.consume().kind {
@@ -495,7 +495,7 @@ impl Parser {
     }
 
     /// Parse variable assignment statement.
-    fn parse_definition_statement(&mut self) -> Result<StatementKind, CompilationError> {
+    fn parse_definition_statement(&mut self) -> CompilationResult<StatementKind> {
         let start_span = self.current().span.clone();
 
         let name = self.consume_word()?.to_string();
@@ -527,7 +527,7 @@ impl Parser {
     /// i: int(signal) = ...
     ///       ^^^^^^^^ - this part
     /// ```
-    fn parse_variable_type_signal(&mut self) -> Result<VariableSignalType, CompilationError> {
+    fn parse_variable_type_signal(&mut self) -> CompilationResult<VariableSignalType> {
         match self.current().kind {
             TokenKind::LeftParen => {
                 self.consume();
@@ -539,7 +539,7 @@ impl Parser {
         }
     }
 
-    fn parse_variable_declaration(&mut self) -> Result<Variable, CompilationError> {
+    fn parse_variable_declaration(&mut self) -> CompilationResult<Variable> {
         let start_token = self.current().clone();
 
         let name = self.consume_word()?.to_string();
@@ -556,7 +556,7 @@ impl Parser {
         ))
     }
 
-    fn parse_variable(&mut self) -> Result<ParsedVariable, CompilationError> {
+    fn parse_variable(&mut self) -> CompilationResult<ParsedVariable> {
         let start_token = self.current().clone();
 
         let name = self.consume_word()?.to_string();
@@ -589,7 +589,7 @@ impl Parser {
     }
 
     /// Parse variable type.
-    fn parse_variable_type(&mut self) -> Result<VariableType, CompilationError> {
+    fn parse_variable_type(&mut self) -> CompilationResult<VariableType> {
         let token = self.consume();
         match token.kind.clone() {
             TokenKind::Word(start_word) => match start_word.as_str() {
@@ -632,7 +632,7 @@ impl Parser {
         }
     }
 
-    fn parse_literal_block_link_argument(&mut self) -> Result<TextSpan, CompilationError> {
+    fn parse_literal_block_link_argument(&mut self) -> CompilationResult<TextSpan> {
         let start_token = self.current().clone();
 
         println!("  literal start: {:?}", self.current().kind);
@@ -798,7 +798,7 @@ impl Parser {
         Ok(inputs)
     }
 
-    fn parse_statement_list(&mut self) -> Result<Vec<Statement>, CompilationError> {
+    fn parse_statement_list(&mut self) -> CompilationResult<Vec<Statement>> {
         self.consume_and_expect(TokenKind::LeftCurly)?;
 
         let mut statements: Vec<Statement> = vec![];
@@ -1060,11 +1060,11 @@ impl Parser {
     }
 
     /// Parse chef expression.
-    fn parse_expression(&mut self) -> Result<Expression, CompilationError> {
+    fn parse_expression(&mut self) -> CompilationResult<Expression> {
         self.parse_binary_expression(None, 0)
     }
 
-    fn parse_when_statement(&mut self) -> Result<StatementKind, CompilationError> {
+    fn parse_when_statement(&mut self) -> CompilationResult<StatementKind> {
         let _start_token = self.consume().clone(); // Consume "when" token
         let condition = self.parse_expression()?;
 
@@ -1117,7 +1117,7 @@ impl Parser {
         &mut self,
         left: Option<Expression>,
         min_precedence: u8,
-    ) -> Result<Expression, CompilationError> {
+    ) -> CompilationResult<Expression> {
         let mut left = match left {
             Some(e) => e,
             None => self.parse_primary_expression()?,
@@ -1157,7 +1157,7 @@ impl Parser {
     }
 
     /// Parse a primary expression.
-    fn parse_primary_expression(&mut self) -> Result<Expression, CompilationError> {
+    fn parse_primary_expression(&mut self) -> CompilationResult<Expression> {
         let start_token = self.current().clone();
         match &start_token.kind {
             TokenKind::Minus => {
@@ -1314,10 +1314,7 @@ impl Parser {
         })
     }
 
-    fn parse_dyn_block_link(
-        &mut self,
-        def: DynBlock,
-    ) -> Result<BlockLinkExpression, CompilationError> {
+    fn parse_dyn_block_link(&mut self, def: DynBlock) -> CompilationResult<BlockLinkExpression> {
         let start_span = self.peak(-1).span.clone();
 
         let inputs = self.parse_dyn_block_link_arguments()?;
@@ -1449,10 +1446,7 @@ impl Parser {
     }
 
     /// Parse a chef block link.
-    fn parse_block_link(
-        &mut self,
-        block: Rc<Block>,
-    ) -> Result<BlockLinkExpression, CompilationError> {
+    fn parse_block_link(&mut self, block: Rc<Block>) -> CompilationResult<BlockLinkExpression> {
         let start = self.peak(-1).span.start;
         let inputs = self.parse_block_link_arguments()?;
         let end = self.current().span.clone();
@@ -1473,7 +1467,7 @@ impl Parser {
         Ok(BlockLinkExpression::new(block, inputs))
     }
 
-    fn parse_tuple_definition_statement(&mut self) -> Result<Statement, CompilationError> {
+    fn parse_tuple_definition_statement(&mut self) -> CompilationResult<Statement> {
         let start_token = self.consume_and_expect(TokenKind::LeftParen)?;
         let mut vars = vec![];
 
