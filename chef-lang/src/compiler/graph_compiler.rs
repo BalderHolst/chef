@@ -166,6 +166,7 @@ impl GraphCompiler {
             StatementKind::Definition(def) => {
                 self.compile_definition_statement(graph, def, gate, None)?;
             }
+            StatementKind::TupleDefinitionDeclaration(_) => todo!(),
             StatementKind::Error => {
                 // TODO: Remove error statements
                 panic!("There should not be error statements when compilation has started.")
@@ -673,6 +674,7 @@ impl GraphCompiler {
             },
             VariableType::Many => LooseSig::Many,
             VariableType::Register(_) => LooseSig::Many, // TODO: make dependent on the type of input
+            VariableType::Tuple(_) => todo!(),
         }
     }
 

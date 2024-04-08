@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
-    python_macro, BinaryExpression, BinaryOperator, Expression, ExpressionKind,
+    python_macro, BinaryExpression, BinaryOperator, Expression, ExpressionKind, OutputAssignment,
     ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
 };
 use crate::cli::Opts;
@@ -18,7 +18,7 @@ use crate::text::{SourceText, TextSpan};
 use super::lexer::Lexer;
 use super::{
     Block, BlockLinkArg, BlockLinkExpression, DeclarationDefinition, DynBlock, DynBlockArg,
-    PickExpression, SizeOfExpression, VariableRef, VariableSignalType,
+    PickExpression, SizeOfExpression, TupleDefinitionDeclaration, VariableRef, VariableSignalType,
 };
 use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement};
 
@@ -385,6 +385,10 @@ impl Parser {
                     ),
                 )))
             }
+            TokenKind::LeftParen => match self.parse_tuple_definition_statement() {
+                Ok(s) => Some(Ok(s)),
+                Err(e) => Some(Err(e)),
+            },
             TokenKind::End => None,
             TokenKind::RightCurly => None,
             _ => {
@@ -452,6 +456,7 @@ impl Parser {
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
             VariableType::Many => {}
+            VariableType::Tuple(_) => {}
         };
 
         let variable = Rc::new(variable);
@@ -465,21 +470,28 @@ impl Parser {
             return Ok(StatementKind::Declaration(Declaration { variable }));
         }
 
-        let kind = match &self.consume().kind {
-            TokenKind::LeftArrow => Ok(DefinitionKind::Red),
-            TokenKind::LeftCurlyArrow => Ok(DefinitionKind::Green),
-            other => Err(CompilationError::new_localized(
-                format!("'{}' is not a valid assignment operator.", other),
-                self.peak(-1).span.clone(),
-            )),
-        }?;
-
+        let kind = self.parse_assignment_operator()?;
         let expr = self.parse_expression()?;
 
         self.consume_and_expect(TokenKind::Semicolon)?;
         Ok(StatementKind::DeclarationDefinition(
             DeclarationDefinition::new(variable, expr, kind),
         ))
+    }
+
+    fn parse_assignment_operator(&mut self) -> Result<DefinitionKind, CompilationError> {
+        let start_span = self.current().span.clone();
+
+        let kind = match &self.consume().kind {
+            TokenKind::LeftArrow => Ok(DefinitionKind::Red),
+            TokenKind::LeftCurlyArrow => Ok(DefinitionKind::Green),
+            other => Err(CompilationError::new_localized(
+                format!("'{}' is not a valid assignment operator.", other),
+                start_span.clone(),
+            )),
+        }?;
+
+        Ok(kind)
     }
 
     /// Parse variable assignment statement.
@@ -500,15 +512,7 @@ impl Parser {
             )),
         }?;
 
-        let kind = match &self.consume().kind {
-            TokenKind::LeftArrow => Ok(DefinitionKind::Red),
-            TokenKind::LeftCurlyArrow => Ok(DefinitionKind::Green),
-            other => Err(CompilationError::new_localized(
-                format!("'{}' is not a valid assignment operator.", other),
-                start_span.clone(),
-            )),
-        }?;
-
+        let kind = self.parse_assignment_operator()?;
         let expr = self.parse_expression()?;
 
         self.consume_and_expect(TokenKind::Semicolon)?;
@@ -610,6 +614,7 @@ impl Parser {
                     Ok(VariableType::Counter((type_, Box::new(limit_expr))))
                 }
                 "reg" => {
+                    // TODO: Remove
                     self.consume_and_expect(TokenKind::LeftParen)?;
                     let n = self.consume_number()?;
                     self.consume_and_expect(TokenKind::RightParen)?;
@@ -1466,6 +1471,73 @@ impl Parser {
         }
 
         Ok(BlockLinkExpression::new(block, inputs))
+    }
+
+    fn parse_tuple_definition_statement(&mut self) -> Result<Statement, CompilationError> {
+        let start_token = self.consume_and_expect(TokenKind::LeftParen)?;
+        let mut vars = vec![];
+
+        while self.current().kind != TokenKind::RightParen {
+            let var = self.parse_variable_declaration()?;
+            vars.push(Rc::new(var));
+            self.consume_if(TokenKind::Comma);
+        }
+
+        self.consume();
+
+        let def_kind = self.parse_assignment_operator()?;
+
+        let block_name = self.consume_word()?.to_string();
+
+        let block = self.search_blocks(&block_name).ok_or_else(|| {
+            CompilationError::new_localized(
+                format!("Block '{}' not defined.", block_name),
+                self.peak(-1).span.clone(),
+            )
+        })?;
+
+        let block_link = self.parse_block_link(block)?;
+
+        self.consume_and_expect(TokenKind::Semicolon)?;
+
+        let block_outputs = block_link.block.outputs.clone();
+
+        if block_outputs.len() != vars.len() {
+            return Err(CompilationError::new_localized(
+                format!(
+                    "Cannot assign tuple with {} elements to block '{}', which has {} outputs.",
+                    vars.len(),
+                    block_name,
+                    block_outputs.len()
+                ),
+                self.peak(-1).span.clone(),
+            ));
+        }
+
+        let mut defs = vec![];
+
+        for i in 0..vars.len() {
+            let var = vars[i].clone();
+            let block_output = &block_outputs[i];
+
+            let def = OutputAssignment {
+                variable: var,
+                block_variable: block_output.clone(),
+            };
+
+            defs.push(def);
+        }
+
+        let kind = StatementKind::TupleDefinitionDeclaration(TupleDefinitionDeclaration {
+            defs,
+            block_link,
+            def_kind,
+        });
+
+        Ok(Statement::new(
+            kind,
+            TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
+        ))
     }
 
     fn get_span_from(&self, start_span: &TextSpan) -> TextSpan {

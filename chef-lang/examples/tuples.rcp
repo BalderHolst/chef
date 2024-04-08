@@ -1,0 +1,8 @@
+block create_obj() => (a: int, b: int) {
+    a <- 20;
+    b <- 40;
+}
+
+block main() => (out: int(signal-O)) {
+    (a: int, b: int) <- create_obj();
+}

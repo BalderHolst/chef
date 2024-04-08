@@ -184,6 +184,7 @@ pub enum StatementKind {
     Declaration(Declaration),
     DeclarationDefinition(DeclarationDefinition),
     Definition(Definition),
+    TupleDefinitionDeclaration(TupleDefinitionDeclaration),
     Error,
 }
 
@@ -196,6 +197,7 @@ pub enum VariableType {
     Many,
     Counter((VariableSignalType, Box<Expression>)),
     Register(u16),
+    Tuple(Vec<VariableType>),
 }
 
 impl VariableType {
@@ -208,6 +210,7 @@ impl VariableType {
             VariableType::Many => "many".to_string(),
             VariableType::Counter(_) => "counter".to_string(),
             VariableType::Register(_) => "register".to_string(),
+            VariableType::Tuple(_) => "tuple".to_string(),
         }
     }
 
@@ -219,6 +222,7 @@ impl VariableType {
             VariableType::Many => ExpressionReturnType::Many,
             VariableType::Counter(_) => ExpressionReturnType::Int,
             VariableType::Register(_) => ExpressionReturnType::Many,
+            VariableType::Tuple(_) => todo!(),
         }
     }
 
@@ -230,6 +234,7 @@ impl VariableType {
             VariableType::Many => None,
             VariableType::Counter((s, _lim)) => Some(s),
             VariableType::Register(_) => None,
+            VariableType::Tuple(_) => todo!(),
         }
     }
 
@@ -384,6 +389,19 @@ impl From<DeclarationDefinition> for Definition {
             kind: value.kind,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OutputAssignment {
+    variable: Rc<Variable>,
+    block_variable: Rc<Variable>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TupleDefinitionDeclaration {
+    defs: Vec<OutputAssignment>,
+    block_link: BlockLinkExpression,
+    def_kind: DefinitionKind,
 }
 
 /// A chef expression.
@@ -802,6 +820,16 @@ impl Display for VariableType {
             },
             VariableType::Many => "Many".to_string(),
             VariableType::Register(n) => format!("Register({n})"),
+            VariableType::Tuple(items) => {
+                format!(
+                    "Tuple({})",
+                    items
+                        .iter()
+                        .map(|item| item.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            }
         };
         write!(f, "{s}")
     }

@@ -9,7 +9,7 @@ use super::{
     parser::StatementList, BinaryExpression, Block, BlockLinkExpression, Declaration,
     DeclarationDefinition, Definition, DelayExpression, Expression, ExpressionKind,
     IndexExpression, ParenthesizedExpression, PickExpression, SizeOfExpression, Statement,
-    StatementKind, VariableRef, WhenStatement,
+    StatementKind, TupleDefinitionDeclaration, VariableRef, WhenStatement,
 };
 
 // For documentation references
@@ -31,6 +31,9 @@ pub trait Visitor {
             }
             StatementKind::When(when) => {
                 self.visit_when_statement(when);
+            }
+            StatementKind::TupleDefinitionDeclaration(tuple_dec_def) => {
+                self.visit_tuple_definition_declaration_statement(tuple_dec_def);
             }
             StatementKind::Error => {
                 self.visit_error_statement();
@@ -162,6 +165,13 @@ pub trait Visitor {
         }
     }
 
+    fn visit_tuple_definition_declaration_statement(
+        &mut self,
+        tuple_dec_def: &TupleDefinitionDeclaration,
+    ) {
+        self.visit_block_link(&tuple_dec_def.block_link)
+    }
+
     fn visit_statement_list(&mut self, sl: &StatementList) {
         for s in &sl.statements {
             self.visit_statement(s);
@@ -195,6 +205,9 @@ pub trait MutVisitor {
             }
             StatementKind::When(when) => {
                 self.visit_when_statement(when);
+            }
+            StatementKind::TupleDefinitionDeclaration(tuple_dec_def) => {
+                self.visit_tuple_definition_declaration_statement(tuple_dec_def);
             }
             StatementKind::Error => {
                 self.visit_error_statement();
@@ -324,6 +337,13 @@ pub trait MutVisitor {
         for statement in &mut when.statements {
             self.visit_statement(statement);
         }
+    }
+
+    fn visit_tuple_definition_declaration_statement(
+        &mut self,
+        tuple_dec_def: &mut TupleDefinitionDeclaration,
+    ) {
+        self.visit_block_link(&mut tuple_dec_def.block_link)
     }
 
     fn visit_statement_list(&mut self, sl: &mut StatementList) {
