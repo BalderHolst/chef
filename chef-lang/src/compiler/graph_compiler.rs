@@ -714,7 +714,6 @@ impl GraphCompiler {
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
             VariableType::Many => LooseSig::Many,
-            VariableType::Register(_) => LooseSig::Many, // TODO: make dependent on the type of input
         }
     }
 

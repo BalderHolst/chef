@@ -165,7 +165,7 @@ impl Parser {
         }
     }
 
-    fn consume_number(&mut self) -> CompilationResult<u16> {
+    fn _consume_number(&mut self) -> CompilationResult<u16> {
         let token = self.consume();
         if let TokenKind::Number(n) = &token.kind {
             Ok(*n)
@@ -447,12 +447,6 @@ impl Parser {
                 self.add_var_to_scope(var.clone());
                 return Ok(StatementKind::Declaration(Declaration::new(var)));
             }
-            VariableType::Register(_) => {
-                let var = Rc::new(variable.clone());
-                self.add_var_to_scope(var.clone());
-                self.consume_and_expect(TokenKind::Semicolon)?;
-                return Ok(StatementKind::Declaration(Declaration::new(var)));
-            }
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
             VariableType::Many => {}
@@ -611,13 +605,6 @@ impl Parser {
                     let limit_expr = self.parse_expression()?;
                     self.consume_and_expect(TokenKind::RightParen)?;
                     Ok(VariableType::Counter((type_, Box::new(limit_expr))))
-                }
-                "reg" => {
-                    // TODO: Remove
-                    self.consume_and_expect(TokenKind::LeftParen)?;
-                    let n = self.consume_number()?;
-                    self.consume_and_expect(TokenKind::RightParen)?;
-                    Ok(VariableType::Register(n))
                 }
                 w => Err(CompilationError::new_localized(
                     format!("Unknown type `{}`.", w),

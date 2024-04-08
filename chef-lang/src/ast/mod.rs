@@ -196,7 +196,6 @@ pub enum VariableType {
     Var(VariableSignalType),
     Many,
     Counter((VariableSignalType, Box<Expression>)),
-    Register(u16),
 }
 
 impl VariableType {
@@ -208,7 +207,6 @@ impl VariableType {
             VariableType::Var(_) => "var".to_string(),
             VariableType::Many => "many".to_string(),
             VariableType::Counter(_) => "counter".to_string(),
-            VariableType::Register(_) => "register".to_string(),
         }
     }
 
@@ -219,7 +217,6 @@ impl VariableType {
             VariableType::Var(_) => ExpressionReturnType::Int,
             VariableType::Many => ExpressionReturnType::Many,
             VariableType::Counter(_) => ExpressionReturnType::Int,
-            VariableType::Register(_) => ExpressionReturnType::Many,
         }
     }
 
@@ -230,7 +227,6 @@ impl VariableType {
             VariableType::Var(s) => Some(s),
             VariableType::Many => None,
             VariableType::Counter((s, _lim)) => Some(s),
-            VariableType::Register(_) => None,
         }
     }
 
@@ -309,10 +305,6 @@ pub struct VariableRef {
 impl VariableRef {
     fn new(var: Rc<Variable>, span: TextSpan) -> Self {
         Self { var, span }
-    }
-
-    pub fn type_(&self) -> VariableType {
-        self.var.type_.clone()
     }
 
     pub fn return_type(&self) -> ExpressionReturnType {
@@ -824,7 +816,6 @@ impl Display for VariableType {
                 VariableSignalType::Any => "Counter(Any)".to_string(),
             },
             VariableType::Many => "Many".to_string(),
-            VariableType::Register(n) => format!("Register({n})"),
         };
         write!(f, "{s}")
     }
