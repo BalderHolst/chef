@@ -13,9 +13,17 @@ where
     for (nid, node) in &graph.vertices {
         let color = match node {
             super::graph::Node::Inner => "white",
-            super::graph::Node::InputVariable { kind: _, name: _ } => "lightgreen",
+            super::graph::Node::InputVariable {
+                kind: _,
+                name: _,
+                nr: _,
+            } => "lightgreen",
             super::graph::Node::Variable { kind: _, name: _ } => "lightblue",
-            super::graph::Node::Output { kind: _, name: _ } => "orange",
+            super::graph::Node::Output {
+                kind: _,
+                name: _,
+                nr: _,
+            } => "orange",
             super::graph::Node::Constant(_) => "lightgray",
         };
 

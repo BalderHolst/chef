@@ -395,6 +395,7 @@ mod tests {
         let output = g.push_node(Node::Output {
             kind: DetSig::Signal(t.to_string()),
             name: "out".to_string(),
+            nr: 0,
         });
         g.push_wire(const_nid, c1);
         g.push_wire(c1, c2);

@@ -59,11 +59,12 @@ impl<'a> AnysignalAssigner<'a> {
         for (nid, node) in ass.input_graph.nodes() {
             let new_node = match node {
                 Node::Inner => Node::Inner,
-                Node::InputVariable { kind, name } => {
+                Node::InputVariable { kind, name, nr } => {
                     let kind = ass.assign_sig(kind);
                     Node::InputVariable {
                         kind,
                         name: name.clone(),
+                        nr: *nr,
                     }
                 }
                 Node::Variable { kind, name } => {
@@ -73,11 +74,12 @@ impl<'a> AnysignalAssigner<'a> {
                         name: name.clone(),
                     }
                 }
-                Node::Output { kind, name } => {
+                Node::Output { kind, name, nr } => {
                     let kind = ass.assign_sig(kind);
                     Node::Output {
                         kind,
                         name: name.clone(),
+                        nr: *nr,
                     }
                 }
                 Node::Constant(t) => {

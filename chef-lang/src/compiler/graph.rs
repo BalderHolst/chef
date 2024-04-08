@@ -480,6 +480,9 @@ pub enum Node<S> {
     InputVariable {
         kind: S,
         name: String,
+
+        /// Used to figure out order of block inputs
+        nr: usize,
     },
 
     /// Variable node that is integrated in the graph
@@ -494,6 +497,9 @@ pub enum Node<S> {
     Output {
         kind: S,
         name: String,
+
+        /// Used to figure out order of block inputs
+        nr: usize,
     },
 
     // TODO: Maybe this should just contain the constant and not a generic iotype?
@@ -516,6 +522,8 @@ where
     pub vertices: FnvHashMap<NId, Node<S>>,
     pub adjacency: FnvHashMap<NId, Vec<(NId, Connection<S>)>>,
     pub next_nid: NId,
+    next_input_nr: usize,
+    next_output_nr: usize,
 }
 
 impl<S> Default for Graph<S>
@@ -537,6 +545,8 @@ where
             vertices: FnvHashMap::default(),
             adjacency: FnvHashMap::default(),
             next_nid: 0,
+            next_input_nr: 0,
+            next_output_nr: 0,
         }
     }
 
@@ -649,6 +659,18 @@ where
     //     }
     // }
 
+    fn get_next_input_nr(&mut self) -> usize {
+        let n = self.next_input_nr;
+        self.next_input_nr += 1;
+        n
+    }
+
+    fn get_next_output_nr(&mut self) -> usize {
+        let n = self.next_output_nr;
+        self.next_output_nr += 1;
+        n
+    }
+
     pub fn get_input_iotypes(&self, nid: &NId) -> Vec<(S, WireKind)> {
         let green_network_nids = self.get_node_network(nid, WireKind::Green);
         let red_network_nids = self.get_node_network(nid, WireKind::Red);
@@ -669,12 +691,22 @@ where
 
         // Check for INPUT nodes in network
         for other_id in &green_network_nids {
-            if let Some(Node::InputVariable { kind, name: _ }) = self.get_node(other_id) {
+            if let Some(Node::InputVariable {
+                kind,
+                name: _,
+                nr: _,
+            }) = self.get_node(other_id)
+            {
                 input_types.push((kind.clone(), WireKind::Green))
             }
         }
         for other_id in &red_network_nids {
-            if let Some(Node::InputVariable { kind, name: _ }) = self.get_node(other_id) {
+            if let Some(Node::InputVariable {
+                kind,
+                name: _,
+                nr: _,
+            }) = self.get_node(other_id)
+            {
                 input_types.push((kind.clone(), WireKind::Red))
             }
         }
@@ -789,9 +821,11 @@ where
 
     /// Push a node of type [InputNode].
     pub fn push_input_node(&mut self, name: String, variable_type: S) -> NId {
+        let nr = self.get_next_input_nr();
         self.push_node(Node::InputVariable {
             kind: variable_type,
             name,
+            nr,
         })
     }
 
@@ -801,9 +835,11 @@ where
     }
 
     pub fn push_output_node(&mut self, name: String, output_type: S) -> NId {
+        let nr = self.get_next_output_nr();
         self.push_node(Node::Output {
             kind: output_type,
             name,
+            nr,
         })
     }
 
@@ -887,22 +923,30 @@ where
     pub fn get_input_nodes(&self) -> Vec<(String, NId, &S)> {
         let mut inputs = vec![];
         for (nid, node) in &self.vertices {
-            if let Node::InputVariable { kind, name } = node {
-                inputs.push((name.clone(), *nid, kind));
+            if let Node::InputVariable { kind, name, nr } = node {
+                inputs.push((name.clone(), *nid, kind, *nr));
             }
         }
+        inputs.sort_by(|a, b| a.3.cmp(&b.3));
         inputs
+            .iter()
+            .map(|(name, nid, sig, _nr)| (name.clone(), *nid, *sig))
+            .collect()
     }
 
     /// Get all nodes of type [OutputNode].
     pub fn get_output_nodes(&self) -> Vec<(String, NId)> {
         let mut outputs: Vec<_> = vec![];
         for (nid, node) in &self.vertices {
-            if let Node::Output { kind: _, name } = node {
-                outputs.push((name.clone(), *nid));
+            if let Node::Output { kind: _, name, nr } = node {
+                outputs.push((name.clone(), *nid, nr));
             }
         }
+        outputs.sort_by(|a, b| a.2.cmp(&b.2));
         outputs
+            .iter()
+            .map(|(name, nid, _nr)| (name.clone(), *nid))
+            .collect()
     }
 
     pub fn is_wire_only_node(&self, nid: NId) -> bool {
@@ -927,9 +971,17 @@ where
             }
             let repr = match node {
                 Node::Inner => "INNER",
-                Node::InputVariable { kind: _, name: _ } => "INPUT_VAR",
+                Node::InputVariable {
+                    kind: _,
+                    name: _,
+                    nr: _,
+                } => "INPUT_VAR",
                 Node::Variable { kind: _, name: _ } => "VAR",
-                Node::Output { kind: _, name: _ } => "OUTPUT",
+                Node::Output {
+                    kind: _,
+                    name: _,
+                    nr: _,
+                } => "OUTPUT",
                 Node::Constant(_) => "CONST",
             };
             println!("\t\t{} : {} : {:?}", nid, repr, self.get_input_iotypes(nid))
@@ -951,8 +1003,6 @@ where
 
     /// Stitch another graph into this one. Returns a vector of outputs os the newly stitched in
     /// graph.
-    /// NOTE: Order in inputs vector matter. The first input is the first argument to the block.
-    #[allow(clippy::single_match)]
     pub fn stitch_graph(
         &mut self,
         sub: &Graph<S>,              // The other graph
@@ -961,7 +1011,7 @@ where
         // Hash map containing mappings from old to new node ids
         let mut nid_converter: fnv::FnvHashMap<NId, NId> = fnv::FnvHashMap::default();
 
-        let mut sub_outputs: FnvHashMap<NId, S> = FnvHashMap::default();
+        let mut sub_outputs = vec![];
 
         // Copy nodes from the other graph and assign them new ids.
         for (old_nid, node) in sub.vertices.clone() {
@@ -976,11 +1026,15 @@ where
             if let Node::Output {
                 kind: output_type,
                 name: _,
+                nr,
             } = node
             {
-                sub_outputs.insert(new_nid, output_type);
+                sub_outputs.push((new_nid, output_type, nr));
             }
         }
+
+        // Sort the new outputs to make sure their order matches their definition
+        sub_outputs.sort_by(|a, b| a.2.cmp(&b.2));
 
         // Copy connections
         for (old_from_nid, old_to_nid, conn) in sub.iter_conns() {
@@ -1024,7 +1078,7 @@ where
 
         Ok(sub_outputs
             .iter()
-            .map(|(nid, type_o)| (*nid, type_o.clone()))
+            .map(|(out_nid, out_type, _nr)| (*out_nid, out_type.clone()))
             .collect())
     }
 }
