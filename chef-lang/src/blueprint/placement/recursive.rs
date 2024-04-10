@@ -26,6 +26,7 @@ pub struct RecursivePlacer {
     placed_positions: HashSet<TilePos>,
     max_width: usize,
     next_entity_number: EntityNumber,
+    is_pole: fn(&TilePos) -> bool,
 }
 
 enum PlacementResult {
@@ -34,7 +35,8 @@ enum PlacementResult {
 }
 
 impl RecursivePlacer {
-    pub fn new(graph: Graph) -> Self {
+    pub fn new(graph: Graph, is_pole: fn(&TilePos) -> bool) -> Self
+where {
         let operations: Vec<_> = graph.iter_ops().collect();
         let max_width = (r64(operations.len() as f64 * 1.8).sqrt()).ceil().raw() as usize;
         Self {
@@ -45,11 +47,16 @@ impl RecursivePlacer {
             placed_positions: HashSet::new(),
             max_width,
             next_entity_number: EntityNumber::try_from(1).unwrap(),
+            is_pole,
         }
     }
 
     fn tile_is_occupied(&self, tile: &TilePos) -> bool {
-        self.placed_positions.get(tile).is_some()
+        self.placed_positions.get(tile).is_some() || (self.is_pole)(tile)
+    }
+
+    fn place_combinators(&mut self) -> PlacementResult {
+        self.try_place_combinator(0, 0, 0)
     }
 
     fn try_place_combinator(
@@ -250,13 +257,13 @@ impl RecursivePlacer {
 
 impl super::Placer for RecursivePlacer {
     fn place(graph: Graph) -> Vec<fbo::Entity> {
-        let mut placer = RecursivePlacer::new(graph);
+        let mut placer = RecursivePlacer::new(graph, |(x, y)| x % 6 == 3 && y % 6 == 3);
 
         // TODO: Place input combinators
 
         // TODO: Place output combinators
 
-        match placer.try_place_combinator(0, 0, 0) {
+        match placer.place_combinators() {
             PlacementResult::NotPossible => panic!("Could not place entities."),
             PlacementResult::Success => (),
         }
