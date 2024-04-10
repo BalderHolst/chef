@@ -12,7 +12,9 @@ use crate::{
     compiler::graph::{NId, WireKind},
 };
 
-use super::{utils::is_in_range, TilePos};
+use super::utils::is_in_range;
+
+type TilePos = (usize, usize);
 
 const MAX_TRIES: usize = 100;
 
@@ -22,7 +24,7 @@ pub struct RecursivePlacer {
     op_cursor: usize,
     placed_entities: Vec<Box<dyn CircuitEntity>>,
     placed_positions: HashSet<TilePos>,
-    max_width: i64,
+    max_width: usize,
     next_entity_number: EntityNumber,
 }
 
@@ -34,7 +36,7 @@ enum PlacementResult {
 impl RecursivePlacer {
     pub fn new(graph: Graph) -> Self {
         let operations: Vec<_> = graph.iter_ops().collect();
-        let max_width = (r64(operations.len() as f64 * 1.8).sqrt()).ceil().raw() as i64;
+        let max_width = (r64(operations.len() as f64 * 1.8).sqrt()).ceil().raw() as usize;
         Self {
             graph,
             operations,
@@ -50,7 +52,12 @@ impl RecursivePlacer {
         self.placed_positions.get(tile).is_some()
     }
 
-    fn try_place_combinator(&mut self, x: i64, y: i64, cursor_offset: usize) -> PlacementResult {
+    fn try_place_combinator(
+        &mut self,
+        x: usize,
+        y: usize,
+        cursor_offset: usize,
+    ) -> PlacementResult {
         if self.op_cursor - cursor_offset >= self.operations.len() {
             return PlacementResult::Success;
         }
@@ -207,8 +214,8 @@ impl RecursivePlacer {
         let first_available_y = y;
 
         for n in 1..MAX_TRIES {
-            let next_x = (first_available_x + n as i64) % self.max_width;
-            let next_y = (first_available_y + n as i64) / self.max_width;
+            let next_x = (first_available_x + n) % self.max_width;
+            let next_y = (first_available_y + n) / self.max_width;
 
             let last_placed_pos = match self.placed_entities.last() {
                 Some(c) => c.output_pos(), // TODO: Maybe get center pos?
