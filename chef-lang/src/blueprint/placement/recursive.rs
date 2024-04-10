@@ -55,8 +55,6 @@ impl RecursivePlacer {
             return PlacementResult::Success;
         }
 
-        println!("Trying to place combinator at ({}, {})", x, y);
-
         let (input_nid, output_nid, operation) = self.operations[self.op_cursor].clone();
 
         let input_tile = (x, y * 2);
@@ -72,7 +70,6 @@ impl RecursivePlacer {
         );
 
         if self.tile_is_occupied(&(input_tile)) || self.tile_is_occupied(&(output_tile)) {
-            println!("Tile is occupied");
             return PlacementResult::NotPossible;
         }
 
@@ -219,16 +216,12 @@ impl RecursivePlacer {
             };
 
             if !is_in_range(&(r64(next_x as f64), r64(next_y as f64)), &last_placed_pos) {
-                println!("Out of range");
                 return PlacementResult::NotPossible;
             }
 
             match self.try_place_combinator(next_x, next_y, cursor_offset) {
                 PlacementResult::NotPossible => continue,
-                PlacementResult::Success => {
-                    println!("Success at ({}, {})", next_x, next_y);
-                    return PlacementResult::Success;
-                }
+                PlacementResult::Success => return PlacementResult::Success,
             }
         }
 
@@ -238,7 +231,6 @@ impl RecursivePlacer {
         self.placed_positions.remove(&input_tile);
         self.placed_positions.remove(&output_tile);
 
-        println!("Ran out of tries");
         PlacementResult::NotPossible
     }
 
@@ -258,8 +250,8 @@ impl super::Placer for RecursivePlacer {
         // TODO: Place output combinators
 
         match placer.try_place_combinator(0, 0, 0) {
-            PlacementResult::NotPossible => println!("NOT POSSIBLE"),
-            PlacementResult::Success => println!("DONE"),
+            PlacementResult::NotPossible => panic!("Could not place entities."),
+            PlacementResult::Success => (),
         }
 
         placer

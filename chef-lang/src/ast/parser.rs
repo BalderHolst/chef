@@ -765,8 +765,6 @@ impl Parser {
         }
 
         loop {
-            println!("current: {:?}", self.current().kind);
-
             match self.parse_expression() {
                 Ok(expr) => inputs.push(BlockLinkArg::Expr(expr)),
                 Err(e) => match self.parse_literal_block_link_argument() {
