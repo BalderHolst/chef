@@ -761,7 +761,7 @@ where
         self.vertices.iter().map(|(nid, node)| (*nid, node))
     }
 
-    pub fn iter_combinators(&self) -> impl Iterator<Item = (NId, NId, Operation<S>)> + '_ {
+    pub fn iter_ops(&self) -> impl Iterator<Item = (NId, NId, Operation<S>)> + '_ {
         self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
             to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
                 Connection::Operation(com) => Some((*from_nid, *to_nid, com.clone())),

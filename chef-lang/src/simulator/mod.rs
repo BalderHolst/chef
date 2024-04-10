@@ -196,7 +196,7 @@ impl Simulator {
     fn step(&mut self) {
         let mut new_contents = self.constant_inputs.clone();
 
-        for (from_nid, to_nid, conn) in self.graph.iter_combinators() {
+        for (from_nid, to_nid, conn) in self.graph.iter_ops() {
             let from_network_ids = self
                 .networks
                 .get(&from_nid)

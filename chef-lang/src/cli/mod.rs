@@ -86,7 +86,7 @@ pub struct CookOpts {
     pub(crate) fgraph: Option<String>,
 
     /// Choose the placering algorithm.
-    #[arg(short('p'), long, default_value = "turd-master2000")]
+    #[arg(short('p'), long, default_value = "recursive")]
     pub placer: PlacerName,
 
     /// Be verbose

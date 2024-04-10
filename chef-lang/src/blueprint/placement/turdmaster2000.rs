@@ -253,7 +253,7 @@ impl super::Placer for TurdMaster2000 {
         }
 
         // Place combinators
-        let coms: Vec<_> = placer.graph.iter_combinators().collect();
+        let coms: Vec<_> = placer.graph.iter_ops().collect();
         'next_combinator: for (input_nid, output_nid, operation) in coms {
             for y in placer.min_y - 1..=placer.max_y + 1 {
                 for x in placer.min_x - 1..=placer.max_x + 1 {
