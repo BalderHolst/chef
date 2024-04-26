@@ -2,7 +2,7 @@ name: Check chef-lang
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "**" ]
   pull_request:
     branches: [ "main" ]
 
@@ -10,29 +10,65 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path chef-lang/Cargo.toml 
+
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: cachix/install-nix-action@v18
-      with:
-        nix_path: nixpkgs=channel:nixos-unstable
-    - uses: actions/checkout@v3
-    - name: Build
-      run: nix develop --command sh -c "make build"
-    - name: Run language tests
-      run: nix develop --command sh -c "make test-lang"
-    - name: Run python module tests
-      run: nix develop --command sh -c "make test-python"
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: set pythonpath
+        run: |
+          echo "PYTHONPATH=${{ github.workspace }}/chef-python/src" >> $GITHUB_ENV
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path chef-lang/Cargo.toml 
 
   clippy:
     runs-on: ubuntu-latest
     steps:
-        - uses: actions/checkout@v3
-        - uses: dtolnay/rust-toolchain@stable
-          with:
-              components: clippy
-        - name: run clippy
-          run: cargo clippy --manifest-path chef-lang/Cargo.toml -- --deny warnings
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+          override: true
+      - name: Run clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --manifest-path chef-lang/Cargo.toml -- --deny warnings
 
   rustfmt:
     runs-on: ubuntu-latest
