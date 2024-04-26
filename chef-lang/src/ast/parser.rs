@@ -49,7 +49,10 @@ enum Constant {
 
 enum Directive {
     Block(Block),
+
+    #[allow(dead_code)]
     DynBlock(DynBlock),
+
     Constant,
     Unknown,
 }

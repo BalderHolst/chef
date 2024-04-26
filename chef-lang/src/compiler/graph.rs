@@ -942,7 +942,7 @@ where
                 outputs.push((name.clone(), *nid, nr));
             }
         }
-        outputs.sort_by(|a, b| a.2.cmp(&b.2));
+        outputs.sort_by(|a, b| a.2.cmp(b.2));
         outputs
             .iter()
             .map(|(name, nid, _nr)| (name.clone(), *nid))

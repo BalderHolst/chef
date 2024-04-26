@@ -350,9 +350,9 @@ pub enum DefinitionKind {
     Green,
 }
 
-impl Into<crate::compiler::graph::WireKind> for DefinitionKind {
-    fn into(self) -> crate::compiler::graph::WireKind {
-        match self {
+impl From<DefinitionKind> for crate::compiler::graph::WireKind {
+    fn from(val: DefinitionKind) -> Self {
+        match val {
             DefinitionKind::Red => crate::compiler::graph::WireKind::Red,
             DefinitionKind::Green => crate::compiler::graph::WireKind::Green,
         }

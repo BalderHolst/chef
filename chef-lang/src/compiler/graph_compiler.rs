@@ -246,7 +246,7 @@ impl GraphCompiler {
         &mut self,
         graph: &mut Graph<LooseSig>,
         tuple_dec_def: TupleDeclarationDefinition,
-        gate: Option<(NId, LooseSig)>,
+        _gate: Option<(NId, LooseSig)>,
     ) -> Result<(), CompilationError> {
         let block_link = tuple_dec_def.block_link;
 
@@ -265,7 +265,7 @@ impl GraphCompiler {
             ));
         }
 
-        for i in 0..output_nodes.len() {
+        for (i, _) in output_nodes.iter().enumerate() {
             let (output_nid, out_type) = &output_nodes[i];
             let def = &tuple_dec_def.defs[i];
             let var = &def.variable;
@@ -390,7 +390,7 @@ impl GraphCompiler {
         let var = var_ref.var.clone();
         let (var_ref_nid, var_type) = self
             .search_scope(var.id)
-            .expect(&format!("Variable references should always point to defined variables. Could not find var '{}' with id {}.", var.name, var.id));
+            .unwrap_or_else(|| panic!("Variable references should always point to defined variables. Could not find var '{}' with id {}.", var.name, var.id));
 
         match out_type {
             Some(out_type) => {
