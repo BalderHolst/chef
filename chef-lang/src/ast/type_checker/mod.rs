@@ -3,6 +3,9 @@
 // TODO: Check that blocks are called with the correct arguments
 // TODO: Check for reserved signals. See RESERVED_GATE_SIGNAL.
 
+#[cfg(test)]
+mod tests;
+
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
 use super::{
@@ -56,6 +59,19 @@ impl Visitor for TypeChecker {
     fn visit_index_expression(&mut self, _expr: &super::IndexExpression) {}
 
     fn visit_declaration_definition(&mut self, assignment: &super::DeclarationDefinition) {
+        // Make sure variables are only assign expressions returning their type
+        let var_type = assignment.variable.return_type();
+        let expr_type = &assignment.expression.return_type();
+        if var_type != *expr_type {
+            self.diagnostics_bag.borrow_mut().report_error(
+                &assignment.expression.span,
+                &format!(
+                    "Can not assign expression returning `{}` type to variable `{}` of type `{}`.",
+                    expr_type, assignment.variable.name, var_type
+                ),
+            );
+        }
+
         if let Some(sig) = assignment.variable.type_.signal() {
             self.report_if_invalid_signal(sig.as_str(), &assignment.variable.span)
         }
@@ -119,21 +135,6 @@ impl Visitor for TypeChecker {
     }
 
     fn visit_statement(&mut self, statement: &super::Statement) {
-        // Make sure variables are only assign expressions returning their type
-        if let StatementKind::DeclarationDefinition(assignment) = &statement.kind {
-            let var_type = assignment.variable.return_type();
-            let expr_type = &assignment.expression.return_type();
-            if var_type != *expr_type {
-                self.diagnostics_bag.borrow_mut().report_error(
-                    &assignment.expression.span,
-                    &format!(
-                        "Can not assign expression returning `{}` type to variable `{}` of type `{}`.",
-                        expr_type, assignment.variable.name, var_type
-                    ),
-                );
-            }
-        }
-
         self.do_visit_statement(statement);
     }
 
@@ -158,57 +159,5 @@ impl Visitor for TypeChecker {
         }
 
         self.do_visit_block(block);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pretty_assertions::assert_eq;
-
-    #[ignore = "Not implemented"]
-    #[test]
-    fn check_return_types() {
-        let (_, bag) = AST::from_str(
-            "
-            block main() => (out: bool) {
-                out <- 10;
-            }
-            ",
-        );
-        let m_bag = bag.borrow_mut();
-        m_bag.print();
-        assert_eq!(m_bag.error_count(), 1);
-    }
-
-    #[test]
-    fn check_assignment_types() {
-        let (_, bag) = AST::from_str(
-            "
-            block main() => (out: bool) {
-                a: int <- false;
-                out <- a;
-            }
-            ",
-        );
-        let m_bag = bag.borrow_mut();
-        m_bag.print();
-        assert_eq!(m_bag.error_count(), 2);
-    }
-
-    #[ignore = "Not implemented"]
-    #[test]
-    fn check_expression_types() {
-        let (_, bag) = AST::from_str(
-            "
-        block main() => (out: int) {
-            b: int <- 5 + false * 10;
-            out <- b;
-        }
-        ",
-        );
-        let m_bag = bag.borrow_mut();
-        m_bag.print();
-        assert!(m_bag.error_count() == 1);
     }
 }
