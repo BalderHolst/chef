@@ -47,7 +47,7 @@ block main(input: many) => (out: int(inserter)) {
 
     let mut sim = Simulator::new(graph, inputs!["signal-B": 100]);
 
-    sim.dump_simulation(10, "sim");
+    sim.simulate(10);
 
     let outputs = sim.get_output();
 
