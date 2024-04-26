@@ -51,6 +51,9 @@ jobs:
         with:
           command: test
           args: --manifest-path chef-lang/Cargo.toml 
+      - name: Run python tests
+        run: |
+          python "${{ github.workspace }}/chef-python/test.py"
 
   clippy:
     runs-on: ubuntu-latest
