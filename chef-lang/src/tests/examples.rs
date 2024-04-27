@@ -1,1 +1,1 @@
-proc_macros::make_example_tests!();
+make_tests::make_example_tests!();

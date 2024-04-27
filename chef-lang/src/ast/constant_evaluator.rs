@@ -89,7 +89,7 @@ impl MutVisitor for ConstantEvaluator {
     fn visit_error_statement(&mut self) {}
     fn visit_number(&mut self, _number: &mut i32) {}
     fn visit_bool(&mut self, _bool: &mut bool) {}
-    fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
+    fn visit_variable_ref(&mut self, _var: &mut super::VariableRef) {}
     fn visit_error_expression(&mut self) {}
 
     // fn visit_negative_expression(&mut self, expr: &mut Box<Expression>) {

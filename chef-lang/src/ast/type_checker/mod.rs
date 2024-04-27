@@ -8,9 +8,7 @@ mod tests;
 
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
-use super::{
-    visitors::Visitor, ExpressionKind, ExpressionReturnType, StatementKind, VariableSignalType, AST,
-};
+use super::{visitors::Visitor, ExpressionKind, ExpressionReturnType, VariableSignalType, AST};
 
 /// Type check an [AST].
 pub fn check(ast: &AST, diagnostics_bag: DiagnosticsBagRef) {

@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "proc_macros"
+name = "make_tests"
 version = "0.1.0"

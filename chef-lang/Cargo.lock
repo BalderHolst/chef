@@ -145,10 +145,11 @@ dependencies = [
  "graphviz-rust",
  "jsonxf",
  "lazy_static",
+ "make_tests",
+ "make_visitors",
  "noisy_float",
  "pretty_assertions",
  "prettydiff",
- "proc_macros",
  "rand",
  "serde_json",
  "termion",
@@ -503,9 +504,9 @@ dependencies = [
 
 [[package]]
 name = "graphviz-rust"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d3adbad2800805b14170067aee88336e12838823086b6a4f70ca8dfb5d971f3"
+checksum = "8c33d03804e2ce21db5821f2beb4e54f844a8f90326e6bd99a1771dc54aef427"
 dependencies = [
  "dot-generator",
  "dot-structures",
@@ -672,6 +673,17 @@ name = "log"
 version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
+
+[[package]]
+name = "make_tests"
+version = "0.1.0"
+
+[[package]]
+name = "make_visitors"
+version = "0.1.0"
+dependencies = [
+ "quote",
+]
 
 [[package]]
 name = "malloc_buf"
@@ -953,10 +965,6 @@ checksum = "6aeca18b86b413c660b781aa319e4e2648a3e6f9eadc9b47e9038e6fe9f3451b"
 dependencies = [
  "unicode-ident",
 ]
-
-[[package]]
-name = "proc_macros"
-version = "0.1.0"
 
 [[package]]
 name = "quote"

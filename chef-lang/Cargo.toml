@@ -12,14 +12,15 @@ directories = "5.0.1"
 factorio-blueprint = "0.3.0"
 noisy_float = "0.1" # We need this lower version to interact with 'factorio-blueprint'
 fnv = "1.0.7"
-graphviz-rust = "0.8.0"
+graphviz-rust = "0.9.0"
 lazy_static = "1.4.0"
 rand = "0.8.5"
 termion = "3.0.0"
 serde_json = "1.0"
 jsonxf = "1.1.1"
+make_visitors = { path = "./proc_macros/make_visitors" }
 
 [dev-dependencies]
 prettydiff = "0.6.4"
 pretty_assertions = "1.4.0"
-proc_macros = { path = "./proc_macros" }
+make_tests = { path = "./proc_macros/make_tests" }
