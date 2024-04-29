@@ -89,10 +89,8 @@ impl TypeChecker {
 // TODO: Variable ref
 impl Visitor for TypeChecker {
     fn visit_block_link(&mut self, _block: &super::BlockLinkExpression) {}
-    fn visit_error_statement(&mut self) {}
     fn visit_number(&mut self, _number: &i32) {}
     fn visit_bool(&mut self, _value: &bool) {}
-    fn visit_error_expression(&mut self) {}
 
     fn visit_pick_expression(&mut self, pick: &super::PickExpression) {
         self.report_if_invalid_signal(&pick.pick_signal, &pick.span)

@@ -170,10 +170,6 @@ impl GraphCompiler {
             StatementKind::TupleDeclarationDefinition(tuple_dec_def) => {
                 self.compile_tuple_declaration_definition_statement(graph, tuple_dec_def, gate)?;
             }
-            StatementKind::Error => {
-                // TODO: Remove error statements
-                panic!("There should not be error statements when compilation has started.")
-            }
             StatementKind::When(when_statement) => {
                 self.compile_when_statement(graph, &when_statement)?
             }
@@ -352,16 +348,31 @@ impl GraphCompiler {
         match &expr.kind {
             ExpressionKind::Int(n) => self.compile_constant(graph, *n, out_type),
             ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32, out_type),
-            ExpressionKind::VariableRef(var_ref) => self.compile_variable_ref_expression(graph, var_ref, out_type), // 
-            ExpressionKind::Pick(pick_expr) => self.compile_pick_expression(graph, pick_expr, out_type),
+            ExpressionKind::VariableRef(var_ref) => {
+                self.compile_variable_ref_expression(graph, var_ref, out_type)
+            } //
+            ExpressionKind::Pick(pick_expr) => {
+                self.compile_pick_expression(graph, pick_expr, out_type)
+            }
             ExpressionKind::Index(index_expr) => self.compile_index_expression(graph, index_expr),
-            ExpressionKind::Parenthesized(expr) => self.compile_expression(graph, &expr.expression, out_type),
-            ExpressionKind::Negative(expr) => self.compile_negative_expression(graph, expr, out_type),
-            ExpressionKind::Binary(bin_expr) => self.compile_binary_expression(graph, bin_expr, out_type),
-            ExpressionKind::BlockLink(block_link_expr) =>  self.compile_block_link_expression(graph, block_link_expr, out_type),
-            ExpressionKind::Delay(delay_expr) => self.compile_delay_expression(graph, delay_expr, out_type),
-            ExpressionKind::SizeOf(size_of_expr) => self.compile_size_of_expression(graph, size_of_expr, out_type),
-            ExpressionKind::Error => panic!("No errors shoud exist when compiling, as they should have stopped the after building the AST."),
+            ExpressionKind::Parenthesized(expr) => {
+                self.compile_expression(graph, &expr.expression, out_type)
+            }
+            ExpressionKind::Negative(expr) => {
+                self.compile_negative_expression(graph, expr, out_type)
+            }
+            ExpressionKind::Binary(bin_expr) => {
+                self.compile_binary_expression(graph, bin_expr, out_type)
+            }
+            ExpressionKind::BlockLink(block_link_expr) => {
+                self.compile_block_link_expression(graph, block_link_expr, out_type)
+            }
+            ExpressionKind::Delay(delay_expr) => {
+                self.compile_delay_expression(graph, delay_expr, out_type)
+            }
+            ExpressionKind::SizeOf(size_of_expr) => {
+                self.compile_size_of_expression(graph, size_of_expr, out_type)
+            }
         }
     }
 

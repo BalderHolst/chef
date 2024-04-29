@@ -185,7 +185,6 @@ pub enum StatementKind {
     DeclarationDefinition(DeclarationDefinition),
     Definition(Definition),
     TupleDeclarationDefinition(TupleDeclarationDefinition),
-    Error,
 }
 
 /// Chef variable types.
@@ -433,7 +432,6 @@ impl Expression {
             ExpressionKind::BlockLink(e) => e.return_type(true),
             ExpressionKind::Delay(e) => e.return_type(),
             ExpressionKind::SizeOf(e) => e.return_type(),
-            ExpressionKind::Error => ExpressionReturnType::None,
         }
     }
 
@@ -507,7 +505,6 @@ pub enum ExpressionKind {
     BlockLink(BlockLinkExpression),
     Delay(DelayExpression),
     SizeOf(SizeOfExpression),
-    Error,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -954,14 +951,6 @@ impl Visitor for Printer {
         self.indent();
         self.visit_expression(&expr.expression);
         self.unindent();
-    }
-
-    fn visit_error_statement(&mut self) {
-        self.print("ErrorStatement:")
-    }
-
-    fn visit_error_expression(&mut self) {
-        self.print("ErrorExpression:")
     }
 
     fn visit_pick_expression(&mut self, expr: &PickExpression) {

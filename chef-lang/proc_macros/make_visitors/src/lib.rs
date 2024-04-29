@@ -44,9 +44,6 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                     StatementKind::TupleDeclarationDefinition(tuple_dec_def) => {
                         self.visit_tuple_definition_declaration_statement(tuple_dec_def);
                     }
-                    StatementKind::Error => {
-                        self.visit_error_statement();
-                    }
                 }
             }
 
@@ -84,9 +81,6 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                     }
                     ExpressionKind::SizeOf(expr) => {
                         self.visit_size_of(expr);
-                    }
-                    ExpressionKind::Error => {
-                        self.visit_error_expression();
                     }
                 }
             }
@@ -192,11 +186,9 @@ fn generate_visitor(mutable: bool) -> TokenStream {
 
             fn visit_pick_expression(&mut self, expr: #r PickExpression);
             fn visit_index_expression(&mut self, expr: #r IndexExpression);
-            fn visit_error_statement(&mut self);
             fn visit_number(&mut self, number: #r i32);
             fn visit_bool(&mut self, value: #r bool);
             fn visit_variable_ref(&mut self, var: #r VariableRef);
-            fn visit_error_expression(&mut self);
         }
     }.into()
 }

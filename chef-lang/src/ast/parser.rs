@@ -351,14 +351,6 @@ impl Parser {
         match &start_token.kind {
             TokenKind::Word(word) => {
                 let kind = match word.as_str() {
-                    "int" => {
-                        // TODO: Do we need to disallow this?
-                        self.diagnostics_bag
-                            .borrow_mut()
-                            .report_error(&start_token.span, "A variable cannot be named \"int\"");
-                        self.consume();
-                        Ok(StatementKind::Error)
-                    }
                     "when" => self.parse_when_statement(),
                     _ if self.is_at_declaration_statment() => self.parse_declaration_statement(),
                     _ if self.is_at_definition_statment() => self.parse_definition_statement(),
@@ -1211,6 +1203,8 @@ impl Parser {
                             Ok(Expression::new(ExpressionKind::Bool(b), item_span))
                         }
                     }
+
+                // If it is a block
                 } else if let Some(block) = self.search_blocks(word) {
                     let block_link_expr = self.parse_block_link(block)?;
                     Ok({
@@ -1218,8 +1212,9 @@ impl Parser {
                         let span = self.get_span_from(&start_token.span);
                         Expression { kind, span }
                     })
+
+                // If it is a dyn block
                 } else if let Some(dyn_block) = self.search_dynamic_blocks(word) {
-                    println!("Found dyn block: {}", word);
                     let block_link_expr = self.parse_dyn_block_link(dyn_block)?;
                     Ok({
                         let kind = ExpressionKind::BlockLink(block_link_expr);
@@ -1227,14 +1222,10 @@ impl Parser {
                         Expression { kind, span }
                     })
                 } else {
-                    self.diagnostics_bag
-                        .borrow_mut()
-                        .report_error(&start_token.span, &format!("`{}` not defined.", word));
-                    Ok({
-                        let kind = ExpressionKind::Error;
-                        let span = self.get_span_from(&start_token.span);
-                        Expression { kind, span }
-                    })
+                    Err(CompilationError::new_localized(
+                        format!("`{}` not defined.", word),
+                        start_token.span,
+                    ))
                 }
             }
             TokenKind::LeftParen => {
