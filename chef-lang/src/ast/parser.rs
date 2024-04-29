@@ -1126,12 +1126,25 @@ impl Parser {
                 right = self.parse_binary_expression(Some(right), right_op.precedence())?;
             }
 
+            let return_type = op
+                .return_type(left.return_type(), right.return_type())
+                .map_err(|_| {
+                    CompilationError::new_localized(
+                        format!(
+                            "Invalid operation between `{}` and `{}`.",
+                            left.return_type(),
+                            right.return_type()
+                        ),
+                        TextSpan::from_spans(&left.span, &right.span),
+                    )
+                })?;
+
             left = Expression::new(
                 ExpressionKind::Binary(BinaryExpression {
                     left: Box::new(left.clone()),
                     right: Box::new(right.clone()),
                     operator: op.clone(),
-                    return_type: op.return_type(left.return_type(), right.return_type()),
+                    return_type,
                 }),
                 TextSpan {
                     start: left.span.clone().start,
@@ -1274,13 +1287,15 @@ impl Parser {
 
     fn parse_variable_index(&mut self, var: Rc<Variable>) -> CompilationResult<Expression> {
         let start_span = self.peak(-1).span.clone();
+        let var_span = self.current().span.clone();
         self.consume_and_expect(TokenKind::LeftSquare)?;
         let index_token = self.consume();
 
         let expr_kind = match &index_token.kind {
             TokenKind::Word(signal) => ExpressionKind::Pick(PickExpression::new(
                 signal.to_string(),
-                VariableRef::new(var, self.get_span_from(&start_span)),
+                VariableRef::new(var, var_span),
+                self.get_span_from(&start_span),
             )),
             TokenKind::Number(n) => ExpressionKind::Index(IndexExpression {
                 var_ref: VariableRef::new(var, start_span.clone()),

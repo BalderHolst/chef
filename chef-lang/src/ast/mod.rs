@@ -540,6 +540,7 @@ impl ParenthesizedExpression {
 pub struct PickExpression {
     pub pick_signal: String,
     pub from: VariableRef,
+    pub span: TextSpan,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -549,8 +550,12 @@ pub struct IndexExpression {
 }
 
 impl PickExpression {
-    fn new(pick_signal: String, from: VariableRef) -> Self {
-        Self { pick_signal, from }
+    fn new(pick_signal: String, from: VariableRef, span: TextSpan) -> Self {
+        Self {
+            pick_signal,
+            from,
+            span,
+        }
     }
 }
 
@@ -700,14 +705,16 @@ impl BinaryOperator {
         &self,
         a: ExpressionReturnType,
         b: ExpressionReturnType,
-    ) -> ExpressionReturnType {
+    ) -> Result<ExpressionReturnType, ()> {
         match self {
             Self::Add | Self::Subtract | Self::Multiply | Self::Divide => match (a, b) {
-                (ExpressionReturnType::Int, ExpressionReturnType::Int) => ExpressionReturnType::Int,
-                (ExpressionReturnType::Many, ExpressionReturnType::Int) => {
-                    ExpressionReturnType::Many
+                (ExpressionReturnType::Int, ExpressionReturnType::Int) => {
+                    Ok(ExpressionReturnType::Int)
                 }
-                _ => panic!("Invalid types for operator"),
+                (ExpressionReturnType::Many, ExpressionReturnType::Int) => {
+                    Ok(ExpressionReturnType::Many)
+                }
+                _ => Err(()),
             },
 
             Self::LargerThan
@@ -717,28 +724,28 @@ impl BinaryOperator {
             | Self::Equals
             | Self::NotEquals => match (a, b) {
                 (ExpressionReturnType::Int, ExpressionReturnType::Int) => {
-                    ExpressionReturnType::Bool
+                    Ok(ExpressionReturnType::Bool)
                 }
                 (ExpressionReturnType::Many, ExpressionReturnType::Int) => {
-                    ExpressionReturnType::Many
+                    Ok(ExpressionReturnType::Many)
                 }
-                _ => panic!("Invalid types for operator"),
+                _ => Err(()),
             },
 
-            Self::EveryEquals => ExpressionReturnType::Bool,
-            Self::EveryLargerThan => ExpressionReturnType::Bool,
-            Self::EveryLargerThanEquals => ExpressionReturnType::Bool,
-            Self::EveryLessThan => ExpressionReturnType::Bool,
-            Self::EveryLessThanEquals => ExpressionReturnType::Bool,
-            Self::EveryNotEquals => ExpressionReturnType::Bool,
-            Self::AnyEquals => ExpressionReturnType::Bool,
-            Self::AnyLargerThan => ExpressionReturnType::Bool,
-            Self::AnyLargerThanEquals => ExpressionReturnType::Bool,
-            Self::AnyLessThan => ExpressionReturnType::Bool,
-            Self::AnyLessThanEquals => ExpressionReturnType::Bool,
-            Self::AnyNotEquals => ExpressionReturnType::Bool,
+            Self::EveryEquals => Ok(ExpressionReturnType::Bool),
+            Self::EveryLargerThan => Ok(ExpressionReturnType::Bool),
+            Self::EveryLargerThanEquals => Ok(ExpressionReturnType::Bool),
+            Self::EveryLessThan => Ok(ExpressionReturnType::Bool),
+            Self::EveryLessThanEquals => Ok(ExpressionReturnType::Bool),
+            Self::EveryNotEquals => Ok(ExpressionReturnType::Bool),
+            Self::AnyEquals => Ok(ExpressionReturnType::Bool),
+            Self::AnyLargerThan => Ok(ExpressionReturnType::Bool),
+            Self::AnyLargerThanEquals => Ok(ExpressionReturnType::Bool),
+            Self::AnyLessThan => Ok(ExpressionReturnType::Bool),
+            Self::AnyLessThanEquals => Ok(ExpressionReturnType::Bool),
+            Self::AnyNotEquals => Ok(ExpressionReturnType::Bool),
 
-            Self::Combine => ExpressionReturnType::Many,
+            Self::Combine => Ok(ExpressionReturnType::Many),
         }
     }
 }

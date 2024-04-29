@@ -6,9 +6,13 @@
 #[cfg(test)]
 mod tests;
 
+use std::rc::Rc;
+
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
-use super::{visitors::Visitor, ExpressionKind, ExpressionReturnType, VariableSignalType, AST};
+use super::{
+    visitors::Visitor, ExpressionKind, ExpressionReturnType, Variable, VariableSignalType, AST,
+};
 
 /// Type check an [AST].
 pub fn check(ast: &AST, diagnostics_bag: DiagnosticsBagRef) {
@@ -43,6 +47,40 @@ impl TypeChecker {
                 .report_error(span, &format!("Invalid factorio signal: `{}`", signal))
         }
     }
+
+    fn check_equal<F>(&mut self, t1: &ExpressionReturnType, t2: &ExpressionReturnType, err: F)
+    where
+        F: FnOnce() -> (TextSpan, String),
+    {
+        if t1 != t2 {
+            let (span, msg) = err();
+            self.diagnostics_bag.borrow_mut().report_error(&span, &msg);
+        }
+    }
+
+    /// Make sure variables are only assign expressions returning their type
+    fn check_assign(
+        &mut self,
+        var_type: &ExpressionReturnType,
+        expr_type: &ExpressionReturnType,
+        span: &TextSpan,
+    ) {
+        self.check_equal(var_type, expr_type, || {
+            (
+                span.clone(),
+                format!(
+                    "Can not assign expression returning `{}` type to variable of type `{}`.",
+                    &expr_type, &var_type
+                ),
+            )
+        })
+    }
+
+    fn check_variable(&mut self, var: &Rc<Variable>) {
+        if let Some(sig) = var.type_.signal() {
+            self.report_if_invalid_signal(sig.as_str(), &var.span)
+        }
+    }
 }
 
 // TODO: Variable ref
@@ -52,41 +90,29 @@ impl Visitor for TypeChecker {
     fn visit_number(&mut self, _number: &i32) {}
     fn visit_bool(&mut self, _value: &bool) {}
     fn visit_error_expression(&mut self) {}
-    fn visit_pick_expression(&mut self, _expr: &super::PickExpression) {}
+
+    fn visit_pick_expression(&mut self, pick: &super::PickExpression) {
+        self.report_if_invalid_signal(&pick.pick_signal, &pick.span)
+    }
+
     fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
     fn visit_index_expression(&mut self, _expr: &super::IndexExpression) {}
 
+    fn visit_definition(&mut self, definition: &super::Definition) {
+        self.check_variable(&definition.variable);
+        let expr = &definition.expression;
+        let expr_type = expr.return_type();
+        let var_type = definition.variable.return_type();
+        self.check_assign(&var_type, &expr_type, &expr.span);
+        self.do_visit_definition(definition);
+    }
+
     fn visit_declaration_definition(&mut self, assignment: &super::DeclarationDefinition) {
-        // Make sure variables are only assign expressions returning their type
-        let var_type = assignment.variable.return_type();
-        let expr_type = &assignment.expression.return_type();
-        if var_type != *expr_type {
-            self.diagnostics_bag.borrow_mut().report_error(
-                &assignment.expression.span,
-                &format!(
-                    "Can not assign expression returning `{}` type to variable `{}` of type `{}`.",
-                    expr_type, assignment.variable.name, var_type
-                ),
-            );
-        }
-
-        if let Some(sig) = assignment.variable.type_.signal() {
-            self.report_if_invalid_signal(sig.as_str(), &assignment.variable.span)
-        }
-
+        self.check_variable(&assignment.variable);
         let expr = &assignment.expression;
         let expr_type = expr.return_type();
         let var_type = assignment.variable.return_type();
-        if expr_type != var_type {
-            self.diagnostics_bag.borrow_mut().report_error(
-                &expr.span,
-                &format!(
-                    "Can not assign expression returning `{}` type to variable `{}` of type `{}`.",
-                    expr_type, assignment.variable.name, var_type
-                ),
-            );
-        }
-
+        self.check_assign(&var_type, &expr_type, &expr.span);
         self.do_visit_declaration_definition(assignment);
     }
 
@@ -137,23 +163,12 @@ impl Visitor for TypeChecker {
     }
 
     fn visit_block(&mut self, block: &super::Block) {
-        // Make sure block input signals are valid factorio signals
-        for var in &block.inputs {
-            if let super::VariableType::Int(VariableSignalType::Signal(signal)) = &var.type_ {
-                self.report_if_invalid_signal(signal, &var.span);
-            }
-        }
-
         for input in &block.inputs {
-            if let Some(sig) = input.type_.signal() {
-                self.report_if_invalid_signal(&sig, &input.span);
-            }
+            self.check_variable(input)
         }
 
         for output in &block.outputs {
-            if let Some(sig) = output.type_.signal() {
-                self.report_if_invalid_signal(&sig, &output.span);
-            }
+            self.check_variable(output)
         }
 
         self.do_visit_block(block);
