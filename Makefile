@@ -5,26 +5,20 @@ main: build
 check: test lint
 
 test:
-	@echo "============================== Running Language Tests =============================="
 	@make --silent test-lang
-	@echo "=========================== Running Python Package Tests ==========================="
 	@make --silent test-python
 
 test-lang:
+	@echo "============================== Running Language Tests =============================="
 	cargo test $(cargo_flags)
 
 test-python:
+	@echo "=========================== Running Python Package Tests ==========================="
 	./chef-python/test.py
 
-lint-fmt:
-	cargo fmt --check $(cargo_flags)
-
-lint-clippy:
-	cargo clippy $(cargo_flags)
-
 lint:
-	@make --silent lint-fmt
-	@make --silent lint-clippy
+	cargo fmt --check $(cargo_flags)
+	cargo clippy $(cargo_flags)
 
 build:
 	cargo build --release $(cargo_flags)
