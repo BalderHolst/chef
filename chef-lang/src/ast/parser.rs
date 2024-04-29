@@ -305,7 +305,7 @@ impl Parser {
                     self.consume(); // Consume "dyn" word
                     if self.consume_word()? != "block" {
                         return Err(CompilationError::new_localized(
-                            "`dyn` keywork can only be followed by `block`.",
+                            "`dyn` keyword can only be followed by `block`.",
                             start_token.span.clone(),
                         ));
                     }
