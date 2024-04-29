@@ -90,12 +90,25 @@ fn var_def_types() {
 }
 
 #[test]
-fn combine() {
+fn combine_ints() {
     allow! {"
 
     block main() => (out: many) {
         a: int <- 42;
-        b: bool <- true;
+        b: int <- 12;
+        out <- a @ b;
+    }
+
+    "};
+}
+
+#[test]
+fn combine_bool() {
+    allow! {"
+
+    block main() => (out: many) {
+        a: int <- 42;
+        b: bool <- false;
         out <- a @ b;
     }
 

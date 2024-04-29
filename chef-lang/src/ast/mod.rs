@@ -458,6 +458,7 @@ impl Expression {
                     right: Box::new(right),
                     operator,
                     return_type,
+                    span: span.clone(),
                 }
             }),
             span,
@@ -620,6 +621,7 @@ pub struct BinaryExpression {
     pub right: Box<Expression>,
     pub operator: BinaryOperator,
     return_type: ExpressionReturnType,
+    span: TextSpan,
 }
 
 impl BinaryExpression {
@@ -628,12 +630,14 @@ impl BinaryExpression {
         right: Box<Expression>,
         operator: BinaryOperator,
         return_type: ExpressionReturnType,
+        span: TextSpan,
     ) -> Self {
         Self {
             left,
             right,
             operator,
             return_type,
+            span,
         }
     }
 

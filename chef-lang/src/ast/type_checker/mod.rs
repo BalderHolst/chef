@@ -65,6 +65,11 @@ impl TypeChecker {
         expr_type: &ExpressionReturnType,
         span: &TextSpan,
     ) {
+        // Allow any assignment to a variable of type `many`
+        if var_type == &ExpressionReturnType::Many {
+            return;
+        }
+
         self.check_equal(var_type, expr_type, || {
             (
                 span.clone(),
@@ -114,48 +119,6 @@ impl Visitor for TypeChecker {
         let var_type = assignment.variable.return_type();
         self.check_assign(&var_type, &expr_type, &expr.span);
         self.do_visit_declaration_definition(assignment);
-    }
-
-    // TODO: Maybe break this up into the unimplemented functions above
-    fn visit_expression(&mut self, expression: &super::Expression) {
-        match &expression.kind {
-            ExpressionKind::Bool(_) => {}
-            ExpressionKind::Int(_) => {}
-            ExpressionKind::Parenthesized(_) => {}
-            ExpressionKind::Negative(_) => {}
-            ExpressionKind::VariableRef(_) => {}
-            ExpressionKind::BlockLink(_) => {}
-            ExpressionKind::Error => {}
-            ExpressionKind::Delay(_) => {}
-            ExpressionKind::SizeOf(_) => {}
-            ExpressionKind::Index(_index_expr) => todo!(),
-            ExpressionKind::Pick(e) => {
-                self.report_if_invalid_signal(e.pick_signal.as_str(), &expression.span)
-            }
-            ExpressionKind::Binary(b_expr) => {
-                let left_r = b_expr.left.return_type();
-                if left_r != ExpressionReturnType::Int && left_r != ExpressionReturnType::Many {
-                    self.diagnostics_bag.borrow_mut().report_error(
-                        &expression.span,
-                        &format!(
-                            "Left side of expression must be `int` or `many` not `{}`.",
-                            left_r
-                        ),
-                    )
-                }
-                let rigth_r = b_expr.right.return_type();
-                if rigth_r != ExpressionReturnType::Int && rigth_r != ExpressionReturnType::Many {
-                    self.diagnostics_bag.borrow_mut().report_error(
-                        &expression.span,
-                        &format!(
-                            "Right side of expression must be `int` or `many` not `{}`.",
-                            rigth_r
-                        ),
-                    )
-                }
-            }
-        };
-        self.do_visit_expression(expression);
     }
 
     fn visit_statement(&mut self, statement: &super::Statement) {

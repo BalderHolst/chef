@@ -1145,6 +1145,7 @@ impl Parser {
                     right: Box::new(right.clone()),
                     operator: op.clone(),
                     return_type,
+                    span: TextSpan::from_spans(&left.span, &right.span),
                 }),
                 TextSpan {
                     start: left.span.clone().start,
