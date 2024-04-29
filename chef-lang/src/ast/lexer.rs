@@ -377,10 +377,7 @@ impl Lexer {
     pub fn new_bundle(s: &str) -> (Rc<SourceText>, crate::diagnostics::DiagnosticsBagRef, Self) {
         let text = Rc::new(SourceText::from_str(s));
         let diagnostics_bag = Rc::new(std::cell::RefCell::new(
-            crate::diagnostics::DiagnosticsBag::new(
-                Rc::new(crate::cli::Opts::new_test()),
-                text.clone(),
-            ),
+            crate::diagnostics::DiagnosticsBag::new(Rc::new(crate::cli::Opts::new_test())),
         ));
         let lexer = Self::from_source(text.clone());
         (text, diagnostics_bag, lexer)

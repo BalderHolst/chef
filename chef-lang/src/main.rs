@@ -32,7 +32,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
     let text = SourceText::from_file(path, opts.clone())?;
     let text = Rc::new(text);
 
-    let diagnostics_bag: DiagnosticsBagRef = DiagnosticsBag::new_ref(opts.clone(), text.clone());
+    let diagnostics_bag: DiagnosticsBagRef = DiagnosticsBag::new_ref(opts.clone());
     let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
 
     diagnostics_bag.borrow().exit_if_errored();
@@ -84,7 +84,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
 fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) -> CompilationResult<()> {
     let path = &sim_opts.file;
     let text = Rc::new(SourceText::from_file(path, opts.clone()).unwrap());
-    let diagnostics_bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
+    let diagnostics_bag = DiagnosticsBag::new_ref(opts.clone());
     let ast = AST::from_source(text, diagnostics_bag.clone(), opts.clone());
 
     diagnostics_bag.borrow().exit_if_errored();

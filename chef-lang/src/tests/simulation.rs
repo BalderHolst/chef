@@ -18,7 +18,7 @@ use crate::{
 fn compile_source(source_text: SourceText) -> CompilationResult<Graph<DetSig>> {
     let text = Rc::new(source_text);
     let opts = Rc::new(Opts::new_test());
-    let bag = DiagnosticsBag::new_ref(opts.clone(), text.clone());
+    let bag = DiagnosticsBag::new_ref(opts.clone());
     let ast = AST::from_source(text.clone(), bag.clone(), opts);
     bag.borrow_mut().exit_if_errored();
     compiler::compile(ast)

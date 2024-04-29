@@ -2,7 +2,7 @@ use std::cmp::max;
 use termion::color::{self, Bg, Fg};
 
 use crate::diagnostics::Diagnostic;
-use crate::text::{SourceText, TextSpan};
+use crate::text::TextSpan;
 
 const PREFIX_LEN: usize = 16;
 const MAX_CODE_LEN: usize = 20;
@@ -10,17 +10,13 @@ const SUFIX_LEN: usize = 20;
 
 /// Struct for printing diagnostics
 pub struct DiagnosticsPrinter<'a> {
-    source_text: &'a SourceText,
     diagnostics: &'a Vec<Diagnostic>,
 }
 
 impl<'a> DiagnosticsPrinter<'a> {
     /// Instantiate a new [DiagnosticsPrinter].
-    pub fn new(source_text: &'a SourceText, diagnostics: &'a Vec<Diagnostic>) -> Self {
-        Self {
-            source_text,
-            diagnostics,
-        }
+    pub fn new(diagnostics: &'a Vec<Diagnostic>) -> Self {
+        Self { diagnostics }
     }
 
     /// Print all the stored diagnostics.
@@ -57,8 +53,10 @@ impl<'a> DiagnosticsPrinter<'a> {
     fn stringify_localized_diagnostic(&self, message: &String, span: &TextSpan) -> String {
         // i'm sorry...
 
-        let (line_nr, line_pos) = self.source_text.get_line_nr_and_position(span.start);
-        let line = self.source_text.get_line(line_nr).unwrap();
+        let source = span.text.clone();
+
+        let (line_nr, line_pos) = source.get_line_nr_and_position(span.start);
+        let line = source.get_line(line_nr).unwrap();
 
         let code: String = {
             let code_prefix = {
@@ -114,7 +112,7 @@ impl<'a> DiagnosticsPrinter<'a> {
             .collect()
         };
 
-        let location = match span.text.file() {
+        let location = match source.file() {
             Some(file) => format!("{}:{}:{}\t", file, line_nr + 1, line_pos + 1),
             None => format!("{}:{}\t", line_nr + 1, line_pos + 1),
         };

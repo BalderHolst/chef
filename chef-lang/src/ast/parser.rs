@@ -803,7 +803,7 @@ impl Parser {
             let text = SourceText::from_file(file, self.options.clone())?;
             let text = Rc::new(text);
 
-            let diagnostics_bag = DiagnosticsBag::new_ref(self.options.clone(), text.clone());
+            let diagnostics_bag = DiagnosticsBag::new_ref(self.options.clone());
             let tokens = Lexer::from_source(text).collect();
             let mut import_parser = Parser::new(tokens, diagnostics_bag, self.options.clone());
             let mut blocks = vec![];

@@ -1011,7 +1011,7 @@ impl AST {
     fn from_str(code: &str) -> (Self, crate::diagnostics::DiagnosticsBagRef) {
         let source = Rc::new(SourceText::from_str(code));
         let opts = Rc::new(Opts::new_test());
-        let bag = crate::diagnostics::DiagnosticsBag::new_ref(opts.clone(), source.clone());
+        let bag = crate::diagnostics::DiagnosticsBag::new_ref(opts.clone());
         (AST::from_source(source, bag.clone(), opts), bag)
     }
 }

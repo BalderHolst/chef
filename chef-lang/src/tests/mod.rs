@@ -23,7 +23,7 @@ fn report_incorrect_block_arguments() {
     ));
 
     let opts = Rc::new(Opts::new_test());
-    let bag = DiagnosticsBag::new_ref(opts.clone(), code.clone());
+    let bag = DiagnosticsBag::new_ref(opts.clone());
     AST::from_source(code, bag.clone(), opts);
     bag.borrow().print();
     assert_eq!(bag.borrow().error_count(), 1);
@@ -39,7 +39,7 @@ fn boolean_expressions() {
 ",
     ));
     let opts = Rc::new(Opts::new_test());
-    let bag = DiagnosticsBag::new_ref(opts.clone(), code.clone());
+    let bag = DiagnosticsBag::new_ref(opts.clone());
     AST::from_source(code, bag.clone(), opts);
     bag.borrow().print();
     assert_eq!(bag.borrow().error_count(), 0);
@@ -60,7 +60,7 @@ fn compile_constant_expressions() {
     ));
 
     let opts = Rc::new(Opts::new_test());
-    let bag = DiagnosticsBag::new_ref(opts.clone(), code.clone());
+    let bag = DiagnosticsBag::new_ref(opts.clone());
     AST::from_source(code, bag.clone(), opts);
     bag.borrow().print();
     assert_eq!(bag.borrow().error_count(), 0);

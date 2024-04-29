@@ -5,7 +5,7 @@ mod printer;
 use crate::ast::lexer::{Token, TokenKind};
 use crate::cli::Opts;
 use crate::diagnostics::printer::DiagnosticsPrinter;
-use crate::text::{SourceText, TextSpan};
+use crate::text::TextSpan;
 use crate::the_chef;
 
 use std::cell::RefCell;
@@ -92,20 +92,18 @@ impl Diagnostic {
 pub struct DiagnosticsBag {
     diagnostics: Vec<Diagnostic>,
     options: Rc<Opts>,
-    source: Rc<SourceText>,
 }
 
 impl DiagnosticsBag {
-    pub fn new(options: Rc<Opts>, source: Rc<SourceText>) -> Self {
+    pub fn new(options: Rc<Opts>) -> Self {
         Self {
             diagnostics: vec![],
             options,
-            source,
         }
     }
 
-    pub fn new_ref(options: Rc<Opts>, source: Rc<SourceText>) -> DiagnosticsBagRef {
-        let bag = Self::new(options, source);
+    pub fn new_ref(options: Rc<Opts>) -> DiagnosticsBagRef {
+        let bag = Self::new(options);
         Rc::new(RefCell::new(bag))
     }
 
@@ -139,7 +137,7 @@ impl DiagnosticsBag {
 
     /// Print the accumulated diagnostics.
     pub fn print(&self) {
-        DiagnosticsPrinter::new(&self.source, &self.diagnostics).print();
+        DiagnosticsPrinter::new(&self.diagnostics).print();
     }
 
     /// Print the errors and exit.
