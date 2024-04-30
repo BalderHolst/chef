@@ -498,7 +498,7 @@ pub enum ExpressionKind {
     Int(i32),
     Binary(BinaryExpression),
     Parenthesized(ParenthesizedExpression),
-    Negative(Box<Expression>),
+    Negative(NegativeExpression),
     Pick(PickExpression),
     Index(IndexExpression),
     VariableRef(VariableRef),
@@ -511,6 +511,23 @@ pub enum ExpressionKind {
 pub struct WhenStatement {
     pub condition: Expression,
     pub statements: Vec<Statement>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NegativeExpression {
+    pub expression: Box<Expression>,
+}
+
+impl NegativeExpression {
+    fn new(expression: Expression) -> Self {
+        Self {
+            expression: Box::new(expression),
+        }
+    }
+
+    fn return_type(&self) -> ExpressionReturnType {
+        self.expression.return_type()
+    }
 }
 
 /// An expression within parenthesis.
@@ -850,13 +867,6 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_expression_statement(&mut self, expr: &Expression) {
-        self.print("ExpressionStatement:");
-        self.indent();
-        self.visit_expression(expr);
-        self.unindent();
-    }
-
     fn visit_block(&mut self, block: &Block) {
         self.print(&format!(
             "Block: \"{}\" {:?} -> {:?}",
@@ -981,13 +991,6 @@ impl Visitor for Printer {
             self.visit_expression(input);
         }
         self.unindent();
-        self.unindent();
-    }
-
-    fn visit_out(&mut self, expr: &Expression) {
-        self.print("Out:");
-        self.indent();
-        self.visit_expression(expr);
         self.unindent();
     }
 

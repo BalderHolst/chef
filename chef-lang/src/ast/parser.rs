@@ -18,8 +18,8 @@ use crate::text::{SourceText, TextSpan};
 use super::lexer::Lexer;
 use super::{
     AssignmentType, Block, BlockLinkArg, BlockLinkExpression, DeclarationDefinition, DynBlock,
-    DynBlockArg, PickExpression, SizeOfExpression, TupleDeclarationDefinition, VariableRef,
-    VariableSignalType,
+    DynBlockArg, NegativeExpression, PickExpression, SizeOfExpression, TupleDeclarationDefinition,
+    VariableRef, VariableSignalType,
 };
 use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement};
 
@@ -1159,7 +1159,7 @@ impl Parser {
                 let inner = self.parse_primary_expression()?;
                 let inner_span = inner.span.clone();
                 Ok(Expression::new(
-                    ExpressionKind::Negative(Box::new(inner)),
+                    ExpressionKind::Negative(NegativeExpression::new(inner)),
                     TextSpan::from_spans(&start_token.span, &inner_span),
                 ))
             }

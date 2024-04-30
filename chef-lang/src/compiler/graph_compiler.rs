@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use crate::ast::{
     AssignmentType, BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
     DeclarationDefinition, Definition, DelayExpression, Expression, ExpressionKind,
-    IndexExpression, PickExpression, SizeOfExpression, TupleDeclarationDefinition, VariableId,
-    VariableRef, VariableSignalType, WhenStatement, AST,
+    IndexExpression, NegativeExpression, PickExpression, SizeOfExpression,
+    TupleDeclarationDefinition, VariableId, VariableRef, VariableSignalType, WhenStatement, AST,
 };
 use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
@@ -421,13 +421,15 @@ impl GraphCompiler {
     fn compile_negative_expression(
         &mut self,
         graph: &mut Graph<LooseSig>,
-        expr: &Expression,
+        neg_expr: &NegativeExpression,
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
         let out_type = match out_type {
             Some(t) => t,
             None => self.get_new_anysignal(),
         };
+
+        let expr = &neg_expr.expression;
 
         let (expr_out_nid, _) = self.compile_expression(graph, expr, Some(out_type.clone()))?;
 

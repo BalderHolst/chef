@@ -70,7 +70,7 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
     match &expr.kind {
         ExpressionKind::Int(n) => Some(*n),
         ExpressionKind::Parenthesized(p) => get_constant_int(&p.expression),
-        ExpressionKind::Negative(ne) => get_constant_int(ne).map(|n| -n),
+        ExpressionKind::Negative(ne) => get_constant_int(&ne.expression).map(|n| -n),
         ExpressionKind::Bool(_) => None,
         ExpressionKind::Binary(_) => None,
         ExpressionKind::Pick(_) => None,
@@ -141,10 +141,10 @@ impl MutVisitor for ConstantEvaluator {
                 }
             }
             ExpressionKind::VariableRef(_) => return,
-            ExpressionKind::Negative(negative_expr) => match &mut negative_expr.kind {
+            ExpressionKind::Negative(negative_expr) => match &mut negative_expr.expression.kind {
                 ExpressionKind::Int(n) => ConstantValue::Int(*n * -1),
                 _ => {
-                    self.do_visit_expression(negative_expr);
+                    self.visit_negative_expression(negative_expr);
                     return;
                 }
             },
