@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::ast::{
     AssignmentType, BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
-    DeclarationDefinition, Definition, DelayExpression, Expression, ExpressionKind,
+    DeclarationDefinition, Definition, DefinitionKind, DelayExpression, Expression, ExpressionKind,
     IndexExpression, NegativeExpression, PickExpression, SizeOfExpression,
     TupleDeclarationDefinition, VariableId, VariableRef, VariableSignalType, WhenStatement, AST,
 };
@@ -30,7 +30,6 @@ impl Scope {
         name: String,
     ) -> CompilationResult<()> {
         let nid = graph.push_var_node(var_type.clone(), name.clone());
-        println!("Declared variable: {}", name);
         match self.variables.insert(var_id, (nid, var_type)) {
             Some(_) => Err(CompilationError::new_generic(format!(
                 "Variable '{name}' already declared in this scope."
@@ -79,22 +78,32 @@ impl Scope {
         var_id: VariableId,
         nid: NId,
         nid_type: LooseSig,
-        wk: WireKind,
+        def_kind: DefinitionKind,
     ) -> bool {
-        match self.variables.get(&var_id) {
+        match self.variables.get_mut(&var_id) {
             Some((var_nid, var_type)) => {
-                // If we try to assign a variable to a different type, convert it.
-                if nid_type != *var_type {
-                    let (c1, c2) = graph.push_connection(Connection::new_convert(
-                        nid_type.to_combinator_type(),
-                        var_type.to_combinator_type(),
-                    ));
-                    graph.push_wire(nid, c1);
-                    graph.push_wire_kind(c2, *var_nid, wk);
-                } else {
-                    graph.push_wire_kind(nid, *var_nid, wk);
+                match def_kind {
+                    DefinitionKind::Wire(wk) => {
+                        // If we try to assign a variable to a different type, convert it.
+                        if nid_type != *var_type {
+                            let (c1, c2) = graph.push_connection(Connection::new_convert(
+                                nid_type.to_combinator_type(),
+                                var_type.to_combinator_type(),
+                            ));
+                            graph.push_wire(nid, c1);
+                            graph.push_wire_kind(c2, *var_nid, wk);
+                        } else {
+                            graph.push_wire_kind(nid, *var_nid, wk);
+                        }
+                        true
+                    }
+
+                    DefinitionKind::Equal => {
+                        // Set variable nid to BE the expression output
+                        *var_nid = nid;
+                        true
+                    }
                 }
-                true
             }
             None => false,
         }
@@ -134,12 +143,14 @@ impl GraphCompiler {
         let mut graph = Graph::new();
         self.enter_scope();
         for input_var in block.inputs.clone() {
-            let t = self.variable_type_to_iotype(&input_var.type_);
+            let input_var = input_var.borrow();
+            let t = self.variable_type_to_loose_sig(&input_var.type_);
             self.declare_input_variable(&mut graph, input_var.id, t, input_var.name.clone())?;
         }
 
         for output_var in block.outputs.clone() {
-            let t = self.variable_type_to_iotype(&output_var.type_);
+            let output_var = output_var.borrow();
+            let t = self.variable_type_to_loose_sig(&output_var.type_);
             self.declare_output_variable(&mut graph, output_var.name.clone(), output_var.id, t)?;
         }
 
@@ -182,8 +193,8 @@ impl GraphCompiler {
         graph: &mut Graph<LooseSig>,
         dec: Declaration,
     ) -> Result<(), CompilationError> {
-        let var = &dec.variable;
-        let var_type = self.variable_type_to_iotype(&var.type_);
+        let var = &dec.variable.borrow();
+        let var_type = self.variable_type_to_loose_sig(&var.type_);
 
         // Wire up and define memory cell variables.
         match &var.type_ {
@@ -192,8 +203,20 @@ impl GraphCompiler {
                     graph.push_operation(Operation::new_pick(var_type.clone()));
                 graph.push_wire(var_input_nid, var_nid);
                 self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
-                self.define_variable(graph, var.id, var_nid, var_type.clone(), WireKind::Red)?;
-                self.define_variable(graph, var.id, var_nid, var_type, WireKind::Green)?;
+                self.define_variable(
+                    graph,
+                    var.id,
+                    var_nid,
+                    var_type.clone(),
+                    DefinitionKind::Wire(WireKind::Red),
+                )?;
+                self.define_variable(
+                    graph,
+                    var.id,
+                    var_nid,
+                    var_type,
+                    DefinitionKind::Wire(WireKind::Red),
+                )?;
                 Ok(())
             }
             VariableType::Counter((_, limit_expr)) => {
@@ -217,8 +240,20 @@ impl GraphCompiler {
                 graph.push_wire_kind(limit_nid, counter_input_nid, WireKind::Green);
 
                 self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
-                self.define_variable(graph, var.id, counter_nid, var_type.clone(), WireKind::Red)?;
-                self.define_variable(graph, var.id, counter_nid, var_type, WireKind::Green)?;
+                self.define_variable(
+                    graph,
+                    var.id,
+                    counter_nid,
+                    var_type.clone(),
+                    DefinitionKind::Wire(WireKind::Red),
+                )?;
+                self.define_variable(
+                    graph,
+                    var.id,
+                    counter_nid,
+                    var_type,
+                    DefinitionKind::Wire(WireKind::Red),
+                )?;
                 Ok(())
             }
             _ => self.declare_variable(graph, var.id, var_type, var.name.clone()),
@@ -231,10 +266,10 @@ impl GraphCompiler {
         dec_def: DeclarationDefinition,
         gate: Option<(NId, LooseSig)>,
     ) -> Result<(), CompilationError> {
-        let var = &dec_def.variable;
-        let var_type = self.variable_type_to_iotype(&var.type_);
+        let var = &dec_def.variable.borrow();
+        let var_type = self.variable_type_to_loose_sig(&var.type_);
         self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
-        let definition: Definition = dec_def.into();
+        let definition: Definition = dec_def.clone().into();
         self.compile_definition_statement(graph, definition, gate, Some(var_type))
     }
 
@@ -264,8 +299,8 @@ impl GraphCompiler {
         for (i, _) in output_nodes.iter().enumerate() {
             let (output_nid, out_type) = &output_nodes[i];
             let def = &tuple_dec_def.defs[i];
-            let var = &def.variable;
-            let var_type = self.variable_type_to_iotype(&var.type_);
+            let var = &def.variable.borrow();
+            let var_type = self.variable_type_to_loose_sig(&var.type_);
 
             // Convert to variable type
             let (trans_input, trans_output) =
@@ -288,7 +323,7 @@ impl GraphCompiler {
                 var.id,
                 var_nid,
                 var_type,
-                tuple_dec_def.def_kind.clone().into(),
+                tuple_dec_def.def_kind.clone(),
             )?;
         }
 
@@ -302,11 +337,11 @@ impl GraphCompiler {
         gate: Option<(NId, LooseSig)>,
         var_type: Option<LooseSig>,
     ) -> Result<(), CompilationError> {
-        let var = &def.variable;
+        let var = &def.variable.borrow();
 
         let var_iotype = match var_type {
             Some(t) => t,
-            None => self.variable_type_to_iotype(&var.type_),
+            None => self.variable_type_to_loose_sig(&var.type_),
         };
 
         let (expr_out_nid, _) =
@@ -335,7 +370,7 @@ impl GraphCompiler {
             None => expr_out_nid,
         };
 
-        self.define_variable(graph, var.id, output_nid, var_iotype, def.kind.into())
+        self.define_variable(graph, var.id, output_nid, var_iotype, def.kind)
     }
 
     /// Returns a tuple: (output_vid, output_type)
@@ -398,7 +433,7 @@ impl GraphCompiler {
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
         // Get the referenced variable.
-        let var = var_ref.var.clone();
+        let var = var_ref.var.borrow();
         let (var_ref_nid, var_type) = self
             .search_scope(var.id)
             .unwrap_or_else(|| panic!("Variable references should always point to defined variables. Could not find var '{}' with id {}.", var.name, var.id));
@@ -456,13 +491,14 @@ impl GraphCompiler {
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
         let var_ref = pick_expr.from.clone();
+        let var = var_ref.var.borrow();
 
-        let (var_out_nid, _) =
-            self.search_scope(var_ref.var.id)
-                .ok_or(CompilationError::new_localized(
-                    format!("No variable with the name \'{}\', ", var_ref.var.name),
-                    var_ref.span,
-                ))?;
+        let (var_out_nid, _) = self
+            .search_scope(var.id)
+            .ok_or(CompilationError::new_localized(
+                format!("No variable with the name \'{}\', ", var.name),
+                var_ref.span,
+            ))?;
 
         let pick_type = LooseSig::signal(pick_expr.pick_signal.clone());
 
@@ -716,7 +752,7 @@ impl GraphCompiler {
         Ok(())
     }
 
-    fn variable_type_to_iotype(&mut self, variable_type: &VariableType) -> LooseSig {
+    fn variable_type_to_loose_sig(&mut self, variable_type: &VariableType) -> LooseSig {
         match variable_type {
             VariableType::Bool(bool_type) => match bool_type {
                 VariableSignalType::Signal(s) => LooseSig::Signal(s.clone()),
@@ -735,6 +771,7 @@ impl GraphCompiler {
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
             VariableType::Many => LooseSig::Many,
+            VariableType::Inferred => todo!(),
         }
     }
 
@@ -835,10 +872,10 @@ impl GraphCompiler {
         var_id: VariableId,
         nid: NId,
         nid_type: LooseSig,
-        wk: WireKind,
+        def_kind: DefinitionKind,
     ) -> CompilationResult<()> {
         for scope in self.scopes.iter_mut().rev() {
-            if scope.define_variable(graph, var_id, nid, nid_type.clone(), wk.clone()) {
+            if scope.define_variable(graph, var_id, nid, nid_type.clone(), def_kind.clone()) {
                 return Ok(());
             }
         }

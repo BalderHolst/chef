@@ -6,7 +6,7 @@
 #[cfg(test)]
 mod tests;
 
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
@@ -79,7 +79,8 @@ impl TypeChecker {
         })
     }
 
-    fn check_variable(&mut self, var: &Rc<Variable>) {
+    fn check_variable(&mut self, var: &Rc<RefCell<Variable>>) {
+        let var = var.borrow();
         if let Some(sig) = var.type_.signal() {
             self.report_if_invalid_signal(sig.as_str(), &var.span)
         }
@@ -103,7 +104,7 @@ impl Visitor for TypeChecker {
         self.check_variable(&definition.variable);
         let expr = &definition.expression;
         let expr_type = expr.return_type();
-        let var_type = definition.variable.return_type();
+        let var_type = definition.variable.borrow().return_type();
         self.check_assign(&var_type, &expr_type, &expr.span);
         self.do_visit_definition(definition);
     }
@@ -112,7 +113,7 @@ impl Visitor for TypeChecker {
         self.check_variable(&assignment.variable);
         let expr = &assignment.expression;
         let expr_type = expr.return_type();
-        let var_type = assignment.variable.return_type();
+        let var_type = assignment.variable.borrow().return_type();
         self.check_assign(&var_type, &expr_type, &expr.span);
         self.do_visit_declaration_definition(assignment);
     }

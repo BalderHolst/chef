@@ -1,0 +1,5 @@
+block main(input: many) => (output: int) {
+    let a = input;
+    let b = a;
+    output <- b[signal-B];
+}

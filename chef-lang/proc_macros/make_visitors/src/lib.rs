@@ -166,10 +166,10 @@ fn generate_visitor(mutable: bool) -> TokenStream {
             }
             fn do_visit_bool(&mut self, b: #r bool) {}
 
-            fn visit_variable(&mut self, var: #r std::rc::Rc<Variable>) {
+            fn visit_variable(&mut self, var: #r std::rc::Rc<RefCell<Variable>>) {
                 self.do_visit_variable(var);
             }
-            fn do_visit_variable(&mut self, var: #r std::rc::Rc<Variable>) {}
+            fn do_visit_variable(&mut self, var: #r std::rc::Rc<RefCell<Variable>>) {}
 
             fn visit_variable_ref(&mut self, var: #r VariableRef) {
                 self.do_visit_variable_ref(var);

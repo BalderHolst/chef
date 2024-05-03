@@ -1,10 +1,12 @@
 //! Module for lexing and parsing chef source code into an abstract syntax tree and checking for errors.
 
+use std::cell::RefCell;
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::ast::visitors::Visitor;
+use crate::compiler::graph::WireKind;
 use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::{SourceText, TextSpan};
 use crate::Opts;
@@ -17,14 +19,16 @@ pub mod lexer;
 pub mod parser;
 pub mod python_macro;
 mod type_checker;
+mod type_inference;
 mod visitors;
 
 /// [AST] representation of chef `block`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
+    pub id: usize,
     pub name: String,
-    pub inputs: Vec<Rc<Variable>>,
-    pub outputs: Vec<Rc<Variable>>,
+    pub inputs: Vec<Rc<RefCell<Variable>>>,
+    pub outputs: Vec<Rc<RefCell<Variable>>>,
     pub statements: Vec<Statement>,
     pub span: TextSpan,
     pub dyn_block_id: Option<usize>,
@@ -33,13 +37,15 @@ pub struct Block {
 impl Block {
     /// Instantiate a new [Block].
     fn new(
+        id: usize,
         name: String,
-        inputs: Vec<Rc<Variable>>,
-        outputs: Vec<Rc<Variable>>,
+        inputs: Vec<Rc<RefCell<Variable>>>,
+        outputs: Vec<Rc<RefCell<Variable>>>,
         statements: Vec<Statement>,
         span: TextSpan,
     ) -> Self {
         Self {
+            id,
             name,
             inputs,
             outputs,
@@ -108,8 +114,10 @@ impl AST {
             ast.add_block(block);
         }
 
-        // Check types first to make sure that bool constants are evaluated as int constants and
-        // vise versa.
+        ast.infer_types();
+
+        // Check types before constant evaluation to make sure that bool constants
+        // are not evaluated as int constants and vise versa.
         ast.check_types();
         ast.evaluate_constants();
         ast
@@ -137,6 +145,10 @@ impl AST {
     /// Evaluate constant expressions in the [AST] to simplify it.
     pub fn evaluate_constants(&mut self) {
         constant_evaluator::evaluate_constants(self)
+    }
+
+    pub fn infer_types(&mut self) {
+        type_inference::infer(self);
     }
 
     /// Check that types are valid.
@@ -195,6 +207,7 @@ pub enum VariableType {
     Var(VariableSignalType),
     Many,
     Counter((VariableSignalType, Box<Expression>)),
+    Inferred,
 }
 
 impl VariableType {
@@ -206,6 +219,7 @@ impl VariableType {
             VariableType::Var(_) => "var".to_string(),
             VariableType::Many => "many".to_string(),
             VariableType::Counter(_) => "counter".to_string(),
+            VariableType::Inferred => todo!(),
         }
     }
 
@@ -216,6 +230,7 @@ impl VariableType {
             VariableType::Var(_) => ExpressionReturnType::Int,
             VariableType::Many => ExpressionReturnType::Many,
             VariableType::Counter(_) => ExpressionReturnType::Int,
+            VariableType::Inferred => ExpressionReturnType::Infered,
         }
     }
 
@@ -226,6 +241,7 @@ impl VariableType {
             VariableType::Var(s) => Some(s),
             VariableType::Many => None,
             VariableType::Counter((s, _lim)) => Some(s),
+            VariableType::Inferred => None,
         }
     }
 
@@ -233,6 +249,18 @@ impl VariableType {
         match self.signal_type()? {
             VariableSignalType::Signal(s) => Some(s.to_owned()),
             VariableSignalType::Any => None,
+        }
+    }
+}
+
+impl From<ExpressionReturnType> for VariableType {
+    fn from(val: ExpressionReturnType) -> Self {
+        match val {
+            ExpressionReturnType::Bool => VariableType::Bool(VariableSignalType::Any),
+            ExpressionReturnType::Int => VariableType::Int(VariableSignalType::Any),
+            ExpressionReturnType::Many => VariableType::Many,
+            ExpressionReturnType::None => todo!(),
+            ExpressionReturnType::Infered => VariableType::Inferred,
         }
     }
 }
@@ -248,7 +276,7 @@ pub type VariableId = usize;
 /// An argument to a block definition.
 #[derive(Debug, Clone)]
 pub enum DynBlockArg {
-    Var(Rc<Variable>),
+    Var(Rc<RefCell<Variable>>),
     Literal(String),
 }
 
@@ -297,29 +325,29 @@ impl Variable {
 /// A reference to a defined chef variable
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariableRef {
-    pub var: Rc<Variable>,
+    pub var: Rc<RefCell<Variable>>,
     pub span: TextSpan,
 }
 
 impl VariableRef {
-    fn new(var: Rc<Variable>, span: TextSpan) -> Self {
+    fn new(var: Rc<RefCell<Variable>>, span: TextSpan) -> Self {
         Self { var, span }
     }
 
     pub fn return_type(&self) -> ExpressionReturnType {
-        self.var.return_type()
+        self.var.borrow().return_type()
     }
 }
 
 /// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration {
-    pub variable: Rc<Variable>,
+    pub variable: Rc<RefCell<Variable>>,
 }
 
 impl Declaration {
     /// Instantiate a new [Declaration].
-    pub fn new(variable: Rc<Variable>) -> Self {
+    pub fn new(variable: Rc<RefCell<Variable>>) -> Self {
         Self { variable }
     }
 }
@@ -327,14 +355,19 @@ impl Declaration {
 /// [AST] representation of chef `int` variable assignment and declaration.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeclarationDefinition {
-    pub variable: Rc<Variable>,
+    // TODO: Make this contain a `Declaration` and a `Definition`
+    pub variable: Rc<RefCell<Variable>>,
     pub expression: Expression,
     pub kind: DefinitionKind,
 }
 
 impl DeclarationDefinition {
     /// Instantiate a new [Assignment].
-    pub fn new(variable: Rc<Variable>, expression: Expression, kind: DefinitionKind) -> Self {
+    pub fn new(
+        variable: Rc<RefCell<Variable>>,
+        expression: Expression,
+        kind: DefinitionKind,
+    ) -> Self {
         Self {
             variable,
             expression,
@@ -345,30 +378,25 @@ impl DeclarationDefinition {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DefinitionKind {
-    Red,
-    Green,
-}
-
-impl From<DefinitionKind> for crate::compiler::graph::WireKind {
-    fn from(val: DefinitionKind) -> Self {
-        match val {
-            DefinitionKind::Red => crate::compiler::graph::WireKind::Red,
-            DefinitionKind::Green => crate::compiler::graph::WireKind::Green,
-        }
-    }
+    Wire(WireKind),
+    Equal,
 }
 
 /// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition {
-    pub variable: Rc<Variable>,
+    pub variable: Rc<RefCell<Variable>>,
     pub expression: Expression,
     pub kind: DefinitionKind,
 }
 
 impl Definition {
     /// Instantiate a new [Assignment].
-    pub fn new(variable: Rc<Variable>, expression: Expression, kind: DefinitionKind) -> Self {
+    pub fn new(
+        variable: Rc<RefCell<Variable>>,
+        expression: Expression,
+        kind: DefinitionKind,
+    ) -> Self {
         Self {
             variable,
             expression,
@@ -395,8 +423,8 @@ pub enum AssignmentType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutputAssignment {
-    pub variable: Rc<Variable>,
-    pub block_variable: Rc<Variable>,
+    pub variable: Rc<RefCell<Variable>>,
+    pub block_variable: Rc<RefCell<Variable>>,
     pub assignment_type: AssignmentType,
 }
 
@@ -477,6 +505,7 @@ pub enum ExpressionReturnType {
     Int,
     Many,
     None,
+    Infered,
 }
 
 impl Display for ExpressionReturnType {
@@ -486,6 +515,7 @@ impl Display for ExpressionReturnType {
             ExpressionReturnType::Int => "int",
             ExpressionReturnType::Many => "many",
             ExpressionReturnType::None => "none",
+            ExpressionReturnType::Infered => "infered",
         };
         write!(f, "{s}")
     }
@@ -590,7 +620,7 @@ impl BlockLinkExpression {
         match self.block.outputs.len() {
             0 => ExpressionReturnType::None,
             // In expressions, we want the block link to act as a single value
-            1 if return_int => self.block.outputs[0].return_type(),
+            1 if return_int => self.block.outputs[0].borrow().return_type(),
             _ => ExpressionReturnType::Many,
         }
     }
@@ -848,6 +878,7 @@ impl Display for VariableType {
                 VariableSignalType::Any => "Counter(Any)".to_string(),
             },
             VariableType::Many => "Many".to_string(),
+            VariableType::Inferred => "Inferred".to_string(),
         };
         write!(f, "{s}")
     }
@@ -874,12 +905,18 @@ impl Visitor for Printer {
             block
                 .inputs
                 .iter()
-                .map(|i| format!("{}: {} ({})", i.name, i.type_, i.id))
+                .map(|i| {
+                    let i = i.borrow();
+                    format!("{}: {} ({})", i.name, i.type_, i.id)
+                })
                 .collect::<Vec<String>>(),
             block
                 .outputs
                 .iter()
-                .map(|i| format!("{}: {} ({})", i.name, i.type_, i.id))
+                .map(|i| {
+                    let i = i.borrow();
+                    format!("{}: {} ({})", i.name, i.type_, i.id)
+                })
                 .collect::<Vec<String>>(),
         ));
         self.indent();
@@ -894,16 +931,18 @@ impl Visitor for Printer {
     }
 
     fn visit_declaration(&mut self, dec: &Declaration) {
+        let var = dec.variable.borrow();
         self.print(&format!(
             "Declaration: \"{}: {}\" ({})",
-            dec.variable.name, dec.variable.type_, dec.variable.id
+            var.name, var.type_, var.id
         ));
     }
 
     fn visit_definition(&mut self, def: &Definition) {
+        let var = def.variable.borrow();
         self.print(&format!(
             "Definition <{:?}>: \"{}: {}\" ({})",
-            def.kind, def.variable.name, def.variable.type_, def.variable.id
+            def.kind, var.name, var.type_, var.id
         ));
         self.indent();
         self.visit_expression(&def.expression);
@@ -911,9 +950,10 @@ impl Visitor for Printer {
     }
 
     fn visit_declaration_definition(&mut self, dec_def: &DeclarationDefinition) {
+        let var = dec_def.variable.borrow();
         self.print(&format!(
             "DeclarationDefinition <{:?}>: \"{}: {}\" ({})",
-            dec_def.kind, dec_def.variable.name, dec_def.variable.type_, dec_def.variable.id
+            dec_def.kind, var.name, var.type_, var.id
         ));
         self.indent();
         self.do_visit_declaration_definition(dec_def);
@@ -943,7 +983,7 @@ impl Visitor for Printer {
     }
 
     fn visit_variable_ref(&mut self, var_ref: &VariableRef) {
-        let var = var_ref.var.clone();
+        let var = var_ref.var.borrow();
         self.print(&format!("VariableRef: {}", var.name))
     }
 
@@ -967,9 +1007,11 @@ impl Visitor for Printer {
         self.print("PickExpression:");
         self.indent();
         self.print(&format!("Pick Signal: {}", expr.pick_signal));
+
+        let from_var = expr.from.var.borrow();
         self.print(&format!(
             "From Variable: {} ({})",
-            expr.from.var.name, expr.from.var.id
+            from_var.name, from_var.id
         ));
         self.unindent();
     }
@@ -977,7 +1019,7 @@ impl Visitor for Printer {
     fn visit_index_expression(&mut self, expr: &IndexExpression) {
         self.print("IndexExpression:");
         self.indent();
-        self.print(&format!("Variable: {}", expr.var_ref.var));
+        self.print(&format!("Variable: {}", expr.var_ref.var.borrow()));
         self.print(&format!("Size: {}", expr.index));
         self.unindent();
     }

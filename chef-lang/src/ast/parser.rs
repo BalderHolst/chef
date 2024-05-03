@@ -1,5 +1,6 @@
 //! Module for parsing a token stream into an abstract syntax tree.
 
+use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::{HashMap, VecDeque};
 use std::fs;
@@ -12,6 +13,7 @@ use crate::ast::{
     ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
 };
 use crate::cli::Opts;
+use crate::compiler::graph::WireKind;
 use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
 use crate::text::{SourceText, TextSpan};
 
@@ -25,7 +27,7 @@ use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatem
 
 const MACRO_ARG_SEP: &str = "; ";
 
-type BlockArgs = Vec<Rc<Variable>>;
+type BlockArgs = Vec<Rc<RefCell<Variable>>>;
 
 // TODO: Add example
 /// A list of statements with an optional return expression at its end.
@@ -37,7 +39,7 @@ pub struct StatementList {
 
 #[derive(Debug, Clone, PartialEq)]
 enum ScopedItem {
-    Var(Rc<Variable>),
+    Var(Rc<RefCell<Variable>>),
     Const(Constant),
 }
 
@@ -68,6 +70,7 @@ pub struct Parser {
     options: Rc<Opts>,
     next_blocks: VecDeque<Block>,
     next_var_id: usize,
+    next_block_id: usize,
     next_dyn_block_id: usize,
 }
 
@@ -88,6 +91,7 @@ impl Parser {
             options,
             next_blocks: VecDeque::new(),
             next_var_id: 0,
+            next_block_id: 0,
             next_dyn_block_id: 0,
         }
     }
@@ -109,6 +113,7 @@ impl Parser {
             options,
             next_blocks: VecDeque::new(),
             next_var_id: 0,
+            next_block_id: 0,
             next_dyn_block_id: 0,
         }
     }
@@ -263,6 +268,12 @@ impl Parser {
         id
     }
 
+    fn get_next_block_id(&mut self) -> usize {
+        let id = self.next_block_id;
+        self.next_block_id += 1;
+        id
+    }
+
     fn get_next_dyn_block_id(&mut self) -> usize {
         let id = self.next_dyn_block_id;
         self.next_dyn_block_id += 1;
@@ -274,8 +285,8 @@ impl Parser {
         self.scopes.last_mut().unwrap().insert(name, item);
     }
 
-    fn add_var_to_scope(&mut self, var: Rc<Variable>) {
-        self.add_to_scope(var.name.clone(), ScopedItem::Var(var))
+    fn add_var_to_scope(&mut self, var: Rc<RefCell<Variable>>) {
+        self.add_to_scope(var.borrow().name.clone(), ScopedItem::Var(var.clone()))
     }
 
     fn next_directive(&mut self) -> Option<Directive> {
@@ -437,7 +448,7 @@ impl Parser {
 
                 // `var` type variable is always zero initialized, because memory cells in factorio
                 // cannot be assigned values.
-                let var = Rc::new(variable);
+                let var = Rc::new(RefCell::new(variable));
                 self.add_var_to_scope(var.clone());
                 return Ok(StatementKind::Declaration(Declaration::new(var)));
             }
@@ -446,16 +457,17 @@ impl Parser {
 
                 // `counter` type variable is always zero initialized, because memory cells in factorio
                 // cannot be assigned values.
-                let var = Rc::new(variable);
+                let var = Rc::new(RefCell::new(variable));
                 self.add_var_to_scope(var.clone());
                 return Ok(StatementKind::Declaration(Declaration::new(var)));
             }
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
             VariableType::Many => {}
+            VariableType::Inferred => {}
         };
 
-        let variable = Rc::new(variable);
+        let variable = Rc::new(RefCell::new(variable));
         self.add_var_to_scope(variable.clone());
 
         let current = self.current();
@@ -479,8 +491,10 @@ impl Parser {
         let start_span = self.current().span.clone();
 
         let kind = match &self.consume().kind {
-            TokenKind::LeftArrow => Ok(DefinitionKind::Red),
-            TokenKind::LeftCurlyArrow => Ok(DefinitionKind::Green),
+            TokenKind::LeftArrow => Ok(DefinitionKind::Wire(WireKind::Red)),
+            TokenKind::LeftCurlyArrow => Ok(DefinitionKind::Wire(WireKind::Green)),
+            TokenKind::Equals => Ok(DefinitionKind::Equal),
+
             other => Err(CompilationError::new_localized(
                 format!("'{}' is not a valid assignment operator.", other),
                 start_span.clone(),
@@ -542,9 +556,13 @@ impl Parser {
 
         let name = self.consume_word()?.to_string();
 
-        self.consume_and_expect(TokenKind::Colon)?;
-
-        let type_ = self.parse_variable_type()?;
+        let type_ = match &self.current().kind {
+            TokenKind::Colon => {
+                self.consume();
+                self.parse_variable_type()?
+            }
+            _ => VariableType::Inferred,
+        };
 
         Ok(Variable::new(
             name.to_owned(),
@@ -662,14 +680,14 @@ impl Parser {
     }
 
     /// Parse arguments for `block` definition.
-    fn parse_block_arguments(&mut self) -> CompilationResult<Vec<Rc<Variable>>> {
-        let mut arguments: Vec<Rc<Variable>> = vec![];
+    fn parse_block_arguments(&mut self) -> CompilationResult<Vec<Rc<RefCell<Variable>>>> {
+        let mut arguments: Vec<Rc<RefCell<Variable>>> = vec![];
 
         while !matches!(self.current().kind, TokenKind::RightParen | TokenKind::End) {
             let var_span = self.current().span.clone();
 
             let arg = match self.parse_variable()? {
-                ParsedVariable::Dec(v) => Ok(Rc::new(v)),
+                ParsedVariable::Dec(v) => Ok(Rc::new(RefCell::new(v))),
 
                 // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
                 ParsedVariable::Ref(_) => Err(CompilationError::new_localized(
@@ -701,7 +719,7 @@ impl Parser {
             let checkpoint = self.cursor;
 
             let block_arg = match self.parse_variable() {
-                Ok(ParsedVariable::Dec(v)) => Ok(DynBlockArg::Var(Rc::new(v))),
+                Ok(ParsedVariable::Dec(v)) => Ok(DynBlockArg::Var(Rc::new(RefCell::new(v)))),
 
                 // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
                 Ok(ParsedVariable::Ref(_)) => Err(CompilationError::new_localized(
@@ -865,6 +883,7 @@ impl Parser {
         let statements = self.parse_statement_list()?;
 
         Ok(Block::new(
+            self.get_next_block_id(),
             block_name,
             inputs,
             outputs,
@@ -1286,7 +1305,10 @@ impl Parser {
         }
     }
 
-    fn parse_variable_index(&mut self, var: Rc<Variable>) -> CompilationResult<Expression> {
+    fn parse_variable_index(
+        &mut self,
+        var: Rc<RefCell<Variable>>,
+    ) -> CompilationResult<Expression> {
         let start_span = self.peak(-1).span.clone();
         let var_span = self.current().span.clone();
         self.consume_and_expect(TokenKind::LeftSquare)?;
@@ -1343,6 +1365,7 @@ impl Parser {
             .enumerate()
             .map(|(i, arg)| match arg {
                 DynBlockArg::Var(var) => {
+                    let var = var.borrow();
                     format!("{}: {}", var.name, var.type_.signature())
                 }
                 DynBlockArg::Literal(lit) => {
@@ -1423,11 +1446,13 @@ impl Parser {
 
         // Make sure the generated block has the same INPUT types as the definition
         for (i, def_input) in var_inputs.iter().enumerate() {
-            if def_input.type_ != block.inputs[i].type_ {
+            let def_input = def_input.borrow();
+            let block_input = block.inputs[i].borrow();
+            if def_input.type_ != block_input.type_ {
                 return Err(CompilationError::new_localized(
                     format!(
                         "Expected type '{}' for input '{}'. Found '{}'.",
-                        block.inputs[i].type_.signature(),
+                        block_input.type_.signature(),
                         def_input.name,
                         def_input.type_.signature(),
                     ),
@@ -1478,7 +1503,7 @@ impl Parser {
         while self.current().kind != TokenKind::RightParen {
             match self.parse_variable()? {
                 ParsedVariable::Dec(var) => {
-                    let var = Rc::new(var);
+                    let var = Rc::new(RefCell::new(var));
                     self.add_var_to_scope(var.clone());
                     vars.push((var, AssignmentType::Declaration));
                 }
