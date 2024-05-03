@@ -59,8 +59,8 @@ fn simulate_counter_with_when() {
     let graph = compile_code(
         "
 block main() => (out: int(tank)) {
-    c: counter(signal-T : 6);
-    v: var(signal-V);
+    let c: counter(signal-T : 6);
+    let v: var(signal-V);
     when (c == 5) {
         v <- 1;
     }
@@ -249,10 +249,10 @@ fn simulate_order_of_operations_factorio_time() {
     let g = compile_code(
         "
     block main(input: many) => (out: int(rail)) {
-        a: int(signal-A) <- 1;
-        b: int(signal-B) <- 2;
-        c: int(signal-C) <- 3;
-        d: int(signal-D) <- 4;
+        let a: int(signal-A) <- 1;
+        let b: int(signal-B) <- 2;
+        let c: int(signal-C) <- 3;
+        let d: int(signal-D) <- 4;
         out <- a+b*c+d;
     }
 
@@ -268,10 +268,10 @@ fn simulate_order_of_operations_any_signals_factorio_time() {
     let g = compile_code(
         "
     block main(input: many) => (out: int(rail)) {
-        a: int <- 1;
-        b: int <- 2;
-        c: int <- 3;
-        d: int <- 4;
+        let a: int <- 1;
+        let b: int <- 2;
+        let c: int <- 3;
+        let d: int <- 4;
         out <- a+b*c+d;
     }
 
@@ -287,8 +287,8 @@ fn simulate_var_mutation_with_clock() {
     let g = compile_code(
         "
     block main() => (out: int(signal-O)) {
-        total: var(signal-T);
-        c: counter(signal-C : 10);
+        let total: var(signal-T);
+        let c: counter(signal-C : 10);
         when c == 1 {
             total <- 2;
         }
@@ -311,7 +311,7 @@ fn simulate_negative_numbers() {
     const A = -5+8-5        // = -2
     
     block main() => (out: int(pump)) {
-        b: int <- -4-5+1;    // = -8
+        let b: int <- -4-5+1;    // = -8
         out <- A + b;
     }
 ",
@@ -354,9 +354,9 @@ fn test_definition_tuple_unpacking() {
     }
 
     block main() => (out: int(signal-E)) {
-        x: int;
-        y: int;
-        z: int;
+        let x: int;
+        let y: int;
+        let z: int;
         (x, y, z) <- values();
         out <- -x - y + z;
     }
@@ -379,8 +379,8 @@ fn test_mixed_tuple_unpacking() {
     }
 
     block main() => (out: int(signal-E)) {
-        x: int;
-        z: bool;
+        let x: int;
+        let z: bool;
         (x, y: int, z) <- values();
         when z {
             out <- x - y;

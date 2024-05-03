@@ -94,8 +94,8 @@ fn combine_ints() {
     allow! {"
 
     block main() => (out: many) {
-        a: int <- 42;
-        b: int <- 12;
+        let a: int <- 42;
+        let b: int <- 12;
         out <- a @ b;
     }
 
@@ -107,8 +107,8 @@ fn combine_bool() {
     allow! {"
 
     block main() => (out: many) {
-        a: int <- 42;
-        b: bool <- false;
+        let a: int <- 42;
+        let b: bool <- false;
         out <- a @ b;
     }
 

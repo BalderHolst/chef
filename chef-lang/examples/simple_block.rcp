@@ -1,5 +1,5 @@
 block main(a: int(logistic-chest-active-provider), b: int(pipe)) => (out: int(sulfur)) {
-    c: int <- a / 4;
-    d: int(signal-Z) <- b + 3;
+    let c: int <- a / 4;
+    let d: int(signal-Z) <- b + 3;
     out <- c + d;
 }

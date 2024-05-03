@@ -3,6 +3,6 @@ block add(a: int, b: int) => (out: int(steam)) {
 }
 
 block main(in: many) => (out: int(rail)) {
-    d: int <- add(in[splitter], 1 + 5);
+    let d: int <- add(in[splitter], 1 + 5);
     out <- d / 5;
 }

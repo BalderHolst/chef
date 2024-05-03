@@ -1,4 +1,4 @@
 block main() => (out: int(tank)) {
-    c: counter(signal-T : 50);
+    let c: counter(signal-T : 50);
     out <- c;
 }

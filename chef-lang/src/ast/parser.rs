@@ -199,6 +199,17 @@ impl Parser {
         }
     }
 
+    /// Consume and error if the word is not what was expected.
+    fn consume_and_expect_word<'a>(&mut self, word: &'a str) -> CompilationResult<&'a str> {
+        match self.consume_word()? {
+            s if s == word => Ok(word),
+            other => Err(CompilationError::new_localized(
+                format!("Expected '{word}' but got '{other}'."),
+                self.peak(-1).span.clone(),
+            )),
+        }
+    }
+
     /// Search the current scope for a variable.
     fn search_scope(&self, name: &str) -> Option<ScopedItem> {
         let mut rev_scopes = self.scopes.clone();
@@ -352,7 +363,7 @@ impl Parser {
             TokenKind::Word(word) => {
                 let kind = match word.as_str() {
                     "when" => self.parse_when_statement(),
-                    _ if self.is_at_declaration_statment() => self.parse_declaration_statement(),
+                    "let" => self.parse_declaration_statement(),
                     _ if self.is_at_definition_statment() => self.parse_definition_statement(),
                     _ => {
                         self.consume_bad_statement();
@@ -413,12 +424,8 @@ impl Parser {
     fn is_at_definition_statment(&self) -> bool {
         matches!(
             &self.peak(1).kind,
-            TokenKind::Colon | TokenKind::LeftArrow | TokenKind::LeftCurlyArrow
+            TokenKind::Colon | TokenKind::LeftArrow | TokenKind::LeftCurlyArrow | TokenKind::Equals
         )
-    }
-
-    fn is_at_declaration_statment(&self) -> bool {
-        matches!(&self.peak(1).kind, TokenKind::Colon)
     }
 
     fn parse_declaration_statement(&mut self) -> CompilationResult<StatementKind> {
@@ -530,6 +537,8 @@ impl Parser {
 
     fn parse_variable_declaration(&mut self) -> CompilationResult<Variable> {
         let start_token = self.current().clone();
+
+        self.consume_and_expect_word("let")?;
 
         let name = self.consume_word()?.to_string();
 

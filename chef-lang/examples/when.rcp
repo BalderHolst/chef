@@ -1,7 +1,7 @@
 // TODO: `else`
 // TODO: WHEN AS EXPRESSION!
 block main(input: many) => (out: int(signal-blue)) {
-    i: var(signal-green);
+    let i: var(signal-green);
     when input[signal-red] > 5 {
         i <- 10;
     }
