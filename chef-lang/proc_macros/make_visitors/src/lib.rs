@@ -1,36 +1,16 @@
+use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote, ToTokens};
+use proc_macro2;
 
-#[proc_macro]
-pub fn make_visitors(_item: TokenStream) -> TokenStream {
-    let mut s = TokenStream::new();
-    s.extend(generate_visitor(false));
-    s.extend(generate_visitor(true));
-    s
-}
+/// Methods of the visitors
+const METHODS: &[VisitorMethod] = &[
 
-fn generate_visitor(mutable: bool) -> TokenStream {
-    let (doc, name, r) = match mutable {
-        true => (
-            quote! { "Allows stuct to *mutably* visit the chef [AST]." },
-            quote! { MutVisitor },
-            quote! { &mut },
-        ),
-        false => (
-            quote! { "Allows stuct to *immutably* visit the chef [AST]." },
-            quote! { Visitor },
-            quote! { & },
-        ),
-    };
-
-    quote! {
-        #[doc = #doc]
-        pub trait #name {
-
-            fn visit_block(&mut self, block: #r Block) {
-                self.do_visit_block(block);
-            }
-            fn do_visit_block(&mut self, block: #r Block) {
+    VisitorMethod {
+        type_: "Block",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
                 for input in #r block.inputs {
                     self.visit_variable(input);
                 }
@@ -40,12 +20,15 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                 for statement in #r block.statements {
                     self.visit_statement(statement);
                 }
-            }
+            })
+        }),
+    },
 
-            fn visit_statement(&mut self, statement: #r Statement) {
-                self.do_visit_statement(statement);
-            }
-            fn do_visit_statement(&mut self, statement: #r Statement) {
+    VisitorMethod {
+        type_: "Statement",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
                 match #r statement.kind {
                     StatementKind::Declaration(declaration) => {
                         self.visit_declaration(declaration);
@@ -60,15 +43,18 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                         self.visit_when_statement(when);
                     }
                     StatementKind::TupleDeclarationDefinition(tuple_dec_def) => {
-                        self.visit_tuple_definition_declaration_statement(tuple_dec_def);
+                        self.visit_tuple_declaration_definition(tuple_dec_def);
                     }
                 }
-            }
+            })
+        }),
+    },
 
-            fn visit_expression(&mut self, expression: #r Expression) {
-                self.do_visit_expression(expression);
-            }
-            fn do_visit_expression(&mut self, expression: #r Expression) {
+    VisitorMethod {
+        type_: "Expression",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
                 match #r expression.kind {
                     ExpressionKind::Int(number) => {
                         self.visit_number(number);
@@ -95,140 +81,254 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                         self.visit_index_expression(expr);
                     }
                     ExpressionKind::BlockLink(block) => {
-                        self.visit_block_link(block);
+                        self.visit_block_link_expression(block);
                     }
                     ExpressionKind::Delay(delay) => {
-                        self.visit_delay(delay);
+                        self.visit_delay_expression(delay);
                     }
                     ExpressionKind::SizeOf(expr) => {
-                        self.visit_size_of(expr);
+                        self.visit_size_of_expression(expr);
                     }
                 }
-            }
+            })
+        }),
+    },
 
-            fn visit_declaration_definition(&mut self, dec_def: #r DeclarationDefinition) {
-                self.do_visit_declaration_definition(dec_def);
-            }
-            fn do_visit_declaration_definition(&mut self, dec_def: #r DeclarationDefinition) {
-                self.visit_variable(#r dec_def.variable);
-                self.visit_expression(#r dec_def.expression);
-            }
+    VisitorMethod {
+        type_: "DeclarationDefinition",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                self.visit_variable(#r declaration_definition.variable);
+                self.visit_expression(#r declaration_definition.expression);
+            })
+        }),
+    },
 
-            fn visit_declaration(&mut self, dec: #r Declaration) {
-                self.do_visit_declaration(dec);
-            }
-            fn do_visit_declaration(&mut self, dec: #r Declaration) {
-                self.visit_variable(#r dec.variable);
-            }
+    VisitorMethod {
+        type_: "Declaration",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                self.visit_variable(#r declaration.variable);
+            })
+        }),
+    },
 
-            fn visit_definition(&mut self, def: #r Definition) {
-                self.do_visit_definition(def);
-            }
-            fn do_visit_definition(&mut self, def: #r Definition) {
-                self.visit_expression(#r def.expression);
-            }
+    VisitorMethod {
+        type_: "Definition",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                self.visit_expression(#r definition.expression);
+            })
+        }),
+    },
 
-            fn visit_size_of(&mut self, size: #r SizeOfExpression) {
-                self.do_visit_size_of(size);
-            }
-            fn do_visit_size_of(&mut self, size: #r SizeOfExpression) {
-                self.visit_expression(#r size.expression);
-            }
+    VisitorMethod {
+        type_: "SizeOfExpression",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                self.visit_expression(#r size_of_expression.expression);
+            })
+        }),
+    },
 
-            fn visit_when_statement(&mut self, when_statement: #r WhenStatement) {
-                self.do_visit_when_statement(when_statement);
-            }
-            fn do_visit_when_statement(&mut self, when: #r WhenStatement) {
-                self.visit_expression(#r when.condition);
-                for statement in #r when.statements {
+    VisitorMethod {
+        type_: "WhenStatement",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                self.visit_expression(#r when_statement.condition);
+                for statement in #r when_statement.statements {
                     self.visit_statement(statement);
                 }
-            }
+            })
+        }),
+    },
 
-            fn visit_tuple_definition_declaration_statement(&mut self, tuple_dec_def: #r TupleDeclarationDefinition) {
-                self.do_visit_tuple_declaration_definition_statement(tuple_dec_def);
-            }
-            fn do_visit_tuple_declaration_definition_statement(&mut self, tuple_dec_def: #r TupleDeclarationDefinition) {
-                for def in #r tuple_dec_def.defs {
+    VisitorMethod {
+        type_: "TupleDeclarationDefinition",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                for def in #r tuple_declaration_definition.defs {
                     self.visit_variable(#r def.variable);
                     self.visit_variable(#r def.block_variable);
                 }
-                self.visit_block_link(#r tuple_dec_def.block_link);
-            }
+                self.visit_block_link_expression(#r tuple_declaration_definition.block_link);
+            })
+        }),
+    },
 
-            fn visit_number(&mut self, n: #r i32) {
-                self.do_visit_number(n);
-            }
-            fn do_visit_number(&mut self, n: #r i32) {}
+    VisitorMethod {
+        type_: "Number",
+        no_mut: false,
+        do_method: None,
+    },
 
-            fn visit_bool(&mut self, b: #r bool) {
-                self.do_visit_bool(b);
-            }
-            fn do_visit_bool(&mut self, b: #r bool) {}
+    VisitorMethod {
+        type_: "bool",
+        no_mut: false,
+        do_method: None,
+    },
 
-            fn visit_variable(&mut self, var: #r std::rc::Rc<RefCell<Variable>>) {
-                self.do_visit_variable(var);
-            }
-            fn do_visit_variable(&mut self, var: #r std::rc::Rc<RefCell<Variable>>) {}
+    VisitorMethod {
+        type_: "Variable",
+        no_mut: true,
+        do_method: None,
+    },
 
-            fn visit_variable_ref(&mut self, var: #r VariableRef) {
-                self.do_visit_variable_ref(var);
-            }
-            fn do_visit_variable_ref(&mut self, var: #r VariableRef) {
-                self.visit_variable(#r var.var);
-            }
+    VisitorMethod {
+        type_: "VariableRef",
+        no_mut: true,
+        do_method: None,
+    },
 
-            fn visit_binary_expression(&mut self, bin_expr: #r BinaryExpression) {
-                self.do_visit_binary_expression(bin_expr);
-            }
-            fn do_visit_binary_expression(&mut self, bin_expr: #r BinaryExpression) {
-                self.visit_expression(#r bin_expr.left);
-                self.visit_expression(#r bin_expr.right);
-            }
+    VisitorMethod {
+        type_: "BinaryExpression",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                self.visit_expression(#r binary_expression.left);
+                self.visit_expression(#r binary_expression.right);
+            })
+        }),
+    },
 
-            fn visit_parenthesized_expression(&mut self, paren_expr: #r ParenthesizedExpression) {
-                self.do_visit_parenthesized_expression(paren_expr);
-            }
-            fn do_visit_parenthesized_expression(&mut self, paren_expr: #r ParenthesizedExpression) {
-                self.visit_expression(#r paren_expr.expression);
-            }
+    VisitorMethod {
+        type_: "ParenthesizedExpression",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                self.visit_expression(#r parenthesized_expression.expression);
+            })
+        }),
+    },
 
-            fn visit_negative_expression(&mut self, neg_expr: #r NegativeExpression) {
-                self.do_visit_negative_expression(neg_expr);
-            }
-            fn do_visit_negative_expression(&mut self, neg_expr: #r NegativeExpression) {
-                self.visit_expression(#r neg_expr.expression);
-            }
+    VisitorMethod {
+        type_: "NegativeExpression",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                self.visit_expression(#r negative_expression.expression);
+            })
+        }),
+    },
 
-            fn visit_pick_expression(&mut self, expr: #r PickExpression) {
-                self.do_visit_pick_expression(expr);
-            }
-            fn do_visit_pick_expression(&mut self, pick_expr: #r PickExpression) {
-                self.visit_variable_ref(#r pick_expr.from);
-            }
-            fn visit_index_expression(&mut self, expr: #r IndexExpression) {
-                self.do_visit_index_expression(expr);
-            }
-            fn do_visit_index_expression(&mut self, index_expr: #r IndexExpression) {
-                self.visit_variable_ref(#r index_expr.var_ref);
-            }
+    VisitorMethod {
+        type_: "PickExpression",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                self.visit_variable_ref(#r pick_expression.from);
+            })
+        }),
+    },
 
-            fn visit_block_link(&mut self, link: #r BlockLinkExpression) {
-                self.do_visit_block_link(link);
-            }
-            fn do_visit_block_link(&mut self, link_expr: #r BlockLinkExpression) {
-                for input in #r link_expr.inputs {
+    VisitorMethod {
+        type_: "IndexExpression",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                self.visit_variable_ref(#r index_expression.var_ref);
+            })
+        }),
+    },
+
+    VisitorMethod {
+        type_: "BlockLinkExpression",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                for input in #r block_link_expression.inputs {
                     self.visit_expression(input);
                 }
+            })
+        }),
+    },
+
+    VisitorMethod {
+        type_: "DelayExpression",
+        no_mut: false,
+        do_method: Some(|r: Box<dyn ToTokens>| {
+            Box::new(quote! {
+                self.visit_expression(#r delay_expression.expression);
+            })
+        }),
+    },
+
+];
+
+#[proc_macro]
+pub fn make_visitors(_item: TokenStream) -> TokenStream {
+    let mut s = TokenStream::new();
+    s.extend(generate_visitor(false));
+    s.extend(generate_visitor(true));
+    s
+}
+
+struct VisitorMethod {
+    type_: &'static str,
+    no_mut: bool,
+
+    // Takes (r: &str)
+    do_method: Option<fn(Box<dyn ToTokens>) -> Box<dyn ToTokens>>,
+}
+
+impl VisitorMethod {
+    fn tokens(&self, r: proc_macro2::TokenStream) -> Box<dyn ToTokens> {
+        let name  = format_ident!("{}", self.type_.to_case(Case::Snake));
+        let type_ = format_ident!("{}", self.type_);
+
+        let r = match self.no_mut {
+            false => Box::new(quote! { #r }),
+            true => Box::new(quote! { & }),
+        };
+
+        let method_name = format_ident!("visit_{name}");
+        let do_method_name = format_ident!("do_visit_{name}");
+
+        let do_body = match self.do_method {
+            Some(do_method) => (do_method)(r.clone()),
+            None => Box::new(quote! {}),
+        };
+
+        Box::new(quote! {
+
+            fn #method_name(&mut self, #name: #r #type_) {
+                self.#do_method_name(#name);
             }
 
-            fn visit_delay(&mut self, delay: #r DelayExpression) {
-                self.do_visit_delay(delay);
-            }
-            fn do_visit_delay(&mut self, delay: #r DelayExpression) {
-                self.visit_expression(#r delay.expression);
+            fn #do_method_name(&mut self, #name: #r #type_) {
+                #do_body
             }
 
+        })
+    }
+}
+
+fn generate_visitor(mutable: bool) -> TokenStream {
+    let (doc, name, r) = match mutable {
+        true => (
+            quote! { "Allows stuct to *mutably* visit the chef [AST]." },
+            quote! { MutVisitor },
+            quote! { &mut },
+        ),
+        false => (
+            quote! { "Allows stuct to *immutably* visit the chef [AST]." },
+            quote! { Visitor },
+            quote! { & },
+        ),
+    };
+
+    let methods: Vec<Box<dyn ToTokens>> = METHODS.iter().map(|method| method.tokens(r.clone())).collect();
+
+    quote! { 
+        #[doc = #doc]
+        pub trait #name {
+            #(#methods)*
         }
-    }.into()
+    }.to_token_stream().into()
 }

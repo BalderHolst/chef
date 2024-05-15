@@ -21,13 +21,13 @@ use super::lexer::Lexer;
 use super::{
     AssignmentType, Block, BlockLinkArg, BlockLinkExpression, DeclarationDefinition, DynBlock,
     DynBlockArg, NegativeExpression, PickExpression, SizeOfExpression, TupleDeclarationDefinition,
-    VariableRef, VariableSignalType,
+    VarData, VariableRef, VariableSignalType,
 };
 use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement};
 
 const MACRO_ARG_SEP: &str = "; ";
 
-type BlockArgs = Vec<Rc<RefCell<Variable>>>;
+type BlockArgs = Vec<Rc<Variable>>;
 
 // TODO: Add example
 /// A list of statements with an optional return expression at its end.
@@ -39,7 +39,7 @@ pub struct StatementList {
 
 #[derive(Debug, Clone, PartialEq)]
 enum ScopedItem {
-    Var(Rc<RefCell<Variable>>),
+    Var(Rc<Variable>),
     Const(Constant),
 }
 
@@ -285,7 +285,7 @@ impl Parser {
         self.scopes.last_mut().unwrap().insert(name, item);
     }
 
-    fn add_var_to_scope(&mut self, var: Rc<RefCell<Variable>>) {
+    fn add_var_to_scope(&mut self, var: Rc<Variable>) {
         self.add_to_scope(var.borrow().name.clone(), ScopedItem::Var(var.clone()))
     }
 
@@ -549,7 +549,7 @@ impl Parser {
         }
     }
 
-    fn parse_variable_declaration(&mut self) -> CompilationResult<Variable> {
+    fn parse_variable_declaration(&mut self) -> CompilationResult<VarData> {
         let start_token = self.current().clone();
 
         self.consume_and_expect_word("let")?;
@@ -564,7 +564,7 @@ impl Parser {
             _ => VariableType::Inferred,
         };
 
-        Ok(Variable::new(
+        Ok(VarData::new(
             name.to_owned(),
             type_,
             self.get_span_from(&start_token.span),
@@ -595,7 +595,7 @@ impl Parser {
 
             let type_ = self.parse_variable_type()?;
 
-            Ok(ParsedVariable::Dec(Variable::new(
+            Ok(ParsedVariable::Dec(VarData::new(
                 name.to_owned(),
                 type_,
                 self.get_span_from(&start_token.span),
@@ -680,8 +680,8 @@ impl Parser {
     }
 
     /// Parse arguments for `block` definition.
-    fn parse_block_arguments(&mut self) -> CompilationResult<Vec<Rc<RefCell<Variable>>>> {
-        let mut arguments: Vec<Rc<RefCell<Variable>>> = vec![];
+    fn parse_block_arguments(&mut self) -> CompilationResult<Vec<Rc<Variable>>> {
+        let mut arguments: Vec<Rc<Variable>> = vec![];
 
         while !matches!(self.current().kind, TokenKind::RightParen | TokenKind::End) {
             let var_span = self.current().span.clone();
@@ -1305,10 +1305,7 @@ impl Parser {
         }
     }
 
-    fn parse_variable_index(
-        &mut self,
-        var: Rc<RefCell<Variable>>,
-    ) -> CompilationResult<Expression> {
+    fn parse_variable_index(&mut self, var: Rc<Variable>) -> CompilationResult<Expression> {
         let start_span = self.peak(-1).span.clone();
         let var_span = self.current().span.clone();
         self.consume_and_expect(TokenKind::LeftSquare)?;
@@ -1591,7 +1588,7 @@ impl Iterator for Parser {
 
 enum ParsedVariable {
     /// Declaration of a variable.
-    Dec(Variable),
+    Dec(VarData),
 
     /// A reference to a variable in an expression.
     Ref(VariableRef),

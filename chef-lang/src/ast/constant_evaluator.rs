@@ -84,10 +84,9 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
 
 impl MutVisitor for ConstantEvaluator {
     fn visit_pick_expression(&mut self, _expr: &mut super::PickExpression) {}
-    fn visit_index_expression(&mut self, _expr: &mut super::IndexExpression) {}
     fn visit_number(&mut self, _number: &mut i32) {}
     fn visit_bool(&mut self, _bool: &mut bool) {}
-    fn visit_variable_ref(&mut self, _var: &mut super::VariableRef) {}
+    fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
 
     // fn visit_negative_expression(&mut self, expr: &mut Box<Expression>) {
     //     match &mut expr.kind {
