@@ -55,6 +55,7 @@ block main(input: many) => (out: int(inserter)) {
 }
 
 #[test]
+#[ignore = "counters are not implemented in stdlib yet"]
 fn simulate_counter_with_when() {
     let graph = compile_code(
         "
@@ -283,6 +284,7 @@ fn simulate_order_of_operations_any_signals_factorio_time() {
 }
 
 #[test]
+#[ignore = "counters are not implemented in stdlib yet"]
 fn simulate_var_mutation_with_clock() {
     let g = compile_code(
         "

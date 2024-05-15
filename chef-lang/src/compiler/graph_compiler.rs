@@ -219,43 +219,6 @@ impl GraphCompiler {
                 )?;
                 Ok(())
             }
-            VariableType::Counter((_, limit_expr)) => {
-                // Get counter limit
-                let (limit_nid, limit_type) = self.compile_expression(graph, limit_expr, None)?;
-
-                let (counter_input_nid, counter_nid) =
-                    graph.push_connection(Connection::new_gate(GateOp {
-                        left: var_type.clone().to_combinator_type(),
-                        right: limit_type.clone().to_combinator_type(),
-                        operation: DeciderOperation::LessThan,
-                        gate_type: var_type.clone().to_combinator_type(),
-                    }));
-                graph.push_wire_kind(counter_input_nid, counter_nid, WireKind::Red);
-
-                // Create a constant driver for the counter
-                let driver_nid = graph.push_node(Node::Constant(var_type.to_constant(1).unwrap()));
-                graph.push_wire_kind(driver_nid, counter_input_nid, WireKind::Green);
-
-                // Connect counter to limit to input
-                graph.push_wire_kind(limit_nid, counter_input_nid, WireKind::Green);
-
-                self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
-                self.define_variable(
-                    graph,
-                    var.id,
-                    counter_nid,
-                    var_type.clone(),
-                    DefinitionKind::Wire(WireKind::Red),
-                )?;
-                self.define_variable(
-                    graph,
-                    var.id,
-                    counter_nid,
-                    var_type,
-                    DefinitionKind::Wire(WireKind::Red),
-                )?;
-                Ok(())
-            }
             _ => self.declare_variable(graph, var.id, var_type, var.name.clone()),
         }
     }
@@ -763,10 +726,6 @@ impl GraphCompiler {
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
             VariableType::Var(var_type) => match var_type {
-                VariableSignalType::Signal(s) => LooseSig::Signal(s.clone()),
-                VariableSignalType::Any => self.get_new_anysignal(),
-            },
-            VariableType::Counter((var_type, _lim)) => match var_type {
                 VariableSignalType::Signal(s) => LooseSig::Signal(s.clone()),
                 VariableSignalType::Any => self.get_new_anysignal(),
             },

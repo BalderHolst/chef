@@ -452,15 +452,6 @@ impl Parser {
                 self.add_var_to_scope(var.clone());
                 return Ok(StatementKind::Declaration(Declaration::new(var)));
             }
-            VariableType::Counter(_) => {
-                self.consume_and_expect(TokenKind::Semicolon)?;
-
-                // `counter` type variable is always zero initialized, because memory cells in factorio
-                // cannot be assigned values.
-                let var = Rc::new(RefCell::new(variable));
-                self.add_var_to_scope(var.clone());
-                return Ok(StatementKind::Declaration(Declaration::new(var)));
-            }
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
             VariableType::Many => {}
@@ -613,22 +604,6 @@ impl Parser {
                 "int" => Ok(VariableType::Int(self.parse_variable_type_signal()?)),
                 "var" => Ok(VariableType::Var(self.parse_variable_type_signal()?)),
                 "many" => Ok(VariableType::Many),
-                "counter" => {
-                    self.consume_and_expect(TokenKind::LeftParen)?;
-                    let sig_token = self.consume();
-                    let type_ = if let TokenKind::Word(t) = &sig_token.kind {
-                        VariableSignalType::Signal(t.clone())
-                    } else {
-                        return Err(CompilationError::new_localized(
-                            format!("Expected signal for counter, found: `{}`", sig_token.kind),
-                            sig_token.span.clone(),
-                        ));
-                    };
-                    self.consume_and_expect(TokenKind::Colon)?;
-                    let limit_expr = self.parse_expression()?;
-                    self.consume_and_expect(TokenKind::RightParen)?;
-                    Ok(VariableType::Counter((type_, Box::new(limit_expr))))
-                }
                 w => Err(CompilationError::new_localized(
                     format!("Unknown type `{}`.", w),
                     token.span.clone(),

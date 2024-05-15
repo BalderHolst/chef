@@ -387,6 +387,7 @@ mod tests {
     use crate::compiler::graph::{Node, Operation};
 
     #[test]
+    #[ignore = "counters are not implemented in stdlib yet"]
     fn test_counter() {
         let t = "s";
         let mut g: Graph<DetSig> = Graph::new();

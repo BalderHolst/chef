@@ -208,7 +208,6 @@ pub enum VariableType {
     Int(VariableSignalType),
     Var(VariableSignalType),
     Many,
-    Counter((VariableSignalType, Box<Expression>)),
     Inferred,
 }
 
@@ -220,7 +219,6 @@ impl VariableType {
             VariableType::Int(_) => "int".to_string(),
             VariableType::Var(_) => "var".to_string(),
             VariableType::Many => "many".to_string(),
-            VariableType::Counter(_) => "counter".to_string(),
             VariableType::Inferred => todo!(),
         }
     }
@@ -231,7 +229,6 @@ impl VariableType {
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Var(_) => ExpressionReturnType::Int,
             VariableType::Many => ExpressionReturnType::Many,
-            VariableType::Counter(_) => ExpressionReturnType::Int,
             VariableType::Inferred => ExpressionReturnType::Infered,
         }
     }
@@ -242,7 +239,6 @@ impl VariableType {
             VariableType::Int(s) => Some(s),
             VariableType::Var(s) => Some(s),
             VariableType::Many => None,
-            VariableType::Counter((s, _lim)) => Some(s),
             VariableType::Inferred => None,
         }
     }
@@ -866,10 +862,6 @@ impl Display for VariableType {
             VariableType::Var(var_type) => match var_type {
                 VariableSignalType::Signal(n) => format!("Var({n})"),
                 VariableSignalType::Any => "Var(Any)".to_string(),
-            },
-            VariableType::Counter((var_type, _lim)) => match var_type {
-                VariableSignalType::Signal(n) => format!("Counter({n})"),
-                VariableSignalType::Any => "Counter(Any)".to_string(),
             },
             VariableType::Many => "Many".to_string(),
             VariableType::Inferred => "Inferred".to_string(),
