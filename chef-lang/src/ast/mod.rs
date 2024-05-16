@@ -22,15 +22,13 @@ mod type_checker;
 mod type_inference;
 mod visitors;
 
-type Variable = RefCell<VarData>;
-
 /// [AST] representation of chef `block`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
     pub id: usize,
     pub name: String,
-    pub inputs: Vec<Rc<Variable>>,
-    pub outputs: Vec<Rc<Variable>>,
+    pub inputs: Vec<Rc<RefCell<Variable>>>,
+    pub outputs: Vec<Rc<RefCell<Variable>>>,
     pub statements: Vec<Statement>,
     pub span: TextSpan,
     pub dyn_block_id: Option<usize>,
@@ -41,8 +39,8 @@ impl Block {
     fn new(
         id: usize,
         name: String,
-        inputs: Vec<Rc<Variable>>,
-        outputs: Vec<Rc<Variable>>,
+        inputs: Vec<Rc<RefCell<Variable>>>,
+        outputs: Vec<Rc<RefCell<Variable>>>,
         statements: Vec<Statement>,
         span: TextSpan,
     ) -> Self {
@@ -274,7 +272,7 @@ pub type VariableId = usize;
 /// An argument to a block definition.
 #[derive(Debug, Clone)]
 pub enum DynBlockArg {
-    Var(Rc<Variable>),
+    Var(Rc<RefCell<Variable>>),
     Literal(String),
 }
 
@@ -296,14 +294,14 @@ impl BlockLinkArg {
 
 /// A chef variable.
 #[derive(Debug, Clone, PartialEq)]
-pub struct VarData {
+pub struct Variable {
     pub name: String,
     pub type_: VariableType,
     pub span: TextSpan,
     pub id: VariableId,
 }
 
-impl VarData {
+impl Variable {
     /// Instantiate a new [Variable].
     pub fn new(name: String, variable_type: VariableType, span: TextSpan, id: usize) -> Self {
         Self {
@@ -323,12 +321,12 @@ impl VarData {
 /// A reference to a defined chef variable
 #[derive(Debug, Clone, PartialEq)]
 pub struct VariableRef {
-    pub var: Rc<Variable>,
+    pub var: Rc<RefCell<Variable>>,
     pub span: TextSpan,
 }
 
 impl VariableRef {
-    fn new(var: Rc<Variable>, span: TextSpan) -> Self {
+    fn new(var: Rc<RefCell<Variable>>, span: TextSpan) -> Self {
         Self { var, span }
     }
 
@@ -340,12 +338,12 @@ impl VariableRef {
 /// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration {
-    pub variable: Rc<Variable>,
+    pub variable: Rc<RefCell<Variable>>,
 }
 
 impl Declaration {
     /// Instantiate a new [Declaration].
-    pub fn new(variable: Rc<Variable>) -> Self {
+    pub fn new(variable: Rc<RefCell<Variable>>) -> Self {
         Self { variable }
     }
 }
@@ -354,14 +352,18 @@ impl Declaration {
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeclarationDefinition {
     // TODO: Make this contain a `Declaration` and a `Definition`
-    pub variable: Rc<Variable>,
+    pub variable: Rc<RefCell<Variable>>,
     pub expression: Expression,
     pub kind: DefinitionKind,
 }
 
 impl DeclarationDefinition {
     /// Instantiate a new [Assignment].
-    pub fn new(variable: Rc<Variable>, expression: Expression, kind: DefinitionKind) -> Self {
+    pub fn new(
+        variable: Rc<RefCell<Variable>>,
+        expression: Expression,
+        kind: DefinitionKind,
+    ) -> Self {
         Self {
             variable,
             expression,
@@ -379,14 +381,18 @@ pub enum DefinitionKind {
 /// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Definition {
-    pub variable: Rc<Variable>,
+    pub variable: Rc<RefCell<Variable>>,
     pub expression: Expression,
     pub kind: DefinitionKind,
 }
 
 impl Definition {
     /// Instantiate a new [Assignment].
-    pub fn new(variable: Rc<Variable>, expression: Expression, kind: DefinitionKind) -> Self {
+    pub fn new(
+        variable: Rc<RefCell<Variable>>,
+        expression: Expression,
+        kind: DefinitionKind,
+    ) -> Self {
         Self {
             variable,
             expression,
@@ -413,8 +419,8 @@ pub enum AssignmentType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutputAssignment {
-    pub variable: Rc<Variable>,
-    pub block_variable: Rc<Variable>,
+    pub variable: Rc<RefCell<Variable>>,
+    pub block_variable: Rc<RefCell<Variable>>,
     pub assignment_type: AssignmentType,
 }
 
@@ -870,7 +876,7 @@ impl Display for VariableType {
     }
 }
 
-impl Display for VarData {
+impl Display for Variable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} : {}", self.name, self.type_)
     }
@@ -953,7 +959,7 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_delay_expression(&mut self, delay: &DelayExpression) {
+    fn visit_delay(&mut self, delay: &DelayExpression) {
         self.print(&format!("Delay: {}", delay.delay));
         self.indent();
         self.visit_expression(&delay.expression);
@@ -1010,7 +1016,7 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_block_link_expression(&mut self, block: &BlockLinkExpression) {
+    fn visit_block_link(&mut self, block: &BlockLinkExpression) {
         self.print(&format!("BlockLink: \"{}\"", block.block.name));
         self.indent();
         self.print(&format!("Args: ({})", block.inputs.len()));

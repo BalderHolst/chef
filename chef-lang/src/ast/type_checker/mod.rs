@@ -6,6 +6,8 @@
 #[cfg(test)]
 mod tests;
 
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
 use super::{visitors::Visitor, ExpressionReturnType, Variable, AST};
@@ -77,7 +79,7 @@ impl TypeChecker {
         })
     }
 
-    fn check_variable(&mut self, var: &Variable) {
+    fn check_variable(&mut self, var: &Rc<RefCell<Variable>>) {
         let var = var.borrow();
         if let Some(sig) = var.type_.signal() {
             self.report_if_invalid_signal(sig.as_str(), &var.span)
@@ -87,8 +89,8 @@ impl TypeChecker {
 
 // TODO: Variable ref
 impl Visitor for TypeChecker {
-    fn visit_block_link_expression(&mut self, _block: &super::BlockLinkExpression) {}
-    fn visit_number(&mut self, _number: &super::visitors::Number) {}
+    fn visit_block_link(&mut self, _block: &super::BlockLinkExpression) {}
+    fn visit_number(&mut self, _number: &i32) {}
     fn visit_bool(&mut self, _value: &bool) {}
 
     fn visit_pick_expression(&mut self, pick: &super::PickExpression) {
