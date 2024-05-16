@@ -1,14 +1,30 @@
 use std::collections::HashMap;
 
 use crate::ast::{
-    AssignmentType, BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
-    DeclarationDefinition, Definition, DefinitionKind, DelayExpression, Expression, ExpressionKind,
-    IndexExpression, NegativeExpression, PickExpression, SizeOfExpression,
-    TupleDeclarationDefinition, VariableId, VariableRef, VariableSignalType, WhenStatement, AST,
+    self, AssignmentType, BinaryOperator, DefinitionKind, MutVar, VariableId, VariableSignalType,
+    VariableType, AST,
 };
-use crate::ast::{Statement, StatementKind, VariableType};
 use crate::compiler::graph::*;
 use crate::diagnostics::{CompilationError, CompilationResult};
+
+type Block = ast::Block<MutVar>;
+type Statement = ast::Statement<MutVar>;
+type Declaration = ast::Declaration<MutVar>;
+type DeclarationDefinition = ast::DeclarationDefinition<MutVar>;
+type Definition = ast::Definition<MutVar>;
+type TupleDeclarationDefinition = ast::TupleDeclarationDefinition<MutVar>;
+type BinaryExpression = ast::BinaryExpression<MutVar>;
+type BlockLinkExpression = ast::BlockLinkExpression<MutVar>;
+type DelayExpression = ast::DelayExpression<MutVar>;
+type Expression = ast::Expression<MutVar>;
+type ExpressionKind = ast::ExpressionKind<MutVar>;
+type IndexExpression = ast::IndexExpression<MutVar>;
+type NegativeExpression = ast::NegativeExpression<MutVar>;
+type PickExpression = ast::PickExpression<MutVar>;
+type SizeOfExpression = ast::SizeOfExpression<MutVar>;
+type StatementKind = ast::StatementKind<MutVar>;
+type VariableRef = ast::VariableRef<MutVar>;
+type WhenStatement = ast::WhenStatement<MutVar>;
 
 struct Scope {
     variables: HashMap<VariableId, (NId, LooseSig)>,
@@ -115,14 +131,14 @@ impl Scope {
 }
 
 pub struct GraphCompiler {
-    ast: AST,
+    ast: AST<MutVar>,
     next_anysignal: u64,
     block_graphs: HashMap<String, Graph<LooseSig>>,
     scopes: Vec<Scope>,
 }
 
 impl GraphCompiler {
-    pub fn new(ast: AST) -> Self {
+    pub fn new(ast: AST<MutVar>) -> Self {
         Self {
             ast,
             next_anysignal: 0,

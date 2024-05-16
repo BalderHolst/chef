@@ -1,7 +1,10 @@
 //! Module for compiling abstract syntax trees to a graph. The graph contains information about
 //! how factorio combinators should be connected, and what operations they should do.
 
-use crate::{ast::AST, diagnostics::CompilationResult};
+use crate::{
+    ast::{MutVar, AST},
+    diagnostics::CompilationResult,
+};
 
 use self::{
     graph::{DetSig, Graph},
@@ -18,7 +21,7 @@ mod signal_assigner;
 pub const RESERVED_SIGNAL: &str = "signal-dot";
 
 /// Compile and abstract syntax tree in to a graph and report errors.
-pub fn compile(ast: AST) -> CompilationResult<Graph<DetSig>> {
+pub fn compile(ast: AST<MutVar>) -> CompilationResult<Graph<DetSig>> {
     let mut graph_compiler = GraphCompiler::new(ast);
     let loose_graph = graph_compiler.compile()?;
     let graph = signal_assigner::assign_signals(&loose_graph);

@@ -1,8 +1,8 @@
 use crate::ast::{ExpressionReturnType, VariableType};
 
-use super::{visitors::MutVisitor, AST};
+use super::{visitors::MutVisitor, MutVar, AST};
 
-pub fn infer(ast: &mut AST) {
+pub fn infer(ast: &mut AST<MutVar>) {
     for block in &mut ast.blocks {
         TypeInferer::new().infer(block);
     }
@@ -17,7 +17,7 @@ impl TypeInferer {
         Self { did_work: true }
     }
 
-    fn infer(&mut self, block: &mut super::Block) {
+    fn infer(&mut self, block: &mut super::Block<MutVar>) {
         loop {
             if !self.did_work {
                 break;
@@ -30,8 +30,8 @@ impl TypeInferer {
     }
 }
 
-impl MutVisitor for TypeInferer {
-    fn visit_declaration_definition(&mut self, dec_def: &mut super::DeclarationDefinition) {
+impl MutVisitor<MutVar> for TypeInferer {
+    fn visit_declaration_definition(&mut self, dec_def: &mut super::DeclarationDefinition<MutVar>) {
         let mut var = (*dec_def.variable).borrow_mut();
         let var_type = &var.type_;
 
@@ -52,7 +52,7 @@ impl MutVisitor for TypeInferer {
         self.did_work = true;
     }
 
-    fn visit_definition(&mut self, def: &mut super::Definition) {
+    fn visit_definition(&mut self, def: &mut super::Definition<MutVar>) {
         let mut var = (*def.variable).borrow_mut();
         let var_type = &var.type_;
 

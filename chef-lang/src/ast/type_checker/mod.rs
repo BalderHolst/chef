@@ -6,14 +6,14 @@
 #[cfg(test)]
 mod tests;
 
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
-use super::{visitors::Visitor, ExpressionReturnType, Variable, AST};
+use super::{visitors::Visitor, ExpressionReturnType, MutVar, Variable, AST};
 
 /// Type check an [AST].
-pub fn check(ast: &AST, diagnostics_bag: DiagnosticsBagRef) {
+pub fn check(ast: &AST<MutVar>, diagnostics_bag: DiagnosticsBagRef) {
     let mut checker = TypeChecker { diagnostics_bag };
     for block in &ast.blocks {
         checker.visit_block(block);
@@ -79,7 +79,7 @@ impl TypeChecker {
         })
     }
 
-    fn check_variable(&mut self, var: &Rc<RefCell<Variable>>) {
+    fn check_variable(&mut self, var: &Rc<MutVar>) {
         let var = var.borrow();
         if let Some(sig) = var.type_.signal() {
             self.report_if_invalid_signal(sig.as_str(), &var.span)
@@ -88,28 +88,28 @@ impl TypeChecker {
 }
 
 // TODO: Variable ref
-impl Visitor for TypeChecker {
-    fn visit_block_link(&mut self, _block: &super::BlockLinkExpression) {}
+impl Visitor<MutVar> for TypeChecker {
+    fn visit_block_link_expression(&mut self, _block: &super::BlockLinkExpression<MutVar>) {}
     fn visit_number(&mut self, _number: &i32) {}
     fn visit_bool(&mut self, _value: &bool) {}
 
-    fn visit_pick_expression(&mut self, pick: &super::PickExpression) {
+    fn visit_pick_expression(&mut self, pick: &super::PickExpression<MutVar>) {
         self.report_if_invalid_signal(&pick.pick_signal, &pick.span)
     }
 
-    fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
-    fn visit_index_expression(&mut self, _expr: &super::IndexExpression) {}
+    fn visit_variable_ref(&mut self, _var: &super::VariableRef<MutVar>) {}
+    fn visit_index_expression(&mut self, _expr: &super::IndexExpression<MutVar>) {}
 
-    fn visit_definition(&mut self, definition: &super::Definition) {
+    fn visit_definition(&mut self, definition: &super::Definition<MutVar>) {
         self.check_variable(&definition.variable);
         let expr = &definition.expression;
         let expr_type = expr.return_type();
-        let var_type = definition.variable.borrow().return_type();
+        let var_type = definition.variable.return_type();
         self.check_assign(&var_type, &expr_type, &expr.span);
         self.do_visit_definition(definition);
     }
 
-    fn visit_declaration_definition(&mut self, assignment: &super::DeclarationDefinition) {
+    fn visit_declaration_definition(&mut self, assignment: &super::DeclarationDefinition<MutVar>) {
         self.check_variable(&assignment.variable);
         let expr = &assignment.expression;
         let expr_type = expr.return_type();
@@ -118,11 +118,11 @@ impl Visitor for TypeChecker {
         self.do_visit_declaration_definition(assignment);
     }
 
-    fn visit_statement(&mut self, statement: &super::Statement) {
+    fn visit_statement(&mut self, statement: &super::Statement<MutVar>) {
         self.do_visit_statement(statement);
     }
 
-    fn visit_block(&mut self, block: &super::Block) {
+    fn visit_block(&mut self, block: &super::Block<MutVar>) {
         for input in &block.inputs {
             self.check_variable(input)
         }

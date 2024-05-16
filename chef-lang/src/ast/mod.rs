@@ -22,26 +22,34 @@ mod type_checker;
 mod type_inference;
 mod visitors;
 
+pub type MutVar = RefCell<VarData>;
+
 /// [AST] representation of chef `block`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Block {
+pub struct Block<V>
+where
+    V: Variable,
+{
     pub id: usize,
     pub name: String,
-    pub inputs: Vec<Rc<RefCell<Variable>>>,
-    pub outputs: Vec<Rc<RefCell<Variable>>>,
-    pub statements: Vec<Statement>,
+    pub inputs: Vec<Rc<V>>,
+    pub outputs: Vec<Rc<V>>,
+    pub statements: Vec<Statement<V>>,
     pub span: TextSpan,
     pub dyn_block_id: Option<usize>,
 }
 
-impl Block {
+impl<V> Block<V>
+where
+    V: Variable,
+{
     /// Instantiate a new [Block].
     fn new(
         id: usize,
         name: String,
-        inputs: Vec<Rc<RefCell<Variable>>>,
-        outputs: Vec<Rc<RefCell<Variable>>>,
-        statements: Vec<Statement>,
+        inputs: Vec<Rc<V>>,
+        outputs: Vec<Rc<V>>,
+        statements: Vec<Statement<V>>,
         span: TextSpan,
     ) -> Self {
         Self {
@@ -57,18 +65,18 @@ impl Block {
 }
 
 #[derive(Debug, Clone)]
-pub struct DynBlock {
+pub struct DynBlock<V> {
     pub name: String,
-    pub inputs: Vec<DynBlockArg>,
+    pub inputs: Vec<DynBlockArg<V>>,
     pub script_path: PathBuf,
     pub span: TextSpan,
     pub opts: Rc<Opts>,
 }
 
-impl DynBlock {
+impl<V> DynBlock<V> {
     fn new(
         name: String,
-        inputs: Vec<DynBlockArg>,
+        inputs: Vec<DynBlockArg<V>>,
         script_path: PathBuf,
         span: TextSpan,
         opts: Rc<Opts>,
@@ -85,20 +93,15 @@ impl DynBlock {
 
 /// The abstract syntax tree.
 #[allow(clippy::upper_case_acronyms)]
-pub struct AST {
-    pub blocks: Vec<Block>,
+pub struct AST<V>
+where
+    V: Variable,
+{
+    pub blocks: Vec<Block<V>>,
     diagnostics_bag: DiagnosticsBagRef,
 }
 
-impl AST {
-    /// Instantiate a new [AST].
-    pub fn new(diagnostics_bag: DiagnosticsBagRef) -> Self {
-        Self {
-            blocks: vec![],
-            diagnostics_bag,
-        }
-    }
-
+impl AST<MutVar> {
     /// Build an [AST] from a [SourceText] instance. This also evaluates constants and does type
     /// checking.
     pub fn from_source(
@@ -122,18 +125,33 @@ impl AST {
         ast.evaluate_constants();
         ast
     }
+}
+
+impl<V> AST<V>
+where
+    V: Variable,
+{
+    /// Instantiate a new [AST].
+    pub fn new(diagnostics_bag: DiagnosticsBagRef) -> Self {
+        Self {
+            blocks: vec![],
+            diagnostics_bag,
+        }
+    }
 
     /// Add a statement to the [AST].
-    pub fn add_block(&mut self, block: Block) {
+    pub fn add_block(&mut self, block: Block<V>) {
         self.blocks.push(block);
     }
 
-    pub fn get_block(&self, name: &str, id: Option<usize>) -> Option<&Block> {
+    pub fn get_block(&self, name: &str, id: Option<usize>) -> Option<&Block<V>> {
         self.blocks
             .iter()
             .find(|b| b.name == name && b.dyn_block_id == id)
     }
+}
 
+impl AST<MutVar> {
     /// Print the [AST] to stout.
     pub fn print(&self) {
         let mut printer = Printer::new();
@@ -177,26 +195,35 @@ impl AST {
 /// # assert_eq!(diagnostics_bag.borrow().diagnostics.len(), 0);
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub struct Statement {
-    pub kind: StatementKind,
+pub struct Statement<V>
+where
+    V: Variable,
+{
+    pub kind: StatementKind<V>,
     pub span: TextSpan,
 }
 
-impl Statement {
+impl<V> Statement<V>
+where
+    V: Variable,
+{
     /// Instantiate a new [Statement].
-    fn new(kind: StatementKind, span: TextSpan) -> Self {
+    fn new(kind: StatementKind<V>, span: TextSpan) -> Self {
         Statement { kind, span }
     }
 }
 
 /// Kinds of statement.
 #[derive(Debug, Clone, PartialEq)]
-pub enum StatementKind {
-    When(WhenStatement),
-    Declaration(Declaration),
-    DeclarationDefinition(DeclarationDefinition),
-    Definition(Definition),
-    TupleDeclarationDefinition(TupleDeclarationDefinition),
+pub enum StatementKind<V>
+where
+    V: Variable,
+{
+    When(WhenStatement<V>),
+    Declaration(Declaration<V>),
+    DeclarationDefinition(DeclarationDefinition<V>),
+    Definition(Definition<V>),
+    TupleDeclarationDefinition(TupleDeclarationDefinition<V>),
 }
 
 /// Chef variable types.
@@ -271,19 +298,25 @@ pub type VariableId = usize;
 
 /// An argument to a block definition.
 #[derive(Debug, Clone)]
-pub enum DynBlockArg {
-    Var(Rc<RefCell<Variable>>),
+pub enum DynBlockArg<V> {
+    Var(Rc<V>),
     Literal(String),
 }
 
 /// An argument to a block link.
 #[derive(Debug, Clone)]
-enum BlockLinkArg {
-    Expr(Expression),
+enum BlockLinkArg<V>
+where
+    V: Variable,
+{
+    Expr(Expression<V>),
     Literal(TextSpan),
 }
 
-impl BlockLinkArg {
+impl<V> BlockLinkArg<V>
+where
+    V: Variable,
+{
     fn span(&self) -> &TextSpan {
         match self {
             Self::Expr(expr) => &expr.span,
@@ -292,16 +325,24 @@ impl BlockLinkArg {
     }
 }
 
+pub trait Variable {
+    fn name(&self) -> String;
+    fn type_(&self) -> VariableType;
+    fn span(&self) -> TextSpan;
+    fn id(&self) -> VariableId;
+    fn return_type(&self) -> ExpressionReturnType;
+}
+
 /// A chef variable.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Variable {
+pub struct VarData {
     pub name: String,
     pub type_: VariableType,
     pub span: TextSpan,
     pub id: VariableId,
 }
 
-impl Variable {
+impl VarData {
     /// Instantiate a new [Variable].
     pub fn new(name: String, variable_type: VariableType, span: TextSpan, id: usize) -> Self {
         Self {
@@ -311,25 +352,66 @@ impl Variable {
             id,
         }
     }
+}
 
-    /// Type returned
-    pub fn return_type(&self) -> ExpressionReturnType {
+impl Variable for VarData {
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    fn type_(&self) -> VariableType {
+        self.type_.clone()
+    }
+
+    fn span(&self) -> TextSpan {
+        self.span.clone()
+    }
+
+    fn id(&self) -> VariableId {
+        self.id
+    }
+
+    fn return_type(&self) -> ExpressionReturnType {
         self.type_.return_type()
+    }
+}
+
+impl Variable for MutVar {
+    fn name(&self) -> String {
+        self.borrow().name.clone()
+    }
+
+    fn type_(&self) -> VariableType {
+        self.borrow().type_.clone()
+    }
+
+    fn span(&self) -> TextSpan {
+        self.borrow().span.clone()
+    }
+
+    fn id(&self) -> VariableId {
+        self.borrow().id
+    }
+
+    fn return_type(&self) -> ExpressionReturnType {
+        self.borrow().type_.return_type()
     }
 }
 
 /// A reference to a defined chef variable
 #[derive(Debug, Clone, PartialEq)]
-pub struct VariableRef {
-    pub var: Rc<RefCell<Variable>>,
+pub struct VariableRef<V> {
+    pub var: Rc<V>,
     pub span: TextSpan,
 }
 
-impl VariableRef {
-    fn new(var: Rc<RefCell<Variable>>, span: TextSpan) -> Self {
+impl<V> VariableRef<V> {
+    fn new(var: Rc<V>, span: TextSpan) -> Self {
         Self { var, span }
     }
+}
 
+impl VariableRef<MutVar> {
     pub fn return_type(&self) -> ExpressionReturnType {
         self.var.borrow().return_type()
     }
@@ -337,33 +419,35 @@ impl VariableRef {
 
 /// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Declaration {
-    pub variable: Rc<RefCell<Variable>>,
+pub struct Declaration<V> {
+    pub variable: Rc<V>,
 }
 
-impl Declaration {
+impl<V> Declaration<V> {
     /// Instantiate a new [Declaration].
-    pub fn new(variable: Rc<RefCell<Variable>>) -> Self {
+    pub fn new(variable: Rc<V>) -> Self {
         Self { variable }
     }
 }
 
 /// [AST] representation of chef `int` variable assignment and declaration.
 #[derive(Debug, Clone, PartialEq)]
-pub struct DeclarationDefinition {
+pub struct DeclarationDefinition<V>
+where
+    V: Variable,
+{
     // TODO: Make this contain a `Declaration` and a `Definition`
-    pub variable: Rc<RefCell<Variable>>,
-    pub expression: Expression,
+    pub variable: Rc<V>,
+    pub expression: Expression<V>,
     pub kind: DefinitionKind,
 }
 
-impl DeclarationDefinition {
+impl<V> DeclarationDefinition<V>
+where
+    V: Variable,
+{
     /// Instantiate a new [Assignment].
-    pub fn new(
-        variable: Rc<RefCell<Variable>>,
-        expression: Expression,
-        kind: DefinitionKind,
-    ) -> Self {
+    pub fn new(variable: Rc<V>, expression: Expression<V>, kind: DefinitionKind) -> Self {
         Self {
             variable,
             expression,
@@ -380,19 +464,21 @@ pub enum DefinitionKind {
 
 /// [AST] representation of chef `int` variable assignment.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Definition {
-    pub variable: Rc<RefCell<Variable>>,
-    pub expression: Expression,
+pub struct Definition<V>
+where
+    V: Variable,
+{
+    pub variable: Rc<V>,
+    pub expression: Expression<V>,
     pub kind: DefinitionKind,
 }
 
-impl Definition {
+impl<V> Definition<V>
+where
+    V: Variable,
+{
     /// Instantiate a new [Assignment].
-    pub fn new(
-        variable: Rc<RefCell<Variable>>,
-        expression: Expression,
-        kind: DefinitionKind,
-    ) -> Self {
+    pub fn new(variable: Rc<V>, expression: Expression<V>, kind: DefinitionKind) -> Self {
         Self {
             variable,
             expression,
@@ -401,8 +487,11 @@ impl Definition {
     }
 }
 
-impl From<DeclarationDefinition> for Definition {
-    fn from(value: DeclarationDefinition) -> Self {
+impl<V> From<DeclarationDefinition<V>> for Definition<V>
+where
+    V: Variable,
+{
+    fn from(value: DeclarationDefinition<V>) -> Self {
         Self {
             variable: value.variable,
             expression: value.expression,
@@ -418,45 +507,38 @@ pub enum AssignmentType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct OutputAssignment {
-    pub variable: Rc<RefCell<Variable>>,
-    pub block_variable: Rc<RefCell<Variable>>,
+pub struct OutputAssignment<V> {
+    pub variable: Rc<V>,
+    pub block_variable: Rc<V>,
     pub assignment_type: AssignmentType,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TupleDeclarationDefinition {
-    pub defs: Vec<OutputAssignment>,
-    pub block_link: BlockLinkExpression,
+pub struct TupleDeclarationDefinition<V>
+where
+    V: Variable,
+{
+    pub defs: Vec<OutputAssignment<V>>,
+    pub block_link: BlockLinkExpression<V>,
     pub def_kind: DefinitionKind,
 }
 
 /// A chef expression.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Expression {
-    pub kind: ExpressionKind,
+pub struct Expression<V>
+where
+    V: Variable,
+{
+    pub kind: ExpressionKind<V>,
     pub span: TextSpan,
 }
 
-impl Expression {
-    fn new(kind: ExpressionKind, span: TextSpan) -> Self {
+impl<V> Expression<V>
+where
+    V: Variable,
+{
+    fn new(kind: ExpressionKind<V>, span: TextSpan) -> Self {
         Self { kind, span }
-    }
-
-    fn return_type(&self) -> ExpressionReturnType {
-        match &self.kind {
-            ExpressionKind::Bool(_) => ExpressionReturnType::Bool,
-            ExpressionKind::Int(_) => ExpressionReturnType::Int,
-            ExpressionKind::Binary(e) => e.return_type().clone(),
-            ExpressionKind::Parenthesized(e) => e.return_type(),
-            ExpressionKind::Negative(e) => e.return_type(),
-            ExpressionKind::Pick(_) => ExpressionReturnType::Int,
-            ExpressionKind::Index(_) => ExpressionReturnType::Int,
-            ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
-            ExpressionKind::BlockLink(e) => e.return_type(true),
-            ExpressionKind::Delay(e) => e.return_type(),
-            ExpressionKind::SizeOf(e) => e.return_type(),
-        }
     }
 
     fn _number(n: i32, span: TextSpan) -> Self {
@@ -467,8 +549,8 @@ impl Expression {
     }
 
     fn _binary(
-        left: Expression,
-        right: Expression,
+        left: Expression<V>,
+        right: Expression<V>,
         operator: BinaryOperator,
         span: TextSpan,
         return_type: ExpressionReturnType,
@@ -491,6 +573,24 @@ impl Expression {
         Self {
             kind: ExpressionKind::Bool(value),
             span,
+        }
+    }
+}
+
+impl Expression<MutVar> {
+    fn return_type(&self) -> ExpressionReturnType {
+        match &self.kind {
+            ExpressionKind::Bool(_) => ExpressionReturnType::Bool,
+            ExpressionKind::Int(_) => ExpressionReturnType::Int,
+            ExpressionKind::Binary(e) => e.return_type().clone(),
+            ExpressionKind::Parenthesized(e) => e.return_type(),
+            ExpressionKind::Negative(e) => e.return_type(),
+            ExpressionKind::Pick(_) => ExpressionReturnType::Int,
+            ExpressionKind::Index(_) => ExpressionReturnType::Int,
+            ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
+            ExpressionKind::BlockLink(e) => e.return_type(true),
+            ExpressionKind::Delay(e) => e.return_type(),
+            ExpressionKind::SizeOf(e) => e.return_type(),
         }
     }
 }
@@ -519,38 +619,52 @@ impl Display for ExpressionReturnType {
 
 /// Kinds of expression.
 #[derive(Debug, Clone, PartialEq)]
-pub enum ExpressionKind {
+pub enum ExpressionKind<V>
+where
+    V: Variable,
+{
     Bool(bool),
     Int(i32),
-    Binary(BinaryExpression),
-    Parenthesized(ParenthesizedExpression),
-    Negative(NegativeExpression),
-    Pick(PickExpression),
-    Index(IndexExpression),
-    VariableRef(VariableRef),
-    BlockLink(BlockLinkExpression),
-    Delay(DelayExpression),
-    SizeOf(SizeOfExpression),
+    Binary(BinaryExpression<V>),
+    Parenthesized(ParenthesizedExpression<V>),
+    Negative(NegativeExpression<V>),
+    Pick(PickExpression<V>),
+    Index(IndexExpression<V>),
+    VariableRef(VariableRef<V>),
+    BlockLink(BlockLinkExpression<V>),
+    Delay(DelayExpression<V>),
+    SizeOf(SizeOfExpression<V>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct WhenStatement {
-    pub condition: Expression,
-    pub statements: Vec<Statement>,
+pub struct WhenStatement<V>
+where
+    V: Variable,
+{
+    pub condition: Expression<V>,
+    pub statements: Vec<Statement<V>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct NegativeExpression {
-    pub expression: Box<Expression>,
+pub struct NegativeExpression<V>
+where
+    V: Variable,
+{
+    pub expression: Box<Expression<V>>,
 }
 
-impl NegativeExpression {
-    fn new(expression: Expression) -> Self {
+impl<V> NegativeExpression<V>
+where
+    V: Variable,
+{
+    fn new(expression: Expression<V>) -> Self {
         Self {
             expression: Box::new(expression),
         }
     }
+}
 
+impl NegativeExpression<MutVar> {
     fn return_type(&self) -> ExpressionReturnType {
         self.expression.return_type()
     }
@@ -558,15 +672,23 @@ impl NegativeExpression {
 
 /// An expression within parenthesis.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ParenthesizedExpression {
-    pub expression: Box<Expression>,
+pub struct ParenthesizedExpression<V>
+where
+    V: Variable,
+{
+    pub expression: Box<Expression<V>>,
 }
 
-impl ParenthesizedExpression {
-    fn new(expression: Box<Expression>) -> Self {
+impl<V> ParenthesizedExpression<V>
+where
+    V: Variable,
+{
+    fn new(expression: Box<Expression<V>>) -> Self {
         Self { expression }
     }
+}
 
+impl ParenthesizedExpression<MutVar> {
     fn return_type(&self) -> ExpressionReturnType {
         self.expression.return_type()
     }
@@ -578,20 +700,20 @@ impl ParenthesizedExpression {
 /// picked_signal: int = all_signals[some_signal];
 /// ```
 #[derive(Debug, Clone, PartialEq)]
-pub struct PickExpression {
+pub struct PickExpression<V> {
     pub pick_signal: String,
-    pub from: VariableRef,
+    pub from: VariableRef<V>,
     pub span: TextSpan,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct IndexExpression {
-    pub var_ref: VariableRef,
+pub struct IndexExpression<V> {
+    pub var_ref: VariableRef<V>,
     pub index: u16,
 }
 
-impl PickExpression {
-    fn new(pick_signal: String, from: VariableRef, span: TextSpan) -> Self {
+impl<V> PickExpression<V> {
+    fn new(pick_signal: String, from: VariableRef<V>, span: TextSpan) -> Self {
         Self {
             pick_signal,
             from,
@@ -602,16 +724,24 @@ impl PickExpression {
 
 /// [AST] representation of chef block link. This is like a function call in other languages.
 #[derive(Debug, Clone, PartialEq)]
-pub struct BlockLinkExpression {
-    pub block: Rc<Block>,
-    pub inputs: Vec<Expression>,
+pub struct BlockLinkExpression<V>
+where
+    V: Variable,
+{
+    pub block: Rc<Block<V>>,
+    pub inputs: Vec<Expression<V>>,
 }
 
-impl BlockLinkExpression {
-    pub fn new(block: Rc<Block>, inputs: Vec<Expression>) -> Self {
+impl<V> BlockLinkExpression<V>
+where
+    V: Variable,
+{
+    pub fn new(block: Rc<Block<V>>, inputs: Vec<Expression<V>>) -> Self {
         Self { block, inputs }
     }
+}
 
+impl BlockLinkExpression<MutVar> {
     fn return_type(&self, return_int: bool) -> ExpressionReturnType {
         match self.block.outputs.len() {
             0 => ExpressionReturnType::None,
@@ -624,28 +754,42 @@ impl BlockLinkExpression {
 
 /// An expression that is delayed by a number of cycles.
 #[derive(Debug, Clone, PartialEq)]
-pub struct DelayExpression {
-    pub expression: Box<Expression>,
+pub struct DelayExpression<V>
+where
+    V: Variable,
+{
+    pub expression: Box<Expression<V>>,
     pub delay: usize,
 }
 
-impl DelayExpression {
-    fn new(expression: Box<Expression>, delay: usize) -> Self {
+impl<V> DelayExpression<V>
+where
+    V: Variable,
+{
+    fn new(expression: Box<Expression<V>>, delay: usize) -> Self {
         Self { expression, delay }
     }
+}
 
+impl DelayExpression<MutVar> {
     fn return_type(&self) -> ExpressionReturnType {
         self.expression.return_type()
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct SizeOfExpression {
-    pub expression: Box<Expression>,
+pub struct SizeOfExpression<V>
+where
+    V: Variable,
+{
+    pub expression: Box<Expression<V>>,
 }
 
-impl SizeOfExpression {
-    fn new(expression: Box<Expression>) -> Self {
+impl<V> SizeOfExpression<V>
+where
+    V: Variable,
+{
+    fn new(expression: Box<Expression<V>>) -> Self {
         Self { expression }
     }
 
@@ -656,18 +800,24 @@ impl SizeOfExpression {
 
 /// [AST] representation of an expression containing two operands and one operator.
 #[derive(Debug, Clone, PartialEq)]
-pub struct BinaryExpression {
-    pub left: Box<Expression>,
-    pub right: Box<Expression>,
+pub struct BinaryExpression<V>
+where
+    V: Variable,
+{
+    pub left: Box<Expression<V>>,
+    pub right: Box<Expression<V>>,
     pub operator: BinaryOperator,
     return_type: ExpressionReturnType,
     span: TextSpan,
 }
 
-impl BinaryExpression {
+impl<V> BinaryExpression<V>
+where
+    V: Variable,
+{
     fn _new(
-        left: Box<Expression>,
-        right: Box<Expression>,
+        left: Box<Expression<V>>,
+        right: Box<Expression<V>>,
         operator: BinaryOperator,
         return_type: ExpressionReturnType,
         span: TextSpan,
@@ -876,21 +1026,21 @@ impl Display for VariableType {
     }
 }
 
-impl Display for Variable {
+impl Display for VarData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} : {}", self.name, self.type_)
     }
 }
 
-impl Visitor for Printer {
-    fn visit_statement(&mut self, statement: &Statement) {
+impl Visitor<MutVar> for Printer {
+    fn visit_statement(&mut self, statement: &Statement<MutVar>) {
         self.print("Statement:");
         self.indent();
         self.do_visit_statement(statement);
         self.unindent();
     }
 
-    fn visit_block(&mut self, block: &Block) {
+    fn visit_block(&mut self, block: &Block<MutVar>) {
         self.print(&format!(
             "Block: \"{}\" {:?} -> {:?}",
             block.name,
@@ -922,7 +1072,7 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_declaration(&mut self, dec: &Declaration) {
+    fn visit_declaration(&mut self, dec: &Declaration<MutVar>) {
         let var = dec.variable.borrow();
         self.print(&format!(
             "Declaration: \"{}: {}\" ({})",
@@ -930,7 +1080,7 @@ impl Visitor for Printer {
         ));
     }
 
-    fn visit_definition(&mut self, def: &Definition) {
+    fn visit_definition(&mut self, def: &Definition<MutVar>) {
         let var = def.variable.borrow();
         self.print(&format!(
             "Definition <{:?}>: \"{}: {}\" ({})",
@@ -941,7 +1091,7 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_declaration_definition(&mut self, dec_def: &DeclarationDefinition) {
+    fn visit_declaration_definition(&mut self, dec_def: &DeclarationDefinition<MutVar>) {
         let var = dec_def.variable.borrow();
         self.print(&format!(
             "DeclarationDefinition <{:?}>: \"{}: {}\" ({})",
@@ -952,14 +1102,14 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_expression(&mut self, expression: &Expression) {
+    fn visit_expression(&mut self, expression: &Expression<MutVar>) {
         self.print("Expression:");
         self.indent();
         self.do_visit_expression(expression);
         self.unindent();
     }
 
-    fn visit_delay(&mut self, delay: &DelayExpression) {
+    fn visit_delay_expression(&mut self, delay: &DelayExpression<MutVar>) {
         self.print(&format!("Delay: {}", delay.delay));
         self.indent();
         self.visit_expression(&delay.expression);
@@ -974,12 +1124,12 @@ impl Visitor for Printer {
         self.print(&format!("Boolean: {}", bool));
     }
 
-    fn visit_variable_ref(&mut self, var_ref: &VariableRef) {
+    fn visit_variable_ref(&mut self, var_ref: &VariableRef<MutVar>) {
         let var = var_ref.var.borrow();
         self.print(&format!("VariableRef: {}", var.name))
     }
 
-    fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression) {
+    fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression<MutVar>) {
         self.print("BinaryExpression:");
         self.indent();
         self.print(&format!("Operator: {}", binary_expression.operator));
@@ -988,14 +1138,14 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression) {
+    fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression<MutVar>) {
         self.print("Parenthesized:");
         self.indent();
         self.visit_expression(&expr.expression);
         self.unindent();
     }
 
-    fn visit_pick_expression(&mut self, expr: &PickExpression) {
+    fn visit_pick_expression(&mut self, expr: &PickExpression<MutVar>) {
         self.print("PickExpression:");
         self.indent();
         self.print(&format!("Pick Signal: {}", expr.pick_signal));
@@ -1008,7 +1158,7 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_index_expression(&mut self, expr: &IndexExpression) {
+    fn visit_index_expression(&mut self, expr: &IndexExpression<MutVar>) {
         self.print("IndexExpression:");
         self.indent();
         self.print(&format!("Variable: {}", expr.var_ref.var.borrow()));
@@ -1016,7 +1166,7 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_block_link(&mut self, block: &BlockLinkExpression) {
+    fn visit_block_link_expression(&mut self, block: &BlockLinkExpression<MutVar>) {
         self.print(&format!("BlockLink: \"{}\"", block.block.name));
         self.indent();
         self.print(&format!("Args: ({})", block.inputs.len()));
@@ -1028,7 +1178,7 @@ impl Visitor for Printer {
         self.unindent();
     }
 
-    fn visit_when_statement(&mut self, when: &WhenStatement) {
+    fn visit_when_statement(&mut self, when: &WhenStatement<MutVar>) {
         self.print("WhenExpression:");
         self.indent();
         self.print("Condition:");
@@ -1043,7 +1193,7 @@ impl Visitor for Printer {
 }
 
 #[cfg(test)]
-impl AST {
+impl AST<MutVar> {
     /// This function is only for testing
     fn from_str(code: &str) -> (Self, crate::diagnostics::DiagnosticsBagRef) {
         let source = Rc::new(SourceText::from_str(code));

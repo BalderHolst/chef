@@ -14,8 +14,6 @@ use super::{
     TupleDeclarationDefinition, Variable, VariableRef, WhenStatement,
 };
 
-use std::cell::RefCell;
-
 use make_visitors::make_visitors;
 
 // For documentation references

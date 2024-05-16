@@ -25,12 +25,15 @@ fn generate_visitor(mutable: bool) -> TokenStream {
 
     quote! {
         #[doc = #doc]
-        pub trait #name {
+        pub trait #name<V>
+        where
+            V: Variable
+        {
 
-            fn visit_block(&mut self, block: #r Block) {
+            fn visit_block(&mut self, block: #r Block<V>) {
                 self.do_visit_block(block);
             }
-            fn do_visit_block(&mut self, block: #r Block) {
+            fn do_visit_block(&mut self, block: #r Block<V>) {
                 for input in #r block.inputs {
                     self.visit_variable(input);
                 }
@@ -42,10 +45,10 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                 }
             }
 
-            fn visit_statement(&mut self, statement: #r Statement) {
+            fn visit_statement(&mut self, statement: #r Statement<V>) {
                 self.do_visit_statement(statement);
             }
-            fn do_visit_statement(&mut self, statement: #r Statement) {
+            fn do_visit_statement(&mut self, statement: #r Statement<V>) {
                 match #r statement.kind {
                     StatementKind::Declaration(declaration) => {
                         self.visit_declaration(declaration);
@@ -65,10 +68,10 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                 }
             }
 
-            fn visit_expression(&mut self, expression: #r Expression) {
+            fn visit_expression(&mut self, expression: #r Expression<V>) {
                 self.do_visit_expression(expression);
             }
-            fn do_visit_expression(&mut self, expression: #r Expression) {
+            fn do_visit_expression(&mut self, expression: #r Expression<V>) {
                 match #r expression.kind {
                     ExpressionKind::Int(number) => {
                         self.visit_number(number);
@@ -95,10 +98,10 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                         self.visit_index_expression(expr);
                     }
                     ExpressionKind::BlockLink(block) => {
-                        self.visit_block_link(block);
+                        self.visit_block_link_expression(block);
                     }
                     ExpressionKind::Delay(delay) => {
-                        self.visit_delay(delay);
+                        self.visit_delay_expression(delay);
                     }
                     ExpressionKind::SizeOf(expr) => {
                         self.visit_size_of(expr);
@@ -106,54 +109,54 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                 }
             }
 
-            fn visit_declaration_definition(&mut self, dec_def: #r DeclarationDefinition) {
+            fn visit_declaration_definition(&mut self, dec_def: #r DeclarationDefinition<V>) {
                 self.do_visit_declaration_definition(dec_def);
             }
-            fn do_visit_declaration_definition(&mut self, dec_def: #r DeclarationDefinition) {
+            fn do_visit_declaration_definition(&mut self, dec_def: #r DeclarationDefinition<V>) {
                 self.visit_variable(#r dec_def.variable);
                 self.visit_expression(#r dec_def.expression);
             }
 
-            fn visit_declaration(&mut self, dec: #r Declaration) {
+            fn visit_declaration(&mut self, dec: #r Declaration<V>) {
                 self.do_visit_declaration(dec);
             }
-            fn do_visit_declaration(&mut self, dec: #r Declaration) {
+            fn do_visit_declaration(&mut self, dec: #r Declaration<V>) {
                 self.visit_variable(#r dec.variable);
             }
 
-            fn visit_definition(&mut self, def: #r Definition) {
+            fn visit_definition(&mut self, def: #r Definition<V>) {
                 self.do_visit_definition(def);
             }
-            fn do_visit_definition(&mut self, def: #r Definition) {
+            fn do_visit_definition(&mut self, def: #r Definition<V>) {
                 self.visit_expression(#r def.expression);
             }
 
-            fn visit_size_of(&mut self, size: #r SizeOfExpression) {
+            fn visit_size_of(&mut self, size: #r SizeOfExpression<V>) {
                 self.do_visit_size_of(size);
             }
-            fn do_visit_size_of(&mut self, size: #r SizeOfExpression) {
+            fn do_visit_size_of(&mut self, size: #r SizeOfExpression<V>) {
                 self.visit_expression(#r size.expression);
             }
 
-            fn visit_when_statement(&mut self, when_statement: #r WhenStatement) {
+            fn visit_when_statement(&mut self, when_statement: #r WhenStatement<V>) {
                 self.do_visit_when_statement(when_statement);
             }
-            fn do_visit_when_statement(&mut self, when: #r WhenStatement) {
+            fn do_visit_when_statement(&mut self, when: #r WhenStatement<V>) {
                 self.visit_expression(#r when.condition);
                 for statement in #r when.statements {
                     self.visit_statement(statement);
                 }
             }
 
-            fn visit_tuple_definition_declaration_statement(&mut self, tuple_dec_def: #r TupleDeclarationDefinition) {
+            fn visit_tuple_definition_declaration_statement(&mut self, tuple_dec_def: #r TupleDeclarationDefinition<V>) {
                 self.do_visit_tuple_declaration_definition_statement(tuple_dec_def);
             }
-            fn do_visit_tuple_declaration_definition_statement(&mut self, tuple_dec_def: #r TupleDeclarationDefinition) {
+            fn do_visit_tuple_declaration_definition_statement(&mut self, tuple_dec_def: #r TupleDeclarationDefinition<V>) {
                 for def in #r tuple_dec_def.defs {
                     self.visit_variable(#r def.variable);
                     self.visit_variable(#r def.block_variable);
                 }
-                self.visit_block_link(#r tuple_dec_def.block_link);
+                self.visit_block_link_expression(#r tuple_dec_def.block_link);
             }
 
             fn visit_number(&mut self, n: #r i32) {
@@ -166,66 +169,66 @@ fn generate_visitor(mutable: bool) -> TokenStream {
             }
             fn do_visit_bool(&mut self, b: #r bool) {}
 
-            fn visit_variable(&mut self, var: #r std::rc::Rc<RefCell<Variable>>) {
+            fn visit_variable(&mut self, var: #r std::rc::Rc<V>) {
                 self.do_visit_variable(var);
             }
-            fn do_visit_variable(&mut self, var: #r std::rc::Rc<RefCell<Variable>>) {}
+            fn do_visit_variable(&mut self, var: #r std::rc::Rc<V>) {}
 
-            fn visit_variable_ref(&mut self, var: #r VariableRef) {
+            fn visit_variable_ref(&mut self, var: #r VariableRef<V>) {
                 self.do_visit_variable_ref(var);
             }
-            fn do_visit_variable_ref(&mut self, var: #r VariableRef) {
+            fn do_visit_variable_ref(&mut self, var: #r VariableRef<V>) {
                 self.visit_variable(#r var.var);
             }
 
-            fn visit_binary_expression(&mut self, bin_expr: #r BinaryExpression) {
+            fn visit_binary_expression(&mut self, bin_expr: #r BinaryExpression<V>) {
                 self.do_visit_binary_expression(bin_expr);
             }
-            fn do_visit_binary_expression(&mut self, bin_expr: #r BinaryExpression) {
+            fn do_visit_binary_expression(&mut self, bin_expr: #r BinaryExpression<V>) {
                 self.visit_expression(#r bin_expr.left);
                 self.visit_expression(#r bin_expr.right);
             }
 
-            fn visit_parenthesized_expression(&mut self, paren_expr: #r ParenthesizedExpression) {
+            fn visit_parenthesized_expression(&mut self, paren_expr: #r ParenthesizedExpression<V>) {
                 self.do_visit_parenthesized_expression(paren_expr);
             }
-            fn do_visit_parenthesized_expression(&mut self, paren_expr: #r ParenthesizedExpression) {
+            fn do_visit_parenthesized_expression(&mut self, paren_expr: #r ParenthesizedExpression<V>) {
                 self.visit_expression(#r paren_expr.expression);
             }
 
-            fn visit_negative_expression(&mut self, neg_expr: #r NegativeExpression) {
+            fn visit_negative_expression(&mut self, neg_expr: #r NegativeExpression<V>) {
                 self.do_visit_negative_expression(neg_expr);
             }
-            fn do_visit_negative_expression(&mut self, neg_expr: #r NegativeExpression) {
+            fn do_visit_negative_expression(&mut self, neg_expr: #r NegativeExpression<V>) {
                 self.visit_expression(#r neg_expr.expression);
             }
 
-            fn visit_pick_expression(&mut self, expr: #r PickExpression) {
+            fn visit_pick_expression(&mut self, expr: #r PickExpression<V>) {
                 self.do_visit_pick_expression(expr);
             }
-            fn do_visit_pick_expression(&mut self, pick_expr: #r PickExpression) {
+            fn do_visit_pick_expression(&mut self, pick_expr: #r PickExpression<V>) {
                 self.visit_variable_ref(#r pick_expr.from);
             }
-            fn visit_index_expression(&mut self, expr: #r IndexExpression) {
+            fn visit_index_expression(&mut self, expr: #r IndexExpression<V>) {
                 self.do_visit_index_expression(expr);
             }
-            fn do_visit_index_expression(&mut self, index_expr: #r IndexExpression) {
+            fn do_visit_index_expression(&mut self, index_expr: #r IndexExpression<V>) {
                 self.visit_variable_ref(#r index_expr.var_ref);
             }
 
-            fn visit_block_link(&mut self, link: #r BlockLinkExpression) {
-                self.do_visit_block_link(link);
+            fn visit_block_link_expression(&mut self, link: #r BlockLinkExpression<V>) {
+                self.do_visit_block_link_expression(link);
             }
-            fn do_visit_block_link(&mut self, link_expr: #r BlockLinkExpression) {
+            fn do_visit_block_link_expression(&mut self, link_expr: #r BlockLinkExpression<V>) {
                 for input in #r link_expr.inputs {
                     self.visit_expression(input);
                 }
             }
 
-            fn visit_delay(&mut self, delay: #r DelayExpression) {
-                self.do_visit_delay(delay);
+            fn visit_delay_expression(&mut self, delay: #r DelayExpression<V>) {
+                self.do_visit_delay_expression(delay);
             }
-            fn do_visit_delay(&mut self, delay: #r DelayExpression) {
+            fn do_visit_delay_expression(&mut self, delay: #r DelayExpression<V>) {
                 self.visit_expression(#r delay.expression);
             }
 

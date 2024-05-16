@@ -2,10 +2,10 @@
 
 use crate::diagnostics::{CompilationError, CompilationResult};
 
-use super::{visitors::MutVisitor, BinaryOperator, Expression, ExpressionKind, AST};
+use super::{visitors::MutVisitor, BinaryOperator, Expression, ExpressionKind, MutVar, AST};
 
 /// Evaluate constant expressions in the [AST] and substitutes them for their results.
-pub fn evaluate_constants(ast: &mut AST) {
+pub fn evaluate_constants(ast: &mut AST<MutVar>) {
     ConstantEvaluator::new().evaluate(ast)
 }
 
@@ -20,7 +20,7 @@ impl ConstantEvaluator {
     }
 
     /// Evaluate constant expressions.
-    fn evaluate(&mut self, ast: &mut AST) {
+    fn evaluate(&mut self, ast: &mut AST<MutVar>) {
         // Run the evaluator through the tree until is cannot evaluate any more.
         loop {
             self.did_work = false;
@@ -35,7 +35,7 @@ impl ConstantEvaluator {
 }
 
 pub(crate) fn evaluate_constant_expression(
-    mut expr: Expression,
+    mut expr: Expression<MutVar>,
 ) -> CompilationResult<ConstantValue> {
     let mut evaluator = ConstantEvaluator::new();
 
@@ -66,7 +66,7 @@ pub(crate) enum ConstantValue {
 }
 
 /// Return the constant integer value of an expression if it is constant
-fn get_constant_int(expr: &Expression) -> Option<i32> {
+fn get_constant_int(expr: &Expression<MutVar>) -> Option<i32> {
     match &expr.kind {
         ExpressionKind::Int(n) => Some(*n),
         ExpressionKind::Parenthesized(p) => get_constant_int(&p.expression),
@@ -82,12 +82,11 @@ fn get_constant_int(expr: &Expression) -> Option<i32> {
     }
 }
 
-impl MutVisitor for ConstantEvaluator {
-    fn visit_pick_expression(&mut self, _expr: &mut super::PickExpression) {}
-    fn visit_index_expression(&mut self, _expr: &mut super::IndexExpression) {}
+impl MutVisitor<MutVar> for ConstantEvaluator {
+    fn visit_pick_expression(&mut self, _expr: &mut super::PickExpression<MutVar>) {}
     fn visit_number(&mut self, _number: &mut i32) {}
     fn visit_bool(&mut self, _bool: &mut bool) {}
-    fn visit_variable_ref(&mut self, _var: &mut super::VariableRef) {}
+    fn visit_variable_ref(&mut self, _var: &mut super::VariableRef<MutVar>) {}
 
     // fn visit_negative_expression(&mut self, expr: &mut Box<Expression>) {
     //     match &mut expr.kind {
@@ -99,7 +98,7 @@ impl MutVisitor for ConstantEvaluator {
     //     }
     // }
 
-    fn visit_expression(&mut self, expression: &mut Expression) {
+    fn visit_expression(&mut self, expression: &mut Expression<MutVar>) {
         let result = match &mut expression.kind {
             ExpressionKind::Binary(binary_expression) => {
                 let left = get_constant_int(&binary_expression.left);

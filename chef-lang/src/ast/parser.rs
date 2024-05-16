@@ -9,8 +9,9 @@ use std::rc::Rc;
 
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
-    python_macro, BinaryExpression, BinaryOperator, Expression, ExpressionKind, OutputAssignment,
-    ParenthesizedExpression, Statement, StatementKind, Variable, VariableType,
+    python_macro, BinaryExpression, BinaryOperator, Block, DynBlock, Expression, ExpressionKind,
+    OutputAssignment, ParenthesizedExpression, Statement, StatementKind,
+    TupleDeclarationDefinition, VariableType,
 };
 use crate::cli::Opts;
 use crate::compiler::graph::WireKind;
@@ -19,27 +20,28 @@ use crate::text::{SourceText, TextSpan};
 
 use super::lexer::Lexer;
 use super::{
-    AssignmentType, Block, BlockLinkArg, BlockLinkExpression, DeclarationDefinition, DynBlock,
-    DynBlockArg, NegativeExpression, PickExpression, SizeOfExpression, TupleDeclarationDefinition,
-    VariableRef, VariableSignalType,
+    AssignmentType, BlockLinkArg, BlockLinkExpression, Declaration, DeclarationDefinition,
+    Definition, DefinitionKind, DynBlockArg, IndexExpression, MutVar, NegativeExpression,
+    PickExpression, SizeOfExpression, VarData, Variable, VariableRef, VariableSignalType,
+    WhenStatement,
 };
-use super::{Declaration, Definition, DefinitionKind, IndexExpression, WhenStatement};
 
 const MACRO_ARG_SEP: &str = "; ";
-
-type BlockArgs = Vec<Rc<RefCell<Variable>>>;
 
 // TODO: Add example
 /// A list of statements with an optional return expression at its end.
 #[derive(Debug, Clone, PartialEq)]
-pub struct StatementList {
-    pub statements: Vec<Statement>,
-    pub out: Option<Box<Expression>>,
+pub struct StatementList<V>
+where
+    V: Variable,
+{
+    pub statements: Vec<Statement<V>>,
+    pub out: Option<Box<Expression<V>>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum ScopedItem {
-    Var(Rc<RefCell<Variable>>),
+enum ScopedItem<V> {
+    Var(Rc<V>),
     Const(Constant),
 }
 
@@ -49,11 +51,14 @@ enum Constant {
     Bool(bool),
 }
 
-enum Directive {
-    Block(Block),
+enum Directive<V>
+where
+    V: Variable,
+{
+    Block(Block<V>),
 
     #[allow(dead_code)]
-    DynBlock(DynBlock),
+    DynBlock(DynBlock<V>),
 
     Constant,
     Unknown,
@@ -63,16 +68,18 @@ enum Directive {
 pub struct Parser {
     tokens: Vec<Token>,
     cursor: usize,
-    scopes: Vec<HashMap<String, ScopedItem>>,
-    dynamic_blocks: Vec<DynBlock>,
-    blocks: Vec<Rc<Block>>,
+    scopes: Vec<HashMap<String, ScopedItem<MutVar>>>,
+    dynamic_blocks: Vec<DynBlock<MutVar>>,
+    blocks: Vec<Rc<Block<MutVar>>>,
     diagnostics_bag: DiagnosticsBagRef,
     options: Rc<Opts>,
-    next_blocks: VecDeque<Block>,
+    next_blocks: VecDeque<Block<MutVar>>,
     next_var_id: usize,
     next_block_id: usize,
     next_dyn_block_id: usize,
 }
+
+type BlockArgs = Vec<Rc<MutVar>>;
 
 impl Parser {
     /// Create a new [Parser].
@@ -216,7 +223,7 @@ impl Parser {
     }
 
     /// Search the current scope for a variable.
-    fn search_scope(&self, name: &str) -> Option<ScopedItem> {
+    fn search_scope(&self, name: &str) -> Option<ScopedItem<MutVar>> {
         let mut rev_scopes = self.scopes.clone();
         rev_scopes.reverse();
         for scope in rev_scopes {
@@ -230,7 +237,7 @@ impl Parser {
     }
 
     /// Search for a block by name.
-    fn search_blocks(&self, name: &str) -> Option<Rc<Block>> {
+    fn search_blocks(&self, name: &str) -> Option<Rc<Block<MutVar>>> {
         for block in &self.blocks {
             if block.name.as_str() == name {
                 return Some(block.clone());
@@ -240,7 +247,7 @@ impl Parser {
     }
 
     /// Search for a dynamic block by name.
-    fn search_dynamic_blocks(&self, name: &str) -> Option<DynBlock> {
+    fn search_dynamic_blocks(&self, name: &str) -> Option<DynBlock<MutVar>> {
         println!("searching for dynamic block: {}", name);
         for dyn_block in &self.dynamic_blocks {
             if dyn_block.name.as_str() == name {
@@ -281,15 +288,15 @@ impl Parser {
     }
 
     /// Add a scope item to the current scope.
-    fn add_to_scope(&mut self, name: String, item: ScopedItem) {
+    fn add_to_scope(&mut self, name: String, item: ScopedItem<MutVar>) {
         self.scopes.last_mut().unwrap().insert(name, item);
     }
 
-    fn add_var_to_scope(&mut self, var: Rc<RefCell<Variable>>) {
-        self.add_to_scope(var.borrow().name.clone(), ScopedItem::Var(var.clone()))
+    fn add_var_to_scope(&mut self, var: Rc<MutVar>) {
+        self.add_to_scope(var.name().to_string(), ScopedItem::Var(var.clone()))
     }
 
-    fn next_directive(&mut self) -> Option<Directive> {
+    fn next_directive(&mut self) -> Option<Directive<MutVar>> {
         // Return queued blocks first if any
         if let Some(b) = self.next_blocks.pop_front() {
             return Some(Directive::Block(b));
@@ -313,7 +320,7 @@ impl Parser {
         }
     }
 
-    fn parse_directive(&mut self) -> CompilationResult<Directive> {
+    fn parse_directive(&mut self) -> CompilationResult<Directive<MutVar>> {
         let start_token = self.current().clone();
         match &start_token.kind {
             TokenKind::Word(word) => match word.as_str() {
@@ -368,7 +375,7 @@ impl Parser {
 
     /// Parse next statement. Return `None` of none are left.
     // TODO: Simplify type if possible
-    fn parse_statement(&mut self) -> Option<CompilationResult<Statement>> {
+    fn parse_statement(&mut self) -> Option<CompilationResult<Statement<MutVar>>> {
         let start_token = self.current().clone();
         match &start_token.kind {
             TokenKind::Word(word) => {
@@ -439,7 +446,7 @@ impl Parser {
         )
     }
 
-    fn parse_declaration_statement(&mut self) -> CompilationResult<StatementKind> {
+    fn parse_declaration_statement(&mut self) -> CompilationResult<StatementKind<MutVar>> {
         let variable = self.parse_variable_declaration()?;
 
         match &variable.type_ {
@@ -496,7 +503,7 @@ impl Parser {
     }
 
     /// Parse variable assignment statement.
-    fn parse_definition_statement(&mut self) -> CompilationResult<StatementKind> {
+    fn parse_definition_statement(&mut self) -> CompilationResult<StatementKind<MutVar>> {
         let start_span = self.current().span.clone();
 
         let name = self.consume_word()?.to_string();
@@ -540,7 +547,7 @@ impl Parser {
         }
     }
 
-    fn parse_variable_declaration(&mut self) -> CompilationResult<Variable> {
+    fn parse_variable_declaration(&mut self) -> CompilationResult<VarData> {
         let start_token = self.current().clone();
 
         self.consume_and_expect_word("let")?;
@@ -555,7 +562,7 @@ impl Parser {
             _ => VariableType::Inferred,
         };
 
-        Ok(Variable::new(
+        Ok(VarData::new(
             name.to_owned(),
             type_,
             self.get_span_from(&start_token.span),
@@ -563,7 +570,7 @@ impl Parser {
         ))
     }
 
-    fn parse_variable(&mut self) -> CompilationResult<ParsedVariable> {
+    fn parse_variable(&mut self) -> CompilationResult<ParsedVariable<MutVar>> {
         let start_token = self.current().clone();
 
         let name = self.consume_word()?.to_string();
@@ -586,7 +593,7 @@ impl Parser {
 
             let type_ = self.parse_variable_type()?;
 
-            Ok(ParsedVariable::Dec(Variable::new(
+            Ok(ParsedVariable::Dec(VarData::new(
                 name.to_owned(),
                 type_,
                 self.get_span_from(&start_token.span),
@@ -655,8 +662,8 @@ impl Parser {
     }
 
     /// Parse arguments for `block` definition.
-    fn parse_block_arguments(&mut self) -> CompilationResult<Vec<Rc<RefCell<Variable>>>> {
-        let mut arguments: Vec<Rc<RefCell<Variable>>> = vec![];
+    fn parse_block_arguments(&mut self) -> CompilationResult<Vec<Rc<MutVar>>> {
+        let mut arguments: Vec<Rc<MutVar>> = vec![];
 
         while !matches!(self.current().kind, TokenKind::RightParen | TokenKind::End) {
             let var_span = self.current().span.clone();
@@ -686,8 +693,8 @@ impl Parser {
     }
 
     /// Parse arguments for `dyn block` definition.
-    fn parse_dyn_block_arguments(&mut self) -> CompilationResult<Vec<DynBlockArg>> {
-        let mut arguments: Vec<DynBlockArg> = vec![];
+    fn parse_dyn_block_arguments(&mut self) -> CompilationResult<Vec<DynBlockArg<MutVar>>> {
+        let mut arguments: Vec<DynBlockArg<MutVar>> = vec![];
         while !matches!(self.current().kind, TokenKind::RightParen | TokenKind::End) {
             let var_span = self.current().span.clone();
 
@@ -735,7 +742,7 @@ impl Parser {
         Ok(arguments)
     }
 
-    fn parse_block_link_arguments(&mut self) -> CompilationResult<Vec<Expression>> {
+    fn parse_block_link_arguments(&mut self) -> CompilationResult<Vec<Expression<MutVar>>> {
         let args = self.parse_dyn_block_link_arguments()?;
         let mut inputs = vec![];
         for arg in args {
@@ -752,8 +759,8 @@ impl Parser {
         Ok(inputs)
     }
 
-    fn parse_dyn_block_link_arguments(&mut self) -> CompilationResult<Vec<BlockLinkArg>> {
-        let mut inputs: Vec<BlockLinkArg> = vec![];
+    fn parse_dyn_block_link_arguments(&mut self) -> CompilationResult<Vec<BlockLinkArg<MutVar>>> {
+        let mut inputs: Vec<BlockLinkArg<MutVar>> = vec![];
         self.consume_and_expect(TokenKind::LeftParen)?;
 
         if self.current().kind == TokenKind::RightParen {
@@ -780,10 +787,10 @@ impl Parser {
         Ok(inputs)
     }
 
-    fn parse_statement_list(&mut self) -> CompilationResult<Vec<Statement>> {
+    fn parse_statement_list(&mut self) -> CompilationResult<Vec<Statement<MutVar>>> {
         self.consume_and_expect(TokenKind::LeftCurly)?;
 
-        let mut statements: Vec<Statement> = vec![];
+        let mut statements: Vec<Statement<MutVar>> = vec![];
 
         while let Some(statement) = self.parse_statement() {
             statements.push(statement?)
@@ -796,7 +803,7 @@ impl Parser {
 
     // TODO: Constants should be able to be imported
     /// Parse chef `import`
-    fn parse_import(&mut self) -> CompilationResult<Vec<Block>> {
+    fn parse_import(&mut self) -> CompilationResult<Vec<Block<MutVar>>> {
         self.consume(); // Consume "import" word
 
         let file_token = self.consume().clone();
@@ -822,7 +829,7 @@ impl Parser {
         }
     }
 
-    fn parse_constant(&mut self) -> CompilationResult<Directive> {
+    fn parse_constant(&mut self) -> CompilationResult<Directive<MutVar>> {
         // Consume 'const' keyword
         let start_token = self.consume();
         debug_assert_eq!(start_token.kind, TokenKind::Word("const".to_string()));
@@ -847,7 +854,7 @@ impl Parser {
     }
 
     /// Parse chef `block`.
-    fn parse_block(&mut self) -> CompilationResult<Block> {
+    fn parse_block(&mut self) -> CompilationResult<Block<MutVar>> {
         let start_token = self.consume().clone(); // Consume "block" word
         debug_assert_eq!(start_token.kind, TokenKind::Word("block".to_string()));
 
@@ -871,7 +878,7 @@ impl Parser {
         ))
     }
 
-    fn parse_dyn_block(&mut self) -> CompilationResult<DynBlock> {
+    fn parse_dyn_block(&mut self) -> CompilationResult<DynBlock<MutVar>> {
         let start_token = self.current().clone();
 
         self.enter_scope();
@@ -1025,7 +1032,9 @@ impl Parser {
         Ok((block_name, inputs, outputs))
     }
 
-    fn parse_dyn_block_signature(&mut self) -> CompilationResult<(String, Vec<DynBlockArg>)> {
+    fn parse_dyn_block_signature(
+        &mut self,
+    ) -> CompilationResult<(String, Vec<DynBlockArg<MutVar>>)> {
         let block_name: String = if let TokenKind::Word(s) = &self.consume().kind {
             s.clone()
         } else {
@@ -1043,11 +1052,11 @@ impl Parser {
     }
 
     /// Parse chef expression.
-    fn parse_expression(&mut self) -> CompilationResult<Expression> {
+    fn parse_expression(&mut self) -> CompilationResult<Expression<MutVar>> {
         self.parse_binary_expression(None, 0)
     }
 
-    fn parse_when_statement(&mut self) -> CompilationResult<StatementKind> {
+    fn parse_when_statement(&mut self) -> CompilationResult<StatementKind<MutVar>> {
         let _start_token = self.consume().clone(); // Consume "when" token
         let condition = self.parse_expression()?;
 
@@ -1098,9 +1107,9 @@ impl Parser {
     /// https://en.wikipedia.org/wiki/Operator-precedence_parser
     fn parse_binary_expression(
         &mut self,
-        left: Option<Expression>,
+        left: Option<Expression<MutVar>>,
         min_precedence: u8,
-    ) -> CompilationResult<Expression> {
+    ) -> CompilationResult<Expression<MutVar>> {
         let mut left = match left {
             Some(e) => e,
             None => self.parse_primary_expression()?,
@@ -1154,7 +1163,7 @@ impl Parser {
     }
 
     /// Parse a primary expression.
-    fn parse_primary_expression(&mut self) -> CompilationResult<Expression> {
+    fn parse_primary_expression(&mut self) -> CompilationResult<Expression<MutVar>> {
         let start_token = self.current().clone();
         match &start_token.kind {
             TokenKind::Minus => {
@@ -1280,10 +1289,7 @@ impl Parser {
         }
     }
 
-    fn parse_variable_index(
-        &mut self,
-        var: Rc<RefCell<Variable>>,
-    ) -> CompilationResult<Expression> {
+    fn parse_variable_index(&mut self, var: Rc<MutVar>) -> CompilationResult<Expression<MutVar>> {
         let start_span = self.peak(-1).span.clone();
         let var_span = self.current().span.clone();
         self.consume_and_expect(TokenKind::LeftSquare)?;
@@ -1315,7 +1321,10 @@ impl Parser {
         })
     }
 
-    fn parse_dyn_block_link(&mut self, def: DynBlock) -> CompilationResult<BlockLinkExpression> {
+    fn parse_dyn_block_link(
+        &mut self,
+        def: DynBlock<MutVar>,
+    ) -> CompilationResult<BlockLinkExpression<MutVar>> {
         let start_span = self.peak(-1).span.clone();
 
         let inputs = self.parse_dyn_block_link_arguments()?;
@@ -1450,7 +1459,10 @@ impl Parser {
     }
 
     /// Parse a chef block link.
-    fn parse_block_link(&mut self, block: Rc<Block>) -> CompilationResult<BlockLinkExpression> {
+    fn parse_block_link(
+        &mut self,
+        block: Rc<Block<MutVar>>,
+    ) -> CompilationResult<BlockLinkExpression<MutVar>> {
         let start = self.peak(-1).span.start;
         let inputs = self.parse_block_link_arguments()?;
         let end = self.current().span.clone();
@@ -1471,7 +1483,7 @@ impl Parser {
         Ok(BlockLinkExpression::new(block, inputs))
     }
 
-    fn parse_unpack_statement(&mut self) -> CompilationResult<Statement> {
+    fn parse_unpack_statement(&mut self) -> CompilationResult<Statement<MutVar>> {
         let start_token = self.consume_and_expect(TokenKind::LeftParen)?;
         let mut vars = vec![];
 
@@ -1554,7 +1566,7 @@ impl Parser {
 }
 
 impl Iterator for Parser {
-    type Item = Block;
+    type Item = Block<MutVar>;
     fn next(&mut self) -> Option<Self::Item> {
         match self.next_directive() {
             Some(Directive::Block(block)) => Some(block),
@@ -1564,12 +1576,12 @@ impl Iterator for Parser {
     }
 }
 
-enum ParsedVariable {
+enum ParsedVariable<V> {
     /// Declaration of a variable.
-    Dec(Variable),
+    Dec(VarData),
 
     /// A reference to a variable in an expression.
-    Ref(VariableRef),
+    Ref(VariableRef<V>),
 
     Const(Constant),
 }
