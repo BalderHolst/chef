@@ -43,6 +43,10 @@ print()
 
 info("Compiling examples:")
 for example in os.listdir(INCLUDE_TESTS):
+    if example.endswith(".ignore"):
+        print(f"    {example} ... {YELLOW}IGNORED{RESET}")
+        continue
+
     print(f"    {example} ... ", end="")
     out = subprocess.run(
         [CHEF_EXE, "cook", f"{INCLUDE_TESTS}/{example}"],
