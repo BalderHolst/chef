@@ -965,7 +965,7 @@ where
         println!("Graph:");
         println!("\tVertecies:");
         for (nid, node) in &self.vertices {
-            if self.vertices.get(nid).is_none() {
+            if self.vertices.contains_key(nid) {
                 println!("Could not find vertex: {}", nid);
                 return;
             }

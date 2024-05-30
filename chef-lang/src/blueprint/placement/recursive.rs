@@ -52,7 +52,7 @@ where {
     }
 
     fn tile_is_occupied(&self, tile: &TilePos) -> bool {
-        self.placed_positions.get(tile).is_some() || (self.is_pole)(tile)
+        self.placed_positions.contains(tile) || (self.is_pole)(tile)
     }
 
     fn place_combinators(&mut self) -> PlacementResult {

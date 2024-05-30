@@ -178,8 +178,7 @@ impl<'a> AnysignalAssigner<'a> {
     fn get_next_signal(&mut self) -> String {
         while self
             .used_signals
-            .get(self.get_signal(self.next_sig_nr))
-            .is_some()
+            .contains(self.get_signal(self.next_sig_nr))
         {
             self.next_sig_nr += 1
         }

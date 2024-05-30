@@ -54,7 +54,7 @@ impl TurdMaster2000 {
     }
 
     fn tile_is_occupied(&self, tile: &TilePos) -> bool {
-        self.placed_positions.get(tile).is_some()
+        self.placed_positions.contains(tile)
     }
 
     fn try_place_combinator(
