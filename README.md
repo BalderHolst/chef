@@ -29,3 +29,6 @@ Factorio Mod
 
 ## Factorio Mod
 A simple Factorio mod is provided in this repo. It simply extracts signals from Factorio. This provides a way to use modded items and signals in types when writing Chef code. By default, only vanilla signals are allowed in types.
+
+## Documentation
+Documentation for the internals of the compiler can be fould [here](https://balderholst.github.io/chef/chef/).
