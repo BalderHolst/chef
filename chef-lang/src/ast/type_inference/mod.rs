@@ -15,8 +15,6 @@ struct TypeInferer {
 
 impl TypeInferer {
     fn infer(ast: &mut AST<MutVar>) {
-        ast.print();
-
         let mut inferer = Self::new();
 
         for block in &ast.blocks {
@@ -28,8 +26,6 @@ impl TypeInferer {
         for block in &mut ast.blocks {
             inferer.infer_block(block);
         }
-
-        ast.print();
     }
 
     fn new() -> Self {
