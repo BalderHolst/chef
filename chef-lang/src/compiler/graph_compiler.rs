@@ -1,30 +1,30 @@
 use std::collections::HashMap;
 
 use crate::ast::{
-    self, AssignmentType, BinaryOperator, DefinitionKind, MutVar, VariableId, VariableSignalType,
+    self, AssignmentType, BinaryOperator, DefinitionKind, DetVar, VariableId, VariableSignalType,
     VariableType, AST,
 };
 use crate::compiler::graph::*;
 use crate::diagnostics::{CompilationError, CompilationResult};
 
-type Block = ast::Block<MutVar>;
-type Statement = ast::Statement<MutVar>;
-type Declaration = ast::Declaration<MutVar>;
-type DeclarationDefinition = ast::DeclarationDefinition<MutVar>;
-type Definition = ast::Definition<MutVar>;
-type TupleDeclarationDefinition = ast::TupleDeclarationDefinition<MutVar>;
-type BinaryExpression = ast::BinaryExpression<MutVar>;
-type BlockLinkExpression = ast::BlockLinkExpression<MutVar>;
-type DelayExpression = ast::DelayExpression<MutVar>;
-type Expression = ast::Expression<MutVar>;
-type ExpressionKind = ast::ExpressionKind<MutVar>;
-type IndexExpression = ast::IndexExpression<MutVar>;
-type NegativeExpression = ast::NegativeExpression<MutVar>;
-type PickExpression = ast::PickExpression<MutVar>;
-type SizeOfExpression = ast::SizeOfExpression<MutVar>;
-type StatementKind = ast::StatementKind<MutVar>;
-type VariableRef = ast::VariableRef<MutVar>;
-type WhenStatement = ast::WhenStatement<MutVar>;
+type Block = ast::Block<DetVar>;
+type Statement = ast::Statement<DetVar>;
+type Declaration = ast::Declaration<DetVar>;
+type DeclarationDefinition = ast::DeclarationDefinition<DetVar>;
+type Definition = ast::Definition<DetVar>;
+type TupleDeclarationDefinition = ast::TupleDeclarationDefinition<DetVar>;
+type BinaryExpression = ast::BinaryExpression<DetVar>;
+type BlockLinkExpression = ast::BlockLinkExpression<DetVar>;
+type DelayExpression = ast::DelayExpression<DetVar>;
+type Expression = ast::Expression<DetVar>;
+type ExpressionKind = ast::ExpressionKind<DetVar>;
+type IndexExpression = ast::IndexExpression<DetVar>;
+type NegativeExpression = ast::NegativeExpression<DetVar>;
+type PickExpression = ast::PickExpression<DetVar>;
+type SizeOfExpression = ast::SizeOfExpression<DetVar>;
+type StatementKind = ast::StatementKind<DetVar>;
+type VariableRef = ast::VariableRef<DetVar>;
+type WhenStatement = ast::WhenStatement<DetVar>;
 
 struct Scope {
     variables: HashMap<VariableId, (NId, LooseSig)>,
@@ -131,14 +131,14 @@ impl Scope {
 }
 
 pub struct GraphCompiler {
-    ast: AST<MutVar>,
+    ast: AST<DetVar>,
     next_anysignal: u64,
     block_graphs: HashMap<String, Graph<LooseSig>>,
     scopes: Vec<Scope>,
 }
 
 impl GraphCompiler {
-    pub fn new(ast: AST<MutVar>) -> Self {
+    pub fn new(ast: AST<DetVar>) -> Self {
         Self {
             ast,
             next_anysignal: 0,
@@ -159,13 +159,11 @@ impl GraphCompiler {
         let mut graph = Graph::new();
         self.enter_scope();
         for input_var in block.inputs.clone() {
-            let input_var = input_var.borrow();
             let t = self.variable_type_to_loose_sig(&input_var.type_);
             self.declare_input_variable(&mut graph, input_var.id, t, input_var.name.clone())?;
         }
 
         for output_var in block.outputs.clone() {
-            let output_var = output_var.borrow();
             let t = self.variable_type_to_loose_sig(&output_var.type_);
             self.declare_output_variable(&mut graph, output_var.name.clone(), output_var.id, t)?;
         }
@@ -209,7 +207,7 @@ impl GraphCompiler {
         graph: &mut Graph<LooseSig>,
         dec: Declaration,
     ) -> Result<(), CompilationError> {
-        let var = &dec.variable.borrow();
+        let var = &dec.variable;
         let var_type = self.variable_type_to_loose_sig(&var.type_);
 
         // Wire up and define memory cell variables.
@@ -245,7 +243,7 @@ impl GraphCompiler {
         dec_def: DeclarationDefinition,
         gate: Option<(NId, LooseSig)>,
     ) -> Result<(), CompilationError> {
-        let var = &dec_def.variable.borrow();
+        let var = &dec_def.variable;
         let var_type = self.variable_type_to_loose_sig(&var.type_);
         self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
         let definition: Definition = dec_def.clone().into();
@@ -265,7 +263,12 @@ impl GraphCompiler {
             args.push(self.compile_expression(graph, &input, None)?);
         }
 
-        let block = self.compile_block(&block_link.block)?;
+        let ast_block = self
+            .ast
+            .get_block_by_id(block_link.block_id, block_link.dyn_block_id)
+            .unwrap()
+            .clone();
+        let block = self.compile_block(&ast_block)?;
 
         let output_nodes = graph.stitch_graph(&block, args)?;
 
@@ -278,7 +281,7 @@ impl GraphCompiler {
         for (i, _) in output_nodes.iter().enumerate() {
             let (output_nid, out_type) = &output_nodes[i];
             let def = &tuple_dec_def.defs[i];
-            let var = &def.variable.borrow();
+            let var = &def.variable;
             let var_type = self.variable_type_to_loose_sig(&var.type_);
 
             // Convert to variable type
@@ -316,7 +319,7 @@ impl GraphCompiler {
         gate: Option<(NId, LooseSig)>,
         var_type: Option<LooseSig>,
     ) -> Result<(), CompilationError> {
-        let var = &def.variable.borrow();
+        let var = &def.variable;
 
         let var_iotype = match var_type {
             Some(t) => t,
@@ -412,7 +415,7 @@ impl GraphCompiler {
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
         // Get the referenced variable.
-        let var = var_ref.var.borrow();
+        let var = &var_ref.var;
         let (var_ref_nid, var_type) = self
             .search_scope(var.id)
             .unwrap_or_else(|| panic!("Variable references should always point to defined variables. Could not find var '{}' with id {}.", var.name, var.id));
@@ -470,7 +473,7 @@ impl GraphCompiler {
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
         let var_ref = pick_expr.from.clone();
-        let var = var_ref.var.borrow();
+        let var = var_ref.var;
 
         let (var_out_nid, _) = self
             .search_scope(var.id)
@@ -632,10 +635,14 @@ impl GraphCompiler {
             args.push((arg_nid, arg_type));
         }
 
-        let block_graph = self.get_graph(
-            &block_link_expr.block.name,
-            block_link_expr.block.dyn_block_id,
-        )?;
+        let ast_block = self
+            .ast
+            .get_block_by_id(block_link_expr.block_id, block_link_expr.dyn_block_id)
+            .unwrap();
+
+        let block_name = ast_block.name.clone();
+        let dyn_block_id = ast_block.dyn_block_id;
+        let block_graph = self.get_graph(&block_name, dyn_block_id)?;
 
         let outputs = graph.stitch_graph(&block_graph, args)?;
 
@@ -746,6 +753,7 @@ impl GraphCompiler {
                 VariableSignalType::Any => self.get_new_anysignal(),
             },
             VariableType::Many => LooseSig::Many,
+            VariableType::_Tuple(_) => todo!(),
             VariableType::Inferred => todo!(),
         }
     }
@@ -753,7 +761,7 @@ impl GraphCompiler {
     pub fn get_graph(
         &mut self,
         name: &str,
-        id: Option<usize>,
+        dyn_block_id: Option<usize>,
     ) -> Result<Graph<LooseSig>, CompilationError> {
         match self.get_block_graph(name) {
             Some(g) => Ok(g.clone()),
@@ -763,7 +771,7 @@ impl GraphCompiler {
                     // TODO: Do something about the clone??
                     let block = self
                         .ast
-                        .get_block(name, id)
+                        .get_block_by_name(name, dyn_block_id)
                         .unwrap_or_else(|| {
                             panic!("Block '{name}' should exist. This is probably a parser bug.")
                         })

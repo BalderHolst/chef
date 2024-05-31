@@ -15,6 +15,7 @@ use self::lexer::{Lexer, Token};
 use self::parser::Parser;
 
 mod constant_evaluator;
+mod determiner;
 pub mod lexer;
 pub mod parser;
 pub mod python_macro;
@@ -22,21 +23,19 @@ mod type_checker;
 mod type_inference;
 mod visitors;
 
-pub type MutVar = RefCell<VarData>;
-
 /// [AST] representation of chef `block`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block<V>
 where
     V: Variable,
 {
-    pub id: usize,
+    pub id: BlockId,
+    pub dyn_block_id: Option<DynBlockId>,
     pub name: String,
     pub inputs: Vec<Rc<V>>,
     pub outputs: Vec<Rc<V>>,
     pub statements: Vec<Statement<V>>,
     pub span: TextSpan,
-    pub dyn_block_id: Option<usize>,
 }
 
 impl<V> Block<V>
@@ -45,7 +44,8 @@ where
 {
     /// Instantiate a new [Block].
     fn new(
-        id: usize,
+        id: BlockId,
+        dyn_block_id: Option<DynBlockId>,
         name: String,
         inputs: Vec<Rc<V>>,
         outputs: Vec<Rc<V>>,
@@ -54,12 +54,12 @@ where
     ) -> Self {
         Self {
             id,
+            dyn_block_id,
             name,
             inputs,
             outputs,
             statements,
             span,
-            dyn_block_id: None,
         }
     }
 }
@@ -102,20 +102,15 @@ where
 }
 
 impl AST<MutVar> {
-    /// Build an [AST] from a [SourceText] instance. This also evaluates constants and does type
-    /// checking.
-    pub fn from_source(
+    pub fn mut_from_source(
         text: Rc<SourceText>,
         diagnostics_bag: DiagnosticsBagRef,
         opts: Rc<Opts>,
     ) -> Self {
         let lexer = Lexer::from_source(text);
         let tokens: Vec<Token> = lexer.collect();
-        let parser = Parser::new(tokens, diagnostics_bag.clone(), opts);
-        let mut ast = AST::new(diagnostics_bag);
-        for block in parser {
-            ast.add_block(block);
-        }
+
+        let mut ast = Parser::parse(tokens, diagnostics_bag.clone(), opts);
 
         ast.infer_types();
 
@@ -123,7 +118,21 @@ impl AST<MutVar> {
         // are not evaluated as int constants and vise versa.
         ast.check_types();
         ast.evaluate_constants();
+
         ast
+    }
+}
+
+impl AST<DetVar> {
+    /// Build an [AST] from a [SourceText] instance. This also evaluates constants and does type
+    /// checking.
+    pub fn from_source(
+        text: Rc<SourceText>,
+        diagnostics_bag: DiagnosticsBagRef,
+        opts: Rc<Opts>,
+    ) -> Self {
+        let ast = AST::mut_from_source(text, diagnostics_bag, opts);
+        determiner::determine(ast)
     }
 }
 
@@ -144,34 +153,41 @@ where
         self.blocks.push(block);
     }
 
-    pub fn get_block(&self, name: &str, id: Option<usize>) -> Option<&Block<V>> {
+    pub fn get_block_by_id(&self, id: BlockId, dyn_block_id: Option<usize>) -> Option<&Block<V>> {
         self.blocks
             .iter()
-            .find(|b| b.name == name && b.dyn_block_id == id)
+            .find(|b| b.id == id && b.dyn_block_id == dyn_block_id)
     }
-}
 
-impl AST<MutVar> {
+    pub fn get_block_by_name(&self, name: &str, dyn_block_id: Option<usize>) -> Option<&Block<V>> {
+        self.blocks
+            .iter()
+            .find(|b| b.name == name && b.dyn_block_id == dyn_block_id)
+    }
+
     /// Print the [AST] to stout.
     pub fn print(&self) {
-        let mut printer = Printer::new();
+        let mut printer = Printer::new(self);
         for block in &self.blocks {
             printer.visit_block(block);
         }
     }
+}
 
+impl AST<MutVar> {
     /// Evaluate constant expressions in the [AST] to simplify it.
     pub fn evaluate_constants(&mut self) {
         constant_evaluator::evaluate_constants(self)
     }
 
-    pub fn infer_types(&mut self) {
-        type_inference::infer(self);
-    }
-
     /// Check that types are valid.
     pub fn check_types(&self) {
         type_checker::check(self, self.diagnostics_bag.clone());
+    }
+
+    // Consume the AST, infer the types of variables, and return the determined AST.
+    pub fn infer_types(&mut self) {
+        type_inference::infer(self)
     }
 }
 
@@ -232,6 +248,7 @@ pub enum VariableType {
     Bool(VariableSignalType),
     Int(VariableSignalType),
     Var(VariableSignalType),
+    _Tuple(Vec<VariableType>),
     Many,
     Inferred,
 }
@@ -244,6 +261,13 @@ impl VariableType {
             VariableType::Int(_) => "int".to_string(),
             VariableType::Var(_) => "var".to_string(),
             VariableType::Many => "many".to_string(),
+            VariableType::_Tuple(t) => format!(
+                "({})",
+                t.iter()
+                    .map(|t| t.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             VariableType::Inferred => todo!(),
         }
     }
@@ -254,6 +278,9 @@ impl VariableType {
             VariableType::Int(_) => ExpressionReturnType::Int,
             VariableType::Var(_) => ExpressionReturnType::Int,
             VariableType::Many => ExpressionReturnType::Many,
+            VariableType::_Tuple(t) => {
+                ExpressionReturnType::Tuple(t.iter().map(|t| t.return_type()).collect())
+            }
             VariableType::Inferred => ExpressionReturnType::Infered,
         }
     }
@@ -264,6 +291,7 @@ impl VariableType {
             VariableType::Int(s) => Some(s),
             VariableType::Var(s) => Some(s),
             VariableType::Many => None,
+            VariableType::_Tuple(_) => None,
             VariableType::Inferred => None,
         }
     }
@@ -276,14 +304,15 @@ impl VariableType {
     }
 }
 
-impl From<ExpressionReturnType> for VariableType {
-    fn from(val: ExpressionReturnType) -> Self {
-        match val {
-            ExpressionReturnType::Bool => VariableType::Bool(VariableSignalType::Any),
-            ExpressionReturnType::Int => VariableType::Int(VariableSignalType::Any),
-            ExpressionReturnType::Many => VariableType::Many,
-            ExpressionReturnType::None => todo!(),
-            ExpressionReturnType::Infered => VariableType::Inferred,
+impl TryFrom<ExpressionReturnType> for VariableType {
+    type Error = ();
+    fn try_from(value: ExpressionReturnType) -> Result<Self, Self::Error> {
+        match value {
+            ExpressionReturnType::Bool => Ok(VariableType::Bool(VariableSignalType::Any)),
+            ExpressionReturnType::Int => Ok(VariableType::Int(VariableSignalType::Any)),
+            ExpressionReturnType::Many => Ok(VariableType::Many),
+            ExpressionReturnType::Tuple(_) => Err(()),
+            ExpressionReturnType::Infered => Ok(VariableType::Inferred),
         }
     }
 }
@@ -294,7 +323,18 @@ pub enum VariableSignalType {
     Any,
 }
 
+impl Display for VariableSignalType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VariableSignalType::Signal(s) => write!(f, "{}", s),
+            VariableSignalType::Any => write!(f, "any"),
+        }
+    }
+}
+
 pub type VariableId = usize;
+pub type BlockId = usize;
+pub type DynBlockId = usize;
 
 /// An argument to a block definition.
 #[derive(Debug, Clone)]
@@ -331,9 +371,18 @@ pub trait Variable {
     fn span(&self) -> TextSpan;
     fn id(&self) -> VariableId;
     fn return_type(&self) -> ExpressionReturnType;
+    fn display(&self) -> String {
+        format!("{}: {}", self.name(), self.type_())
+    }
 }
 
-/// A chef variable.
+/// A chef variable with a possibly undetermined type.
+pub type MutVar = RefCell<VarData>;
+
+/// A fully determined chef variable.
+pub type DetVar = VarData;
+
+/// The metadata of a chef variable.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VarData {
     pub name: String,
@@ -343,7 +392,6 @@ pub struct VarData {
 }
 
 impl VarData {
-    /// Instantiate a new [Variable].
     pub fn new(name: String, variable_type: VariableType, span: TextSpan, id: usize) -> Self {
         Self {
             name,
@@ -354,7 +402,7 @@ impl VarData {
     }
 }
 
-impl Variable for VarData {
+impl Variable for DetVar {
     fn name(&self) -> String {
         self.name.clone()
     }
@@ -405,15 +453,16 @@ pub struct VariableRef<V> {
     pub span: TextSpan,
 }
 
-impl<V> VariableRef<V> {
+impl<V> VariableRef<V>
+where
+    V: Variable,
+{
     fn new(var: Rc<V>, span: TextSpan) -> Self {
         Self { var, span }
     }
-}
 
-impl VariableRef<MutVar> {
     pub fn return_type(&self) -> ExpressionReturnType {
-        self.var.borrow().return_type()
+        self.var.return_type()
     }
 }
 
@@ -575,22 +624,20 @@ where
             span,
         }
     }
-}
 
-impl Expression<MutVar> {
     fn return_type(&self) -> ExpressionReturnType {
         match &self.kind {
             ExpressionKind::Bool(_) => ExpressionReturnType::Bool,
             ExpressionKind::Int(_) => ExpressionReturnType::Int,
-            ExpressionKind::Binary(e) => e.return_type().clone(),
+            ExpressionKind::Binary(e) => e.return_type(),
             ExpressionKind::Parenthesized(e) => e.return_type(),
             ExpressionKind::Negative(e) => e.return_type(),
             ExpressionKind::Pick(_) => ExpressionReturnType::Int,
             ExpressionKind::Index(_) => ExpressionReturnType::Int,
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
-            ExpressionKind::BlockLink(e) => e.return_type(true),
+            ExpressionKind::BlockLink(e) => e.return_type(),
             ExpressionKind::Delay(e) => e.return_type(),
-            ExpressionKind::SizeOf(e) => e.return_type(),
+            ExpressionKind::SizeOf(_) => ExpressionReturnType::Int,
         }
     }
 }
@@ -600,20 +647,28 @@ pub enum ExpressionReturnType {
     Bool,
     Int,
     Many,
-    None,
+    Tuple(Vec<ExpressionReturnType>),
     Infered,
 }
 
 impl Display for ExpressionReturnType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            ExpressionReturnType::Bool => "bool",
-            ExpressionReturnType::Int => "int",
-            ExpressionReturnType::Many => "many",
-            ExpressionReturnType::None => "none",
-            ExpressionReturnType::Infered => "infered",
-        };
-        write!(f, "{s}")
+        match self {
+            ExpressionReturnType::Bool => write!(f, "bool"),
+            ExpressionReturnType::Int => write!(f, "int"),
+            ExpressionReturnType::Many => write!(f, "many"),
+            ExpressionReturnType::Tuple(ts) => {
+                write!(
+                    f,
+                    "({})",
+                    ts.iter()
+                        .map(|t| t.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            ExpressionReturnType::Infered => write!(f, "infered"),
+        }
     }
 }
 
@@ -662,9 +717,7 @@ where
             expression: Box::new(expression),
         }
     }
-}
 
-impl NegativeExpression<MutVar> {
     fn return_type(&self) -> ExpressionReturnType {
         self.expression.return_type()
     }
@@ -686,9 +739,7 @@ where
     fn new(expression: Box<Expression<V>>) -> Self {
         Self { expression }
     }
-}
 
-impl ParenthesizedExpression<MutVar> {
     fn return_type(&self) -> ExpressionReturnType {
         self.expression.return_type()
     }
@@ -706,12 +757,6 @@ pub struct PickExpression<V> {
     pub span: TextSpan,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct IndexExpression<V> {
-    pub var_ref: VariableRef<V>,
-    pub index: u16,
-}
-
 impl<V> PickExpression<V> {
     fn new(pick_signal: String, from: VariableRef<V>, span: TextSpan) -> Self {
         Self {
@@ -722,33 +767,43 @@ impl<V> PickExpression<V> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct IndexExpression<V> {
+    pub var_ref: VariableRef<V>,
+    pub index: u16,
+}
+
 /// [AST] representation of chef block link. This is like a function call in other languages.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlockLinkExpression<V>
 where
     V: Variable,
 {
-    pub block: Rc<Block<V>>,
     pub inputs: Vec<Expression<V>>,
+    pub block_id: BlockId,
+    pub dyn_block_id: Option<DynBlockId>,
+    pub return_type: ExpressionReturnType,
 }
 
 impl<V> BlockLinkExpression<V>
 where
     V: Variable,
 {
-    pub fn new(block: Rc<Block<V>>, inputs: Vec<Expression<V>>) -> Self {
-        Self { block, inputs }
-    }
-}
-
-impl BlockLinkExpression<MutVar> {
-    fn return_type(&self, return_int: bool) -> ExpressionReturnType {
-        match self.block.outputs.len() {
-            0 => ExpressionReturnType::None,
-            // In expressions, we want the block link to act as a single value
-            1 if return_int => self.block.outputs[0].borrow().return_type(),
-            _ => ExpressionReturnType::Many,
+    pub fn new(
+        inputs: Vec<Expression<V>>,
+        block_id: BlockId,
+        dyn_block_id: Option<DynBlockId>,
+    ) -> Self {
+        Self {
+            block_id,
+            dyn_block_id,
+            inputs,
+            return_type: ExpressionReturnType::Infered,
         }
+    }
+
+    fn return_type(&self) -> ExpressionReturnType {
+        self.return_type.clone()
     }
 }
 
@@ -769,9 +824,7 @@ where
     fn new(expression: Box<Expression<V>>, delay: usize) -> Self {
         Self { expression, delay }
     }
-}
 
-impl DelayExpression<MutVar> {
     fn return_type(&self) -> ExpressionReturnType {
         self.expression.return_type()
     }
@@ -791,10 +844,6 @@ where
 {
     fn new(expression: Box<Expression<V>>) -> Self {
         Self { expression }
-    }
-
-    fn return_type(&self) -> ExpressionReturnType {
-        ExpressionReturnType::Int
     }
 }
 
@@ -831,8 +880,8 @@ where
         }
     }
 
-    fn return_type(&self) -> &ExpressionReturnType {
-        &self.return_type
+    fn return_type(&self) -> ExpressionReturnType {
+        self.return_type.clone()
     }
 }
 
@@ -897,9 +946,25 @@ impl BinaryOperator {
     /// Get the type that the operator returns
     fn return_type(
         &self,
-        a: ExpressionReturnType,
-        b: ExpressionReturnType,
+        mut a: ExpressionReturnType,
+        mut b: ExpressionReturnType,
     ) -> Result<ExpressionReturnType, ()> {
+        if a == ExpressionReturnType::Infered || b == ExpressionReturnType::Infered {
+            return Ok(ExpressionReturnType::Infered);
+        }
+
+        // Unwrap tuples with one element
+        if let ExpressionReturnType::Tuple(ref t) = a {
+            if t.len() == 1 {
+                a = t[0].clone();
+            }
+        }
+        if let ExpressionReturnType::Tuple(ref t) = b {
+            if t.len() == 1 {
+                b = t[0].clone();
+            }
+        }
+
         match self {
             Self::Add | Self::Subtract | Self::Multiply | Self::Divide => match (a, b) {
                 (ExpressionReturnType::Int, ExpressionReturnType::Int) => {
@@ -978,14 +1043,24 @@ impl Display for BinaryOperator {
 const INDENTATON: usize = 4;
 
 /// A struct for printing [AST]s.
-struct Printer {
+struct Printer<'a, V>
+where
+    V: Variable,
+{
     current_intent: usize,
+    ast: &'a AST<V>,
 }
 
-impl Printer {
+impl<'a, V> Printer<'a, V>
+where
+    V: Variable,
+{
     /// Instantiate a new printer.
-    fn new() -> Self {
-        Self { current_intent: 0 }
+    fn new(ast: &'a AST<V>) -> Self {
+        Self {
+            current_intent: 0,
+            ast,
+        }
     }
 
     /// Print a string at the current indentation.
@@ -1020,45 +1095,43 @@ impl Display for VariableType {
                 VariableSignalType::Any => "Var(Any)".to_string(),
             },
             VariableType::Many => "Many".to_string(),
+            VariableType::_Tuple(t) => format!(
+                "Tuple({})",
+                t.iter()
+                    .map(|t| t.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
             VariableType::Inferred => "Inferred".to_string(),
         };
         write!(f, "{s}")
     }
 }
 
-impl Display for VarData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} : {}", self.name, self.type_)
-    }
-}
-
-impl Visitor<MutVar> for Printer {
-    fn visit_statement(&mut self, statement: &Statement<MutVar>) {
+impl<'a, V> Visitor<V> for Printer<'a, V>
+where
+    V: Variable,
+{
+    fn visit_statement(&mut self, statement: &Statement<V>) {
         self.print("Statement:");
         self.indent();
         self.do_visit_statement(statement);
         self.unindent();
     }
 
-    fn visit_block(&mut self, block: &Block<MutVar>) {
+    fn visit_block(&mut self, block: &Block<V>) {
         self.print(&format!(
             "Block: \"{}\" {:?} -> {:?}",
             block.name,
             block
                 .inputs
                 .iter()
-                .map(|i| {
-                    let i = i.borrow();
-                    format!("{}: {} ({})", i.name, i.type_, i.id)
-                })
+                .map(|i| { format!("{}: {} ({})", i.name(), i.type_(), i.id()) })
                 .collect::<Vec<String>>(),
             block
                 .outputs
                 .iter()
-                .map(|i| {
-                    let i = i.borrow();
-                    format!("{}: {} ({})", i.name, i.type_, i.id)
-                })
+                .map(|i| { format!("{}: {} ({})", i.name(), i.type_(), i.id()) })
                 .collect::<Vec<String>>(),
         ));
         self.indent();
@@ -1072,44 +1145,52 @@ impl Visitor<MutVar> for Printer {
         self.unindent();
     }
 
-    fn visit_declaration(&mut self, dec: &Declaration<MutVar>) {
-        let var = dec.variable.borrow();
+    fn visit_declaration(&mut self, dec: &Declaration<V>) {
+        let var = &dec.variable;
         self.print(&format!(
             "Declaration: \"{}: {}\" ({})",
-            var.name, var.type_, var.id
+            var.name(),
+            var.type_(),
+            var.id()
         ));
     }
 
-    fn visit_definition(&mut self, def: &Definition<MutVar>) {
-        let var = def.variable.borrow();
+    fn visit_definition(&mut self, def: &Definition<V>) {
+        let var = &def.variable;
         self.print(&format!(
             "Definition <{:?}>: \"{}: {}\" ({})",
-            def.kind, var.name, var.type_, var.id
+            def.kind,
+            var.name(),
+            var.type_(),
+            var.id()
         ));
         self.indent();
         self.visit_expression(&def.expression);
         self.unindent();
     }
 
-    fn visit_declaration_definition(&mut self, dec_def: &DeclarationDefinition<MutVar>) {
-        let var = dec_def.variable.borrow();
+    fn visit_declaration_definition(&mut self, dec_def: &DeclarationDefinition<V>) {
+        let var = &dec_def.variable;
         self.print(&format!(
             "DeclarationDefinition <{:?}>: \"{}: {}\" ({})",
-            dec_def.kind, var.name, var.type_, var.id
+            dec_def.kind,
+            var.name(),
+            var.type_(),
+            var.id()
         ));
         self.indent();
         self.do_visit_declaration_definition(dec_def);
         self.unindent();
     }
 
-    fn visit_expression(&mut self, expression: &Expression<MutVar>) {
+    fn visit_expression(&mut self, expression: &Expression<V>) {
         self.print("Expression:");
         self.indent();
         self.do_visit_expression(expression);
         self.unindent();
     }
 
-    fn visit_delay_expression(&mut self, delay: &DelayExpression<MutVar>) {
+    fn visit_delay_expression(&mut self, delay: &DelayExpression<V>) {
         self.print(&format!("Delay: {}", delay.delay));
         self.indent();
         self.visit_expression(&delay.expression);
@@ -1124,13 +1205,15 @@ impl Visitor<MutVar> for Printer {
         self.print(&format!("Boolean: {}", bool));
     }
 
-    fn visit_variable_ref(&mut self, var_ref: &VariableRef<MutVar>) {
-        let var = var_ref.var.borrow();
-        self.print(&format!("VariableRef: {}", var.name))
+    fn visit_variable_ref(&mut self, var_ref: &VariableRef<V>) {
+        self.print(&format!("VariableRef: {}", var_ref.var.name()))
     }
 
-    fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression<MutVar>) {
-        self.print("BinaryExpression:");
+    fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression<V>) {
+        self.print(&format!(
+            "BinaryExpression: -> {}",
+            binary_expression.return_type()
+        ));
         self.indent();
         self.print(&format!("Operator: {}", binary_expression.operator));
         self.visit_expression(&binary_expression.left);
@@ -1138,47 +1221,56 @@ impl Visitor<MutVar> for Printer {
         self.unindent();
     }
 
-    fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression<MutVar>) {
+    fn visit_parenthesized_expression(&mut self, expr: &ParenthesizedExpression<V>) {
         self.print("Parenthesized:");
         self.indent();
         self.visit_expression(&expr.expression);
         self.unindent();
     }
 
-    fn visit_pick_expression(&mut self, expr: &PickExpression<MutVar>) {
+    fn visit_pick_expression(&mut self, expr: &PickExpression<V>) {
         self.print("PickExpression:");
         self.indent();
         self.print(&format!("Pick Signal: {}", expr.pick_signal));
 
-        let from_var = expr.from.var.borrow();
+        let from_var = &expr.from.var;
         self.print(&format!(
             "From Variable: {} ({})",
-            from_var.name, from_var.id
+            from_var.name(),
+            from_var.id()
         ));
         self.unindent();
     }
 
-    fn visit_index_expression(&mut self, expr: &IndexExpression<MutVar>) {
+    fn visit_index_expression(&mut self, expr: &IndexExpression<V>) {
         self.print("IndexExpression:");
         self.indent();
-        self.print(&format!("Variable: {}", expr.var_ref.var.borrow()));
+        self.print(&format!("Variable: {}", expr.var_ref.var.display()));
         self.print(&format!("Size: {}", expr.index));
         self.unindent();
     }
 
-    fn visit_block_link_expression(&mut self, block: &BlockLinkExpression<MutVar>) {
-        self.print(&format!("BlockLink: \"{}\"", block.block.name));
+    fn visit_block_link_expression(&mut self, link: &BlockLinkExpression<V>) {
+        let block = self
+            .ast
+            .get_block_by_id(link.block_id, link.dyn_block_id)
+            .unwrap();
+        self.print(&format!(
+            "BlockLink: \"{}\" -> {}",
+            block.name,
+            link.return_type()
+        ));
         self.indent();
         self.print(&format!("Args: ({})", block.inputs.len()));
         self.indent();
-        for input in &block.inputs {
+        for input in &link.inputs {
             self.visit_expression(input);
         }
         self.unindent();
         self.unindent();
     }
 
-    fn visit_when_statement(&mut self, when: &WhenStatement<MutVar>) {
+    fn visit_when_statement(&mut self, when: &WhenStatement<V>) {
         self.print("WhenExpression:");
         self.indent();
         self.print("Condition:");
@@ -1193,7 +1285,7 @@ impl Visitor<MutVar> for Printer {
 }
 
 #[cfg(test)]
-impl AST<MutVar> {
+impl AST<DetVar> {
     /// This function is only for testing
     fn from_str(code: &str) -> (Self, crate::diagnostics::DiagnosticsBagRef) {
         let source = Rc::new(SourceText::from_str(code));

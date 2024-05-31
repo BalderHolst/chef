@@ -21,9 +21,9 @@ use crate::text::{SourceText, TextSpan};
 use super::lexer::Lexer;
 use super::{
     AssignmentType, BlockLinkArg, BlockLinkExpression, Declaration, DeclarationDefinition,
-    Definition, DefinitionKind, DynBlockArg, IndexExpression, MutVar, NegativeExpression,
-    PickExpression, SizeOfExpression, VarData, Variable, VariableRef, VariableSignalType,
-    WhenStatement,
+    Definition, DefinitionKind, DynBlockArg, DynBlockId, IndexExpression, MutVar,
+    NegativeExpression, PickExpression, SizeOfExpression, VarData, Variable, VariableRef,
+    VariableSignalType, WhenStatement, AST,
 };
 
 const MACRO_ARG_SEP: &str = "; ";
@@ -66,11 +66,11 @@ where
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
 pub struct Parser {
+    ast: AST<MutVar>,
     tokens: Vec<Token>,
     cursor: usize,
     scopes: Vec<HashMap<String, ScopedItem<MutVar>>>,
     dynamic_blocks: Vec<DynBlock<MutVar>>,
-    blocks: Vec<Rc<Block<MutVar>>>,
     diagnostics_bag: DiagnosticsBagRef,
     options: Rc<Opts>,
     next_blocks: VecDeque<Block<MutVar>>,
@@ -82,9 +82,26 @@ pub struct Parser {
 type BlockArgs = Vec<Rc<MutVar>>;
 
 impl Parser {
+    pub fn parse(
+        tokens: Vec<Token>,
+        diagnostics_bag: DiagnosticsBagRef,
+        options: Rc<Opts>,
+    ) -> AST<MutVar> {
+        let mut parser = Self::new(tokens, diagnostics_bag, options);
+
+        while let Some(directive) = parser.next_directive() {
+            if let Directive::Block(block) = directive {
+                parser.ast.add_block(block);
+            }
+        }
+
+        parser.ast
+    }
+
     /// Create a new [Parser].
-    pub fn new(tokens: Vec<Token>, diagnostics_bag: DiagnosticsBagRef, options: Rc<Opts>) -> Self {
+    fn new(tokens: Vec<Token>, diagnostics_bag: DiagnosticsBagRef, options: Rc<Opts>) -> Self {
         Self {
+            ast: AST::new(diagnostics_bag.clone()),
             tokens: tokens
                 .iter()
                 .filter(|token| token.kind != TokenKind::Whitespace)
@@ -92,7 +109,6 @@ impl Parser {
                 .collect(),
             cursor: 0,
             scopes: vec![HashMap::new()],
-            blocks: vec![],
             dynamic_blocks: vec![],
             diagnostics_bag,
             options,
@@ -109,12 +125,12 @@ impl Parser {
         options: Rc<Opts>,
     ) -> Self {
         Self {
+            ast: AST::new(diagnostics_bag.clone()),
             tokens: lexer
                 .filter(|token| token.kind != TokenKind::Whitespace)
                 .collect(),
             cursor: 0,
             scopes: vec![HashMap::new()],
-            blocks: vec![],
             dynamic_blocks: vec![],
             diagnostics_bag,
             options,
@@ -237,13 +253,15 @@ impl Parser {
     }
 
     /// Search for a block by name.
-    fn search_blocks(&self, name: &str) -> Option<Rc<Block<MutVar>>> {
-        for block in &self.blocks {
-            if block.name.as_str() == name {
-                return Some(block.clone());
-            }
-        }
-        None
+    fn search_blocks(
+        &self,
+        name: &str,
+        dyn_block_id: Option<DynBlockId>,
+    ) -> Option<&Block<MutVar>> {
+        self.ast
+            .blocks
+            .iter()
+            .find(|&block| block.name.as_str() == name && block.dyn_block_id == dyn_block_id)
     }
 
     /// Search for a dynamic block by name.
@@ -326,8 +344,6 @@ impl Parser {
             TokenKind::Word(word) => match word.as_str() {
                 "block" => {
                     let block = self.parse_block()?;
-                    // TODO: Do something about this clone
-                    self.blocks.push(Rc::new(block.clone()));
                     Ok(Directive::Block(block))
                 }
                 "dyn" => {
@@ -462,6 +478,7 @@ impl Parser {
             VariableType::Bool(_) => {}
             VariableType::Int(_) => {}
             VariableType::Many => {}
+            VariableType::_Tuple(_) => {}
             VariableType::Inferred => {}
         };
 
@@ -814,12 +831,11 @@ impl Parser {
 
             let diagnostics_bag = DiagnosticsBag::new_ref(self.options.clone());
             let tokens = Lexer::from_source(text).collect();
-            let mut import_parser = Parser::new(tokens, diagnostics_bag, self.options.clone());
+            let imported_ast = Parser::parse(tokens, diagnostics_bag, self.options.clone());
             let mut blocks = vec![];
-            for cs in &mut import_parser {
+            for cs in imported_ast.blocks {
                 blocks.push(cs);
             }
-            self.blocks.extend(import_parser.blocks);
             Ok(blocks)
         } else {
             Err(CompilationError::new_unexpected_token(
@@ -866,6 +882,7 @@ impl Parser {
 
         Ok(Block::new(
             self.get_next_block_id(),
+            None,
             block_name,
             inputs,
             outputs,
@@ -1217,8 +1234,8 @@ impl Parser {
                     }
 
                 // If it is a block
-                } else if let Some(block) = self.search_blocks(word) {
-                    let block_link_expr = self.parse_block_link(block)?;
+                } else if let Some(block) = self.search_blocks(word, None) {
+                    let block_link_expr = self.parse_block_link(&block.clone())?;
                     Ok({
                         let kind = ExpressionKind::BlockLink(block_link_expr);
                         let span = self.get_span_from(&start_token.span);
@@ -1370,7 +1387,7 @@ impl Parser {
 
         println!("{}", code.text());
 
-        let ast = crate::ast::AST::from_source(
+        let ast = crate::ast::AST::mut_from_source(
             Rc::new(code),
             self.diagnostics_bag.clone(),
             self.options.clone(),
@@ -1379,7 +1396,7 @@ impl Parser {
         let err_span = TextSpan::from_spans(&start_span, &self.peak(-1).span);
 
         let mut block = ast
-            .get_block(&def.name, None)
+            .get_block_by_name(&def.name, None)
             .ok_or(CompilationError::new_localized(
                 format!("Block '{}' was not defined by generated code.", def.name),
                 err_span.clone(),
@@ -1453,15 +1470,17 @@ impl Parser {
             })
             .collect::<Vec<_>>();
 
-        self.blocks.push(block.clone());
-
-        Ok(BlockLinkExpression::new(block, input_exprs))
+        Ok(BlockLinkExpression::new(
+            input_exprs,
+            block.id,
+            block.dyn_block_id,
+        ))
     }
 
     /// Parse a chef block link.
     fn parse_block_link(
         &mut self,
-        block: Rc<Block<MutVar>>,
+        block: &Block<MutVar>,
     ) -> CompilationResult<BlockLinkExpression<MutVar>> {
         let start = self.peak(-1).span.start;
         let inputs = self.parse_block_link_arguments()?;
@@ -1480,7 +1499,11 @@ impl Parser {
             )
         }
 
-        Ok(BlockLinkExpression::new(block, inputs))
+        Ok(BlockLinkExpression::new(
+            inputs,
+            block.id,
+            block.dyn_block_id,
+        ))
     }
 
     fn parse_unpack_statement(&mut self) -> CompilationResult<Statement<MutVar>> {
@@ -1508,18 +1531,22 @@ impl Parser {
 
         let block_name = self.consume_word()?.to_string();
 
-        let block = self.search_blocks(&block_name).ok_or_else(|| {
+        let block = self.search_blocks(&block_name, None).ok_or_else(|| {
             CompilationError::new_localized(
                 format!("Block '{}' not defined.", block_name),
                 self.peak(-1).span.clone(),
             )
         })?;
 
-        let block_link = self.parse_block_link(block)?;
+        let link = self.parse_block_link(&block.clone())?;
 
         self.consume_and_expect(TokenKind::Semicolon)?;
 
-        let block_outputs = block_link.block.outputs.clone();
+        let block = self
+            .ast
+            .get_block_by_id(link.block_id, link.dyn_block_id)
+            .unwrap();
+        let block_outputs = block.outputs.clone();
 
         if block_outputs.len() != vars.len() {
             return Err(CompilationError::new_localized(
@@ -1550,7 +1577,7 @@ impl Parser {
 
         let kind = StatementKind::TupleDeclarationDefinition(TupleDeclarationDefinition {
             defs,
-            block_link,
+            block_link: link,
             def_kind,
         });
 
@@ -1562,17 +1589,6 @@ impl Parser {
 
     fn get_span_from(&self, start_span: &TextSpan) -> TextSpan {
         TextSpan::from_spans(start_span, &self.peak(-1).span)
-    }
-}
-
-impl Iterator for Parser {
-    type Item = Block<MutVar>;
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.next_directive() {
-            Some(Directive::Block(block)) => Some(block),
-            Some(_) => self.next(),
-            None => None,
-        }
     }
 }
 

@@ -1,25 +1,48 @@
+use std::{collections::HashMap, rc::Rc};
+
 use crate::ast::{ExpressionReturnType, VariableType};
 
-use super::{visitors::MutVisitor, MutVar, AST};
+use super::{visitors::MutVisitor, BlockId, DynBlockId, MutVar, AST};
 
 pub fn infer(ast: &mut AST<MutVar>) {
-    for block in &mut ast.blocks {
-        TypeInferer::new().infer(block);
-    }
+    TypeInferer::infer(ast)
 }
 
 struct TypeInferer {
     did_work: bool,
+    block_outputs: HashMap<(BlockId, Option<DynBlockId>), Vec<Rc<MutVar>>>,
 }
 
 impl TypeInferer {
-    fn new() -> Self {
-        Self { did_work: true }
+    fn infer(ast: &mut AST<MutVar>) {
+        ast.print();
+
+        let mut inferer = Self::new();
+
+        for block in &ast.blocks {
+            inferer
+                .block_outputs
+                .insert((block.id, block.dyn_block_id), block.outputs.clone());
+        }
+
+        for block in &mut ast.blocks {
+            inferer.infer_block(block);
+        }
+
+        ast.print();
     }
 
-    fn infer(&mut self, block: &mut super::Block<MutVar>) {
+    fn new() -> Self {
+        Self {
+            did_work: true,
+            block_outputs: HashMap::new(),
+        }
+    }
+
+    fn infer_block(&mut self, block: &mut super::Block<MutVar>) {
         loop {
             if !self.did_work {
+                self.did_work = true;
                 break;
             }
 
@@ -32,48 +55,70 @@ impl TypeInferer {
 
 impl MutVisitor<MutVar> for TypeInferer {
     fn visit_declaration_definition(&mut self, dec_def: &mut super::DeclarationDefinition<MutVar>) {
-        let mut var = (*dec_def.variable).borrow_mut();
-        let var_type = &var.type_;
-
-        // Skip if nothing need to be inferred
-        if *var_type != VariableType::Inferred {
-            // self.do_visit_declaration_definition(dec_def);
-            return;
+        {
+            let mut var = (*dec_def.variable).borrow_mut();
+            let var_type = var.type_.clone();
+            let expr_type = dec_def.expression.return_type();
+            if var_type == VariableType::Inferred && expr_type != ExpressionReturnType::Infered {
+                var.type_ = expr_type.try_into().unwrap();
+                self.did_work = true;
+                return;
+            }
         }
-
-        let expr_type = dec_def.expression.return_type();
-
-        if expr_type == ExpressionReturnType::Infered {
-            return;
-        }
-
-        var.type_ = expr_type.into();
-
-        self.did_work = true;
+        self.do_visit_declaration_definition(dec_def);
     }
 
     fn visit_definition(&mut self, def: &mut super::Definition<MutVar>) {
-        let mut var = (*def.variable).borrow_mut();
-        let var_type = &var.type_;
+        {
+            let mut var = (*def.variable).borrow_mut();
+            let var_type = &var.type_;
+            let expr_type = def.expression.return_type();
 
-        // Skip if nothing need to be inferred
-        if *var_type != VariableType::Inferred {
-            return;
+            if *var_type == VariableType::Inferred && expr_type != ExpressionReturnType::Infered {
+                var.type_ = expr_type.try_into().unwrap();
+                self.did_work = true;
+                return;
+            }
         }
+        self.do_visit_definition(def);
+    }
 
-        let expr_type = def.expression.return_type();
+    fn visit_block_link_expression(&mut self, link: &mut super::BlockLinkExpression<MutVar>) {
+        if link.return_type == ExpressionReturnType::Infered {
+            let outputs = self
+                .block_outputs
+                .get(&(link.block_id, link.dyn_block_id))
+                .unwrap();
 
-        println!(
-            "{}: {} - expr: {:?} -> {}",
-            var.name, var_type, &def.expression, expr_type
-        );
+            let output_return_types = outputs
+                .iter()
+                .map(|var| var.borrow().type_.return_type())
+                .collect::<Vec<_>>();
 
-        if expr_type == ExpressionReturnType::Infered {
-            return;
+            if output_return_types.len() == 1 {
+                link.return_type = output_return_types[0].clone();
+            } else {
+                link.return_type = ExpressionReturnType::Tuple(output_return_types);
+            }
+
+            self.did_work = true;
         }
+        self.do_visit_block_link_expression(link);
+    }
 
-        var.type_ = expr_type.into();
-
-        self.did_work = true;
+    fn visit_binary_expression(&mut self, bin_expr: &mut super::BinaryExpression<MutVar>) {
+        if bin_expr.return_type == ExpressionReturnType::Infered {
+            let left_type = bin_expr.left.return_type();
+            let right_type = bin_expr.right.return_type();
+            if left_type != ExpressionReturnType::Infered
+                && right_type != ExpressionReturnType::Infered
+            {
+                if let Ok(return_type) = bin_expr.operator.return_type(left_type, right_type) {
+                    bin_expr.return_type = return_type;
+                    self.did_work = true;
+                }
+            }
+        }
+        self.do_visit_binary_expression(bin_expr);
     }
 }
