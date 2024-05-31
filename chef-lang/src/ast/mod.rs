@@ -113,12 +113,7 @@ impl AST<MutVar> {
         let mut ast = Parser::parse(tokens, diagnostics_bag.clone(), opts);
 
         ast.infer_types();
-
-        // Check types before constant evaluation to make sure that bool constants
-        // are not evaluated as int constants and vise versa.
-        ast.check_types();
         ast.evaluate_constants();
-
         ast
     }
 }
@@ -132,7 +127,15 @@ impl AST<DetVar> {
         opts: Rc<Opts>,
     ) -> Self {
         let ast = AST::mut_from_source(text, diagnostics_bag, opts);
-        determiner::determine(ast)
+
+        let ast = determiner::determine(ast);
+        ast.check_types();
+        ast
+    }
+
+    /// Check that types are valid.
+    pub fn check_types(&self) {
+        type_checker::check(self, self.diagnostics_bag.clone());
     }
 }
 
@@ -178,11 +181,6 @@ impl AST<MutVar> {
     /// Evaluate constant expressions in the [AST] to simplify it.
     pub fn evaluate_constants(&mut self) {
         constant_evaluator::evaluate_constants(self)
-    }
-
-    /// Check that types are valid.
-    pub fn check_types(&self) {
-        type_checker::check(self, self.diagnostics_bag.clone());
     }
 
     // Consume the AST, infer the types of variables, and return the determined AST.
@@ -881,6 +879,7 @@ where
     }
 
     fn return_type(&self) -> ExpressionReturnType {
+        // TODO: this should really be calculated here instead of stored in a variable
         self.return_type.clone()
     }
 }

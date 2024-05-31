@@ -1,0 +1,11 @@
+block main() => (out: many) {
+
+    // Create variable with explicit type
+    let a: int = 10;
+
+    // Create variable with implicit type
+    let b = 20;
+
+    // Return their product
+    out = a * b;
+}

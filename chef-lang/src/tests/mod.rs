@@ -1,3 +1,4 @@
+mod compilation;
 mod examples;
 mod simulation;
 
