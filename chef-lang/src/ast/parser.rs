@@ -508,6 +508,8 @@ impl Parser {
         let kind = match &self.consume().kind {
             TokenKind::LeftArrow => Ok(DefinitionKind::Wire(WireKind::Red)),
             TokenKind::LeftCurlyArrow => Ok(DefinitionKind::Wire(WireKind::Green)),
+            TokenKind::LeftDoubleArrow => Ok(DefinitionKind::Convert(WireKind::Red)),
+            TokenKind::LeftCurlyDoubleArrow => Ok(DefinitionKind::Convert(WireKind::Green)),
             TokenKind::Equals => Ok(DefinitionKind::Equal),
 
             other => Err(CompilationError::new_localized(

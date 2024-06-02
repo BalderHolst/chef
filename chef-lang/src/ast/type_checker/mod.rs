@@ -10,7 +10,9 @@ use std::rc::Rc;
 
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
-use super::{visitors::Visitor, DetVar, ExpressionReturnType, Variable, AST};
+use super::{
+    visitors::Visitor, AssignmentType, DefinitionKind, DetVar, ExpressionReturnType, Variable, AST,
+};
 
 /// Type check an [AST].
 pub fn check(ast: &AST<DetVar>, diagnostics_bag: DiagnosticsBagRef) {
@@ -69,6 +71,7 @@ impl TypeChecker {
         &mut self,
         var_type: &ExpressionReturnType,
         expr_type: &ExpressionReturnType,
+        assign_type: &DefinitionKind,
         span: &TextSpan,
     ) {
         // Allow any assignment to a variable of type `many`
@@ -81,15 +84,30 @@ impl TypeChecker {
             return;
         }
 
-        self.check_equal(var_type, expr_type, || {
-            (
-                span.clone(),
-                format!(
-                    "Can not assign expression returning `{}` type to variable of type `{}`.",
-                    &expr_type, &var_type
-                ),
-            )
-        })
+        match assign_type {
+            DefinitionKind::Convert(_) => {
+                if !((var_type.is_int() && expr_type.is_int())
+                    || (var_type.is_bool() && expr_type.is_bool()))
+                {
+                    self.diagnostics_bag.borrow_mut().report_error(
+                        span,
+                        &format!(
+                        "Can not convert expression returning `{}` type to variable of type `{}`.",
+                        &expr_type, &var_type
+                    ),
+                    )
+                }
+            }
+            _ => self.check_equal(var_type, expr_type, || {
+                (
+                    span.clone(),
+                    format!(
+                        "Can not assign expression returning `{}` type to variable of type `{}`.",
+                        &expr_type, &var_type
+                    ),
+                )
+            }),
+        }
     }
 
     fn check_variable(&mut self, var: &Rc<DetVar>) {
@@ -117,7 +135,7 @@ impl Visitor<DetVar> for TypeChecker {
         let expr = &definition.expression;
         let expr_type = expr.return_type();
         let var_type = definition.variable.return_type();
-        self.check_assign(&var_type, &expr_type, &expr.span);
+        self.check_assign(&var_type, &expr_type, &definition.kind, &expr.span);
         self.do_visit_definition(definition);
     }
 
@@ -126,7 +144,7 @@ impl Visitor<DetVar> for TypeChecker {
         let expr = &assignment.expression;
         let expr_type = expr.return_type();
         let var_type = assignment.variable.return_type();
-        self.check_assign(&var_type, &expr_type, &expr.span);
+        self.check_assign(&var_type, &expr_type, &assignment.kind, &expr.span);
         self.do_visit_declaration_definition(assignment);
     }
 

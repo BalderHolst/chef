@@ -338,6 +338,8 @@ pub enum WireKind {
     Red,
 }
 
+impl Copy for WireKind {}
+
 impl Display for WireKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {

@@ -519,6 +519,7 @@ where
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DefinitionKind {
+    Convert(WireKind),
     Wire(WireKind),
     Equal,
 }

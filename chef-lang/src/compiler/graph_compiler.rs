@@ -101,17 +101,17 @@ impl Scope {
             Some((var_nid, var_type)) => {
                 match def_kind {
                     DefinitionKind::Wire(wk) => {
-                        // If we try to assign a variable to a different type, convert it.
-                        if nid_type != *var_type {
-                            let (c1, c2) = graph.push_connection(Connection::new_convert(
-                                nid_type.to_combinator_type(),
-                                var_type.to_combinator_type(),
-                            ));
-                            graph.push_wire(nid, c1);
-                            graph.push_wire_kind(c2, *var_nid, wk);
-                        } else {
-                            graph.push_wire_kind(nid, *var_nid, wk);
-                        }
+                        graph.push_wire_kind(nid, *var_nid, wk);
+                        true
+                    }
+
+                    DefinitionKind::Convert(wk) => {
+                        let (c1, c2) = graph.push_connection(Connection::new_convert(
+                            nid_type.to_combinator_type(),
+                            var_type.to_combinator_type(),
+                        ));
+                        graph.push_wire_kind(nid, c1, wk);
+                        graph.push_wire_kind(c2, *var_nid, wk);
                         true
                     }
 
