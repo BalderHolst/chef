@@ -22,6 +22,7 @@ type IndexExpression = ast::IndexExpression<DetVar>;
 type NegativeExpression = ast::NegativeExpression<DetVar>;
 type PickExpression = ast::PickExpression<DetVar>;
 type SizeOfExpression = ast::SizeOfExpression<DetVar>;
+type GateExpression = ast::GateExpression<DetVar>;
 type StatementKind = ast::StatementKind<DetVar>;
 type VariableRef = ast::VariableRef<DetVar>;
 type WhenStatement = ast::WhenStatement<DetVar>;
@@ -360,8 +361,12 @@ impl GraphCompiler {
         &mut self,
         graph: &mut Graph<LooseSig>,
         expr: &Expression,
-        out_type: Option<LooseSig>,
+        mut out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
+        if out_type == Some(LooseSig::Many) {
+            out_type = None;
+        }
+
         match &expr.kind {
             ExpressionKind::Int(n) => self.compile_constant(graph, *n, out_type),
             ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32, out_type),
@@ -391,8 +396,7 @@ impl GraphCompiler {
                 self.compile_size_of_expression(graph, size_of_expr, out_type)
             }
             ExpressionKind::Gate(gate_expr) => {
-                todo!()
-                // self.compile_gate_expression(graph, gate_expr, out_type)
+                self.compile_gate_expression(graph, gate_expr, out_type)
             }
         }
     }
@@ -720,6 +724,26 @@ impl GraphCompiler {
         graph.push_wire(size_of_nid, size_of_input);
 
         Ok((size_of_output, out_type))
+    }
+
+    fn compile_gate_expression(
+        &mut self,
+        graph: &mut Graph<LooseSig>,
+        gate: &GateExpression,
+        out_type: Option<LooseSig>,
+    ) -> Result<(NId, LooseSig), CompilationError> {
+        let (cond_nid, cond_type) = self.compile_expression(graph, &*gate.gate_expr, None)?;
+        let (input_nid, input_type) =
+            self.compile_expression(graph, &*gate.gated_expr, out_type)?;
+
+        // TODO: Report this as an error
+        assert_ne!(cond_type, input_type);
+
+        let (gate_input, gate_output) = graph.push_gate_connection(cond_type, input_type.clone());
+        graph.push_wire(cond_nid, gate_input);
+        graph.push_wire(input_nid, gate_input);
+
+        Ok((gate_output, input_type))
     }
 
     fn compile_when_statement(

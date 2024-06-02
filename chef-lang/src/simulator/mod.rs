@@ -373,6 +373,10 @@ fn get_count(items: &Vec<Item>, iotype: &DetSig) -> i32 {
         return *n;
     }
 
+    if let DetSig::ConstantSignal((_sig, n)) = iotype {
+        return *n;
+    }
+
     for item in items {
         if &item.kind == iotype {
             return item.count;

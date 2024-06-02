@@ -395,3 +395,23 @@ fn test_mixed_tuple_unpacking() {
 
     assert_eq!(sim.get_output(), outputs!["signal-E": 111]);
 }
+
+#[test]
+fn test_gate_expression() {
+    let g = compile_code(
+        "
+    block main() => (out: many) {
+
+        let a: int(signal-A) <- 10;
+        let b: int(signal-B) <- 100;
+
+        out <- ? 1 < 2 <- a;
+        out <- ? 1 > 2 <- b;
+    }
+",
+    );
+    let mut sim = Simulator::new(g, inputs![]);
+    sim.dump_simulation(10, "sim");
+
+    assert_eq!(sim.get_output(), outputs!["signal-A": 10, "signal-B": 0]);
+}
