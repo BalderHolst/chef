@@ -149,10 +149,6 @@ impl GraphCompiler {
     }
 
     pub fn compile(&mut self) -> Result<Graph<LooseSig>, CompilationError> {
-        // for block in self.ast.blocks.clone() {
-        //     let block_graph = self.compile_block(&block)?;
-        //     self.add_block_graph(block.name.clone(), block_graph);
-        // }
         self.get_graph("main", None)
     }
 

@@ -127,7 +127,6 @@ impl AST<DetVar> {
         opts: Rc<Opts>,
     ) -> Self {
         let ast = AST::mut_from_source(text, diagnostics_bag, opts);
-
         let ast = determiner::determine(ast);
         ast.check_types();
         ast
@@ -272,9 +271,18 @@ impl VariableType {
 
     pub fn return_type(&self) -> ExpressionReturnType {
         match self {
-            VariableType::Bool(_) => ExpressionReturnType::Bool,
-            VariableType::Int(_) => ExpressionReturnType::Int,
-            VariableType::Var(_) => ExpressionReturnType::Int,
+            VariableType::Bool(VariableSignalType::Any) => ExpressionReturnType::AnyBool,
+            VariableType::Bool(VariableSignalType::Signal(s)) => {
+                ExpressionReturnType::Bool(s.clone())
+            }
+            VariableType::Int(VariableSignalType::Any) => ExpressionReturnType::AnyInt,
+            VariableType::Int(VariableSignalType::Signal(s)) => {
+                ExpressionReturnType::Int(s.clone())
+            }
+            VariableType::Var(VariableSignalType::Any) => ExpressionReturnType::AnyInt,
+            VariableType::Var(VariableSignalType::Signal(s)) => {
+                ExpressionReturnType::Int(s.clone())
+            }
             VariableType::Many => ExpressionReturnType::Many,
             VariableType::_Tuple(t) => {
                 ExpressionReturnType::Tuple(t.iter().map(|t| t.return_type()).collect())
@@ -306,8 +314,14 @@ impl TryFrom<ExpressionReturnType> for VariableType {
     type Error = ();
     fn try_from(value: ExpressionReturnType) -> Result<Self, Self::Error> {
         match value {
-            ExpressionReturnType::Bool => Ok(VariableType::Bool(VariableSignalType::Any)),
-            ExpressionReturnType::Int => Ok(VariableType::Int(VariableSignalType::Any)),
+            ExpressionReturnType::AnyBool => Ok(VariableType::Bool(VariableSignalType::Any)),
+            ExpressionReturnType::AnyInt => Ok(VariableType::Int(VariableSignalType::Any)),
+            ExpressionReturnType::Bool(s) => {
+                Ok(VariableType::Bool(VariableSignalType::Signal(s.clone())))
+            }
+            ExpressionReturnType::Int(s) => {
+                Ok(VariableType::Int(VariableSignalType::Signal(s.clone())))
+            }
             ExpressionReturnType::Many => Ok(VariableType::Many),
             ExpressionReturnType::Tuple(_) => Err(()),
             ExpressionReturnType::Infered => Ok(VariableType::Inferred),
@@ -625,17 +639,17 @@ where
 
     fn return_type(&self) -> ExpressionReturnType {
         match &self.kind {
-            ExpressionKind::Bool(_) => ExpressionReturnType::Bool,
-            ExpressionKind::Int(_) => ExpressionReturnType::Int,
+            ExpressionKind::Bool(b) => ExpressionReturnType::AnyBool,
+            ExpressionKind::Int(i) => ExpressionReturnType::AnyInt,
             ExpressionKind::Binary(e) => e.return_type(),
             ExpressionKind::Parenthesized(e) => e.return_type(),
             ExpressionKind::Negative(e) => e.return_type(),
-            ExpressionKind::Pick(_) => ExpressionReturnType::Int,
-            ExpressionKind::Index(_) => ExpressionReturnType::Int,
+            ExpressionKind::Pick(e) => ExpressionReturnType::Int(e.pick_signal.clone()),
+            ExpressionKind::Index(_) => todo!(),
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(),
             ExpressionKind::Delay(e) => e.return_type(),
-            ExpressionKind::SizeOf(_) => ExpressionReturnType::Int,
+            ExpressionKind::SizeOf(_) => ExpressionReturnType::AnyInt,
             ExpressionKind::Gate(g) => g.gated_expr.return_type(),
         }
     }
@@ -643,18 +657,32 @@ where
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExpressionReturnType {
-    Bool,
-    Int,
+    AnyBool,
+    AnyInt,
+    Bool(String),
+    Int(String),
     Many,
     Tuple(Vec<ExpressionReturnType>),
     Infered,
 }
 
+impl ExpressionReturnType {
+    pub fn is_int(&self) -> bool {
+        matches!(self, Self::AnyInt | Self::Int(_))
+    }
+
+    pub fn is_bool(&self) -> bool {
+        matches!(self, Self::AnyBool | Self::Bool(_))
+    }
+}
+
 impl Display for ExpressionReturnType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ExpressionReturnType::Bool => write!(f, "bool"),
-            ExpressionReturnType::Int => write!(f, "int"),
+            ExpressionReturnType::AnyBool => write!(f, "bool"),
+            ExpressionReturnType::AnyInt => write!(f, "int"),
+            ExpressionReturnType::Bool(s) => write!(f, "bool({s})"),
+            ExpressionReturnType::Int(s) => write!(f, "int({s})"),
             ExpressionReturnType::Many => write!(f, "many"),
             ExpressionReturnType::Tuple(ts) => {
                 write!(
@@ -989,12 +1017,8 @@ impl BinaryOperator {
 
         match self {
             Self::Add | Self::Subtract | Self::Multiply | Self::Divide => match (a, b) {
-                (ExpressionReturnType::Int, ExpressionReturnType::Int) => {
-                    Ok(ExpressionReturnType::Int)
-                }
-                (ExpressionReturnType::Many, ExpressionReturnType::Int) => {
-                    Ok(ExpressionReturnType::Many)
-                }
+                (a, b) if a.is_int() && b.is_int() => Ok(ExpressionReturnType::AnyInt),
+                (ExpressionReturnType::Many, b) if b.is_int() => Ok(ExpressionReturnType::Many),
                 _ => Err(()),
             },
 
@@ -1004,27 +1028,23 @@ impl BinaryOperator {
             | Self::LessThanOrEqual
             | Self::Equals
             | Self::NotEquals => match (a, b) {
-                (ExpressionReturnType::Int, ExpressionReturnType::Int) => {
-                    Ok(ExpressionReturnType::Bool)
-                }
-                (ExpressionReturnType::Many, ExpressionReturnType::Int) => {
-                    Ok(ExpressionReturnType::Many)
-                }
+                (a, b) if a.is_int() && b.is_int() => Ok(ExpressionReturnType::AnyBool),
+                (ExpressionReturnType::Many, b) if b.is_int() => Ok(ExpressionReturnType::Many),
                 _ => Err(()),
             },
 
-            Self::EveryEquals => Ok(ExpressionReturnType::Bool),
-            Self::EveryLargerThan => Ok(ExpressionReturnType::Bool),
-            Self::EveryLargerThanEquals => Ok(ExpressionReturnType::Bool),
-            Self::EveryLessThan => Ok(ExpressionReturnType::Bool),
-            Self::EveryLessThanEquals => Ok(ExpressionReturnType::Bool),
-            Self::EveryNotEquals => Ok(ExpressionReturnType::Bool),
-            Self::AnyEquals => Ok(ExpressionReturnType::Bool),
-            Self::AnyLargerThan => Ok(ExpressionReturnType::Bool),
-            Self::AnyLargerThanEquals => Ok(ExpressionReturnType::Bool),
-            Self::AnyLessThan => Ok(ExpressionReturnType::Bool),
-            Self::AnyLessThanEquals => Ok(ExpressionReturnType::Bool),
-            Self::AnyNotEquals => Ok(ExpressionReturnType::Bool),
+            Self::EveryEquals => Ok(ExpressionReturnType::AnyBool),
+            Self::EveryLargerThan => Ok(ExpressionReturnType::AnyBool),
+            Self::EveryLargerThanEquals => Ok(ExpressionReturnType::AnyBool),
+            Self::EveryLessThan => Ok(ExpressionReturnType::AnyBool),
+            Self::EveryLessThanEquals => Ok(ExpressionReturnType::AnyBool),
+            Self::EveryNotEquals => Ok(ExpressionReturnType::AnyBool),
+            Self::AnyEquals => Ok(ExpressionReturnType::AnyBool),
+            Self::AnyLargerThan => Ok(ExpressionReturnType::AnyBool),
+            Self::AnyLargerThanEquals => Ok(ExpressionReturnType::AnyBool),
+            Self::AnyLessThan => Ok(ExpressionReturnType::AnyBool),
+            Self::AnyLessThanEquals => Ok(ExpressionReturnType::AnyBool),
+            Self::AnyNotEquals => Ok(ExpressionReturnType::AnyBool),
 
             Self::Combine => Ok(ExpressionReturnType::Many),
         }
