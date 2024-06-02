@@ -13,7 +13,7 @@ fn report_incorrect_block_arguments() {
 
     block main() => (out: int(tank)) {
         let var: int = 5;
-        out <- other(var);
+        out <<- other(var);
     }
 ",
     ));

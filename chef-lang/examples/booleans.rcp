@@ -1,4 +1,4 @@
-block main(input: many) => (out: bool(signal-B)) {
-    let a: bool(signal-D) <- input[pump] != 10;
+block main(input: many) => (out: bool(signal-D)) {
+    let a: bool(signal-D) <<- input[pump] != 10;
     out <- a;
 }

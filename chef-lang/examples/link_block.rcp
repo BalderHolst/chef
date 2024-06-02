@@ -1,8 +1,8 @@
-block add(a: int, b: int) => (out: int(steam)) {
+block add(a: int, b: int) => (out: int) {
     out <- a + b;
 }
 
 block main(in: many) => (out: int(rail)) {
     let d: int <- add(in[splitter], 1 + 5);
-    out <- d / 5;
+    out <<- d / 5;
 }

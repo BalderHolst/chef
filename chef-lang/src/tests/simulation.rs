@@ -39,7 +39,7 @@ fn simulate_arithmetic() {
         "
 
 block main(input: many) => (out: int(inserter)) {
-    out <~ input[signal-B] * 3 + 4;
+    out <<~ input[signal-B] * 3 + 4;
 }
 
 ",
@@ -85,7 +85,7 @@ fn simulate_constant_int_blocks() {
         "
     
     block main() => (out: int(rail)) {
-        out <- 100;
+        out <<- 100;
     }
 
 ",
@@ -93,7 +93,7 @@ fn simulate_constant_int_blocks() {
 
     let mut sim_out = Simulator::new(out, inputs![]);
 
-    sim_out.simulate(1);
+    sim_out.simulate(2);
 
     assert_eq!(sim_out.get_output(), outputs!["rail": 100])
 }
@@ -104,7 +104,7 @@ fn simulate_constant_bool_blocks() {
         "
     
     block main() => (out: bool(rail)) {
-        out <- true;
+        out <<- true;
     }
 
 ",
@@ -112,7 +112,7 @@ fn simulate_constant_bool_blocks() {
 
     let mut sim_out = Simulator::new(out, inputs![]);
 
-    sim_out.simulate(1);
+    sim_out.simulate(2);
 
     assert_eq!(sim_out.get_output(), outputs!["rail": 1])
 }
@@ -131,7 +131,7 @@ fn simulate_multiple_blocks() {
     }
     
     block main(input: many) => (out: bool(rail)) {
-        out <- over1000(add(input[signal-A], input[signal-B]));
+        out <<- over1000(add(input[signal-A], input[signal-B]));
     }
 
 ",
@@ -193,7 +193,7 @@ fn simulate_order_of_operations_compile_time() {
     let g = compile_code(
         "
     block main(input: many) => (out: int(rail)) {
-        out <- 1+2*3+4;
+        out <<- 1+2*3+4;
     }
 
 ",
@@ -214,13 +214,13 @@ fn simulate_order_of_operations_constants() {
     const D = 4
 
     block main() => (out: int(rail)) {
-        out <- A+B*C+D;
+        out <<- A+B*C+D;
     }
 
 ",
     );
     let mut sim = Simulator::new(g, inputs![]);
-    sim.simulate(1);
+    sim.simulate(2);
     assert_eq!(sim.get_output(), outputs!["rail": 11]);
 }
 
@@ -235,7 +235,7 @@ fn simulate_order_of_operations_constant_evaluation() {
     const RES = A+B*C+D
 
     block main() => (out: int(rail)) {
-        out <- RES;
+        out <<- RES;
     }
 
 ",
@@ -250,11 +250,11 @@ fn simulate_order_of_operations_factorio_time() {
     let g = compile_code(
         "
     block main(input: many) => (out: int(rail)) {
-        let a: int(signal-A) <- 1;
-        let b: int(signal-B) <- 2;
-        let c: int(signal-C) <- 3;
-        let d: int(signal-D) <- 4;
-        out <- a+b*c+d;
+        let a: int(signal-A) <<- 1;
+        let b: int(signal-B) <<- 2;
+        let c: int(signal-C) <<- 3;
+        let d: int(signal-D) <<- 4;
+        out <<- a+b*c+d;
     }
 
 ",
@@ -273,7 +273,7 @@ fn simulate_order_of_operations_any_signals_factorio_time() {
         let b: int <- 2;
         let c: int <- 3;
         let d: int <- 4;
-        out <- a+b*c+d;
+        out <<- a+b*c+d;
     }
 
 ",
@@ -297,7 +297,7 @@ fn simulate_var_mutation_with_clock() {
         when c == 5 {
             total <- -1;
         }
-        out <- total;
+        out <<- total;
     }
 ",
     );
@@ -314,7 +314,7 @@ fn simulate_negative_numbers() {
     
     block main() => (out: int(pump)) {
         let b: int <- -4-5+1;    // = -8
-        out <- A + b;
+        out <<- A + b;
     }
 ",
     );
@@ -335,7 +335,7 @@ fn test_declaration_tuple_unpacking() {
 
     block main() => (out: int(signal-E)) {
         (x: int, y: int) <- values();
-        out <- x - y;
+        out <<- x - y;
     }
 ",
     );
@@ -360,7 +360,7 @@ fn test_definition_tuple_unpacking() {
         let y: int;
         let z: int;
         (x, y, z) <- values();
-        out <- -x - y + z;
+        out <<- -x - y + z;
     }
 ",
     );
@@ -385,7 +385,7 @@ fn test_mixed_tuple_unpacking() {
         let z: bool;
         (x, y: int, z) <- values();
         when z {
-            out <- x - y;
+            out <<- x - y;
         }
     }
 ",
@@ -402,8 +402,8 @@ fn test_gate_expression() {
         "
     block main() => (out: many) {
 
-        let a: int(signal-A) <- 10;
-        let b: int(signal-B) <- 100;
+        let a: int(signal-A) <<- 10;
+        let b: int(signal-B) <<- 100;
 
         out <- ? 1 < 2 <- a;
         out <- ? 1 > 2 <- b;
@@ -411,7 +411,7 @@ fn test_gate_expression() {
 ",
     );
     let mut sim = Simulator::new(g, inputs![]);
-    sim.dump_simulation(10, "sim");
+    sim.simulate(10);
 
     assert_eq!(sim.get_output(), outputs!["signal-A": 10, "signal-B": 0]);
 }

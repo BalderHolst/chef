@@ -640,12 +640,12 @@ where
 
     fn return_type(&self) -> ExpressionReturnType {
         match &self.kind {
-            ExpressionKind::Bool(b) => ExpressionReturnType::AnyBool,
-            ExpressionKind::Int(i) => ExpressionReturnType::AnyInt,
+            ExpressionKind::Bool(_) => ExpressionReturnType::AnyBool,
+            ExpressionKind::Int(_) => ExpressionReturnType::AnyInt,
             ExpressionKind::Binary(e) => e.return_type(),
             ExpressionKind::Parenthesized(e) => e.return_type(),
             ExpressionKind::Negative(e) => e.return_type(),
-            ExpressionKind::Pick(e) => ExpressionReturnType::Int(e.pick_signal.clone()),
+            ExpressionKind::Pick(_) => ExpressionReturnType::AnyInt,
             ExpressionKind::Index(_) => todo!(),
             ExpressionKind::VariableRef(var_ref) => var_ref.return_type(),
             ExpressionKind::BlockLink(e) => e.return_type(),

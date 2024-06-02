@@ -1,6 +1,6 @@
 block main(input: many) => (out: many) {
-    let a: int <- input[rail];
-    let b: int <- input[pump];
+    let a <- input[rail];
+    let b <- input[pump];
 
     // Combine signal to a many signal
     let c: many <- a @ b;

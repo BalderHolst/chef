@@ -1,6 +1,6 @@
 block main () => (out: int(automation-science-pack)) {
     let i: int <- 10;
     let v: var(signal-A);
-    v <- 30 * i;
-    out <- v / i;
+    v <<- 30 * i;
+    out <<- v / i;
 }

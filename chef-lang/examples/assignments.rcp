@@ -1,5 +1,5 @@
-block main(input: many) => (output: int) {
+block main(input: many) => (output: int(signal-B)) {
     let a = input;
     let b = a;
-    output <- b[signal-B];
+    output <<- b[signal-B];
 }

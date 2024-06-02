@@ -1,5 +1,5 @@
 dyn block answer() <./examples/lib.py>
 
-block main() => (out: int(signal-O)) {
+block main() => (out: int) {
     out <- answer();
 }

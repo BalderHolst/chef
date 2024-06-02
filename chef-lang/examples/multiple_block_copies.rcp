@@ -3,5 +3,5 @@ block add(a: int, b: int) => (out: int) {
 }
 
 block main(in: many) => (out: int(pipe)) {
-    out <- add(in[tank], in[car]) + add(in[rail], in[pipe]) + add(in[roboport], in[pump]);
+    out <<- add(in[tank], in[car]) + add(in[rail], in[pipe]) + add(in[roboport], in[pump]);
 }

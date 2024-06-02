@@ -392,6 +392,7 @@ impl Parser {
     /// Parse next statement. Return `None` of none are left.
     // TODO: Simplify type if possible
     fn parse_statement(&mut self) -> Option<CompilationResult<Statement<MutVar>>> {
+        println!("Parsing statement");
         let start_token = self.current().clone();
         match &start_token.kind {
             TokenKind::Word(word) => {
@@ -458,7 +459,11 @@ impl Parser {
     fn is_at_definition_statment(&self) -> bool {
         matches!(
             &self.peak(1).kind,
-            TokenKind::Colon | TokenKind::LeftArrow | TokenKind::LeftCurlyArrow | TokenKind::Equals
+            TokenKind::LeftArrow
+                | TokenKind::LeftCurlyArrow
+                | TokenKind::LeftDoubleArrow
+                | TokenKind::LeftCurlyDoubleArrow
+                | TokenKind::Equals
         )
     }
 
