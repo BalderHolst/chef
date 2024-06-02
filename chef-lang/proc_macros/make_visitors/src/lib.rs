@@ -104,7 +104,10 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                         self.visit_delay_expression(delay);
                     }
                     ExpressionKind::SizeOf(expr) => {
-                        self.visit_size_of(expr);
+                        self.visit_size_of_expression(expr);
+                    }
+                    ExpressionKind::Gate(expr) => {
+                        self.visit_gate_expression(expr);
                     }
                 }
             }
@@ -131,11 +134,19 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                 self.visit_expression(#r def.expression);
             }
 
-            fn visit_size_of(&mut self, size: #r SizeOfExpression<V>) {
-                self.do_visit_size_of(size);
+            fn visit_size_of_expression(&mut self, size: #r SizeOfExpression<V>) {
+                self.do_visit_size_of_expression(size);
             }
-            fn do_visit_size_of(&mut self, size: #r SizeOfExpression<V>) {
+            fn do_visit_size_of_expression(&mut self, size: #r SizeOfExpression<V>) {
                 self.visit_expression(#r size.expression);
+            }
+
+            fn visit_gate_expression(&mut self, gate: #r GateExpression<V>) {
+                self.do_visit_gate_expression(gate);
+            }
+            fn do_visit_gate_expression(&mut self, gate: #r GateExpression<V>) {
+                self.visit_expression(#r gate.gate_expr);
+                self.visit_expression(#r gate.gated_expr);
             }
 
             fn visit_when_statement(&mut self, when_statement: #r WhenStatement<V>) {

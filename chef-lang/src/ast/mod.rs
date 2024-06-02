@@ -636,6 +636,7 @@ where
             ExpressionKind::BlockLink(e) => e.return_type(),
             ExpressionKind::Delay(e) => e.return_type(),
             ExpressionKind::SizeOf(_) => ExpressionReturnType::Int,
+            ExpressionKind::Gate(g) => g.gated_expr.return_type(),
         }
     }
 }
@@ -687,6 +688,7 @@ where
     BlockLink(BlockLinkExpression<V>),
     Delay(DelayExpression<V>),
     SizeOf(SizeOfExpression<V>),
+    Gate(GateExpression<V>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -842,6 +844,27 @@ where
 {
     fn new(expression: Box<Expression<V>>) -> Self {
         Self { expression }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GateExpression<V>
+where
+    V: Variable,
+{
+    pub gate_expr: Box<Expression<V>>,
+    pub gated_expr: Box<Expression<V>>,
+}
+
+impl<V> GateExpression<V>
+where
+    V: Variable,
+{
+    pub fn new(gate_expr: Expression<V>, gated_expr: Expression<V>) -> Self {
+        Self {
+            gate_expr: Box::new(gate_expr),
+            gated_expr: Box::new(gated_expr),
+        }
     }
 }
 

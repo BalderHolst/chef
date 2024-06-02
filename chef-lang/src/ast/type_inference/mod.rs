@@ -52,11 +52,11 @@ impl TypeInferer {
 impl MutVisitor<MutVar> for TypeInferer {
     fn visit_declaration_definition(&mut self, dec_def: &mut super::DeclarationDefinition<MutVar>) {
         {
-            let mut var = (*dec_def.variable).borrow_mut();
-            let var_type = var.type_.clone();
+            let var = &dec_def.variable;
+            let var_type = var.borrow().type_.clone();
             let expr_type = dec_def.expression.return_type();
             if var_type == VariableType::Inferred && expr_type != ExpressionReturnType::Infered {
-                var.type_ = expr_type.try_into().unwrap();
+                var.borrow_mut().type_ = expr_type.try_into().unwrap();
                 self.did_work = true;
                 return;
             }
@@ -66,12 +66,12 @@ impl MutVisitor<MutVar> for TypeInferer {
 
     fn visit_definition(&mut self, def: &mut super::Definition<MutVar>) {
         {
-            let mut var = (*def.variable).borrow_mut();
-            let var_type = &var.type_;
+            let var = &def.variable;
+            let var_type = var.borrow().type_.clone();
             let expr_type = def.expression.return_type();
 
-            if *var_type == VariableType::Inferred && expr_type != ExpressionReturnType::Infered {
-                var.type_ = expr_type.try_into().unwrap();
+            if var_type == VariableType::Inferred && expr_type != ExpressionReturnType::Infered {
+                var.borrow_mut().type_ = expr_type.try_into().unwrap();
                 self.did_work = true;
                 return;
             }

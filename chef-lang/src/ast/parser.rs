@@ -10,7 +10,7 @@ use std::rc::Rc;
 use crate::ast::lexer::{Token, TokenKind};
 use crate::ast::{
     python_macro, BinaryExpression, BinaryOperator, Block, DynBlock, Expression, ExpressionKind,
-    OutputAssignment, ParenthesizedExpression, Statement, StatementKind,
+    GateExpression, OutputAssignment, ParenthesizedExpression, Statement, StatementKind,
     TupleDeclarationDefinition, VariableType,
 };
 use crate::cli::Opts;
@@ -1293,6 +1293,16 @@ impl Parser {
 
                 Ok(Expression::new(
                     ExpressionKind::SizeOf(SizeOfExpression::new(Box::new(expr))),
+                    TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
+                ))
+            }
+            TokenKind::QuestionMark => {
+                self.consume(); // Consume "?"
+                let gate = self.parse_expression()?;
+                self.consume_and_expect(TokenKind::LeftArrow)?;
+                let gated = self.parse_expression()?;
+                Ok(Expression::new(
+                    ExpressionKind::Gate(GateExpression::new(gate, gated)),
                     TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
                 ))
             }

@@ -390,6 +390,10 @@ impl GraphCompiler {
             ExpressionKind::SizeOf(size_of_expr) => {
                 self.compile_size_of_expression(graph, size_of_expr, out_type)
             }
+            ExpressionKind::Gate(gate_expr) => {
+                todo!()
+                // self.compile_gate_expression(graph, gate_expr, out_type)
+            }
         }
     }
 

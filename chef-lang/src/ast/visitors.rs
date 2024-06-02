@@ -9,9 +9,9 @@
 
 use super::{
     BinaryExpression, Block, BlockLinkExpression, Declaration, DeclarationDefinition, Definition,
-    DelayExpression, Expression, ExpressionKind, IndexExpression, NegativeExpression,
-    ParenthesizedExpression, PickExpression, SizeOfExpression, Statement, StatementKind,
-    TupleDeclarationDefinition, Variable, VariableRef, WhenStatement,
+    DelayExpression, Expression, ExpressionKind, GateExpression, IndexExpression,
+    NegativeExpression, ParenthesizedExpression, PickExpression, SizeOfExpression, Statement,
+    StatementKind, TupleDeclarationDefinition, Variable, VariableRef, WhenStatement,
 };
 
 use make_visitors::make_visitors;

@@ -10,6 +10,8 @@ use crate::ast::{
     VariableRef, WhenStatement, AST,
 };
 
+use super::GateExpression;
+
 pub fn determine(mut_ast: AST<MutVar>) -> AST<DetVar> {
     Determiner::determine(mut_ast)
 }
@@ -199,6 +201,7 @@ impl Determiner {
             ExpressionKind::BlockLink(e) => ExpressionKind::BlockLink(self.det_block_link(e)),
             ExpressionKind::Delay(e) => ExpressionKind::Delay(self.det_delay_expr(e)),
             ExpressionKind::SizeOf(e) => ExpressionKind::SizeOf(self.det_size_of_expr(e)),
+            ExpressionKind::Gate(e) => ExpressionKind::Gate(self.det_gate_expr(e)),
         }
     }
 
@@ -262,6 +265,13 @@ impl Determiner {
         SizeOfExpression {
             expression: Box::new(self.det_expression(*size_of_expr.expression)),
         }
+    }
+
+    fn det_gate_expr(&mut self, size_of_expr: GateExpression<MutVar>) -> GateExpression<DetVar> {
+        GateExpression::new(
+            self.det_expression(*size_of_expr.gate_expr),
+            self.det_expression(*size_of_expr.gated_expr),
+        )
     }
 
     fn det_binary_expr(
