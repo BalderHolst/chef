@@ -65,11 +65,16 @@ pub enum TokenKind {
     Bar,
     Bad,
     End,
+    Comment(String),
 }
 
 impl TokenKind {
     pub fn is_assignment_operator(&self) -> bool {
         matches!(self, TokenKind::LeftArrow | TokenKind::LeftCurlyArrow)
+    }
+
+    pub fn is_comment(&self) -> bool {
+        matches!(self, TokenKind::Comment(_))
     }
 }
 
@@ -133,6 +138,7 @@ impl Display for TokenKind {
             TokenKind::Bar => "|",
             TokenKind::Bad => "bad-token",
             TokenKind::End => "end-of-program",
+            TokenKind::Comment(c) => format!("// {c}").leak(),
         };
         write!(f, "{}", string_rep)
     }
@@ -201,6 +207,23 @@ impl Lexer {
         self.cursor -= n;
     }
 
+    fn consume_expected_chars(&mut self, expected: &str) {
+        for (i, c) in expected.chars().enumerate() {
+            if self.consume() != Some(c) {
+                panic!("Expected chars \"{expected}\" but found '{c}' as char number {i}.");
+            }
+        }
+    }
+
+    fn consume_whitespace(&mut self) {
+        while let Some(c) = self.current() {
+            if !Self::is_whitespace(c) {
+                break;
+            }
+            self.consume().unwrap();
+        }
+    }
+
     fn consume_number(&mut self) -> Option<u16> {
         let mut n_str = String::new();
         while let Some(c) = self.consume() {
@@ -234,19 +257,25 @@ impl Lexer {
         c.is_whitespace()
     }
 
-    fn consume_comment(&mut self) {
+    /// Consumes a comment and returns it as a string. This method changes the cursor position.
+    fn consume_comment(&mut self) -> String {
+        let start = self.cursor;
+        self.consume_expected_chars("//");
+        self.consume_whitespace();
+        let mut comment = String::new();
         loop {
             match self.consume() {
                 Some('\n') => {
                     break;
                 }
-                Some(_) => {}
+                Some(c) => comment.push(c),
                 None => break,
             }
         }
+        comment
     }
 
-    /// Lexes punctuation. Returns `None` if the punctuation is a comment.
+    /// Lexes punctuation.
     fn consume_punctuation(&mut self) -> Option<TokenKind> {
         #[rustfmt::skip]
         let (len, kind) = match (self.peak(0), self.peak(1), self.peak(2)) {
@@ -258,7 +287,7 @@ impl Lexer {
             (Some('*'), Some('='), _,       ) => (2, TokenKind::AsteriskEquals),
             (Some('*'), _,         _,       ) => (1, TokenKind::Asterisk),
             (Some('/'), Some('='), _,       ) => (2, TokenKind::SlashEquals),
-            (Some('/'), Some('/'), _,       ) => { self.consume_comment(); return None; }
+            (Some('/'), Some('/'), _,       ) => (0, TokenKind::Comment(self.consume_comment())),
             (Some('/'), _,         _,       ) => (1, TokenKind::Slash),
             (Some('('), _,         _,       ) => (1, TokenKind::LeftParen),
             (Some(')'), _,         _,       ) => (1, TokenKind::RightParen),

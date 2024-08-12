@@ -87,6 +87,12 @@ impl Parser {
         diagnostics_bag: DiagnosticsBagRef,
         options: Rc<Opts>,
     ) -> AST<MutVar> {
+        // Filter out comments
+        let tokens = tokens
+            .into_iter()
+            .filter(|token| !token.kind.is_comment())
+            .collect();
+
         let mut parser = Self::new(tokens, diagnostics_bag, options);
 
         while let Some(directive) = parser.next_directive() {
