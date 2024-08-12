@@ -187,7 +187,7 @@ impl GraphCompiler {
                 self.compile_declaration_definition_statement(graph, dec_def, gate)?;
             }
             StatementKind::Definition(def) => {
-                self.compile_definition_statement(graph, def, gate, None)?;
+                self.compile_definition_statement(graph, def, gate)?;
             }
             StatementKind::TupleDeclarationDefinition(tuple_dec_def) => {
                 self.compile_tuple_declaration_definition_statement(graph, tuple_dec_def, gate)?;
@@ -241,10 +241,20 @@ impl GraphCompiler {
         gate: Option<(NId, LooseSig)>,
     ) -> Result<(), CompilationError> {
         let var = &dec_def.variable;
-        let var_type = self.variable_type_to_loose_sig(&var.type_);
-        self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
-        let definition: Definition = dec_def.clone().into();
-        self.compile_definition_statement(graph, definition, gate, Some(var_type))
+
+        let (expr_out_nid, var_type) = self.compile_expression(graph, &dec_def.expression, None)?;
+        self.compile_definition(
+            graph,
+            gate,
+            expr_out_nid,
+            var_type.clone(),
+            var.id,
+            dec_def.kind,
+        )?;
+
+        self.declare_variable(graph, var.id, var_type, var.name.clone())?;
+
+        Ok(())
     }
 
     fn compile_tuple_declaration_definition_statement(
@@ -314,30 +324,31 @@ impl GraphCompiler {
         graph: &mut Graph<LooseSig>,
         def: Definition,
         gate: Option<(NId, LooseSig)>,
-        var_type: Option<LooseSig>,
     ) -> Result<(), CompilationError> {
         let var = &def.variable;
+        let (expr_out_nid, var_type) = self.compile_expression(graph, &def.expression, None)?;
+        self.compile_definition(graph, gate, expr_out_nid, var_type, var.id, def.kind)?;
+        Ok(())
+    }
 
-        let var_iotype = match var_type {
-            Some(t) => t,
-            None => self.variable_type_to_loose_sig(&var.type_),
-        };
-
-        let (expr_out_nid, _) =
-            self.compile_expression(graph, &def.expression, Some(var_iotype.clone()))?;
-
+    fn compile_definition(
+        &mut self,
+        graph: &mut Graph<LooseSig>,
+        gate: Option<(NId, LooseSig)>,
+        expr_out_nid: NId,
+        var_type: LooseSig,
+        var_id: VariableId,
+        def_kind: DefinitionKind,
+    ) -> Result<(), CompilationError> {
+        // Handle gated assignments
         let output_nid = match gate {
             Some((condition_nid, condition_type)) => {
                 // TODO: convert one if this happens
-                assert_ne!(&condition_type, &var_iotype);
-
-                // let (c_input, new_out_nid) = graph.push_connection(conn);
-                // graph.push_wire(expr_out_nid, c_input, WireKind::Green);
-                // let expr_out_nid = new_out_nid; // Expression output is now gated
+                assert_ne!(&condition_type, &var_type);
 
                 // Add the gate
                 let (gate_input, gate_output) =
-                    graph.push_gate_connection(condition_type, var_iotype.clone());
+                    graph.push_gate_connection(condition_type, var_type.clone());
 
                 // Wire up the gate
                 graph.push_wire(gate_input, condition_nid);
@@ -349,7 +360,7 @@ impl GraphCompiler {
             None => expr_out_nid,
         };
 
-        self.define_variable(graph, var.id, output_nid, var_iotype, def.kind)
+        self.define_variable(graph, var_id, output_nid, var_type.clone(), def_kind)
     }
 
     /// Returns a tuple: (output_vid, output_type)
@@ -634,6 +645,7 @@ impl GraphCompiler {
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
         let mut args: Vec<(NId, LooseSig)> = Vec::new();
+
         for arg_expr in block_link_expr.inputs.iter() {
             let (arg_nid, arg_type) = self.compile_expression(graph, arg_expr, None)?;
             args.push((arg_nid, arg_type));
@@ -648,31 +660,35 @@ impl GraphCompiler {
         let dyn_block_id = ast_block.dyn_block_id;
         let block_graph = self.get_graph(&block_name, dyn_block_id)?;
 
-        let outputs = graph.stitch_graph(&block_graph, args)?;
+        let mut outputs = graph.stitch_graph(&block_graph, args)?;
 
-        match outputs.len() {
-            1 => {
-                let out_type = match out_type {
-                    Some(out_type) => out_type,
-                    None => self.get_new_anysignal(),
-                };
-
-                let (block_out_nid, block_out_type) = outputs[0].clone();
-
-                let (convert_input_nid, convert_output_nid) =
-                    graph.push_connection(Connection::new_convert(
-                        block_out_type.to_combinator_type(),
-                        out_type.to_combinator_type(),
-                    ));
-
-                graph.push_wire(block_out_nid, convert_input_nid);
-
-                Ok((convert_output_nid, out_type))
-            }
-            _ => Err(CompilationError::new_generic(
+        if outputs.len() != 1 {
+            return Err(CompilationError::new_generic(
                 // TODO: Make localized
                 "Blocks used withing expressions must return exactly one output.",
-            )),
+            ));
+        }
+
+        let (block_out_nid, block_out_type) = outputs.remove(0);
+
+        dbg!(&block_out_type);
+        dbg!(&out_type);
+
+        if let Some(out_type) = out_type {
+            match &block_out_type {
+                LooseSig::AnySignal(id) => graph.assign_anysignal(id, out_type.clone()),
+                LooseSig::ConstantAny((id, c)) => {
+                    graph.assign_anysignal(id, out_type.to_constant(*c).unwrap())
+                }
+                _ => {
+                    return Err(CompilationError::new_generic(format!(
+                        "Cannot coerce block output `{block_out_type}` into `{out_type}`."
+                    )))
+                }
+            }
+            Ok((block_out_nid, out_type))
+        } else {
+            Ok((block_out_nid, block_out_type))
         }
     }
 
@@ -787,32 +803,28 @@ impl GraphCompiler {
         name: &str,
         dyn_block_id: Option<usize>,
     ) -> Result<Graph<LooseSig>, CompilationError> {
-        match self.get_block_graph(name) {
-            Some(g) => Ok(g.clone()),
-            None => match self.ast.blocks.is_empty() {
-                true => Err(CompilationError::new_generic("No statements in program.")),
-                false => {
-                    // TODO: Do something about the clone??
-                    let block = self
-                        .ast
-                        .get_block_by_name(name, dyn_block_id)
-                        .unwrap_or_else(|| {
-                            panic!("Block '{name}' should exist. This is probably a parser bug.")
-                        })
-                        .clone();
-
-                    let block_graph = self.compile_block(&block)?;
-
-                    self.add_block_graph(name.to_string(), block_graph);
-
-                    // TODO: Another expensive clone
-                    Ok(self
-                        .get_block_graph(name)
-                        .expect("We just added it.")
-                        .clone())
-                }
-            },
+        if self.ast.blocks.is_empty() {
+            return Err(CompilationError::new_generic("No statements in program."));
         }
+
+        // TODO: Do something about the clone??
+        let block = self
+            .ast
+            .get_block_by_name(name, dyn_block_id)
+            .unwrap_or_else(|| {
+                panic!("Block '{name}' should exist. This is probably a parser bug.")
+            })
+            .clone();
+
+        let block_graph = self.compile_block(&block)?;
+
+        self.add_block_graph(name.to_string(), block_graph);
+
+        // TODO: Another expensive clone
+        Ok(self
+            .get_block_graph(name)
+            .expect("We just added it.")
+            .clone())
     }
 
     fn add_block_graph(&mut self, name: String, graph: Graph<LooseSig>) {

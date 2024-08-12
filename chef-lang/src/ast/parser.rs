@@ -392,7 +392,6 @@ impl Parser {
     /// Parse next statement. Return `None` of none are left.
     // TODO: Simplify type if possible
     fn parse_statement(&mut self) -> Option<CompilationResult<Statement<MutVar>>> {
-        println!("Parsing statement");
         let start_token = self.current().clone();
         match &start_token.kind {
             TokenKind::Word(word) => {

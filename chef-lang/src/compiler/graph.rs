@@ -1108,6 +1108,80 @@ where
     }
 }
 
+impl Graph<LooseSig> {
+    fn replace_if_anysignal_with_id(sig: &mut LooseSig, id: &u64, new_type: LooseSig) {
+        // println!("Replacing anysignal {} with {:?}", id, new_type);
+        match sig {
+            LooseSig::AnySignal(this_id) if this_id == id => {
+                println!("Replacing anysignal {} with {:?}", id, new_type);
+                *sig = new_type
+            }
+            LooseSig::ConstantAny((this_id, c)) if this_id == id => {
+                // TODO: Do something about the unwrap
+                println!("Replacing CONSTANT anysignal {} with {:?}", id, new_type);
+                *sig = new_type.to_constant(*c).unwrap()
+            }
+            _ => (),
+        }
+    }
+
+    pub fn assign_anysignal(&mut self, id: &u64, new_type: LooseSig) {
+        println!("Assigning anysignal {} to {:?}", id, new_type);
+
+        // Replace in nodes
+        for (_nid, node) in self.iter_nodes_mut() {
+            dbg!(&node);
+            match node {
+                Node::Inner => (),
+                Node::InputVariable { kind, .. } => {
+                    Self::replace_if_anysignal_with_id(kind, id, new_type.clone())
+                }
+                Node::Variable { kind, .. } => {
+                    Self::replace_if_anysignal_with_id(kind, id, new_type.clone())
+                }
+                Node::Output { kind, .. } => {
+                    Self::replace_if_anysignal_with_id(kind, id, new_type.clone())
+                }
+                Node::Constant(c) => Self::replace_if_anysignal_with_id(c, id, new_type.clone()),
+            }
+        }
+
+        // Replace in connections
+        for (_from, _to, op) in self.iter_ops_mut() {
+            match op {
+                Operation::Arithmetic(op) => {
+                    Self::replace_if_anysignal_with_id(&mut op.left, id, new_type.clone());
+                    Self::replace_if_anysignal_with_id(&mut op.right, id, new_type.clone());
+                    Self::replace_if_anysignal_with_id(&mut op.output, id, new_type.clone());
+                }
+                Operation::Decider(op) => {
+                    Self::replace_if_anysignal_with_id(&mut op.left, id, new_type.clone());
+                    Self::replace_if_anysignal_with_id(&mut op.right, id, new_type.clone());
+                    Self::replace_if_anysignal_with_id(&mut op.output, id, new_type.clone());
+                }
+                Operation::Gate(op) => {
+                    Self::replace_if_anysignal_with_id(&mut op.left, id, new_type.clone());
+                    Self::replace_if_anysignal_with_id(&mut op.right, id, new_type.clone());
+                    Self::replace_if_anysignal_with_id(&mut op.gate_type, id, new_type.clone());
+                }
+                Operation::Pick(op) => {
+                    Self::replace_if_anysignal_with_id(&mut op.pick, id, new_type.clone());
+                }
+                Operation::Convert(op) => {
+                    Self::replace_if_anysignal_with_id(&mut op.input, id, new_type.clone());
+                    Self::replace_if_anysignal_with_id(&mut op.output, id, new_type.clone());
+                }
+                Operation::Delay(op) => {
+                    Self::replace_if_anysignal_with_id(&mut op.output, id, new_type.clone());
+                }
+                Operation::Sum(op) => {
+                    Self::replace_if_anysignal_with_id(&mut op.output, id, new_type.clone());
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum WireConnection {
     Green,

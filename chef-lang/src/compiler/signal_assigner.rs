@@ -56,7 +56,7 @@ impl<'a> AnysignalAssigner<'a> {
         }
 
         // Convert any signals in nodes
-        for (nid, node) in ass.input_graph.nodes() {
+        for (nid, node) in ass.input_graph.iter_nodes() {
             let new_node = match node {
                 Node::Inner => Node::Inner,
                 Node::InputVariable { kind, name, nr } => {
