@@ -693,22 +693,12 @@ where
 
         // Check for INPUT nodes in network
         for other_id in &green_network_nids {
-            if let Some(Node::InputVariable {
-                kind,
-                name: _,
-                nr: _,
-            }) = self.get_node(other_id)
-            {
+            if let Some(Node::InputVariable { kind, .. }) = self.get_node(other_id) {
                 input_types.push((kind.clone(), WireKind::Green))
             }
         }
         for other_id in &red_network_nids {
-            if let Some(Node::InputVariable {
-                kind,
-                name: _,
-                nr: _,
-            }) = self.get_node(other_id)
-            {
+            if let Some(Node::InputVariable { kind, .. }) = self.get_node(other_id) {
                 input_types.push((kind.clone(), WireKind::Red))
             }
         }
@@ -992,17 +982,9 @@ where
         for (nid, node) in &self.vertices {
             let repr = match node {
                 Node::Inner => "INNER",
-                Node::InputVariable {
-                    kind: _,
-                    name: _,
-                    nr: _,
-                } => "INPUT_VAR",
-                Node::Variable { kind: _, name: _ } => "VAR",
-                Node::Output {
-                    kind: _,
-                    name: _,
-                    nr: _,
-                } => "OUTPUT",
+                Node::InputVariable { .. } => "INPUT_VAR",
+                Node::Variable { .. } => "VAR",
+                Node::Output { .. } => "OUTPUT",
                 Node::Constant(_) => "CONST",
             };
             println!("\t\t{} : {} : {:?}", nid, repr, self.get_input_iotypes(nid))
