@@ -1,4 +1,4 @@
-//!  Traits for traversing the abstract syntax tree.
+//! Traits for traversing the abstract syntax tree.
 //!
 //! This module contains the traits [Visitor] and [MutVisitor]. Both of these traits allow a struct to
 //! traverse the [AST]. The [Visitor] trait is for read-only traversals, while the [MutVisitor] trait

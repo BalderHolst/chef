@@ -51,6 +51,7 @@ enum Constant {
     Bool(bool),
 }
 
+/// A chef directive. Anything that be at the top level of a chef file.
 enum Directive<V>
 where
     V: Variable,
@@ -82,6 +83,7 @@ pub struct Parser {
 type BlockArgs = Vec<Rc<MutVar>>;
 
 impl Parser {
+    /// Parse a token stream into an [AST].
     pub fn parse(
         tokens: Vec<Token>,
         diagnostics_bag: DiagnosticsBagRef,
@@ -170,9 +172,13 @@ impl Parser {
         if self.options.verbose {
             println!("{} : {:?}", self.cursor.clone(), &self.current().kind);
         }
-
         self.cursor += 1;
-        self.peak(-1)
+
+        if self.peak(-1).kind.is_comment() {
+            self.consume()
+        } else {
+            self.peak(-1)
+        }
     }
 
     /// Consume until and with provided token kind
@@ -190,7 +196,7 @@ impl Parser {
         self.consume() // Consume and return ending token
     }
 
-    /// Comsume a token and expect it to be a word. Return the word as a slice.
+    /// Consume a token and expect it to be a word. Return the word as a slice.
     fn consume_word(&mut self) -> CompilationResult<&str> {
         let token = self.consume();
         if let TokenKind::Word(word) = &token.kind {
@@ -293,18 +299,21 @@ impl Parser {
         }
     }
 
+    /// Get new unique variable id.
     fn get_next_var_id(&mut self) -> usize {
         let id = self.next_var_id;
         self.next_var_id += 1;
         id
     }
 
+    /// Get new unique block id.
     fn get_next_block_id(&mut self) -> usize {
         let id = self.next_block_id;
         self.next_block_id += 1;
         id
     }
 
+    /// Get new unique dynamic block id.
     fn get_next_dyn_block_id(&mut self) -> usize {
         let id = self.next_dyn_block_id;
         self.next_dyn_block_id += 1;
@@ -316,10 +325,12 @@ impl Parser {
         self.scopes.last_mut().unwrap().insert(name, item);
     }
 
+    /// Add a variable to the current scope.
     fn add_var_to_scope(&mut self, var: Rc<MutVar>) {
         self.add_to_scope(var.name().to_string(), ScopedItem::Var(var.clone()))
     }
 
+    /// Iterate to next [Directive]. Return `None` if there are no more directives.
     fn next_directive(&mut self) -> Option<Directive<MutVar>> {
         // Return queued blocks first if any
         if let Some(b) = self.next_blocks.pop_front() {
@@ -344,6 +355,7 @@ impl Parser {
         }
     }
 
+    /// Parse a [Directive].
     fn parse_directive(&mut self) -> CompilationResult<Directive<MutVar>> {
         let start_token = self.current().clone();
         match &start_token.kind {
@@ -512,6 +524,7 @@ impl Parser {
         ))
     }
 
+    /// Parse assignment operator and determine the kind of definition.
     fn parse_assignment_operator(&mut self) -> CompilationResult<DefinitionKind> {
         let start_span = self.current().span.clone();
 
@@ -576,6 +589,7 @@ impl Parser {
         }
     }
 
+    /// Parse variable declaration.
     fn parse_variable_declaration(&mut self) -> CompilationResult<VarData> {
         let start_token = self.current().clone();
 
@@ -599,6 +613,7 @@ impl Parser {
         ))
     }
 
+    /// Parse variable.
     fn parse_variable(&mut self) -> CompilationResult<ParsedVariable<MutVar>> {
         let start_token = self.current().clone();
 
@@ -652,15 +667,11 @@ impl Parser {
         }
     }
 
+    /// Consume literal block link argument to be passed directly into python later.
     fn parse_literal_block_link_argument(&mut self) -> CompilationResult<TextSpan> {
         let start_token = self.current().clone();
-
-        println!("  literal start: {:?}", self.current().kind);
-
         loop {
             let current = self.current();
-
-            println!("  literal current: {:?}", current.kind);
 
             match &current.kind {
                 TokenKind::LeftCurly => {
@@ -668,7 +679,6 @@ impl Parser {
                 }
                 TokenKind::LeftSquare => {
                     self.consume_until(&TokenKind::RightSquare);
-                    println!("DONE");
                 }
                 TokenKind::Comma | TokenKind::RightParen => {
                     break;
@@ -771,6 +781,7 @@ impl Parser {
         Ok(arguments)
     }
 
+    /// Parse arguments for a chef block link definition.
     fn parse_block_link_arguments(&mut self) -> CompilationResult<Vec<Expression<MutVar>>> {
         let args = self.parse_dyn_block_link_arguments()?;
         let mut inputs = vec![];
@@ -788,6 +799,7 @@ impl Parser {
         Ok(inputs)
     }
 
+    /// Parse arguments for a dynamic block link definition.
     fn parse_dyn_block_link_arguments(&mut self) -> CompilationResult<Vec<BlockLinkArg<MutVar>>> {
         let mut inputs: Vec<BlockLinkArg<MutVar>> = vec![];
         self.consume_and_expect(TokenKind::LeftParen)?;
@@ -831,7 +843,7 @@ impl Parser {
     }
 
     // TODO: Constants should be able to be imported
-    /// Parse chef `import`
+    /// Parse chef `import`. This will parse the imported file and add its items to the scope.
     fn parse_import(&mut self) -> CompilationResult<Vec<Block<MutVar>>> {
         self.consume(); // Consume "import" word
 
@@ -857,6 +869,7 @@ impl Parser {
         }
     }
 
+    /// Parse constant directive.
     fn parse_constant(&mut self) -> CompilationResult<Directive<MutVar>> {
         // Consume 'const' keyword
         let start_token = self.consume();
@@ -907,6 +920,7 @@ impl Parser {
         ))
     }
 
+    /// Parse chef `dyn block`.
     fn parse_dyn_block(&mut self) -> CompilationResult<DynBlock<MutVar>> {
         let start_token = self.current().clone();
 
@@ -1061,6 +1075,7 @@ impl Parser {
         Ok((block_name, inputs, outputs))
     }
 
+    /// Parse `dyn block` signature (Types of arguments).
     fn parse_dyn_block_signature(
         &mut self,
     ) -> CompilationResult<(String, Vec<DynBlockArg<MutVar>>)> {
@@ -1085,6 +1100,7 @@ impl Parser {
         self.parse_binary_expression(None, 0)
     }
 
+    /// Parse chef `when` statement.
     fn parse_when_statement(&mut self) -> CompilationResult<StatementKind<MutVar>> {
         let _start_token = self.consume().clone(); // Consume "when" token
         let condition = self.parse_expression()?;
@@ -1328,6 +1344,7 @@ impl Parser {
         }
     }
 
+    /// Parse a block link expression.
     fn parse_variable_index(&mut self, var: Rc<MutVar>) -> CompilationResult<Expression<MutVar>> {
         let start_span = self.peak(-1).span.clone();
         let var_span = self.current().span.clone();
@@ -1360,6 +1377,7 @@ impl Parser {
         })
     }
 
+    /// Parse a dynamic block link expression.
     fn parse_dyn_block_link(
         &mut self,
         def: DynBlock<MutVar>,
@@ -1528,6 +1546,7 @@ impl Parser {
         ))
     }
 
+    /// Parse tuple unpacking statement.
     fn parse_unpack_statement(&mut self) -> CompilationResult<Statement<MutVar>> {
         let start_token = self.consume_and_expect(TokenKind::LeftParen)?;
         let mut vars = vec![];
@@ -1621,5 +1640,6 @@ enum ParsedVariable<V> {
     /// A reference to a variable in an expression.
     Ref(VariableRef<V>),
 
+    /// A constant.
     Const(Constant),
 }

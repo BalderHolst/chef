@@ -1,7 +1,6 @@
 //! Chef type checker.
 
 // TODO: Check that blocks are called with the correct arguments
-// TODO: Check for reserved signals. See RESERVED_GATE_SIGNAL.
 
 #[cfg(test)]
 mod tests;
@@ -48,6 +47,7 @@ impl TypeChecker {
         }
     }
 
+    /// Check the return type of an expression.
     fn check_expr_type(&mut self, t: &ExpressionReturnType, span: &TextSpan) {
         if *t == ExpressionReturnType::Infered {
             self.diagnostics_bag
@@ -56,6 +56,7 @@ impl TypeChecker {
         }
     }
 
+    /// Check if two types are equal.
     fn check_equal<F>(&mut self, t1: &ExpressionReturnType, t2: &ExpressionReturnType, err: F)
     where
         F: FnOnce() -> (TextSpan, String),
@@ -110,6 +111,7 @@ impl TypeChecker {
         }
     }
 
+    /// Check if a variable is a valid signal.
     fn check_variable(&mut self, var: &Rc<DetVar>) {
         if let Some(sig) = var.type_.signal() {
             self.report_if_invalid_signal(sig.as_str(), &var.span)

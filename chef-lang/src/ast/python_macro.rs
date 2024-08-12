@@ -1,3 +1,5 @@
+//! This module contains the logic for running python scripts as macros in the chef language.
+
 use std::{
     env,
     path::{Path, PathBuf},
@@ -12,6 +14,7 @@ use crate::{
 };
 
 /// Find an executable in the system's PATH
+// TODO: Test on windows
 fn find_executable<P>(exe_name: P) -> Option<PathBuf>
 where
     P: AsRef<Path>,
