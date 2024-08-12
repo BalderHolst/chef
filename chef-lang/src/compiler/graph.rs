@@ -749,6 +749,16 @@ where
         })
     }
 
+    /// Returns an iterator overr graph connections with the format:
+    /// (from_nid, to_nid, connection).
+    pub fn iter_conns_mut(&mut self) -> impl Iterator<Item = (NId, NId, &mut Connection<S>)> + '_ {
+        self.adjacency.iter_mut().flat_map(|(from_nid, to_vec)| {
+            to_vec
+                .iter_mut()
+                .map(|(to_nid, conn)| (from_nid.to_owned(), to_nid.to_owned(), conn))
+        })
+    }
+
     #[cfg(test)]
     pub fn iter_wires(&self) -> impl Iterator<Item = (NId, NId, &WireKind)> + '_ {
         self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
@@ -759,14 +769,27 @@ where
         })
     }
 
-    pub fn nodes(&self) -> impl Iterator<Item = (NId, &Node<S>)> {
+    pub fn iter_nodes(&self) -> impl Iterator<Item = (NId, &Node<S>)> {
         self.vertices.iter().map(|(nid, node)| (*nid, node))
+    }
+
+    pub fn iter_nodes_mut(&mut self) -> impl Iterator<Item = (NId, &mut Node<S>)> {
+        self.vertices.iter_mut().map(|(nid, node)| (*nid, node))
     }
 
     pub fn iter_ops(&self) -> impl Iterator<Item = (NId, NId, Operation<S>)> + '_ {
         self.adjacency.iter().flat_map(|(from_nid, to_vec)| {
             to_vec.iter().filter_map(|(to_nid, conn)| match &conn {
                 Connection::Operation(com) => Some((*from_nid, *to_nid, com.clone())),
+                Connection::Wire(_) => None,
+            })
+        })
+    }
+
+    pub fn iter_ops_mut(&mut self) -> impl Iterator<Item = (NId, NId, &mut Operation<S>)> + '_ {
+        self.adjacency.iter_mut().flat_map(|(from_nid, to_vec)| {
+            to_vec.iter_mut().filter_map(|(to_nid, conn)| match conn {
+                Connection::Operation(com) => Some((*from_nid, *to_nid, com)),
                 Connection::Wire(_) => None,
             })
         })
