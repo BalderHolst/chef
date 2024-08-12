@@ -990,10 +990,6 @@ where
         println!("Graph:");
         println!("\tVertecies:");
         for (nid, node) in &self.vertices {
-            if self.vertices.contains_key(nid) {
-                println!("Could not find vertex: {}", nid);
-                return;
-            }
             let repr = match node {
                 Node::Inner => "INNER",
                 Node::InputVariable {
