@@ -1249,7 +1249,11 @@ where
     }
 
     fn visit_variable_ref(&mut self, var_ref: &VariableRef<V>) {
-        self.print(&format!("VariableRef: {}", var_ref.var.name()))
+        self.print(&format!(
+            "VariableRef: {} ({})",
+            var_ref.var.name(),
+            var_ref.var.id()
+        ))
     }
 
     fn visit_binary_expression(&mut self, binary_expression: &BinaryExpression<V>) {

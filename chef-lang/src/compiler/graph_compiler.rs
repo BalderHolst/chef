@@ -243,16 +243,10 @@ impl GraphCompiler {
         let var = &dec_def.variable;
 
         let (expr_out_nid, var_type) = self.compile_expression(graph, &dec_def.expression, None)?;
-        self.compile_definition(
-            graph,
-            gate,
-            expr_out_nid,
-            var_type.clone(),
-            var.id,
-            dec_def.kind,
-        )?;
 
-        self.declare_variable(graph, var.id, var_type, var.name.clone())?;
+        self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
+
+        self.compile_definition(graph, gate, expr_out_nid, var_type, var.id, dec_def.kind)?;
 
         Ok(())
     }
@@ -671,9 +665,6 @@ impl GraphCompiler {
 
         let (block_out_nid, block_out_type) = outputs.remove(0);
 
-        dbg!(&block_out_type);
-        dbg!(&out_type);
-
         if let Some(out_type) = out_type {
             match &block_out_type {
                 LooseSig::AnySignal(id) => graph.assign_anysignal(id, out_type.clone()),
@@ -899,10 +890,7 @@ impl GraphCompiler {
             }
         }
 
-        Err(CompilationError::new_generic(format!(
-            "Variable with id {} not declared.",
-            var_id
-        )))
+        panic!("Variable with id {} not declared.", var_id)
     }
 
     fn search_scope(&self, var_id: VariableId) -> Option<(NId, LooseSig)> {
