@@ -1101,13 +1101,9 @@ impl Graph<LooseSig> {
     fn replace_if_anysignal_with_id(sig: &mut LooseSig, id: &u64, new_type: LooseSig) {
         // println!("Replacing anysignal {} with {:?}", id, new_type);
         match sig {
-            LooseSig::AnySignal(this_id) if this_id == id => {
-                println!("Replacing anysignal {} with {:?}", id, new_type);
-                *sig = new_type
-            }
+            LooseSig::AnySignal(this_id) if this_id == id => *sig = new_type,
             LooseSig::ConstantAny((this_id, c)) if this_id == id => {
                 // TODO: Do something about the unwrap
-                println!("Replacing CONSTANT anysignal {} with {:?}", id, new_type);
                 *sig = new_type.to_constant(*c).unwrap()
             }
             _ => (),
@@ -1115,11 +1111,8 @@ impl Graph<LooseSig> {
     }
 
     pub fn assign_anysignal(&mut self, id: &u64, new_type: LooseSig) {
-        println!("Assigning anysignal {} to {:?}", id, new_type);
-
         // Replace in nodes
         for (_nid, node) in self.iter_nodes_mut() {
-            dbg!(&node);
             match node {
                 Node::Inner => (),
                 Node::InputVariable { kind, .. } => {
