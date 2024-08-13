@@ -9,9 +9,7 @@ use std::rc::Rc;
 
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
-use super::{
-    visitors::Visitor, AssignmentType, DefinitionKind, DetVar, ExpressionReturnType, Variable, AST,
-};
+use super::{visitors::Visitor, DefinitionKind, DetVar, ExpressionReturnType, Variable, AST};
 
 /// Type check an [AST].
 pub fn check(ast: &AST<DetVar>, diagnostics_bag: DiagnosticsBagRef) {

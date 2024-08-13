@@ -69,8 +69,8 @@ pub struct DynBlock<V> {
     pub name: String,
     pub inputs: Vec<DynBlockArg<V>>,
     pub script_path: PathBuf,
-    pub span: TextSpan,
-    pub opts: Rc<Opts>,
+    pub _span: TextSpan,
+    pub _opts: Rc<Opts>,
 }
 
 impl<V> DynBlock<V> {
@@ -85,8 +85,8 @@ impl<V> DynBlock<V> {
             name,
             inputs,
             script_path,
-            span,
-            opts,
+            _span: span,
+            _opts: opts,
         }
     }
 }
@@ -380,7 +380,7 @@ where
 pub trait Variable {
     fn name(&self) -> String;
     fn type_(&self) -> VariableType;
-    fn span(&self) -> TextSpan;
+    fn _span(&self) -> TextSpan;
     fn id(&self) -> VariableId;
     fn return_type(&self) -> ExpressionReturnType;
     fn display(&self) -> String {
@@ -423,7 +423,7 @@ impl Variable for DetVar {
         self.type_.clone()
     }
 
-    fn span(&self) -> TextSpan {
+    fn _span(&self) -> TextSpan {
         self.span.clone()
     }
 
@@ -445,7 +445,7 @@ impl Variable for MutVar {
         self.borrow().type_.clone()
     }
 
-    fn span(&self) -> TextSpan {
+    fn _span(&self) -> TextSpan {
         self.borrow().span.clone()
     }
 

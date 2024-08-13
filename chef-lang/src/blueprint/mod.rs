@@ -1,5 +1,7 @@
 //! Converted combinator graphs to factorio blueprints.
 
+#![allow(dead_code)] // TODO: REMOVE
+
 pub mod placement;
 pub mod utils;
 

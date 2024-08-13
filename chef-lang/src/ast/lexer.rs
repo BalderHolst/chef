@@ -259,7 +259,6 @@ impl Lexer {
 
     /// Consumes a comment and returns it as a string. This method changes the cursor position.
     fn consume_comment(&mut self) -> String {
-        let start = self.cursor;
         self.consume_expected_chars("//");
         self.consume_whitespace();
         let mut comment = String::new();

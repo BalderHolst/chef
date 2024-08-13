@@ -2,7 +2,7 @@
 
 use fnv::FnvHashMap;
 use std::fmt::Debug;
-use std::{collections::HashSet, fmt::Display, usize};
+use std::{collections::HashSet, fmt::Display};
 
 use crate::diagnostics::{CompilationError, CompilationResult};
 
@@ -238,7 +238,7 @@ impl LooseSig {
 
     pub fn to_signal(&self) -> Self {
         match self {
-            Self::Signal(s) => self.clone(),
+            Self::Signal(_) => self.clone(),
             Self::ConstantSignal((s, _)) => Self::Signal(s.clone()),
             Self::AnySignal(n) => Self::AnySignal(*n),
             Self::ConstantAny((n, _)) => Self::AnySignal(*n),
@@ -582,7 +582,7 @@ where
                         if network.contains(to_nid) {
                             continue;
                         }
-                        network = self.get_wire_connected_nodes(to_nid, network, wire_kind.clone());
+                        network = self.get_wire_connected_nodes(to_nid, network, wire_kind);
                     }
                 }
             }
@@ -1206,9 +1206,9 @@ mod tests {
         // Network 2: n4 -- n6
         // Network 3: n5
         let wire_kind = WireKind::Green;
-        g.push_wire_kind(n1, n2, wire_kind.clone());
-        g.push_wire_kind(n2, n3, wire_kind.clone());
-        g.push_wire_kind(n3, n1, wire_kind.clone());
+        g.push_wire_kind(n1, n2, wire_kind);
+        g.push_wire_kind(n2, n3, wire_kind);
+        g.push_wire_kind(n3, n1, wire_kind);
         g.push_wire_kind(n4, n6, wire_kind);
 
         // Check network 1
