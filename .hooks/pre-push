@@ -37,3 +37,15 @@ make test-python > /dev/null 2>&1 || {
 }
 
 echo "PASSED"
+
+echo -n "Building with nix..."
+
+nix build . > /dev/null 2>&1 || {
+    echo -e "\nFailed to build with nix."
+    exit 1
+}
+rm result
+
+echo "PASSED"
+
+echo ""
