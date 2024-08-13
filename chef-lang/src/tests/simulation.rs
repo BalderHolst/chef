@@ -352,13 +352,13 @@ fn definition_tuple_unpacking() {
     block values() => (a: int, b: int, c: int) {
         a <- 1;
         b <- 2;
-        c <- 3;
+        c <- 13;
     }
 
     block main() => (out: int(signal-E)) {
-        let x: int;
+        let x: int(signal-X);
         let y: int;
-        let z: int;
+        let z: int(signal-Z);
         (x, y, z) <- values();
         out <<- -x - y + z;
     }
@@ -367,10 +367,9 @@ fn definition_tuple_unpacking() {
     let mut sim = Simulator::new(g, inputs![]);
     sim.simulate(10);
 
-    assert_eq!(sim.get_output(), outputs!["signal-E": 0]);
+    assert_eq!(sim.get_output(), outputs!["signal-E": 10]);
 }
 
-#[ignore = "broken"]
 #[test]
 fn mixed_tuple_unpacking() {
     let g = compile_code(
@@ -390,7 +389,7 @@ fn mixed_tuple_unpacking() {
 ",
     );
     let mut sim = Simulator::new(g, inputs![]);
-    sim.dump_simulation(10, "sim");
+    sim.simulate(10);
 
     assert_eq!(sim.get_output(), outputs!["signal-E": 111]);
 }

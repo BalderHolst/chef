@@ -190,7 +190,7 @@ impl GraphCompiler {
                 self.compile_definition_statement(graph, def, gate)?;
             }
             StatementKind::TupleDeclarationDefinition(tuple_dec_def) => {
-                self.compile_tuple_declaration_definition_statement(graph, tuple_dec_def, gate)?;
+                self.compile_tuple_block_link_statement(graph, tuple_dec_def, gate)?;
             }
             StatementKind::When(when_statement) => {
                 self.compile_when_statement(graph, &when_statement)?
@@ -256,17 +256,17 @@ impl GraphCompiler {
         Ok(())
     }
 
-    fn compile_tuple_declaration_definition_statement(
+    fn compile_tuple_block_link_statement(
         &mut self,
         graph: &mut Graph<LooseSig>,
         tuple_dec_def: TupleDeclarationDefinition,
-        _gate: Option<(NId, LooseSig)>,
+        _gate: Option<(NId, LooseSig)>, // TODO: Implement gate
     ) -> Result<(), CompilationError> {
         let block_link = tuple_dec_def.block_link;
 
         let mut args: Vec<(NId, LooseSig)> = vec![];
-        for input in block_link.inputs {
-            args.push(self.compile_expression(graph, &input, None)?);
+        for sub_input in block_link.inputs {
+            args.push(self.compile_expression(graph, &sub_input, None)?);
         }
 
         let ast_block = self
@@ -280,6 +280,7 @@ impl GraphCompiler {
 
         if output_nodes.len() != tuple_dec_def.defs.len() {
             return Err(CompilationError::new_generic(
+                // TODO: Make localized
                 "Number of variables in tuple declaration does not match number of outputs.",
             ));
         }
@@ -288,7 +289,27 @@ impl GraphCompiler {
             let (output_nid, out_type) = &output_nodes[i];
             let def = &tuple_dec_def.defs[i];
             let var = &def.variable;
-            let var_type = self.variable_type_to_loose_sig(&var.type_);
+            let (var_nid, var_type) = match &def.assignment_type {
+                AssignmentType::Declaration => {
+                    let t = self.variable_type_to_loose_sig(&var.type_);
+                    let nid = graph.push_var_node(t.clone(), var.name.clone());
+                    self.declare_variable(graph, var.id, t.clone(), var.name.clone())?;
+                    self.define_variable(
+                        graph,
+                        var.id,
+                        nid,
+                        t.clone(),
+                        tuple_dec_def.def_kind.clone(),
+                    )?;
+                    (nid, t)
+                }
+                AssignmentType::Definition => {
+                    self.search_scope(var.id)
+                        .ok_or(CompilationError::new_generic(
+                            "Variable not declared in this scope.",
+                        ))?
+                }
+            };
 
             // Convert to variable type
             let (trans_input, trans_output) =
@@ -296,23 +317,7 @@ impl GraphCompiler {
             graph.push_wire(*output_nid, trans_input);
 
             // Create and connect to variable node
-            let var_nid = graph.push_var_node(var_type.clone(), var.name.clone());
             graph.push_wire(trans_output, var_nid);
-
-            match &def.assignment_type {
-                AssignmentType::Declaration => {
-                    self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?
-                }
-                AssignmentType::Definition => {}
-            }
-
-            self.define_variable(
-                graph,
-                var.id,
-                var_nid,
-                var_type,
-                tuple_dec_def.def_kind.clone(),
-            )?;
         }
 
         Ok(())
@@ -389,7 +394,7 @@ impl GraphCompiler {
             ExpressionKind::Bool(b) => self.compile_constant(graph, *b as i32, out_type),
             ExpressionKind::VariableRef(var_ref) => {
                 self.compile_variable_ref_expression(graph, var_ref, out_type)
-            } //
+            }
             ExpressionKind::Pick(pick_expr) => {
                 self.compile_pick_expression(graph, pick_expr, out_type)
             }
@@ -555,6 +560,7 @@ impl GraphCompiler {
     ) -> Result<(NId, LooseSig), CompilationError> {
         let (left_nid, left_type) = self.compile_expression(graph, &bin_expr.left, None)?;
         let (right_nid, right_type) = self.compile_expression(graph, &bin_expr.right, None)?;
+
         // TODO: Report correctly
         if left_type == right_type {
             panic!(
