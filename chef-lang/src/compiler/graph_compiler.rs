@@ -320,7 +320,16 @@ impl GraphCompiler {
         gate: Option<(NId, LooseSig)>,
     ) -> Result<(), CompilationError> {
         let var = &def.variable;
-        let (expr_out_nid, var_type) = self.compile_expression(graph, &def.expression, None)?;
+        let (_var_nid, var_type) = match self.search_scope(var.id) {
+            Some(t) => t,
+            None => {
+                return Err(CompilationError::new_generic(
+                    "Variable not declared in this scope.",
+                ))
+            }
+        };
+        let (expr_out_nid, var_type) =
+            self.compile_expression(graph, &def.expression, Some(var_type))?;
         self.compile_definition(graph, gate, expr_out_nid, var_type, var.id, def.kind)?;
         Ok(())
     }
@@ -631,7 +640,7 @@ impl GraphCompiler {
         })
     }
 
-    /// Compile a link to a block which only returns one statement
+    /// Compile a link to a block which only returns one value.
     fn compile_block_link_expression(
         &mut self,
         graph: &mut Graph<LooseSig>,
@@ -659,7 +668,7 @@ impl GraphCompiler {
         if outputs.len() != 1 {
             return Err(CompilationError::new_generic(
                 // TODO: Make localized
-                "Blocks used withing expressions must return exactly one output.",
+                "Blocks used withing expressions must output exactly one value.",
             ));
         }
 

@@ -1,7 +1,0 @@
-block add() => (out: int(signal-B)) {
-    out <<- 10;
-}
-
-block main(in: many) => (out: int(rail)) {
-    out <<- add();
-}

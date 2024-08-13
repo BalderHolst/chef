@@ -9,8 +9,8 @@ use crate::{
 
 use super::graph::{ArithmeticOp, Connection, DetSig, GateOp, Graph, LooseSig, Operation};
 
-pub fn assign_signals(graph: &Graph<LooseSig>) -> Graph<DetSig> {
-    AnysignalAssigner::assign(graph)
+pub fn assign_signals(graph: &Graph<LooseSig>, verbose: bool) -> Graph<DetSig> {
+    AnysignalAssigner::assign(graph, verbose)
 }
 
 struct AnysignalAssigner<'a> {
@@ -20,10 +20,11 @@ struct AnysignalAssigner<'a> {
     next_sig_nr: u64,
     used_signals: HashSet<String>,
     signal_names: Vec<&'static str>,
+    verbose: bool,
 }
 
 impl<'a> AnysignalAssigner<'a> {
-    fn new(graph: &'a Graph<LooseSig>) -> Self {
+    fn new(graph: &'a Graph<LooseSig>, verbose: bool) -> Self {
         let signal_names: Vec<&str> = BASE_SIGNALS
             .lines()
             .map(|l| {
@@ -39,11 +40,12 @@ impl<'a> AnysignalAssigner<'a> {
             next_sig_nr: 0,
             used_signals: HashSet::new(),
             signal_names,
+            verbose,
         }
     }
 
-    fn assign(graph: &Graph<LooseSig>) -> Graph<DetSig> {
-        let mut ass = AnysignalAssigner::new(graph);
+    fn assign(graph: &Graph<LooseSig>, verbose: bool) -> Graph<DetSig> {
+        let mut ass = AnysignalAssigner::new(graph, verbose);
 
         // Keep track of what signals are already used by the blueprint
         // TODO: also add used signals in nodes or maybe it does not matter?
@@ -188,14 +190,18 @@ impl<'a> AnysignalAssigner<'a> {
     }
 
     fn translate_anysignal(&mut self, anysignal: u64) -> String {
-        match self.anysignal_to_signal.get(&anysignal) {
+        let item = match self.anysignal_to_signal.get(&anysignal) {
             Some(s) => s.clone(),
             None => {
                 let s = self.get_next_signal();
                 self.anysignal_to_signal.insert(anysignal, s.clone());
+                if self.verbose {
+                    println!("Assigning: {} to {}", anysignal, s);
+                }
                 s
             }
-        }
+        };
+        item
     }
 }
 
@@ -226,7 +232,7 @@ mod tests {
         assert_eq!(g.iter_wires().count(), expected_wires);
         assert_eq!(g.iter_conns().count(), expected_conns);
 
-        let g = assign_signals(&g);
+        let g = assign_signals(&g, true);
         assert_eq!(g.vertices.len(), expected_nodes);
         assert_eq!(g.iter_wires().count(), expected_wires);
         assert_eq!(g.iter_conns().count(), expected_conns);
@@ -247,7 +253,7 @@ mod tests {
         assert_eq!(g.get_input_nodes().len(), 1);
         assert_eq!(g.get_output_nodes().len(), 1);
 
-        let g = assign_signals(&g);
+        let g = assign_signals(&g, true);
 
         assert_eq!(g.get_input_nodes().len(), 1);
         assert_eq!(g.get_output_nodes().len(), 1);

@@ -1,0 +1,7 @@
+block add(a: int, b: int) => (out: int) {
+    out <- a + b;
+}
+
+block main(input: many) => (out: int(rail)) {
+    out <<- add(input[signal-A], input[signal-B]);
+}

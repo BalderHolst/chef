@@ -20,7 +20,7 @@ where
         };
 
         let mut label = {
-            let inputs = &graph.get_input_iotypes(nid);
+            let inputs = &graph.get_input_types(nid);
             if inputs.is_empty() {
                 "CONST".to_string()
             } else {

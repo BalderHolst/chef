@@ -673,7 +673,7 @@ where
         n
     }
 
-    pub fn get_input_iotypes(&self, nid: &NId) -> Vec<(S, WireKind)> {
+    pub fn get_input_types(&self, nid: &NId) -> Vec<(S, WireKind)> {
         let green_network_nids = self.get_node_network(nid, WireKind::Green);
         let red_network_nids = self.get_node_network(nid, WireKind::Red);
 
@@ -987,7 +987,7 @@ where
                 Node::Output { .. } => "OUTPUT",
                 Node::Constant(_) => "CONST",
             };
-            println!("\t\t{} : {} : {:?}", nid, repr, self.get_input_iotypes(nid))
+            println!("\t\t{} : {} : {:?}", nid, repr, self.get_input_types(nid))
         }
         println!("\n\tConnections:");
         for (from_nid, to_nid, conn) in self.iter_conns() {
