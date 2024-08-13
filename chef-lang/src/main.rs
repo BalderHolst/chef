@@ -24,8 +24,10 @@ mod utils;
 #[cfg(test)]
 mod tests;
 
+/// Default name for simulation output.
 const DEFAULT_SIMULATION_DIR: &str = "sim";
 
+/// Compile a program as specified by the given options.
 pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
     let path = &cook_opts.file;
 
@@ -81,6 +83,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
     Ok(())
 }
 
+/// Simulate a program as specified by the given options.
 fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) -> CompilationResult<()> {
     let path = &sim_opts.file;
     let text = Rc::new(SourceText::from_file(path, opts.clone()).unwrap());

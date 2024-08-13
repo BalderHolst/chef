@@ -1,4 +1,4 @@
-//! Evaluates constant expressions in the [AST]. Use the public [evaluate_constants] function.
+//! Evaluates constant expressions in the [AST].
 
 use crate::diagnostics::{CompilationError, CompilationResult};
 
@@ -34,6 +34,7 @@ impl ConstantEvaluator {
     }
 }
 
+/// Evaluate constant parts of an expression, simplifying it.
 pub(crate) fn evaluate_constant_expression(
     mut expr: Expression<MutVar>,
 ) -> CompilationResult<ConstantValue> {
@@ -59,6 +60,7 @@ pub(crate) fn evaluate_constant_expression(
     }
 }
 
+/// A constant value. This value has no type.
 #[derive(Debug)]
 pub(crate) enum ConstantValue {
     Int(i32),
@@ -83,22 +85,12 @@ fn get_constant_int(expr: &Expression<MutVar>) -> Option<i32> {
     }
 }
 
+// Implementation of the visitor for the evaluator.
 impl MutVisitor<MutVar> for ConstantEvaluator {
     fn visit_pick_expression(&mut self, _expr: &mut super::PickExpression<MutVar>) {}
     fn visit_number(&mut self, _number: &mut i32) {}
     fn visit_bool(&mut self, _bool: &mut bool) {}
     fn visit_variable_ref(&mut self, _var: &mut super::VariableRef<MutVar>) {}
-
-    // fn visit_negative_expression(&mut self, expr: &mut Box<Expression>) {
-    //     match &mut expr.kind {
-    //         ExpressionKind::Int(n) => {
-    //             *n *= -1;
-    //             self.did_work = true;
-    //         }
-    //         _ => {}
-    //     }
-    // }
-
     fn visit_expression(&mut self, expression: &mut Expression<MutVar>) {
         let result = match &mut expression.kind {
             ExpressionKind::Binary(binary_expression) => {

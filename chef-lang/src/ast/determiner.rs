@@ -1,3 +1,5 @@
+//! This module contains the [Determiner] struct which is responsible for converting an [AST] with possibly undetermined variable types into an [AST] with determined immutable variable types.
+
 use std::rc::Rc;
 
 use fnv::FnvHashMap;
@@ -12,10 +14,12 @@ use crate::ast::{
 
 use super::GateExpression;
 
+/// Determine the variable types in the given [AST].
 pub fn determine(mut_ast: AST<MutVar>) -> AST<DetVar> {
     Determiner::determine(mut_ast)
 }
 
+/// The determiner.
 struct Determiner {
     mut_ast: AST<MutVar>,
     det_ast: AST<DetVar>,
@@ -23,6 +27,7 @@ struct Determiner {
 }
 
 impl Determiner {
+    /// Create a new determiner.
     fn new(ast: AST<MutVar>) -> Self {
         let bag = ast.diagnostics_bag.clone();
         Determiner {
@@ -32,6 +37,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [AST].
     fn determine(mut_ast: AST<MutVar>) -> AST<DetVar> {
         let mut determiner = Determiner::new(mut_ast);
 
@@ -43,6 +49,7 @@ impl Determiner {
         determiner.det_ast
     }
 
+    /// Determine the variable types in the given [Block].
     fn det_block(&mut self, block: Block<MutVar>) -> Block<DetVar> {
         let inputs = block
             .inputs
@@ -73,12 +80,14 @@ impl Determiner {
         )
     }
 
+    /// Determine the variable types in the given [Variable].
     fn det_variable(&mut self, mut_var: Rc<MutVar>) -> Rc<DetVar> {
         let det_var = Rc::new((*mut_var).clone().into_inner());
         self.vars.insert(det_var.id, det_var.clone());
         det_var
     }
 
+    /// Determine the variable types in the given [VariableRef].
     fn det_var_ref(&mut self, var_ref: VariableRef<MutVar>) -> VariableRef<DetVar> {
         let var_id = var_ref.var.id();
         let var = self
@@ -91,6 +100,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [Statement].
     fn det_statement(&mut self, statement: Statement<MutVar>) -> Statement<DetVar> {
         Statement {
             kind: self.det_statement_kind(statement.kind),
@@ -98,6 +108,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [StatementKind].
     fn det_statement_kind(
         &mut self,
         statement_kind: StatementKind<MutVar>,
@@ -123,12 +134,14 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [Declaration].
     fn det_declaration(&mut self, declaration: Declaration<MutVar>) -> Declaration<DetVar> {
         Declaration {
             variable: self.det_variable(declaration.variable),
         }
     }
 
+    /// Determine the variable types in the given [DeclarationDefinition].
     fn det_declaration_definition(
         &mut self,
         declaration_definition: DeclarationDefinition<MutVar>,
@@ -140,6 +153,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [Definition].
     fn det_definition(&mut self, definition: Definition<MutVar>) -> Definition<DetVar> {
         Definition {
             variable: self.det_variable(definition.variable),
@@ -148,6 +162,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [TupleDeclarationDefinition].
     fn det_tuple_declaration_definition(
         &mut self,
         tuple_declaration_definition: TupleDeclarationDefinition<MutVar>,
@@ -167,6 +182,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [WhenStatement].
     fn det_when(&mut self, when: WhenStatement<MutVar>) -> WhenStatement<DetVar> {
         WhenStatement {
             condition: self.det_expression(when.condition),
@@ -178,6 +194,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [BlockLinkExpression].
     fn det_expression(&mut self, expression: Expression<MutVar>) -> Expression<DetVar> {
         Expression {
             kind: self.det_expression_kind(expression.kind),
@@ -185,6 +202,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [ExpressionKind].
     fn det_expression_kind(
         &mut self,
         expression_kind: ExpressionKind<MutVar>,
@@ -205,12 +223,14 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [NegativeExpression].
     fn det_neg_expr(&mut self, neg_expr: NegativeExpression<MutVar>) -> NegativeExpression<DetVar> {
         NegativeExpression {
             expression: Box::new(self.det_expression(*neg_expr.expression)),
         }
     }
 
+    /// Determine the variable types in the given [ParenthesizedExpression].
     fn det_par_expr(
         &mut self,
         par_expr: ParenthesizedExpression<MutVar>,
@@ -220,6 +240,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [PickExpression].
     fn det_pick_expr(&mut self, pick_expr: PickExpression<MutVar>) -> PickExpression<DetVar> {
         PickExpression {
             pick_signal: pick_expr.pick_signal,
@@ -228,6 +249,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [IndexExpression].
     fn det_index_expr(&mut self, index_expr: IndexExpression<MutVar>) -> IndexExpression<DetVar> {
         IndexExpression {
             var_ref: self.det_var_ref(index_expr.var_ref),
@@ -235,6 +257,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [BlockLinkExpression].
     fn det_block_link(
         &mut self,
         block_link: BlockLinkExpression<MutVar>,
@@ -251,6 +274,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [DelayExpression].
     fn det_delay_expr(&mut self, delay_expr: DelayExpression<MutVar>) -> DelayExpression<DetVar> {
         DelayExpression {
             expression: Box::new(self.det_expression(*delay_expr.expression)),
@@ -258,6 +282,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [SizeOfExpression].
     fn det_size_of_expr(
         &mut self,
         size_of_expr: SizeOfExpression<MutVar>,
@@ -267,6 +292,7 @@ impl Determiner {
         }
     }
 
+    /// Determine the variable types in the given [GateExpression].
     fn det_gate_expr(&mut self, size_of_expr: GateExpression<MutVar>) -> GateExpression<DetVar> {
         GateExpression::new(
             self.det_expression(*size_of_expr.gate_expr),
@@ -274,6 +300,7 @@ impl Determiner {
         )
     }
 
+    /// Determine the variable types in the given [BinaryExpression].
     fn det_binary_expr(
         &mut self,
         binary_expr: BinaryExpression<MutVar>,

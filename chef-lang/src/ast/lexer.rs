@@ -69,6 +69,7 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
+    /// Check if the token is an assignment operator.
     pub fn is_assignment_operator(&self) -> bool {
         matches!(self, TokenKind::LeftArrow | TokenKind::LeftCurlyArrow)
     }
@@ -152,10 +153,12 @@ pub struct Token {
 }
 
 impl Token {
+    /// Create a new token.
     fn new(kind: TokenKind, span: TextSpan) -> Self {
         Self { kind, span }
     }
 
+    /// Check if the token is the end-of-file token.
     pub(crate) fn is_end(&self) -> bool {
         matches!(self.kind, TokenKind::End)
     }
@@ -188,21 +191,25 @@ impl Lexer {
         }
     }
 
+    /// Peak at a character at an offset from the current cursor position.
     fn peak(&self, offset: isize) -> Option<char> {
         let index = self.cursor as isize + offset;
         self.chars.get(index as usize).copied()
     }
 
+    /// Get the current character.
     fn current(&self) -> Option<char> {
         self.peak(0)
     }
 
+    /// Consume the current character and return it.
     fn consume(&mut self) -> Option<char> {
         let c = self.current();
         self.cursor += 1;
         c
     }
 
+    /// Backtrack the cursor by `n` characters.
     fn backtrack(&mut self, n: usize) {
         self.cursor -= n;
     }
@@ -224,6 +231,7 @@ impl Lexer {
         }
     }
 
+    /// Consume a number.
     fn consume_number(&mut self) -> Option<u16> {
         let mut n_str = String::new();
         while let Some(c) = self.consume() {
@@ -238,6 +246,7 @@ impl Lexer {
         Some(n)
     }
 
+    /// Check if the current character character is the start of a number.
     fn is_number_start(c: Option<char>) -> bool {
         match c {
             Some(c) => c.is_ascii_digit(),
@@ -245,14 +254,17 @@ impl Lexer {
         }
     }
 
+    /// Check if the current character is the start of a word.
     fn is_word_start_char(c: char) -> bool {
         c.is_alphabetic() || c == '_'
     }
 
+    /// Check if the current character is a word character. This includes numbers and hyphens.
     fn is_word_char(c: char) -> bool {
         Self::is_word_start_char(c) || c.is_numeric() || c == '-'
     }
 
+    /// Check if the current character is whitespace.
     fn is_whitespace(c: char) -> bool {
         c.is_whitespace()
     }
@@ -335,6 +347,7 @@ impl Lexer {
         Some(kind)
     }
 
+    /// Consume a string literal.
     fn consume_literal(&mut self) -> TokenKind {
         self.consume(); // Consume '"'
 
@@ -350,6 +363,7 @@ impl Lexer {
         TokenKind::StringLiteral(text)
     }
 
+    // Consume a word.
     fn consume_word(&mut self) -> TokenKind {
         let mut word = String::new();
         while self.current().is_some() && Self::is_word_char(self.current().unwrap()) {
@@ -395,7 +409,7 @@ impl Iterator for Lexer {
             c if Self::is_word_start_char(c) => self.consume_word(),
             _ => match self.consume_punctuation() {
                 Some(kind) => kind,
-                None => return self.next(), // Ignore and get next if punktuation was a comment
+                None => return self.next(), // Ignore and get next if punctuation was a comment
             },
         };
 
