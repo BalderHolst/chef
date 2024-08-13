@@ -1,0 +1,4 @@
+block main(input: many) => (out: many) {
+    let a: int(signal-A) <<- 10;
+    out <- ? input[pump] < 2 <- a;
+}

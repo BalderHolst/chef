@@ -241,8 +241,15 @@ impl GraphCompiler {
         gate: Option<(NId, LooseSig)>,
     ) -> Result<(), CompilationError> {
         let var = &dec_def.variable;
+        let var_type = self.variable_type_to_loose_sig(&var.type_);
+        let (expr_out_nid, var_type_res) =
+            self.compile_expression(graph, &dec_def.expression, Some(var_type.clone()))?;
 
-        let (expr_out_nid, var_type) = self.compile_expression(graph, &dec_def.expression, None)?;
+        if cfg!(debug) {
+            if var_type != LooseSig::Many {
+                assert_eq!(var_type, var_type_res.to_signal());
+            }
+        }
 
         self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
 
@@ -747,6 +754,8 @@ impl GraphCompiler {
         let (cond_nid, cond_type) = self.compile_expression(graph, &*gate.gate_expr, None)?;
         let (input_nid, input_type) =
             self.compile_expression(graph, &*gate.gated_expr, out_type)?;
+
+        let input_type = input_type.to_signal();
 
         // TODO: Report this as an error
         assert_ne!(cond_type, input_type);

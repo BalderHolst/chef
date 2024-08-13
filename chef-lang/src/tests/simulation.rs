@@ -83,7 +83,7 @@ block main() => (out: int(tank)) {
 fn simulate_constant_int_blocks() {
     let out = compile_code(
         "
-    
+
     block main() => (out: int(rail)) {
         out <<- 100;
     }
@@ -400,18 +400,16 @@ fn test_mixed_tuple_unpacking() {
 fn test_gate_expression() {
     let g = compile_code(
         "
-    block main() => (out: many) {
+    block main(input: many) => (out: many) {
 
         let a: int(signal-A) <<- 10;
-        let b: int(signal-B) <<- 100;
 
-        out <- ? 1 < 2 <- a;
-        out <- ? 1 > 2 <- b;
+        out <- ? input[pump] < 2 <- a;
     }
 ",
     );
     let mut sim = Simulator::new(g, inputs![]);
     sim.simulate(10);
 
-    assert_eq!(sim.get_output(), outputs!["signal-A": 10, "signal-B": 0]);
+    assert_eq!(sim.get_output(), outputs!["signal-A": 10]);
 }

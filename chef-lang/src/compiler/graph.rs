@@ -235,6 +235,17 @@ impl LooseSig {
             Self::Many => None,
         }
     }
+
+    pub fn to_signal(&self) -> Self {
+        match self {
+            Self::Signal(s) => self.clone(),
+            Self::ConstantSignal((s, _)) => Self::Signal(s.clone()),
+            Self::AnySignal(n) => Self::AnySignal(*n),
+            Self::ConstantAny((n, _)) => Self::AnySignal(*n),
+            Self::Constant(_) => self.clone(),
+            Self::Many => self.clone(),
+        }
+    }
 }
 
 impl Display for LooseSig {
