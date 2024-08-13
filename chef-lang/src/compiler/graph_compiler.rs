@@ -245,7 +245,7 @@ impl GraphCompiler {
         let (expr_out_nid, var_type_res) =
             self.compile_expression(graph, &dec_def.expression, Some(var_type.clone()))?;
 
-        if cfg!(debug) && var_type != LooseSig::Many {
+        if cfg!(debug_assertions) && var_type != LooseSig::Many {
             assert_eq!(var_type, var_type_res.to_signal());
         }
 
