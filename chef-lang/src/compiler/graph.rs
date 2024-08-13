@@ -23,20 +23,20 @@ pub enum DeciderOperation {
     LargerThanOrEqual,
     LessThan,
     LessThanOrEqual,
-    Equals,
-    NotEquals,
-    EveryEquals,
+    Equal,
+    NotEqual,
+    EveryEqual,
     EveryLargerThan,
-    EveryLargerThanEquals,
+    EveryLargerThanOrEqual,
     EveryLessThan,
-    EveryLessThanEquals,
-    EveryNotEquals,
-    AnyEquals,
+    EveryLessThanOrEqual,
+    EveryNotEqual,
+    AnyEqual,
     AnyLargerThan,
-    AnyLargerThanEquals,
+    AnyLargerThanOrEqual,
     AnyLessThan,
-    AnyLessThanEquals,
-    AnyNotEquals,
+    AnyLessThanOrEqual,
+    AnyNotEqual,
 }
 
 impl Display for DeciderOperation {
@@ -46,20 +46,20 @@ impl Display for DeciderOperation {
             DeciderOperation::LargerThanOrEqual => "LARGER_THAN_OR_EQUAL",
             DeciderOperation::LessThan => "LESS_THAN",
             DeciderOperation::LessThanOrEqual => "LESS_THAN_OR_EQUAL",
-            DeciderOperation::Equals => "EQUALS",
-            DeciderOperation::NotEquals => "NOT_EQUALS",
-            DeciderOperation::EveryEquals => "EVERY_EQUALS",
+            DeciderOperation::Equal => "EQUALS",
+            DeciderOperation::NotEqual => "NOT_EQUALS",
+            DeciderOperation::EveryEqual => "EVERY_EQUALS",
             DeciderOperation::EveryLargerThan => "EVERY_LARGER_THAN",
-            DeciderOperation::EveryLargerThanEquals => "EVERY_LARGER_THAN_EQUALS",
+            DeciderOperation::EveryLargerThanOrEqual => "EVERY_LARGER_THAN_EQUALS",
             DeciderOperation::EveryLessThan => "EVERY_LESS_THAN",
-            DeciderOperation::EveryLessThanEquals => "EVERY_LESS_THAN_EQUALS",
-            DeciderOperation::EveryNotEquals => "EVERY_NOT_EQUALS",
-            DeciderOperation::AnyEquals => "ANY_EQUALS",
+            DeciderOperation::EveryLessThanOrEqual => "EVERY_LESS_THAN_EQUALS",
+            DeciderOperation::EveryNotEqual => "EVERY_NOT_EQUALS",
+            DeciderOperation::AnyEqual => "ANY_EQUALS",
             DeciderOperation::AnyLargerThan => "ANY_LARGER_THAN",
-            DeciderOperation::AnyLargerThanEquals => "ANY_LARGER_THAN_EQUALS",
+            DeciderOperation::AnyLargerThanOrEqual => "ANY_LARGER_THAN_EQUALS",
             DeciderOperation::AnyLessThan => "ANY_LESS_THAN",
-            DeciderOperation::AnyLessThanEquals => "ANY_LESS_THAN_EQUALS",
-            DeciderOperation::AnyNotEquals => "ANY_NOT_EQUALS",
+            DeciderOperation::AnyLessThanOrEqual => "ANY_LESS_THAN_EQUALS",
+            DeciderOperation::AnyNotEqual => "ANY_NOT_EQUALS",
         };
         write!(f, "{s}")
     }
@@ -73,13 +73,8 @@ pub struct DeciderOp<S> {
     pub output: S,
 }
 
-impl<LooseSig> DeciderOp<LooseSig> {
-    pub fn new(
-        left: LooseSig,
-        right: LooseSig,
-        operation: DeciderOperation,
-        output: LooseSig,
-    ) -> Self {
+impl<S> DeciderOp<S> {
+    pub fn new(left: S, right: S, operation: DeciderOperation, output: S) -> Self {
         Self {
             left,
             right,

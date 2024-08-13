@@ -145,8 +145,9 @@ fn generate_visitor(mutable: bool) -> TokenStream {
                 self.do_visit_gate_expression(gate);
             }
             fn do_visit_gate_expression(&mut self, gate: #r GateExpression<V>) {
-                self.visit_expression(#r gate.gate_expr);
                 self.visit_expression(#r gate.gated_expr);
+                self.visit_expression(#r gate.left);
+                self.visit_expression(#r gate.right);
             }
 
             fn visit_when_statement(&mut self, when_statement: #r WhenStatement<V>) {

@@ -295,7 +295,9 @@ impl Determiner {
     /// Determine the variable types in the given [GateExpression].
     fn det_gate_expr(&mut self, size_of_expr: GateExpression<MutVar>) -> GateExpression<DetVar> {
         GateExpression::new(
-            self.det_expression(*size_of_expr.gate_expr),
+            self.det_expression(*size_of_expr.left),
+            self.det_expression(*size_of_expr.right),
+            size_of_expr.operator,
             self.det_expression(*size_of_expr.gated_expr),
         )
     }

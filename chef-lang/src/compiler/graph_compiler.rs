@@ -588,30 +588,30 @@ impl GraphCompiler {
             }
             BinaryOperator::LessThan => ReturnValue::Bool(DeciderOperation::LessThan),
             BinaryOperator::LessThanOrEqual => ReturnValue::Bool(DeciderOperation::LessThanOrEqual),
-            BinaryOperator::Equals => ReturnValue::Bool(DeciderOperation::Equals),
-            BinaryOperator::NotEquals => ReturnValue::Bool(DeciderOperation::NotEquals),
+            BinaryOperator::Equals => ReturnValue::Bool(DeciderOperation::Equal),
+            BinaryOperator::NotEquals => ReturnValue::Bool(DeciderOperation::NotEqual),
 
-            BinaryOperator::EveryEquals => ReturnValue::Bool(DeciderOperation::EveryEquals),
+            BinaryOperator::EveryEquals => ReturnValue::Bool(DeciderOperation::EveryEqual),
             BinaryOperator::EveryLargerThan => ReturnValue::Bool(DeciderOperation::EveryLargerThan),
             BinaryOperator::EveryLargerThanEquals => {
-                ReturnValue::Bool(DeciderOperation::EveryLargerThanEquals)
+                ReturnValue::Bool(DeciderOperation::EveryLargerThanOrEqual)
             }
             BinaryOperator::EveryLessThan => ReturnValue::Bool(DeciderOperation::EveryLessThan),
             BinaryOperator::EveryLessThanEquals => {
-                ReturnValue::Bool(DeciderOperation::EveryLessThanEquals)
+                ReturnValue::Bool(DeciderOperation::EveryLessThanOrEqual)
             }
-            BinaryOperator::EveryNotEquals => ReturnValue::Bool(DeciderOperation::EveryNotEquals),
+            BinaryOperator::EveryNotEquals => ReturnValue::Bool(DeciderOperation::EveryNotEqual),
 
-            BinaryOperator::AnyEquals => ReturnValue::Bool(DeciderOperation::AnyEquals),
+            BinaryOperator::AnyEquals => ReturnValue::Bool(DeciderOperation::AnyEqual),
             BinaryOperator::AnyLargerThan => ReturnValue::Bool(DeciderOperation::AnyLargerThan),
             BinaryOperator::AnyLargerThanEquals => {
-                ReturnValue::Bool(DeciderOperation::AnyLargerThanEquals)
+                ReturnValue::Bool(DeciderOperation::AnyLargerThanOrEqual)
             }
             BinaryOperator::AnyLessThan => ReturnValue::Bool(DeciderOperation::AnyLessThan),
             BinaryOperator::AnyLessThanEquals => {
-                ReturnValue::Bool(DeciderOperation::AnyLessThanEquals)
+                ReturnValue::Bool(DeciderOperation::AnyLessThanOrEqual)
             }
-            BinaryOperator::AnyNotEquals => ReturnValue::Bool(DeciderOperation::AnyNotEquals),
+            BinaryOperator::AnyNotEquals => ReturnValue::Bool(DeciderOperation::AnyNotEqual),
 
             BinaryOperator::Combine => ReturnValue::Group,
         };
@@ -757,17 +757,27 @@ impl GraphCompiler {
         gate: &GateExpression,
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
-        let (cond_nid, cond_type) = self.compile_expression(graph, &gate.gate_expr, None)?;
         let (input_nid, input_type) = self.compile_expression(graph, &gate.gated_expr, out_type)?;
 
-        let cond_type = cond_type.to_signal();
+        let (left_nid, left_type) = self.compile_expression(graph, &gate.left, None)?;
+        let (right_nid, right_type) = self.compile_expression(graph, &gate.right, None)?;
+
         let input_type = input_type.to_signal();
+        let left_type = left_type.to_signal();
+        let right_type = right_type.to_signal();
 
         // TODO: Report this as an error
-        assert_ne!(cond_type, input_type);
+        assert_ne!(left_type, right_type);
 
-        let (gate_input, gate_output) = graph.push_gate_connection(cond_type, input_type.clone());
-        graph.push_wire(cond_nid, gate_input);
+        let (gate_input, gate_output) = graph.push_connection(Connection::new_decider(DeciderOp {
+            left: left_type,
+            right: right_type,
+            operation: gate.operator.clone(),
+            output: input_type.clone(),
+        }));
+
+        graph.push_wire(left_nid, gate_input);
+        graph.push_wire(right_nid, gate_input);
         graph.push_wire(input_nid, gate_input);
 
         Ok((gate_output, input_type))

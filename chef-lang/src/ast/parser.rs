@@ -22,8 +22,8 @@ use super::lexer::Lexer;
 use super::{
     AssignmentType, BlockLinkArg, BlockLinkExpression, Declaration, DeclarationDefinition,
     Definition, DefinitionKind, DynBlockArg, DynBlockId, IndexExpression, MutVar,
-    NegativeExpression, PickExpression, SizeOfExpression, VarData, Variable, VariableRef,
-    VariableSignalType, WhenStatement, AST,
+    NegativeExpression, OperatorKind, PickExpression, SizeOfExpression, VarData, Variable,
+    VariableRef, VariableSignalType, WhenStatement, AST,
 };
 
 const MACRO_ARG_SEP: &str = "; ";
@@ -1326,11 +1326,35 @@ impl Parser {
             }
             TokenKind::QuestionMark => {
                 self.consume(); // Consume "?"
-                let gate = self.parse_expression()?;
+
+                let left = self.parse_primary_expression()?;
+                let op = match self.get_binary_operator() {
+                    Some(bin_op) => {
+                        if let OperatorKind::Decider(dc) = bin_op.operator() {
+                            self.consume(); // Consume operator
+                            Ok(dc)
+                        } else {
+                            Err(CompilationError::new_localized(
+                                format!("Expected decider operator, found '{}'.", bin_op),
+                                self.current().span.clone(),
+                            ))
+                        }
+                    }
+                    None => Err(CompilationError::new_localized(
+                        format!(
+                            "Expected binary operator for gate expression, found '{}'.",
+                            self.current().kind
+                        ),
+                        self.current().span.clone(),
+                    )),
+                }?;
+                let right = self.parse_primary_expression()?;
+
                 self.consume_and_expect(TokenKind::LeftArrow)?;
                 let gated = self.parse_expression()?;
+
                 Ok(Expression::new(
-                    ExpressionKind::Gate(GateExpression::new(gate, gated)),
+                    ExpressionKind::Gate(GateExpression::new(left, right, op, gated)),
                     TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
                 ))
             }

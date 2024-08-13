@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::ast::visitors::Visitor;
-use crate::compiler::graph::WireKind;
+use crate::compiler::graph::{ArithmeticOperation, DeciderOperation, WireKind};
 use crate::diagnostics::DiagnosticsBagRef;
 use crate::text::{SourceText, TextSpan};
 use crate::Opts;
@@ -881,7 +881,9 @@ pub struct GateExpression<V>
 where
     V: Variable,
 {
-    pub gate_expr: Box<Expression<V>>,
+    pub left: Box<Expression<V>>,
+    pub right: Box<Expression<V>>,
+    pub operator: DeciderOperation,
     pub gated_expr: Box<Expression<V>>,
 }
 
@@ -889,9 +891,16 @@ impl<V> GateExpression<V>
 where
     V: Variable,
 {
-    pub fn new(gate_expr: Expression<V>, gated_expr: Expression<V>) -> Self {
+    fn new(
+        left: Expression<V>,
+        right: Expression<V>,
+        operator: DeciderOperation,
+        gated_expr: Expression<V>,
+    ) -> Self {
         Self {
-            gate_expr: Box::new(gate_expr),
+            left: Box::new(left),
+            right: Box::new(right),
+            operator,
             gated_expr: Box::new(gated_expr),
         }
     }
@@ -964,6 +973,13 @@ pub enum BinaryOperator {
     AnyNotEquals,
 }
 
+#[allow(dead_code)] // TODO: Remove this
+pub enum OperatorKind {
+    Decider(DeciderOperation),
+    Arithmetic(ArithmeticOperation),
+    Combine,
+}
+
 impl BinaryOperator {
     /// Get the operator's precedence. Operations with highter precedence will be evaluated first.
     fn precedence(&self) -> u8 {
@@ -991,6 +1007,35 @@ impl BinaryOperator {
             Self::Subtract => 2,
             Self::Multiply => 3,
             Self::Divide => 3,
+        }
+    }
+
+    #[rustfmt::skip]
+    fn operator(&self) -> OperatorKind {
+        match self {
+            BinaryOperator::Add => OperatorKind::Arithmetic(ArithmeticOperation::Add),
+            BinaryOperator::Subtract => OperatorKind::Arithmetic(ArithmeticOperation::Subtract),
+            BinaryOperator::Multiply => OperatorKind::Arithmetic(ArithmeticOperation::Multiply),
+            BinaryOperator::Divide => OperatorKind::Arithmetic(ArithmeticOperation::Divide),
+            BinaryOperator::LargerThan => OperatorKind::Decider(DeciderOperation::LargerThan),
+            BinaryOperator::LargerThanOrEqual => OperatorKind::Decider(DeciderOperation::LargerThanOrEqual),
+            BinaryOperator::LessThan => OperatorKind::Decider(DeciderOperation::LessThan),
+            BinaryOperator::LessThanOrEqual => OperatorKind::Decider(DeciderOperation::LessThanOrEqual),
+            BinaryOperator::Equals => OperatorKind::Decider(DeciderOperation::Equal),
+            BinaryOperator::NotEquals => OperatorKind::Decider(DeciderOperation::NotEqual),
+            BinaryOperator::EveryEquals => OperatorKind::Decider(DeciderOperation::EveryEqual),
+            BinaryOperator::EveryLargerThan => OperatorKind::Decider(DeciderOperation::EveryLargerThan),
+            BinaryOperator::EveryLargerThanEquals => OperatorKind::Decider(DeciderOperation::EveryLargerThanOrEqual),
+            BinaryOperator::EveryLessThan => OperatorKind::Decider(DeciderOperation::EveryLessThan),
+            BinaryOperator::EveryLessThanEquals => OperatorKind::Decider(DeciderOperation::EveryLessThanOrEqual),
+            BinaryOperator::EveryNotEquals => OperatorKind::Decider(DeciderOperation::EveryNotEqual),
+            BinaryOperator::AnyEquals => OperatorKind::Decider(DeciderOperation::AnyEqual),
+            BinaryOperator::AnyLargerThan => OperatorKind::Decider(DeciderOperation::AnyLargerThan),
+            BinaryOperator::AnyLargerThanEquals => OperatorKind::Decider(DeciderOperation::AnyLargerThanOrEqual),
+            BinaryOperator::AnyLessThan => OperatorKind::Decider(DeciderOperation::AnyLessThan),
+            BinaryOperator::AnyLessThanEquals => OperatorKind::Decider(DeciderOperation::AnyLessThanOrEqual),
+            BinaryOperator::AnyNotEquals => OperatorKind::Decider(DeciderOperation::AnyNotEqual),
+            BinaryOperator::Combine => OperatorKind::Combine,
         }
     }
 
