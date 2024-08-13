@@ -1,11 +1,14 @@
 { pkgs ? import <nixpkgs> {} }:
+let
+    config = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+in
 pkgs.rustPlatform.buildRustPackage rec {
-  pname = "chef";
-  version = "0.1.0";
+  pname = config.package.name;
+  version = config.package.version;
 
   src = ./.;
 
-  cargoHash = "sha256-rz3hJk3GvR2x1QiCiT9IY6aIescjbtggqIq3czT3x6w=";
+  cargoHash = "sha256-c9lbJpfnhOtuZb4SXfLtlKKHH7yI12q37Hlj6VRLKW8=";
   cargoDepsName = pname;
   doCheck = false;
 }
