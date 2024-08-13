@@ -286,8 +286,14 @@ impl Lexer {
         comment
     }
 
+    #[rustfmt::skip]
+    fn _is_punctuation(c: char) -> bool {
+        matches!(c, '+' | '-' | '*' | '/' | '(' | ')' | '[' | ']' | '{' | '}' | '|' | '\''
+            | '=' | ',' | '.' | ':' | ';' | '#' | '@' | '?' | '>' | '<' | '!' | '&')
+    }
+
     /// Lexes punctuation.
-    fn consume_punctuation(&mut self) -> Option<TokenKind> {
+    fn consume_punctuation(&mut self) -> TokenKind {
         #[rustfmt::skip]
         let (len, kind) = match (self.peak(0), self.peak(1), self.peak(2)) {
             (Some('+'), Some('='), _,       ) => (2, TokenKind::PlusEquals),
@@ -344,7 +350,7 @@ impl Lexer {
             _ => (1, TokenKind::Bad),
         };
         self.cursor += len;
-        Some(kind)
+        kind
     }
 
     /// Consume a string literal.
@@ -407,10 +413,7 @@ impl Iterator for Lexer {
                 TokenKind::Whitespace
             }
             c if Self::is_word_start_char(c) => self.consume_word(),
-            _ => match self.consume_punctuation() {
-                Some(kind) => kind,
-                None => return self.next(), // Ignore and get next if punctuation was a comment
-            },
+            _ => self.consume_punctuation(),
         };
 
         let end = self.cursor;

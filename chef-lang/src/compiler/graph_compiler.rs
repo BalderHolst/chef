@@ -344,14 +344,16 @@ impl GraphCompiler {
         graph: &mut Graph<LooseSig>,
         gate: Option<(NId, LooseSig)>,
         expr_out_nid: NId,
-        var_type: LooseSig,
+        mut var_type: LooseSig,
         var_id: VariableId,
         def_kind: DefinitionKind,
     ) -> Result<(), CompilationError> {
         // Handle gated assignments
         let output_nid = match gate {
             Some((condition_nid, condition_type)) => {
-                // TODO: convert one if this happens
+                var_type = var_type.to_signal();
+
+                // TODO: Report error
                 assert_ne!(&condition_type, &var_type);
 
                 // Add the gate
@@ -752,6 +754,7 @@ impl GraphCompiler {
         let (cond_nid, cond_type) = self.compile_expression(graph, &gate.gate_expr, None)?;
         let (input_nid, input_type) = self.compile_expression(graph, &gate.gated_expr, out_type)?;
 
+        let cond_type = cond_type.to_signal();
         let input_type = input_type.to_signal();
 
         // TODO: Report this as an error
@@ -772,11 +775,12 @@ impl GraphCompiler {
         self.enter_scope();
 
         // Compile condition expression.
-        let cond_pair = self.compile_expression(graph, &when_statement.condition, None)?;
+        let (cond_nid, cond_type) =
+            self.compile_expression(graph, &when_statement.condition, None)?;
 
         // Compile statements
         for statement in &when_statement.statements {
-            self.compile_statement(graph, statement, Some(cond_pair.clone()))?;
+            self.compile_statement(graph, statement, Some((cond_nid, cond_type.clone())))?;
         }
 
         self.exit_scope();

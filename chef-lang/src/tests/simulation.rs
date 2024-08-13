@@ -325,7 +325,7 @@ fn simulate_negative_numbers() {
 }
 
 #[test]
-fn test_declaration_tuple_unpacking() {
+fn declaration_tuple_unpacking() {
     let g = compile_code(
         "
     block values() => (a: int, b: int) {
@@ -346,7 +346,7 @@ fn test_declaration_tuple_unpacking() {
 }
 
 #[test]
-fn test_definition_tuple_unpacking() {
+fn definition_tuple_unpacking() {
     let g = compile_code(
         "
     block values() => (a: int, b: int, c: int) {
@@ -372,7 +372,7 @@ fn test_definition_tuple_unpacking() {
 
 #[ignore = "broken"]
 #[test]
-fn test_mixed_tuple_unpacking() {
+fn mixed_tuple_unpacking() {
     let g = compile_code(
         "
     block values() => (a: int, b: int, c: bool) {
@@ -385,9 +385,7 @@ fn test_mixed_tuple_unpacking() {
         let x: int;
         let z: bool;
         (x, y: int, z) <- values();
-        when z {
-            out <<- x - y;
-        }
+        out <<- x - y;
     }
 ",
     );
@@ -398,7 +396,33 @@ fn test_mixed_tuple_unpacking() {
 }
 
 #[test]
-fn test_gate_expression() {
+fn when_statement() {
+    let g = compile_code(
+        "
+    block main(input: many) => (out: int(signal-B)) {
+        when input[signal-A] > 10 {
+            out <<- 20;
+        }
+    }
+",
+    );
+    let n = 6;
+
+    let mut sim = Simulator::new(g.clone(), inputs!["signal-A": 0]);
+    sim.simulate(n);
+    assert_eq!(sim.get_output(), outputs!["signal-B": 0]);
+
+    let mut sim = Simulator::new(g.clone(), inputs!["signal-A": 10]);
+    sim.simulate(n);
+    assert_eq!(sim.get_output(), outputs!["signal-B": 0]);
+
+    let mut sim = Simulator::new(g, inputs!["signal-A": 11]);
+    sim.simulate(n);
+    assert_eq!(sim.get_output(), outputs!["signal-B": 20]);
+}
+
+#[test]
+fn gate_expression() {
     let g = compile_code(
         "
     block main(input: many) => (out: many) {
