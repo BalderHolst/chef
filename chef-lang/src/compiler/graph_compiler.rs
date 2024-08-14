@@ -338,9 +338,10 @@ impl GraphCompiler {
                 ))
             }
         };
-        let (expr_out_nid, var_type) =
-            self.compile_expression(graph, &def.expression, Some(var_type))?;
-        self.compile_definition(graph, gate, expr_out_nid, var_type, var.id, def.kind)?;
+
+        let (expr_out_nid, expr_type) = self.compile_expression(graph, &def.expression, None)?;
+
+        self.compile_definition(graph, gate, expr_out_nid, expr_type, var.id, def.kind)?;
         Ok(())
     }
 
@@ -349,21 +350,21 @@ impl GraphCompiler {
         graph: &mut Graph<LooseSig>,
         gate: Option<(NId, LooseSig)>,
         expr_out_nid: NId,
-        mut var_type: LooseSig,
+        mut expr_type: LooseSig,
         var_id: VariableId,
         def_kind: DefinitionKind,
     ) -> Result<(), CompilationError> {
         // Handle gated assignments
         let output_nid = match gate {
             Some((condition_nid, condition_type)) => {
-                var_type = var_type.to_signal();
+                expr_type = expr_type.to_signal();
 
                 // TODO: Report error
-                assert_ne!(&condition_type, &var_type);
+                assert_ne!(&condition_type, &expr_type);
 
                 // Add the gate
                 let (gate_input, gate_output) =
-                    graph.push_gate_connection(condition_type, var_type.clone());
+                    graph.push_gate_connection(condition_type, expr_type.clone());
 
                 // Wire up the gate
                 graph.push_wire(gate_input, condition_nid);
@@ -375,7 +376,7 @@ impl GraphCompiler {
             None => expr_out_nid,
         };
 
-        self.define_variable(graph, var_id, output_nid, var_type.clone(), def_kind)
+        self.define_variable(graph, var_id, output_nid, expr_type.clone(), def_kind)
     }
 
     /// Returns a tuple: (output_vid, output_type)
@@ -440,7 +441,7 @@ impl GraphCompiler {
 
     fn compile_variable_ref_expression(
         &mut self,
-        graph: &mut Graph<LooseSig>,
+        _graph: &mut Graph<LooseSig>,
         var_ref: &VariableRef,
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
@@ -450,19 +451,11 @@ impl GraphCompiler {
             .search_scope(var.id)
             .unwrap_or_else(|| panic!("Variable references should always point to defined variables. Could not find var '{}' with id {}.", var.name, var.id));
 
-        match out_type {
-            Some(out_type) => {
-                let (converter_input, var_nid) = graph.push_connection(Connection::new_convert(
-                    var_type.to_combinator_type(),
-                    out_type.to_combinator_type(),
-                ));
-
-                graph.push_wire(var_ref_nid, converter_input);
-
-                Ok((var_nid, out_type))
-            }
-            None => Ok((var_ref_nid, var_type.clone())),
+        if let Some(out_type) = out_type {
+            assert_eq!(var_type, out_type, "Variable type mismatch in compiler. This should have been caught by the type checker.");
         }
+
+        Ok((var_ref_nid, var_type.clone()))
     }
 
     fn compile_negative_expression(
@@ -769,11 +762,11 @@ impl GraphCompiler {
         // TODO: Report this as an error
         assert_ne!(left_type, right_type);
 
-        let (gate_input, gate_output) = graph.push_connection(Connection::new_decider(DeciderOp {
+        let (gate_input, gate_output) = graph.push_connection(Connection::new_gate(GateOp {
             left: left_type,
             right: right_type,
             operation: gate.operator.clone(),
-            output: input_type.clone(),
+            gate_type: input_type.clone(),
         }));
 
         graph.push_wire(left_nid, gate_input);
