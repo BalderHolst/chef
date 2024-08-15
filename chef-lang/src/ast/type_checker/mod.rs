@@ -55,11 +55,15 @@ impl TypeChecker {
     }
 
     /// Check if two types are equal.
-    fn check_equal<F>(&mut self, t1: &ExpressionReturnType, t2: &ExpressionReturnType, err: F)
-    where
+    fn check_direct_assign<F>(
+        &mut self,
+        t1: &ExpressionReturnType,
+        t2: &ExpressionReturnType,
+        err: F,
+    ) where
         F: FnOnce() -> (TextSpan, String),
     {
-        if t1 != t2 {
+        if !t1.direct_assignable(t2) {
             let (span, msg) = err();
             self.diagnostics_bag.borrow_mut().report_error(&span, &msg);
         }
@@ -97,15 +101,17 @@ impl TypeChecker {
                     )
                 }
             }
-            _ => self.check_equal(var_type, expr_type, || {
-                (
-                    span.clone(),
-                    format!(
+            DefinitionKind::Equal | DefinitionKind::Wire(_) => {
+                self.check_direct_assign(var_type, expr_type, || {
+                    (
+                        span.clone(),
+                        format!(
                         "Can not assign expression returning `{}` type to variable of type `{}`.",
                         &expr_type, &var_type
                     ),
-                )
-            }),
+                    )
+                })
+            }
         }
     }
 

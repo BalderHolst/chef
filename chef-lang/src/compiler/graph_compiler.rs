@@ -330,6 +330,7 @@ impl GraphCompiler {
         gate: Option<(NId, LooseSig)>,
     ) -> Result<(), CompilationError> {
         let var = &def.variable;
+
         let (_var_nid, var_type) = match self.search_scope(var.id) {
             Some(t) => t,
             None => {
@@ -339,7 +340,14 @@ impl GraphCompiler {
             }
         };
 
-        let (expr_out_nid, expr_type) = self.compile_expression(graph, &def.expression, None)?;
+        // Infer types of constant when directly assigned to variable
+        let (expr_out_nid, expr_type) = match &def.expression.kind {
+            ExpressionKind::Int(n) => self.compile_constant(graph, *n, Some(var_type.clone()))?,
+            ExpressionKind::Bool(b) => {
+                self.compile_constant(graph, *b as i32, Some(var_type.clone()))?
+            }
+            _ => self.compile_expression(graph, &def.expression, None)?,
+        };
 
         self.compile_definition(graph, gate, expr_out_nid, expr_type, var.id, def.kind)?;
         Ok(())
@@ -464,29 +472,23 @@ impl GraphCompiler {
         neg_expr: &NegativeExpression,
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
-        let out_type = match out_type {
-            Some(t) => t,
-            None => self.get_new_anysignal(),
-        };
-
         let expr = &neg_expr.expression;
 
-        let (expr_out_nid, _) = self.compile_expression(graph, expr, Some(out_type.clone()))?;
+        let (expr_out_nid, expr_out_type) = self.compile_expression(graph, expr, None)?;
 
-        let (c_input, negative_out_nid) = graph.push_connection(
-            // expr_out_nid,
-            // negative_out_nid,
-            Connection::new_arithmetic(ArithmeticOp::new(
-                out_type.clone(),
+        debug_assert!(out_type.is_none() || Some(expr_out_type.clone()) == out_type, "Negative expression type mismatch in compiler. This should have been caught by the type checker.");
+
+        let (c_input, negative_out_nid) =
+            graph.push_connection(Connection::new_arithmetic(ArithmeticOp::new(
+                expr_out_type.clone(),
                 LooseSig::Constant(-1),
                 ArithmeticOperation::Multiply,
-                out_type.clone(),
-            )),
-        );
+                expr_out_type.clone(),
+            )));
 
         graph.push_wire(expr_out_nid, c_input);
 
-        Ok((negative_out_nid, out_type))
+        Ok((negative_out_nid, expr_out_type))
     }
 
     fn compile_pick_expression(
@@ -562,12 +564,6 @@ impl GraphCompiler {
             );
         }
 
-        // Use the outtype if any was provided.
-        let out_type = match out_type {
-            Some(t) => t,
-            None => self.get_new_anysignal(),
-        };
-
         // Get the combinator operation
         let operation = match bin_expr.operator {
             BinaryOperator::Add => ReturnValue::Int(ArithmeticOperation::Add),
@@ -607,6 +603,12 @@ impl GraphCompiler {
             BinaryOperator::AnyNotEquals => ReturnValue::Bool(DeciderOperation::AnyNotEqual),
 
             BinaryOperator::Combine => ReturnValue::Group,
+        };
+
+        // Use the out_type if any was provided.
+        let out_type = match out_type {
+            Some(t) => t,
+            None => self.get_new_anysignal(),
         };
 
         // The connection doing the actual operation

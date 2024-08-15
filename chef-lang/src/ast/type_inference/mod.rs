@@ -70,6 +70,7 @@ impl MutVisitor<MutVar> for TypeInferer {
             let var_type = var.borrow().type_.clone();
             let expr_type = def.expression.return_type();
 
+            // Infer variable type
             if var_type == VariableType::Inferred && expr_type != ExpressionReturnType::Infered {
                 var.borrow_mut().type_ = expr_type.try_into().unwrap();
                 self.did_work = true;

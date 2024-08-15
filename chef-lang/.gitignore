@@ -2,4 +2,3 @@ target/
 cargo
 *.svg
 result
-simulation

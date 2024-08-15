@@ -638,6 +638,10 @@ where
         }
     }
 
+    pub fn is_constant(&self) -> bool {
+        matches!(self.kind, ExpressionKind::Int(_) | ExpressionKind::Bool(_))
+    }
+
     fn return_type(&self) -> ExpressionReturnType {
         match &self.kind {
             ExpressionKind::Bool(_) => ExpressionReturnType::AnyBool,
@@ -674,6 +678,10 @@ impl ExpressionReturnType {
 
     pub fn is_bool(&self) -> bool {
         matches!(self, Self::AnyBool | Self::Bool(_))
+    }
+
+    pub fn direct_assignable(&self, other: &Self) -> bool {
+        self == other
     }
 }
 

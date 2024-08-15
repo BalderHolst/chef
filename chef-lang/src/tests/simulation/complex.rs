@@ -1,40 +1,9 @@
+use super::*;
+use crate::{inputs, outputs, simulator::Simulator};
 use pretty_assertions::assert_eq;
 
-use std::rc::Rc;
-
-use crate::{
-    ast::AST,
-    cli::Opts,
-    compiler::{
-        self,
-        graph::{DetSig, Graph},
-    },
-    diagnostics::{CompilationResult, DiagnosticsBag},
-    inputs, outputs,
-    simulator::Simulator,
-    text::SourceText,
-};
-
-fn compile_source(source_text: SourceText) -> CompilationResult<Graph<DetSig>> {
-    let text = Rc::new(source_text);
-    let opts = Rc::new(Opts::new_test());
-    let bag = DiagnosticsBag::new_ref(opts.clone());
-    let ast = AST::from_source(text.clone(), bag.clone(), opts.clone());
-    bag.borrow_mut().exit_if_errored();
-    compiler::compile(ast, opts)
-}
-
-fn compile_code<S>(code: S) -> Graph<DetSig>
-where
-    S: ToString,
-{
-    let code = code.to_string();
-    let text = SourceText::from_str(code.as_str());
-    compile_source(text).unwrap()
-}
-
 #[test]
-fn simulate_arithmetic() {
+fn arithmetic() {
     let graph = compile_code(
         "
 
@@ -56,7 +25,7 @@ block main(input: many) => (out: int(inserter)) {
 
 #[test]
 #[ignore = "counters are not implemented in stdlib yet"]
-fn simulate_counter_with_when() {
+fn counter_with_when() {
     let graph = compile_code(
         "
 block main() => (out: int(tank)) {
@@ -80,7 +49,7 @@ block main() => (out: int(tank)) {
 }
 
 #[test]
-fn simulate_constant_int_blocks() {
+fn constant_int_blocks() {
     let out = compile_code(
         "
 
@@ -99,7 +68,7 @@ fn simulate_constant_int_blocks() {
 }
 
 #[test]
-fn simulate_constant_bool_blocks() {
+fn constant_bool_blocks() {
     let out = compile_code(
         "
     
@@ -118,7 +87,7 @@ fn simulate_constant_bool_blocks() {
 }
 
 #[test]
-fn simulate_multiple_blocks() {
+fn multiple_blocks() {
     let g = compile_code(
         "
 
@@ -189,7 +158,7 @@ fn simulate_multiple_blocks() {
 }
 
 #[test]
-fn simulate_order_of_operations_compile_time() {
+fn order_of_operations_compile_time() {
     let g = compile_code(
         "
     block main(input: many) => (out: int(rail)) {
@@ -205,7 +174,7 @@ fn simulate_order_of_operations_compile_time() {
 }
 
 #[test]
-fn simulate_order_of_operations_constants() {
+fn order_of_operations_constants() {
     let g = compile_code(
         "
     const A = 1
@@ -225,7 +194,7 @@ fn simulate_order_of_operations_constants() {
 }
 
 #[test]
-fn simulate_order_of_operations_constant_evaluation() {
+fn order_of_operations_constant_evaluation() {
     let g = compile_code(
         "
     const A = 1
@@ -246,7 +215,7 @@ fn simulate_order_of_operations_constant_evaluation() {
 }
 
 #[test]
-fn simulate_order_of_operations_factorio_time() {
+fn order_of_operations_factorio_time() {
     let g = compile_code(
         "
     block main(input: many) => (out: int(rail)) {
@@ -265,7 +234,7 @@ fn simulate_order_of_operations_factorio_time() {
 }
 
 #[test]
-fn simulate_order_of_operations_any_signals_factorio_time() {
+fn order_of_operations_any_signals_factorio_time() {
     let g = compile_code(
         "
     block main(input: many) => (out: int(rail)) {
@@ -285,7 +254,7 @@ fn simulate_order_of_operations_any_signals_factorio_time() {
 
 #[test]
 #[ignore = "counters are not implemented in stdlib yet"]
-fn simulate_var_mutation_with_clock() {
+fn var_mutation_with_clock() {
     let g = compile_code(
         "
     block main() => (out: int(signal-O)) {
@@ -307,13 +276,13 @@ fn simulate_var_mutation_with_clock() {
 }
 
 #[test]
-fn simulate_negative_numbers() {
+fn negative_numbers() {
     let g = compile_code(
         "
-    const A = -5+8-5        // = -2
-    
+    const A = -5+8-5 // = -2
+
     block main() => (out: int(pump)) {
-        let b: int <- -4-5+1;    // = -8
+        let b: int <- -4-5+1; // = -8
         out <<- A + b;
     }
 ",
