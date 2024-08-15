@@ -146,7 +146,6 @@ dependencies = [
  "jsonxf",
  "lazy_static",
  "make_tests",
- "make_visitors",
  "noisy_float",
  "pretty_assertions",
  "prettydiff",
@@ -677,13 +676,6 @@ checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
 [[package]]
 name = "make_tests"
 version = "0.1.0"
-
-[[package]]
-name = "make_visitors"
-version = "0.1.0"
-dependencies = [
- "quote",
-]
 
 [[package]]
 name = "malloc_buf"
