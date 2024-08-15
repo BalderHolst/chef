@@ -22,4 +22,5 @@ jsonxf = "1.1.1"
 [dev-dependencies]
 prettydiff = "0.6.4"
 pretty_assertions = "1.4.0"
+quote = "1.0.9"
 make_tests = { path = "./proc_macros/make_tests" }
