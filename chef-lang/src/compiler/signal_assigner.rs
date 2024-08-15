@@ -51,7 +51,7 @@ impl<'a> AnysignalAssigner<'a> {
         // TODO: also add used signals in nodes or maybe it does not matter?
         for (_, _, conn) in ass.input_graph.iter_conns() {
             if let Connection::Operation(op) = conn {
-                if let LooseSig::Signal(s) = op.get_output_iotype() {
+                if let LooseSig::Signal(s) = op.get_output_type() {
                     ass.used_signals.insert(s);
                 }
             }

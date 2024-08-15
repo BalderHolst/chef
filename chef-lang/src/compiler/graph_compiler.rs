@@ -655,6 +655,8 @@ impl GraphCompiler {
         block_link_expr: &BlockLinkExpression,
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
+        assert!(out_type.is_none());
+
         let mut args: Vec<(NId, LooseSig)> = Vec::new();
 
         for arg_expr in block_link_expr.inputs.iter() {
@@ -669,6 +671,7 @@ impl GraphCompiler {
 
         let block_name = ast_block.name.clone();
         let dyn_block_id = ast_block.dyn_block_id;
+        let out_type = self.variable_type_to_loose_sig(&ast_block.outputs[0].type_.clone());
         let block_graph = self.get_graph(&block_name, dyn_block_id)?;
 
         let mut outputs = graph.stitch_graph(&block_graph, args)?;
@@ -682,22 +685,22 @@ impl GraphCompiler {
 
         let (block_out_nid, block_out_type) = outputs.remove(0);
 
-        if let Some(out_type) = out_type {
-            match &block_out_type {
-                LooseSig::AnySignal(id) => graph.assign_anysignal(id, out_type.clone()),
-                LooseSig::ConstantAny((id, c)) => {
-                    graph.assign_anysignal(id, out_type.to_constant(*c).unwrap())
-                }
-                _ => {
-                    return Err(CompilationError::new_generic(format!(
-                        "Cannot coerce block output `{block_out_type}` into `{out_type}`."
-                    )))
-                }
+        println!("Linking block: {}", block_name);
+        dbg!(&block_out_type);
+        dbg!(&out_type);
+
+        match &block_out_type {
+            LooseSig::AnySignal(id) => graph.assign_anysignal(id, out_type.clone()),
+            LooseSig::ConstantAny((id, c)) => {
+                graph.assign_anysignal(id, out_type.to_constant(*c).unwrap())
             }
-            Ok((block_out_nid, out_type))
-        } else {
-            Ok((block_out_nid, block_out_type))
+            _ => {
+                return Err(CompilationError::new_generic(format!(
+                    "Cannot coerce block output `{block_out_type}` into `{out_type}`."
+                )))
+            }
         }
+        Ok((block_out_nid, out_type))
     }
 
     fn compile_delay_expression(

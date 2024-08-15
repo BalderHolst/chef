@@ -105,11 +105,12 @@ impl Display for ArithmeticOperation {
 }
 
 pub trait Signal<S> {
-    fn get_output_iotype(&self) -> S;
+    fn get_output_type(&self) -> S;
 
     fn is_const(&self) -> bool;
 
     fn new_const(c: i32) -> Self;
+    fn new_many() -> Self;
 
     fn get_constant_signal(&self) -> Option<(S, i32)>;
 }
@@ -134,12 +135,16 @@ impl DetSig {
 }
 
 impl Signal<DetSig> for DetSig {
-    fn get_output_iotype(&self) -> Self {
+    fn get_output_type(&self) -> Self {
         self.clone()
     }
 
     fn new_const(c: i32) -> Self {
         Self::Constant(c)
+    }
+
+    fn new_many() -> Self {
+        Self::Many
     }
 
     fn is_const(&self) -> bool {
@@ -177,12 +182,16 @@ pub enum LooseSig {
 }
 
 impl Signal<LooseSig> for LooseSig {
-    fn get_output_iotype(&self) -> Self {
+    fn get_output_type(&self) -> Self {
         self.clone()
     }
 
     fn new_const(c: i32) -> Self {
         Self::Constant(c)
+    }
+
+    fn new_many() -> Self {
+        Self::Many
     }
 
     fn is_const(&self) -> bool {
@@ -387,7 +396,7 @@ where
         Self::Delay(DelayOp::new(output))
     }
 
-    pub fn get_output_iotype(&self) -> S {
+    pub fn get_output_type(&self) -> S {
         match self {
             Self::Arithmetic(ac) => ac.output.clone(),
             Self::Decider(dc) => dc.output.clone(),
@@ -503,8 +512,8 @@ pub enum Node<S> {
     // TODO: This can probably be removed, as output nodes and their output types can be derived
     // from the graph structure itself.
     Output {
-        kind: S,
         name: String,
+        kind: S,
 
         /// Used to figure out order of block inputs
         nr: usize,
@@ -644,28 +653,28 @@ where
         networks
     }
 
-    // pub fn _get_output_iotype(&self, nid: &NId) -> LooseSig {
-    //     let green_network_nids = self.get_node_network(nid, WireKind::Green);
-    //     let red_network_nids = self.get_node_network(nid, WireKind::Red);
+    pub fn get_output_type(&self, nid: &NId) -> S {
+        let green_network_nids = self.get_node_network(nid, WireKind::Green);
+        let red_network_nids = self.get_node_network(nid, WireKind::Red);
 
-    //     let mut types = vec![];
+        let mut types = vec![];
 
-    //     for to_vec in self.adjacency.values() {
-    //         for (to_nid, conn) in to_vec {
-    //             if green_network_nids.contains(to_nid) || red_network_nids.contains(to_nid) {
-    //                 if let Connection::Combinator(com) = conn {
-    //                     types.push(com.get_output_iotype())
-    //                 }
-    //             }
-    //         }
-    //     }
+        for to_vec in self.adjacency.values() {
+            for (to_nid, conn) in to_vec {
+                if green_network_nids.contains(to_nid) || red_network_nids.contains(to_nid) {
+                    if let Connection::Operation(op) = conn {
+                        types.push(op.get_output_type())
+                    }
+                }
+            }
+        }
 
-    //     if types.len() == 1 {
-    //         types[0].clone()
-    //     } else {
-    //         LooseSig::Many
-    //     }
-    // }
+        if types.len() == 1 {
+            types[0].clone()
+        } else {
+            S::new_many()
+        }
+    }
 
     fn get_next_input_nr(&mut self) -> usize {
         let n = self.next_input_nr;
@@ -713,7 +722,7 @@ where
             for (to_nid, conn) in to_vec {
                 if green_network_nids.contains(to_nid) {
                     if let Connection::Operation(com) = conn {
-                        let input_type = com.get_output_iotype();
+                        let input_type = com.get_output_type();
                         let input = (input_type, WireKind::Green);
                         if !input_types.contains(&input) {
                             input_types.push(input)
@@ -722,7 +731,7 @@ where
                 }
                 if red_network_nids.contains(to_nid) {
                     if let Connection::Operation(com) = conn {
-                        let input_type = com.get_output_iotype();
+                        let input_type = com.get_output_type();
                         let input = (input_type, WireKind::Red);
                         if !input_types.contains(&input) {
                             input_types.push(input)
@@ -1032,12 +1041,8 @@ where
             nid_converter.insert(old_nid, new_nid);
 
             // If the node is an output, we add its new node to the `sub_outputs` hash map.
-            if let Node::Output {
-                kind: output_type,
-                name: _,
-                nr,
-            } = node
-            {
+            if let Node::Output { nr, .. } = node {
+                let output_type = sub.get_output_type(&old_nid);
                 sub_outputs.push((new_nid, output_type, nr));
             }
         }
@@ -1094,7 +1099,7 @@ where
 
 impl Graph<LooseSig> {
     fn replace_if_anysignal_with_id(sig: &mut LooseSig, id: &u64, new_type: LooseSig) {
-        // println!("Replacing anysignal {} with {:?}", id, new_type);
+        println!("Replacing anysignal {} with {:?}", id, new_type);
         match sig {
             LooseSig::AnySignal(this_id) if this_id == id => *sig = new_type,
             LooseSig::ConstantAny((this_id, c)) if this_id == id => {

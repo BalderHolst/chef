@@ -98,7 +98,7 @@ fn multiple_blocks() {
     block add(a: int, b: int) => (out: int) {
         out <- a + b;
     }
-    
+
     block main(input: many) => (out: bool(rail)) {
         out <<- over1000(add(input[signal-A], input[signal-B]));
     }

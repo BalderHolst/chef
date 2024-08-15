@@ -19,6 +19,7 @@ fn compile_source(source_text: SourceText) -> CompilationResult<Graph<DetSig>> {
     let opts = Rc::new(Opts::new_test());
     let bag = DiagnosticsBag::new_ref(opts.clone());
     let ast = AST::from_source(text.clone(), bag.clone(), opts.clone());
+    ast.print();
     bag.borrow_mut().exit_if_errored();
     compiler::compile(ast, opts)
 }
