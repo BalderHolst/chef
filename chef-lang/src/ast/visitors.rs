@@ -248,12 +248,12 @@ macro_rules! make_visitor {
 
 // Generate trait implementations for the `Visitor` and `MutVisitor` traits
 make_visitor! {
-    doc: "Allows stuct to *immutably* visit the chef [AST].",
+    doc: "Allows a struct to *immutably* traverse the chef [AST].",
     name: Visitor,
     ref: &
 }
 make_visitor! {
-    doc: "Allows stuct to *immutably* visit the chef [AST].",
+    doc: "Allows a struct to *mutably* traverse the chef [AST].",
     name: MutVisitor,
     ref: &mut
 }
