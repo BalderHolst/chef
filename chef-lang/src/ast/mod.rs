@@ -638,7 +638,7 @@ where
         }
     }
 
-    pub fn is_constant(&self) -> bool {
+    pub fn _is_constant(&self) -> bool {
         matches!(self.kind, ExpressionKind::Int(_) | ExpressionKind::Bool(_))
     }
 
