@@ -82,3 +82,11 @@ jobs:
               components: rustfmt
         - name: run rustfmt
           run: cargo fmt --manifest-path chef-lang/Cargo.toml --check
+
+  build-with-nix:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+      - run: nix build
