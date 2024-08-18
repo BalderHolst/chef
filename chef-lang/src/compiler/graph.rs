@@ -657,11 +657,24 @@ where
         let green_network_nids = self.get_node_network(nid, WireKind::Green);
         let red_network_nids = self.get_node_network(nid, WireKind::Red);
 
+        let network_nids: Vec<NId> = green_network_nids
+            .into_iter()
+            .chain(red_network_nids)
+            .collect();
+
         let mut types = vec![];
 
+        // Constant nodes in network
+        for nid in &network_nids {
+            if let Some(Node::Constant(t)) = self.get_node(nid) {
+                types.push(t.clone())
+            }
+        }
+
+        // Connections into network
         for to_vec in self.adjacency.values() {
             for (to_nid, conn) in to_vec {
-                if green_network_nids.contains(to_nid) || red_network_nids.contains(to_nid) {
+                if network_nids.contains(to_nid) {
                     if let Connection::Operation(op) = conn {
                         types.push(op.get_output_type())
                     }
