@@ -56,11 +56,13 @@ enum Directive<V>
 where
     V: Variable,
 {
+    Import {
+        namespace: Option<String>,
+        blocks: Vec<Block<V>>,
+    },
     Block(Block<V>),
-
-    #[allow(dead_code)]
+    #[allow(dead_code)] // TODO: Do something about this
     DynBlock(DynBlock<V>),
-
     Constant,
     Unknown,
 }
@@ -222,9 +224,12 @@ impl Parser {
     }
 
     /// Consume only if the token is of a certain kind.
-    fn consume_if(&mut self, token_kind: TokenKind) {
+    fn consume_if(&mut self, token_kind: TokenKind) -> bool {
         if self.current().kind == token_kind {
             self.consume();
+            true
+        } else {
+            false
         }
     }
 
@@ -379,12 +384,8 @@ impl Parser {
                     Ok(Directive::DynBlock(dyn_block))
                 }
                 "import" => {
-                    let blocks = self.parse_import()?;
-                    self.next_blocks.extend(blocks);
-                    match self.next_blocks.pop_front() {
-                        Some(b) => Ok(Directive::Block(b)),
-                        None => self.parse_directive(),
-                    }
+                    let (namespace, blocks) = self.parse_import()?;
+                    Ok(Directive::Import { namespace, blocks })
                 }
                 "const" => self.parse_constant(),
                 _ => {
@@ -843,10 +844,15 @@ impl Parser {
 
     // TODO: Constants should be able to be imported
     /// Parse chef `import`. This will parse the imported file and add its items to the scope.
-    fn parse_import(&mut self) -> CompilationResult<Vec<Block<MutVar>>> {
+    fn parse_import(&mut self) -> CompilationResult<(Option<String>, Vec<Block<MutVar>>)> {
         self.consume(); // Consume "import" word
 
         let file_token = self.consume().clone();
+
+        let mut namespace = None;
+        if self.consume_if(TokenKind::word("as")) {
+            namespace = Some(self.consume_word()?.to_string());
+        }
 
         if let TokenKind::StringLiteral(file) = &file_token.kind {
             let text = SourceText::from_file(file, self.options.clone())?;
@@ -856,10 +862,10 @@ impl Parser {
             let tokens = Lexer::from_source(text).collect();
             let imported_ast = Parser::parse(tokens, diagnostics_bag, self.options.clone());
             let mut blocks = vec![];
-            for cs in imported_ast.blocks {
+            for mut cs in imported_ast.blocks.into_iter() {
                 blocks.push(cs);
             }
-            Ok(blocks)
+            Ok((namespace, blocks))
         } else {
             Err(CompilationError::new_unexpected_token(
                 file_token.clone(),

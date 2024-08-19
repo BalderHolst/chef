@@ -77,6 +77,10 @@ impl TokenKind {
     pub fn is_comment(&self) -> bool {
         matches!(self, TokenKind::Comment(_))
     }
+
+    pub fn word(s: &str) -> Self {
+        TokenKind::Word(s.to_string())
+    }
 }
 
 impl Display for TokenKind {
