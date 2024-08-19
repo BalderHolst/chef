@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::ast::{ExpressionReturnType, VariableType};
 
-use super::{visitors::MutVisitor, BlockId, DynBlockId, MutVar, AST};
+use super::{visitors::MutVisitor, BlockId, Directive, DynBlockId, MutVar, AST};
 
 pub fn infer(ast: &mut AST<MutVar>) {
     TypeInferer::infer(ast)
@@ -17,14 +17,16 @@ impl TypeInferer {
     fn infer(ast: &mut AST<MutVar>) {
         let mut inferer = Self::new();
 
-        for block in &ast.blocks {
+        for block in ast.iter_blocks() {
             inferer
                 .block_outputs
                 .insert((block.id, block.dyn_block_id), block.outputs.clone());
         }
 
-        for block in &mut ast.blocks {
-            inferer.infer_block(block);
+        for dir in &mut ast.directives {
+            if let Directive::Block(block) = dir {
+                inferer.infer_block(block);
+            }
         }
     }
 

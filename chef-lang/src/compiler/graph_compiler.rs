@@ -823,7 +823,7 @@ impl GraphCompiler {
         name: &str,
         dyn_block_id: Option<usize>,
     ) -> Result<Graph<LooseSig>, CompilationError> {
-        if self.ast.blocks.is_empty() {
+        if self.ast.directives.is_empty() {
             return Err(CompilationError::new_generic("No statements in program."));
         }
 

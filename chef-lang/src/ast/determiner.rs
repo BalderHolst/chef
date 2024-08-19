@@ -12,7 +12,7 @@ use crate::ast::{
     VariableRef, WhenStatement, AST,
 };
 
-use super::GateExpression;
+use super::{Directive, GateExpression};
 
 /// Determine the variable types in the given [AST].
 pub fn determine(mut_ast: AST<MutVar>) -> AST<DetVar> {
@@ -41,12 +41,22 @@ impl Determiner {
     fn determine(mut_ast: AST<MutVar>) -> AST<DetVar> {
         let mut determiner = Determiner::new(mut_ast);
 
-        for mut_block in determiner.mut_ast.blocks.clone() {
-            let block = determiner.det_block(mut_block);
-            determiner.det_ast.blocks.push(block);
+        for mut_dir in determiner.mut_ast.directives.clone() {
+            let dir = determiner.det_directive(mut_dir);
+            determiner.det_ast.directives.push(dir);
         }
 
         determiner.det_ast
+    }
+
+    fn det_directive(&mut self, mut_dir: Directive<MutVar>) -> Directive<DetVar> {
+        match mut_dir {
+            Directive::Block(mut_block) => Directive::Block(self.det_block(mut_block)),
+            Directive::Import(_) => todo!(),
+            Directive::DynBlock(_) => todo!(),
+            Directive::Constant => todo!(),
+            Directive::Unknown => todo!(),
+        }
     }
 
     /// Determine the variable types in the given [Block].

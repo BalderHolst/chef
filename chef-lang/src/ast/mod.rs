@@ -23,6 +23,25 @@ mod type_checker;
 mod type_inference;
 mod visitors;
 
+#[derive(Debug, Clone)]
+struct Import {
+    namespace: Option<String>,
+    file_path: PathBuf,
+}
+
+/// A chef directive. Anything that be at the top level of a chef file.
+#[derive(Debug, Clone)]
+pub enum Directive<V>
+where
+    V: Variable,
+{
+    Import(Import),
+    Block(Block<V>),
+    DynBlock(DynBlock<V>),
+    Constant,
+    Unknown,
+}
+
 /// [AST] representation of chef `block`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block<V>
@@ -97,7 +116,7 @@ pub struct AST<V>
 where
     V: Variable,
 {
-    pub blocks: Vec<Block<V>>,
+    pub directives: Vec<Directive<V>>,
     diagnostics_bag: DiagnosticsBagRef,
 }
 
@@ -145,33 +164,38 @@ where
     /// Instantiate a new [AST].
     pub fn new(diagnostics_bag: DiagnosticsBagRef) -> Self {
         Self {
-            blocks: vec![],
+            directives: vec![],
             diagnostics_bag,
         }
     }
 
     /// Add a statement to the [AST].
     pub fn add_block(&mut self, block: Block<V>) {
-        self.blocks.push(block);
+        self.directives.push(Directive::Block(block));
+    }
+
+    fn iter_blocks(&self) -> impl Iterator<Item = &Block<V>> {
+        self.directives.iter().filter_map(|d| match d {
+            Directive::Block(b) => Some(b),
+            _ => None,
+        })
     }
 
     pub fn get_block_by_id(&self, id: BlockId, dyn_block_id: Option<usize>) -> Option<&Block<V>> {
-        self.blocks
-            .iter()
+        self.iter_blocks()
             .find(|b| b.id == id && b.dyn_block_id == dyn_block_id)
     }
 
     pub fn get_block_by_name(&self, name: &str, dyn_block_id: Option<usize>) -> Option<&Block<V>> {
-        self.blocks
-            .iter()
+        self.iter_blocks()
             .find(|b| b.name == name && b.dyn_block_id == dyn_block_id)
     }
 
     /// Print the [AST] to stout.
     pub fn print(&self) {
         let mut printer = Printer::new(self);
-        for block in &self.blocks {
-            printer.visit_block(block);
+        for dir in &self.directives {
+            printer.visit_directive(dir);
         }
     }
 }

@@ -11,9 +11,9 @@
 
 use super::{
     BinaryExpression, Block, BlockLinkExpression, Declaration, DeclarationDefinition, Definition,
-    DelayExpression, Expression, ExpressionKind, GateExpression, IndexExpression,
-    NegativeExpression, ParenthesizedExpression, PickExpression, SizeOfExpression, Statement,
-    StatementKind, TupleDeclarationDefinition, Variable, VariableRef, WhenStatement,
+    DelayExpression, Directive, Expression, ExpressionKind, GateExpression, Import,
+    IndexExpression, NegativeExpression, ParenthesizedExpression, PickExpression, SizeOfExpression,
+    Statement, StatementKind, TupleDeclarationDefinition, Variable, VariableRef, WhenStatement,
 };
 
 // For documentation references
@@ -28,6 +28,26 @@ macro_rules! make_visitor {
         where
             V: Variable
         {
+
+            fn visit_directive(&mut self, directive: $($ref)+ Directive<V>) {
+                self.do_visit_directive(directive);
+            }
+            fn do_visit_directive(&mut self, directive: $($ref)+ Directive<V>) {
+                match directive {
+                    Directive::Block(block) => {
+                        self.visit_block(block);
+                    }
+                    Directive::Import(import) => {
+                        self.visit_import(import);
+                    }
+                    _ => todo!(),
+                }
+            }
+
+            fn visit_import(&mut self, import: $($ref)+ Import) {
+                self.do_visit_import(import);
+            }
+            fn do_visit_import(&mut self, import: $($ref)+ Import) {}
 
             fn visit_block(&mut self, block: $($ref)+ Block<V>) {
                 self.do_visit_block(block);
@@ -220,6 +240,7 @@ macro_rules! make_visitor {
             fn do_visit_pick_expression(&mut self, pick_expr: $($ref)+ PickExpression<V>) {
                 self.visit_variable_ref($($ref)+ pick_expr.from);
             }
+
             fn visit_index_expression(&mut self, expr: $($ref)+ IndexExpression<V>) {
                 self.do_visit_index_expression(expr);
             }

@@ -1,5 +1,15 @@
 //! Module for parsing a token stream into an abstract syntax tree.
 
+use crate::ast::{
+    lexer::{Token, TokenKind},
+    python_macro, BinaryExpression, BinaryOperator, Block, DynBlock, Expression, ExpressionKind,
+    GateExpression, OutputAssignment, ParenthesizedExpression, Statement, StatementKind,
+    TupleDeclarationDefinition, VariableType,
+};
+use crate::cli::Opts;
+use crate::compiler::graph::WireKind;
+use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBagRef};
+use crate::text::TextSpan;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::{HashMap, VecDeque};
@@ -7,23 +17,11 @@ use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::ast::lexer::{Token, TokenKind};
-use crate::ast::{
-    python_macro, BinaryExpression, BinaryOperator, Block, DynBlock, Expression, ExpressionKind,
-    GateExpression, OutputAssignment, ParenthesizedExpression, Statement, StatementKind,
-    TupleDeclarationDefinition, VariableType,
-};
-use crate::cli::Opts;
-use crate::compiler::graph::WireKind;
-use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
-use crate::text::{SourceText, TextSpan};
-
-use super::lexer::Lexer;
 use super::{
-    AssignmentType, BlockLinkArg, BlockLinkExpression, Declaration, DeclarationDefinition,
-    Definition, DefinitionKind, DynBlockArg, DynBlockId, IndexExpression, MutVar,
-    NegativeExpression, OperatorKind, PickExpression, SizeOfExpression, VarData, Variable,
-    VariableRef, VariableSignalType, WhenStatement, AST,
+    lexer::Lexer, AssignmentType, BlockLinkArg, BlockLinkExpression, Declaration,
+    DeclarationDefinition, Definition, DefinitionKind, Directive, DynBlockArg, DynBlockId, Import,
+    IndexExpression, MutVar, NegativeExpression, OperatorKind, PickExpression, SizeOfExpression,
+    VarData, Variable, VariableRef, VariableSignalType, WhenStatement, AST,
 };
 
 const MACRO_ARG_SEP: &str = "; ";
@@ -49,22 +47,6 @@ enum ScopedItem<V> {
 enum Constant {
     Int(i32),
     Bool(bool),
-}
-
-/// A chef directive. Anything that be at the top level of a chef file.
-enum Directive<V>
-where
-    V: Variable,
-{
-    Import {
-        namespace: Option<String>,
-        blocks: Vec<Block<V>>,
-    },
-    Block(Block<V>),
-    #[allow(dead_code)] // TODO: Do something about this
-    DynBlock(DynBlock<V>),
-    Constant,
-    Unknown,
 }
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
@@ -211,6 +193,19 @@ impl Parser {
         }
     }
 
+    /// Consume a token and expect it to be a string literal. Return the word as a slice.
+    fn consume_string_lit(&mut self) -> CompilationResult<&str> {
+        let token = self.consume();
+        if let TokenKind::StringLiteral(lit) = &token.kind {
+            Ok(lit.as_str())
+        } else {
+            Err(CompilationError::new_localized(
+                format!("Expected string literal but found '{}'.", token.kind),
+                token.span.clone(),
+            ))
+        }
+    }
+
     fn _consume_number(&mut self) -> CompilationResult<u16> {
         let token = self.consume();
         if let TokenKind::Number(n) = &token.kind {
@@ -276,8 +271,7 @@ impl Parser {
         dyn_block_id: Option<DynBlockId>,
     ) -> Option<&Block<MutVar>> {
         self.ast
-            .blocks
-            .iter()
+            .iter_blocks()
             .find(|&block| block.name.as_str() == name && block.dyn_block_id == dyn_block_id)
     }
 
@@ -384,8 +378,11 @@ impl Parser {
                     Ok(Directive::DynBlock(dyn_block))
                 }
                 "import" => {
-                    let (namespace, blocks) = self.parse_import()?;
-                    Ok(Directive::Import { namespace, blocks })
+                    let (namespace, file_path) = self.parse_import()?;
+                    Ok(Directive::Import(Import {
+                        namespace,
+                        file_path,
+                    }))
                 }
                 "const" => self.parse_constant(),
                 _ => {
@@ -844,34 +841,37 @@ impl Parser {
 
     // TODO: Constants should be able to be imported
     /// Parse chef `import`. This will parse the imported file and add its items to the scope.
-    fn parse_import(&mut self) -> CompilationResult<(Option<String>, Vec<Block<MutVar>>)> {
+    fn parse_import(&mut self) -> CompilationResult<(Option<String>, PathBuf)> {
         self.consume(); // Consume "import" word
 
-        let file_token = self.consume().clone();
+        let path = self.consume_string_lit()?;
+        let path = PathBuf::from(path);
 
-        let mut namespace = None;
         if self.consume_if(TokenKind::word("as")) {
-            namespace = Some(self.consume_word()?.to_string());
-        }
-
-        if let TokenKind::StringLiteral(file) = &file_token.kind {
-            let text = SourceText::from_file(file, self.options.clone())?;
-            let text = Rc::new(text);
-
-            let diagnostics_bag = DiagnosticsBag::new_ref(self.options.clone());
-            let tokens = Lexer::from_source(text).collect();
-            let imported_ast = Parser::parse(tokens, diagnostics_bag, self.options.clone());
-            let mut blocks = vec![];
-            for mut cs in imported_ast.blocks.into_iter() {
-                blocks.push(cs);
-            }
-            Ok((namespace, blocks))
+            let namespace = self.consume_word()?.to_string();
+            Ok((Some(namespace), path))
         } else {
-            Err(CompilationError::new_unexpected_token(
-                file_token.clone(),
-                TokenKind::StringLiteral("path".to_string()),
-            ))
+            Ok((None, path))
         }
+
+        // if let TokenKind::StringLiteral(file) = &file_token.kind {
+        //     let text = SourceText::from_file(file, self.options.clone())?;
+        //     let text = Rc::new(text);
+
+        //     let diagnostics_bag = DiagnosticsBag::new_ref(self.options.clone());
+        //     let tokens = Lexer::from_source(text).collect();
+        //     let imported_ast = Parser::parse(tokens, diagnostics_bag, self.options.clone());
+        //     let mut blocks = vec![];
+        //     for mut cs in imported_ast.directives.into_iter() {
+        //         blocks.push(cs);
+        //     }
+        //     Ok((namespace, blocks))
+        // } else {
+        //     Err(CompilationError::new_unexpected_token(
+        //         file_token.clone(),
+        //         TokenKind::StringLiteral("path".to_string()),
+        //     ))
+        // }
     }
 
     /// Parse constant directive.
@@ -1480,7 +1480,7 @@ impl Parser {
         // TODO: Do something about this clone
         let block = Rc::new(block.clone());
 
-        match ast.blocks.len() {
+        match ast.directives.len() {
             1 => Ok(()),
             0 => Err(CompilationError::new_localized(
                 "No blocks generated by macro code.".to_string(),

@@ -24,8 +24,8 @@ impl ConstantEvaluator {
         // Run the evaluator through the tree until is cannot evaluate any more.
         loop {
             self.did_work = false;
-            for block in &mut ast.blocks.iter_mut() {
-                self.visit_block(block);
+            for block in &mut ast.directives.iter_mut() {
+                self.visit_directive(block);
             }
             if !self.did_work {
                 break;

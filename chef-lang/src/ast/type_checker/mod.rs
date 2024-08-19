@@ -14,7 +14,7 @@ use super::{visitors::Visitor, DefinitionKind, DetVar, ExpressionReturnType, Var
 /// Type check an [AST].
 pub fn check(ast: &AST<DetVar>, diagnostics_bag: DiagnosticsBagRef) {
     let mut checker = TypeChecker { diagnostics_bag };
-    for block in &ast.blocks {
+    for block in ast.iter_blocks() {
         checker.visit_block(block);
     }
 }
