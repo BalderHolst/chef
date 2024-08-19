@@ -278,7 +278,6 @@ impl Parser {
 
     /// Search for a dynamic block by name.
     fn search_dynamic_blocks(&self, name: &str) -> Option<DynBlock<MutVar>> {
-        println!("searching for dynamic block: {}", name);
         for dyn_block in &self.dynamic_blocks {
             if dyn_block.name.as_str() == name {
                 return Some(dyn_block.clone());

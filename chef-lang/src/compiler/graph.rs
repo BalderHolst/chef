@@ -1112,7 +1112,6 @@ where
 
 impl Graph<LooseSig> {
     fn replace_if_anysignal_with_id(sig: &mut LooseSig, id: &u64, new_type: LooseSig) {
-        println!("Replacing anysignal {} with {:?}", id, new_type);
         match sig {
             LooseSig::AnySignal(this_id) if this_id == id => *sig = new_type,
             LooseSig::ConstantAny((this_id, c)) if this_id == id => {

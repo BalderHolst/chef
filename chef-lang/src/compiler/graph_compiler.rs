@@ -685,10 +685,6 @@ impl GraphCompiler {
 
         let (block_out_nid, block_out_type) = outputs.remove(0);
 
-        println!("Linking block: {}", block_name);
-        dbg!(&block_out_type);
-        dbg!(&out_type);
-
         match &block_out_type {
             LooseSig::AnySignal(id) => graph.assign_anysignal(id, out_type.clone()),
             LooseSig::ConstantAny((id, c)) => {
