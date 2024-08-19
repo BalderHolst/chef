@@ -12,7 +12,7 @@ use crate::ast::{
     VariableRef, WhenStatement, AST,
 };
 
-use super::{Directive, GateExpression};
+use super::{Directive, DynBlock, GateExpression, Import};
 
 /// Determine the variable types in the given [AST].
 pub fn determine(mut_ast: AST<MutVar>) -> AST<DetVar> {
@@ -52,11 +52,41 @@ impl Determiner {
     fn det_directive(&mut self, mut_dir: Directive<MutVar>) -> Directive<DetVar> {
         match mut_dir {
             Directive::Block(mut_block) => Directive::Block(self.det_block(mut_block)),
-            Directive::Import(_) => todo!(),
-            Directive::DynBlock(_) => todo!(),
-            Directive::Constant => todo!(),
+            Directive::DynBlock(mut_dyn_block) => Directive::DynBlock(DynBlock {
+                name: mut_dyn_block.name,
+                inputs: mut_dyn_block
+                    .inputs
+                    .iter()
+                    .map(|v| match v {
+                        super::DynBlockArg::Var(mut_var) => {
+                            super::DynBlockArg::Var(self.det_variable(mut_var.clone()))
+                        }
+                        super::DynBlockArg::Literal(lit) => {
+                            super::DynBlockArg::Literal(lit.clone())
+                        }
+                    })
+                    .collect(),
+                script_path: mut_dyn_block.script_path,
+                _span: mut_dyn_block._span,
+                _opts: mut_dyn_block._opts,
+                versions: mut_dyn_block
+                    .versions
+                    .into_iter()
+                    .map(|v| self.det_block(v))
+                    .collect(),
+            }),
+            Directive::Import(mut_import) => self.det_import(mut_import),
+            Directive::Constant => todo!("Determine constants"),
             Directive::Unknown => todo!(),
         }
+    }
+
+    fn det_import(&mut self, mut_import: Import<MutVar>) -> Directive<DetVar> {
+        Directive::Import(Import {
+            namespace: mut_import.namespace,
+            file_path: mut_import.file_path,
+            ast: Self::determine(mut_import.ast),
+        })
     }
 
     /// Determine the variable types in the given [Block].
@@ -81,7 +111,7 @@ impl Determiner {
 
         Block::new(
             block.id,
-            block.dyn_block_id,
+            block._dyn_block_id,
             block.name.clone(),
             inputs,
             outputs,
@@ -273,14 +303,14 @@ impl Determiner {
         block_link: BlockLinkExpression<MutVar>,
     ) -> BlockLinkExpression<DetVar> {
         BlockLinkExpression {
-            block_id: block_link.block_id,
-            dyn_block_id: block_link.dyn_block_id,
+            name: block_link.name,
             return_type: block_link.return_type,
             inputs: block_link
                 .inputs
                 .into_iter()
                 .map(|e| self.det_expression(e))
                 .collect(),
+            dyn_block_version: block_link.dyn_block_version,
         }
     }
 

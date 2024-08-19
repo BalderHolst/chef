@@ -15,7 +15,10 @@ use super::{visitors::Visitor, DefinitionKind, DetVar, ExpressionReturnType, Var
 pub fn check(ast: &AST<DetVar>, diagnostics_bag: DiagnosticsBagRef) {
     let mut checker = TypeChecker { diagnostics_bag };
     for block in ast.iter_blocks() {
-        checker.visit_block(block);
+        match block {
+            super::DefinedBlock::Block(b) => checker.visit_block(b),
+            super::DefinedBlock::DynBlock(b) => checker.visit_dyn_block(b),
+        };
     }
 }
 

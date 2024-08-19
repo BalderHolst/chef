@@ -11,7 +11,7 @@
 
 use super::{
     BinaryExpression, Block, BlockLinkExpression, Declaration, DeclarationDefinition, Definition,
-    DelayExpression, Directive, Expression, ExpressionKind, GateExpression, Import,
+    DelayExpression, Directive, DynBlock, Expression, ExpressionKind, GateExpression, Import,
     IndexExpression, NegativeExpression, ParenthesizedExpression, PickExpression, SizeOfExpression,
     Statement, StatementKind, TupleDeclarationDefinition, Variable, VariableRef, WhenStatement,
 };
@@ -40,14 +40,25 @@ macro_rules! make_visitor {
                     Directive::Import(import) => {
                         self.visit_import(import);
                     }
-                    _ => todo!(),
+                    Directive::DynBlock(dyn_block) => self.visit_dyn_block(dyn_block),
+                    Directive::Constant => todo!("Visit Constant"),
+                    Directive::Unknown => todo!("Visit Unknown"),
                 }
             }
 
-            fn visit_import(&mut self, import: $($ref)+ Import) {
+            fn visit_import(&mut self, import: $($ref)+ Import<V>) {
                 self.do_visit_import(import);
             }
-            fn do_visit_import(&mut self, import: $($ref)+ Import) {}
+            fn do_visit_import(&mut self, import: $($ref)+ Import<V>) {}
+
+            fn visit_dyn_block(&mut self, dyn_block: $($ref)+ DynBlock<V>) {
+                self.do_visit_dyn_block(dyn_block);
+            }
+            fn do_visit_dyn_block(&mut self, dyn_block: $($ref)+ DynBlock<V>) {
+                for version in $($ref)+ dyn_block.versions {
+                    self.visit_block(version);
+                }
+            }
 
             fn visit_block(&mut self, block: $($ref)+ Block<V>) {
                 self.do_visit_block(block);

@@ -1,15 +1,19 @@
 //! Module for parsing a token stream into an abstract syntax tree.
 
-use crate::ast::{
-    lexer::{Token, TokenKind},
-    python_macro, BinaryExpression, BinaryOperator, Block, DynBlock, Expression, ExpressionKind,
-    GateExpression, OutputAssignment, ParenthesizedExpression, Statement, StatementKind,
-    TupleDeclarationDefinition, VariableType,
-};
 use crate::cli::Opts;
 use crate::compiler::graph::WireKind;
 use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBagRef};
 use crate::text::TextSpan;
+use crate::{
+    ast::{
+        lexer::{Token, TokenKind},
+        BinaryExpression, BinaryOperator, Block, DynBlock, Expression, ExpressionKind,
+        GateExpression, OutputAssignment, ParenthesizedExpression, Statement, StatementKind,
+        TupleDeclarationDefinition, VariableType,
+    },
+    diagnostics::DiagnosticsBag,
+    text::SourceText,
+};
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::{HashMap, VecDeque};
@@ -19,12 +23,10 @@ use std::rc::Rc;
 
 use super::{
     lexer::Lexer, AssignmentType, BlockLinkArg, BlockLinkExpression, Declaration,
-    DeclarationDefinition, Definition, DefinitionKind, Directive, DynBlockArg, DynBlockId, Import,
+    DeclarationDefinition, Definition, DefinitionKind, Directive, DynBlockArg, Import,
     IndexExpression, MutVar, NegativeExpression, OperatorKind, PickExpression, SizeOfExpression,
     VarData, Variable, VariableRef, VariableSignalType, WhenStatement, AST,
 };
-
-const MACRO_ARG_SEP: &str = "; ";
 
 // TODO: Add example
 /// A list of statements with an optional return expression at its end.
@@ -55,13 +57,11 @@ pub struct Parser {
     tokens: Vec<Token>,
     cursor: usize,
     scopes: Vec<HashMap<String, ScopedItem<MutVar>>>,
-    dynamic_blocks: Vec<DynBlock<MutVar>>,
     diagnostics_bag: DiagnosticsBagRef,
     options: Rc<Opts>,
     next_blocks: VecDeque<Block<MutVar>>,
     next_var_id: usize,
     next_block_id: usize,
-    next_dyn_block_id: usize,
 }
 
 type BlockArgs = Vec<Rc<MutVar>>;
@@ -82,9 +82,7 @@ impl Parser {
         let mut parser = Self::new(tokens, diagnostics_bag, options);
 
         while let Some(directive) = parser.next_directive() {
-            if let Directive::Block(block) = directive {
-                parser.ast.add_block(block);
-            }
+            parser.ast.directives.push(directive);
         }
 
         parser.ast
@@ -101,14 +99,16 @@ impl Parser {
                 .collect(),
             cursor: 0,
             scopes: vec![HashMap::new()],
-            dynamic_blocks: vec![],
             diagnostics_bag,
             options,
             next_blocks: VecDeque::new(),
             next_var_id: 0,
             next_block_id: 0,
-            next_dyn_block_id: 0,
         }
+    }
+
+    pub fn directives(&self) -> &Vec<Directive<MutVar>> {
+        &self.ast.directives
     }
 
     pub fn _from_lexer(
@@ -123,13 +123,11 @@ impl Parser {
                 .collect(),
             cursor: 0,
             scopes: vec![HashMap::new()],
-            dynamic_blocks: vec![],
             diagnostics_bag,
             options,
             next_blocks: VecDeque::new(),
             next_var_id: 0,
             next_block_id: 0,
-            next_dyn_block_id: 0,
         }
     }
 
@@ -264,27 +262,6 @@ impl Parser {
         None
     }
 
-    /// Search for a block by name.
-    fn search_blocks(
-        &self,
-        name: &str,
-        dyn_block_id: Option<DynBlockId>,
-    ) -> Option<&Block<MutVar>> {
-        self.ast
-            .iter_blocks()
-            .find(|&block| block.name.as_str() == name && block.dyn_block_id == dyn_block_id)
-    }
-
-    /// Search for a dynamic block by name.
-    fn search_dynamic_blocks(&self, name: &str) -> Option<DynBlock<MutVar>> {
-        for dyn_block in &self.dynamic_blocks {
-            if dyn_block.name.as_str() == name {
-                return Some(dyn_block.clone());
-            }
-        }
-        None
-    }
-
     /// Enter a new scope.
     fn enter_scope(&mut self) {
         self.scopes.push(HashMap::new());
@@ -308,13 +285,6 @@ impl Parser {
     fn get_next_block_id(&mut self) -> usize {
         let id = self.next_block_id;
         self.next_block_id += 1;
-        id
-    }
-
-    /// Get new unique dynamic block id.
-    fn get_next_dyn_block_id(&mut self) -> usize {
-        let id = self.next_dyn_block_id;
-        self.next_dyn_block_id += 1;
         id
     }
 
@@ -373,16 +343,11 @@ impl Parser {
 
                     let dyn_block = self.parse_dyn_block()?;
 
-                    self.dynamic_blocks.push(dyn_block.clone());
-
                     Ok(Directive::DynBlock(dyn_block))
                 }
                 "import" => {
-                    let (namespace, file_path) = self.parse_import()?;
-                    Ok(Directive::Import(Import {
-                        namespace,
-                        file_path,
-                    }))
+                    let import = self.parse_import()?;
+                    Ok(Directive::Import(import))
                 }
                 "const" => self.parse_constant(),
                 _ => {
@@ -839,39 +804,36 @@ impl Parser {
         Ok(statements)
     }
 
-    // TODO: Constants should be able to be imported
     /// Parse chef `import`. This will parse the imported file and add its items to the scope.
-    fn parse_import(&mut self) -> CompilationResult<(Option<String>, PathBuf)> {
+    fn parse_import(&mut self) -> CompilationResult<Import<MutVar>> {
         self.consume(); // Consume "import" word
 
+        let options = self.options.clone();
         let path = self.consume_string_lit()?;
-        let path = PathBuf::from(path);
+        let file_path = PathBuf::from(path);
+
+        let text = SourceText::from_file(path, options.clone())?;
+        let text = Rc::new(text);
+
+        let diagnostics_bag = DiagnosticsBag::new_ref(options.clone());
+        let tokens = Lexer::from_source(text).collect();
+        let imported_ast = Parser::parse(tokens, diagnostics_bag, options.clone());
+        let ast = imported_ast;
 
         if self.consume_if(TokenKind::word("as")) {
             let namespace = self.consume_word()?.to_string();
-            Ok((Some(namespace), path))
+            Ok(Import {
+                namespace: Some(namespace),
+                file_path,
+                ast,
+            })
         } else {
-            Ok((None, path))
+            Ok(Import {
+                namespace: None,
+                file_path,
+                ast,
+            })
         }
-
-        // if let TokenKind::StringLiteral(file) = &file_token.kind {
-        //     let text = SourceText::from_file(file, self.options.clone())?;
-        //     let text = Rc::new(text);
-
-        //     let diagnostics_bag = DiagnosticsBag::new_ref(self.options.clone());
-        //     let tokens = Lexer::from_source(text).collect();
-        //     let imported_ast = Parser::parse(tokens, diagnostics_bag, self.options.clone());
-        //     let mut blocks = vec![];
-        //     for mut cs in imported_ast.directives.into_iter() {
-        //         blocks.push(cs);
-        //     }
-        //     Ok((namespace, blocks))
-        // } else {
-        //     Err(CompilationError::new_unexpected_token(
-        //         file_token.clone(),
-        //         TokenKind::StringLiteral("path".to_string()),
-        //     ))
-        // }
     }
 
     /// Parse constant directive.
@@ -1240,11 +1202,27 @@ impl Parser {
                 self.consume();
                 Ok(Expression::bool(false, self.peak(-1).span.clone()))
             }
-            TokenKind::Word(word) => {
-                let item_span = self.consume().span.clone();
 
+            // If it is a block
+            TokenKind::Word(word) if self.peak(1).kind == TokenKind::LeftParen => {
+                // Normal block
+                let block_link_expr = if self.ast.get_block_by_name(word, None).is_some() {
+                    self.parse_block_link()?
+                }
+                // Dynamic block
+                else {
+                    self.parse_dyn_block_link()?
+                };
+                Ok({
+                    let kind = ExpressionKind::BlockLink(block_link_expr);
+                    let span = self.get_span_from(&start_token.span);
+                    Expression { kind, span }
+                })
+            }
+            TokenKind::Word(word) => {
                 // If is defined variable
                 if let Some(item) = self.search_scope(word) {
+                    let item_span = self.consume().span.clone();
                     match item {
                         ScopedItem::Var(var) => {
                             // If pick
@@ -1265,24 +1243,6 @@ impl Parser {
                             Ok(Expression::new(ExpressionKind::Bool(b), item_span))
                         }
                     }
-
-                // If it is a block
-                } else if let Some(block) = self.search_blocks(word, None) {
-                    let block_link_expr = self.parse_block_link(&block.clone())?;
-                    Ok({
-                        let kind = ExpressionKind::BlockLink(block_link_expr);
-                        let span = self.get_span_from(&start_token.span);
-                        Expression { kind, span }
-                    })
-
-                // If it is a dyn block
-                } else if let Some(dyn_block) = self.search_dynamic_blocks(word) {
-                    let block_link_expr = self.parse_dyn_block_link(dyn_block)?;
-                    Ok({
-                        let kind = ExpressionKind::BlockLink(block_link_expr);
-                        let span = self.get_span_from(&start_token.span);
-                        Expression { kind, span }
-                    })
                 } else {
                     Err(CompilationError::new_localized(
                         format!("`{}` not defined.", word),
@@ -1407,129 +1367,30 @@ impl Parser {
     }
 
     /// Parse a dynamic block link expression.
-    fn parse_dyn_block_link(
-        &mut self,
-        def: DynBlock<MutVar>,
-    ) -> CompilationResult<BlockLinkExpression<MutVar>> {
+    fn parse_dyn_block_link(&mut self) -> CompilationResult<BlockLinkExpression<MutVar>> {
         let start_span = self.peak(-1).span.clone();
+        let name = self.consume_word()?.to_string();
 
+        // Get arguments
         let inputs = self.parse_dyn_block_link_arguments()?;
 
-        if def.inputs.len() != inputs.len() {
-            let end_span = &self.current().span;
-            return Err(CompilationError::new_localized(
-                format!(
-                    "Expected {} arguments for dynamic block '{}'. Found {}.",
-                    def.inputs.len(),
-                    def.name,
-                    inputs.len(),
-                ),
-                TextSpan::from_spans(&start_span, end_span),
-            ));
-        }
+        let args_span = TextSpan::from_spans(&start_span, &self.peak(-1).span);
 
-        // Create input string for macro
-        let inputs_str = def
-            .inputs
-            .iter()
-            .enumerate()
-            .map(|(i, arg)| match arg {
-                DynBlockArg::Var(var) => {
-                    let var = var.borrow();
-                    format!("{}: {}", var.name, var.type_.signature())
-                }
-                DynBlockArg::Literal(lit) => {
-                    format!("{}: {}", lit, inputs[i].span().text())
-                }
-            })
-            .collect::<Vec<String>>()
-            .join(MACRO_ARG_SEP);
+        let dyn_block =
+            self.ast
+                .get_dyn_block_mut(&name)
+                .ok_or(CompilationError::new_localized(
+                    format!("Block `{}` not defined.", &name),
+                    start_span.clone(),
+                ))?;
 
-        // Run python macro
-        let code = python_macro::run_python_import(
+        // Generate dynamic block and store get this version number of the block
+        let version = dyn_block.generate_version(
+            &inputs,
+            args_span,
             self.options.clone(),
-            Some(TextSpan::from_spans(&start_span, &self.peak(-1).span)),
-            def.script_path.to_str().unwrap(),
-            Some(def.name.clone()),
-            Some(inputs_str),
-        )?;
-
-        println!("{}", code.text());
-
-        let ast = crate::ast::AST::mut_from_source(
-            Rc::new(code),
             self.diagnostics_bag.clone(),
-            self.options.clone(),
-        );
-
-        let err_span = TextSpan::from_spans(&start_span, &self.peak(-1).span);
-
-        let mut block = ast
-            .get_block_by_name(&def.name, None)
-            .ok_or(CompilationError::new_localized(
-                format!("Block '{}' was not defined by generated code.", def.name),
-                err_span.clone(),
-            ))?
-            .clone();
-
-        // Assign an id. This is to enable multiple definitions from the same macro
-        block.dyn_block_id = Some(self.get_next_dyn_block_id());
-
-        self.next_blocks.push_back(block.clone());
-
-        // TODO: Do something about this clone
-        let block = Rc::new(block.clone());
-
-        match ast.directives.len() {
-            1 => Ok(()),
-            0 => Err(CompilationError::new_localized(
-                "No blocks generated by macro code.".to_string(),
-                err_span.clone(),
-            )),
-            x => Err(CompilationError::new_localized(
-                format!("{} blocks generated by macro code. Only expeced 1.", x),
-                err_span.clone(),
-            )),
-        }?;
-
-        let var_inputs = def
-            .inputs
-            .iter()
-            .filter_map(|arg| match arg {
-                DynBlockArg::Var(v) => Some(v),
-                DynBlockArg::Literal(_) => None,
-            })
-            .collect::<Vec<_>>();
-
-        // Make sure the generated block has the same INPUTS as the definition
-        if block.inputs.len() != var_inputs.len() {
-            return Err(CompilationError::new_localized(
-                format!(
-                    "Expected {} arguments for generated block '{}'. Found {}.",
-                    block.inputs.len(),
-                    def.name,
-                    var_inputs.len(),
-                ),
-                err_span,
-            ));
-        }
-
-        // Make sure the generated block has the same INPUT types as the definition
-        for (i, def_input) in var_inputs.iter().enumerate() {
-            let def_input = def_input.borrow();
-            let block_input = block.inputs[i].borrow();
-            if def_input.type_ != block_input.type_ {
-                return Err(CompilationError::new_localized(
-                    format!(
-                        "Expected type '{}' for input '{}'. Found '{}'.",
-                        block_input.type_.signature(),
-                        def_input.name,
-                        def_input.type_.signature(),
-                    ),
-                    err_span,
-                ));
-            }
-        }
+        )?;
 
         let input_exprs = inputs
             .iter()
@@ -1540,39 +1401,20 @@ impl Parser {
             .collect::<Vec<_>>();
 
         Ok(BlockLinkExpression::new(
+            dyn_block.name.clone(),
             input_exprs,
-            block.id,
-            block.dyn_block_id,
+            Some(version),
         ))
     }
 
     /// Parse a chef block link.
-    fn parse_block_link(
-        &mut self,
-        block: &Block<MutVar>,
-    ) -> CompilationResult<BlockLinkExpression<MutVar>> {
-        let start = self.peak(-1).span.start;
+    fn parse_block_link(&mut self) -> CompilationResult<BlockLinkExpression<MutVar>> {
+        let start = self.current().span.start;
+        let name = self.consume_word()?.to_string();
         let inputs = self.parse_block_link_arguments()?;
         let end = self.current().span.clone();
 
-        if inputs.len() != block.inputs.len() {
-            self.diagnostics_bag.borrow_mut().report_error(
-                &TextSpan::new(start, end.end, end.text),
-                &format!(
-                    // TODO: Maybe report function signiture instead of just name
-                    "Expected {} arguments for function '{}'. Found {}.",
-                    block.inputs.len(),
-                    block.name,
-                    inputs.len(),
-                ),
-            )
-        }
-
-        Ok(BlockLinkExpression::new(
-            inputs,
-            block.id,
-            block.dyn_block_id,
-        ))
+        Ok(BlockLinkExpression::new(name, inputs, None))
     }
 
     /// Parse tuple unpacking statement.
@@ -1599,23 +1441,21 @@ impl Parser {
 
         let def_kind = self.parse_assignment_operator()?;
 
-        let block_name = self.consume_word()?.to_string();
-
-        let block = self.search_blocks(&block_name, None).ok_or_else(|| {
-            CompilationError::new_localized(
-                format!("Block '{}' not defined.", block_name),
-                self.peak(-1).span.clone(),
-            )
-        })?;
-
-        let link = self.parse_block_link(&block.clone())?;
+        let link = self.parse_block_link()?;
 
         self.consume_and_expect(TokenKind::Semicolon)?;
 
+        let block_name = &link.name;
         let block = self
             .ast
-            .get_block_by_id(link.block_id, link.dyn_block_id)
-            .unwrap();
+            .get_block_by_name(block_name, link.dyn_block_version)
+            .ok_or_else(|| {
+                CompilationError::new_localized(
+                    format!("Block '{}' not defined.", block_name),
+                    self.peak(-1).span.clone(),
+                )
+            })?;
+
         let block_outputs = block.outputs.clone();
 
         if block_outputs.len() != vars.len() {

@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::ast::{ExpressionReturnType, VariableType};
 
-use super::{visitors::MutVisitor, BlockId, Directive, DynBlockId, MutVar, AST};
+use super::{visitors::MutVisitor, Directive, DynBlockVersion, MutVar, AST};
 
 pub fn infer(ast: &mut AST<MutVar>) {
     TypeInferer::infer(ast)
@@ -10,7 +10,7 @@ pub fn infer(ast: &mut AST<MutVar>) {
 
 struct TypeInferer {
     did_work: bool,
-    block_outputs: HashMap<(BlockId, Option<DynBlockId>), Vec<Rc<MutVar>>>,
+    block_outputs: HashMap<(String, Option<DynBlockVersion>), Vec<Rc<MutVar>>>,
 }
 
 impl TypeInferer {
@@ -18,9 +18,20 @@ impl TypeInferer {
         let mut inferer = Self::new();
 
         for block in ast.iter_blocks() {
-            inferer
-                .block_outputs
-                .insert((block.id, block.dyn_block_id), block.outputs.clone());
+            match block {
+                super::DefinedBlock::Block(b) => {
+                    inferer
+                        .block_outputs
+                        .insert((b.name.clone(), None), b.outputs.clone());
+                }
+                super::DefinedBlock::DynBlock(b) => {
+                    for (n, b) in b.versions.iter().enumerate() {
+                        inferer
+                            .block_outputs
+                            .insert((b.name.clone(), Some(n)), b.outputs.clone());
+                    }
+                }
+            }
         }
 
         for dir in &mut ast.directives {
@@ -86,7 +97,7 @@ impl MutVisitor<MutVar> for TypeInferer {
         if link.return_type == ExpressionReturnType::Infered {
             let outputs = self
                 .block_outputs
-                .get(&(link.block_id, link.dyn_block_id))
+                .get(&(link.name.clone(), link.dyn_block_version))
                 .unwrap();
 
             let output_return_types = outputs

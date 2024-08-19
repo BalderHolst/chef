@@ -1,13 +1,13 @@
 //! Module for lexing and parsing chef source code into an abstract syntax tree and checking for errors.
 
 use std::cell::RefCell;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::ast::visitors::Visitor;
 use crate::compiler::graph::{ArithmeticOperation, DeciderOperation, WireKind};
-use crate::diagnostics::DiagnosticsBagRef;
+use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBagRef};
 use crate::text::{SourceText, TextSpan};
 use crate::Opts;
 
@@ -23,10 +23,44 @@ mod type_checker;
 mod type_inference;
 mod visitors;
 
-#[derive(Debug, Clone)]
-struct Import {
-    namespace: Option<String>,
-    file_path: PathBuf,
+#[derive(Clone)]
+pub struct Import<V>
+where
+    V: Variable,
+{
+    pub namespace: Option<String>,
+    pub file_path: PathBuf,
+    pub ast: AST<V>,
+}
+
+impl<V> Debug for Import<V>
+where
+    V: Variable,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Import {{ namespace: {:?}, file_path: {:?} }}",
+            self.namespace, self.file_path
+        )
+    }
+}
+
+enum DefinedBlock<'a, V>
+where
+    V: Variable,
+{
+    Block(&'a Block<V>),
+    DynBlock(&'a DynBlock<V>),
+}
+
+impl<V: Variable> DefinedBlock<'_, V> {
+    fn name(&self) -> &str {
+        match self {
+            DefinedBlock::Block(b) => &b.name,
+            DefinedBlock::DynBlock(b) => &b.name,
+        }
+    }
 }
 
 /// A chef directive. Anything that be at the top level of a chef file.
@@ -35,7 +69,7 @@ pub enum Directive<V>
 where
     V: Variable,
 {
-    Import(Import),
+    Import(Import<V>),
     Block(Block<V>),
     DynBlock(DynBlock<V>),
     Constant,
@@ -49,7 +83,7 @@ where
     V: Variable,
 {
     pub id: BlockId,
-    pub dyn_block_id: Option<DynBlockId>,
+    pub _dyn_block_id: Option<DynBlockVersion>,
     pub name: String,
     pub inputs: Vec<Rc<V>>,
     pub outputs: Vec<Rc<V>>,
@@ -57,14 +91,11 @@ where
     pub span: TextSpan,
 }
 
-impl<V> Block<V>
-where
-    V: Variable,
-{
+impl<V: Variable> Block<V> {
     /// Instantiate a new [Block].
     fn new(
         id: BlockId,
-        dyn_block_id: Option<DynBlockId>,
+        dyn_block_id: Option<DynBlockVersion>,
         name: String,
         inputs: Vec<Rc<V>>,
         outputs: Vec<Rc<V>>,
@@ -73,7 +104,7 @@ where
     ) -> Self {
         Self {
             id,
-            dyn_block_id,
+            _dyn_block_id: dyn_block_id,
             name,
             inputs,
             outputs,
@@ -83,16 +114,21 @@ where
     }
 }
 
+/// Definition of a dynamic block.
 #[derive(Debug, Clone)]
-pub struct DynBlock<V> {
+pub struct DynBlock<V>
+where
+    V: Variable,
+{
     pub name: String,
     pub inputs: Vec<DynBlockArg<V>>,
     pub script_path: PathBuf,
+    pub versions: Vec<Block<V>>,
     pub _span: TextSpan,
     pub _opts: Rc<Opts>,
 }
 
-impl<V> DynBlock<V> {
+impl<V: Variable> DynBlock<V> {
     fn new(
         name: String,
         inputs: Vec<DynBlockArg<V>>,
@@ -104,14 +140,136 @@ impl<V> DynBlock<V> {
             name,
             inputs,
             script_path,
+            versions: vec![],
             _span: span,
             _opts: opts,
         }
     }
 }
 
+impl DynBlock<MutVar> {
+    // TODO: Use definition span for some errors
+    fn generate_version(
+        &mut self,
+        inputs: &[BlockLinkArg<MutVar>],
+        link_span: TextSpan,
+        options: Rc<Opts>,
+        diagnostics_bag: DiagnosticsBagRef,
+    ) -> CompilationResult<usize> {
+        if self.inputs.len() != inputs.len() {
+            return Err(CompilationError::new_localized(
+                format!(
+                    "Expected {} arguments for dynamic block '{}'. Found {}.",
+                    self.inputs.len(),
+                    self.name,
+                    inputs.len(),
+                ),
+                link_span,
+            ));
+        }
+
+        // Create input string for macro
+        let inputs_str = self
+            .inputs
+            .iter()
+            .enumerate()
+            .map(|(i, arg)| match arg {
+                DynBlockArg::Var(var) => {
+                    format!("{}: {}", var.name(), var.type_().signature())
+                }
+                DynBlockArg::Literal(lit) => {
+                    format!("{}: {}", lit, inputs[i].span().text())
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(MACRO_ARG_SEP);
+
+        // Run python macro
+        const MACRO_ARG_SEP: &str = "; ";
+        let code = python_macro::run_python_import(
+            options.clone(),
+            Some(link_span.clone()),
+            self.script_path.to_str().unwrap(),
+            Some(self.name.clone()),
+            Some(inputs_str),
+        )?;
+
+        // Parse generated code into an AST
+        let ast = crate::ast::AST::mut_from_source(
+            Rc::new(code),
+            diagnostics_bag.clone(),
+            options.clone(),
+        );
+
+        // Check that the generated code has exactly one block
+        match ast.directives.len() {
+            1 => Ok(()),
+            0 => Err(CompilationError::new_localized(
+                "No blocks generated by macro code.".to_string(),
+                link_span.clone(),
+            )),
+            x => Err(CompilationError::new_localized(
+                format!("{} blocks generated by macro code. Only expeced 1.", x),
+                link_span.clone(),
+            )),
+        }?;
+
+        // Extract block from generated code
+        let block = ast
+            .get_block_by_name(&self.name, None)
+            .ok_or(CompilationError::new_localized(
+                format!("Block '{}' was not defined by generated code.", self.name),
+                link_span.clone(),
+            ))?
+            .clone();
+
+        // Make sure the generated block has the same INPUTS as the definition
+        let var_inputs = self
+            .inputs
+            .iter()
+            .filter_map(|arg| match arg {
+                DynBlockArg::Var(v) => Some(v),
+                DynBlockArg::Literal(_) => None,
+            })
+            .collect::<Vec<_>>();
+
+        if block.inputs.len() != var_inputs.len() {
+            return Err(CompilationError::new_localized(
+                format!(
+                    "Expected {} arguments for generated block '{}'. Found {}.",
+                    block.inputs.len(),
+                    self.name,
+                    var_inputs.len(),
+                ),
+                link_span,
+            ));
+        }
+
+        // Make sure the generated block has the same INPUT types as the definition
+        for (i, def_input) in var_inputs.iter().enumerate() {
+            let def_input = def_input.borrow();
+            let block_input = block.inputs[i].borrow();
+            if def_input.type_() != block_input.type_() {
+                return Err(CompilationError::new_localized(
+                    format!(
+                        "Expected type '{}' for input '{}'. Found '{}'.",
+                        block_input.type_.signature(),
+                        def_input.name,
+                        def_input.type_.signature(),
+                    ),
+                    link_span,
+                ));
+            }
+        }
+
+        self.versions.push(block);
+        Ok(self.versions.len() - 1)
+    }
+}
+
 /// The abstract syntax tree.
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Clone)]
 pub struct AST<V>
 where
     V: Variable,
@@ -174,21 +332,49 @@ where
         self.directives.push(Directive::Block(block));
     }
 
-    fn iter_blocks(&self) -> impl Iterator<Item = &Block<V>> {
-        self.directives.iter().filter_map(|d| match d {
-            Directive::Block(b) => Some(b),
+    fn iter_blocks(&self) -> impl Iterator<Item = DefinedBlock<V>> {
+        let a = self.directives.iter().filter_map(|d| match d {
+            Directive::Block(b) => Some(DefinedBlock::Block(b)),
+            Directive::DynBlock(b) => Some(DefinedBlock::DynBlock(b)),
+            _ => None,
+        });
+
+        let b = self
+            .directives
+            .iter()
+            .filter_map(|d| match d {
+                // TODO: Find a way to actually recurse here
+                Directive::Import(i) => Some(i.ast.directives.iter().filter_map(|d| match d {
+                    Directive::Block(b) => Some(DefinedBlock::Block(b)),
+                    Directive::DynBlock(b) => Some(DefinedBlock::DynBlock(b)),
+                    _ => None,
+                })),
+                _ => None,
+            })
+            .flatten();
+
+        a.chain(b)
+    }
+
+    fn get_dyn_block_mut(&mut self, name: &str) -> Option<&mut DynBlock<V>> {
+        self.directives.iter_mut().find_map(|d| match d {
+            Directive::DynBlock(b) if b.name == name => Some(b),
             _ => None,
         })
     }
 
-    pub fn get_block_by_id(&self, id: BlockId, dyn_block_id: Option<usize>) -> Option<&Block<V>> {
-        self.iter_blocks()
-            .find(|b| b.id == id && b.dyn_block_id == dyn_block_id)
-    }
+    pub fn get_block_by_name(
+        &self,
+        name: &str,
+        dyn_block_version: Option<usize>,
+    ) -> Option<&Block<V>> {
+        let block = self.iter_blocks().find(|b| b.name() == name)?;
 
-    pub fn get_block_by_name(&self, name: &str, dyn_block_id: Option<usize>) -> Option<&Block<V>> {
-        self.iter_blocks()
-            .find(|b| b.name == name && b.dyn_block_id == dyn_block_id)
+        match (block, dyn_block_version) {
+            (DefinedBlock::Block(b), None) => Some(b),
+            (DefinedBlock::DynBlock(b), Some(n)) => Some(&b.versions[n]),
+            _ => None,
+        }
     }
 
     /// Print the [AST] to stout.
@@ -370,7 +556,7 @@ impl Display for VariableSignalType {
 
 pub type VariableId = usize;
 pub type BlockId = usize;
-pub type DynBlockId = usize;
+pub type DynBlockVersion = usize;
 
 /// An argument to a block definition.
 #[derive(Debug, Clone)]
@@ -840,25 +1026,21 @@ pub struct BlockLinkExpression<V>
 where
     V: Variable,
 {
+    pub name: String,
     pub inputs: Vec<Expression<V>>,
-    pub block_id: BlockId,
-    pub dyn_block_id: Option<DynBlockId>,
     pub return_type: ExpressionReturnType,
+    pub dyn_block_version: Option<usize>,
 }
 
 impl<V> BlockLinkExpression<V>
 where
     V: Variable,
 {
-    pub fn new(
-        inputs: Vec<Expression<V>>,
-        block_id: BlockId,
-        dyn_block_id: Option<DynBlockId>,
-    ) -> Self {
+    pub fn new(name: String, inputs: Vec<Expression<V>>, dyn_block_version: Option<usize>) -> Self {
         Self {
-            block_id,
-            dyn_block_id,
+            name,
             inputs,
+            dyn_block_version,
             return_type: ExpressionReturnType::Infered,
         }
     }
@@ -1375,10 +1557,7 @@ where
     }
 
     fn visit_block_link_expression(&mut self, link: &BlockLinkExpression<V>) {
-        let block = self
-            .ast
-            .get_block_by_id(link.block_id, link.dyn_block_id)
-            .unwrap();
+        let block = self.ast.get_block_by_name(&link.name, None).unwrap();
         self.print(&format!(
             "BlockLink: \"{}\" -> {}",
             block.name,

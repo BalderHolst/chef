@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::ast::{
-    self, AssignmentType, BinaryOperator, DefinitionKind, DetVar, VariableId, VariableSignalType,
-    VariableType, AST,
+    self, AssignmentType, BinaryOperator, DefinitionKind, DetVar, DynBlockVersion, VariableId,
+    VariableSignalType, VariableType, AST,
 };
 use crate::compiler::graph::*;
 use crate::diagnostics::{CompilationError, CompilationResult};
@@ -26,6 +26,7 @@ type GateExpression = ast::GateExpression<DetVar>;
 type StatementKind = ast::StatementKind<DetVar>;
 type VariableRef = ast::VariableRef<DetVar>;
 type WhenStatement = ast::WhenStatement<DetVar>;
+type Directive = ast::Directive<DetVar>;
 
 struct Scope {
     variables: HashMap<VariableId, (NId, LooseSig)>,
@@ -131,10 +132,32 @@ impl Scope {
     }
 }
 
+#[derive(Clone)]
+enum NamespaceItem {
+    Block(CompiledBlock),
+    DynBlock(Vec<CompiledBlock>),
+    _Namespace(Namespace),
+    _Constant,
+}
+
+impl NamespaceItem {
+    fn type_name(&self) -> &str {
+        match self {
+            NamespaceItem::Block(_) => "block",
+            NamespaceItem::DynBlock(_) => "dyn block",
+            NamespaceItem::_Namespace(_) => "namespace",
+            NamespaceItem::_Constant => "constant",
+        }
+    }
+}
+
+type CompiledBlock = Graph<LooseSig>;
+type Namespace = HashMap<String, NamespaceItem>;
+
 pub struct GraphCompiler {
     ast: AST<DetVar>,
     next_anysignal: u64,
-    block_graphs: HashMap<String, Graph<LooseSig>>,
+    namespaces: HashMap<String, Namespace>,
     scopes: Vec<Scope>,
 }
 
@@ -143,13 +166,49 @@ impl GraphCompiler {
         Self {
             ast,
             next_anysignal: 0,
-            block_graphs: HashMap::new(),
+            namespaces: HashMap::new(),
             scopes: vec![Scope::new()],
         }
     }
 
-    pub fn compile(&mut self) -> Result<Graph<LooseSig>, CompilationError> {
-        self.get_graph("main", None)
+    pub fn compile(&mut self) -> Result<&Graph<LooseSig>, CompilationError> {
+        for directive in self.ast.directives.clone() {
+            self.compile_directive(&directive, None)?
+        }
+
+        self.get_block_graph("main", None, None)
+    }
+
+    fn compile_directive(
+        &mut self,
+        directive: &Directive,
+        namespace: Option<String>,
+    ) -> Result<(), CompilationError> {
+        match directive {
+            Directive::Block(block) => {
+                let block_graph = self.compile_block(block)?;
+                let item = NamespaceItem::Block(block_graph);
+                self.add_to_namespace(block.name.clone(), namespace, item)
+            }
+            Directive::DynBlock(dyn_block) => {
+                let graphs = dyn_block
+                    .versions
+                    .iter()
+                    .map(|block| self.compile_block(block))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let item = NamespaceItem::DynBlock(graphs);
+                self.add_to_namespace(dyn_block.name.clone(), namespace, item)
+            }
+            Directive::Import(import) => {
+                let namespace = &import.namespace;
+                for directive in &import.ast.directives {
+                    self.compile_directive(directive, namespace.clone())?;
+                }
+                Ok(())
+            }
+            Directive::Constant => todo!(),
+            Directive::Unknown => todo!(),
+        }
     }
 
     fn compile_block(&mut self, block: &Block) -> Result<Graph<LooseSig>, CompilationError> {
@@ -271,7 +330,7 @@ impl GraphCompiler {
 
         let ast_block = self
             .ast
-            .get_block_by_id(block_link.block_id, block_link.dyn_block_id)
+            .get_block_by_name(block_link.name.as_str(), None)
             .unwrap()
             .clone();
         let block = self.compile_block(&ast_block)?;
@@ -666,15 +725,18 @@ impl GraphCompiler {
 
         let ast_block = self
             .ast
-            .get_block_by_id(block_link_expr.block_id, block_link_expr.dyn_block_id)
-            .unwrap();
+            .get_block_by_name(&block_link_expr.name, block_link_expr.dyn_block_version)
+            .ok_or(CompilationError::new_generic(format!(
+                "Block with name '{}' not found.", // TODO: Make localized
+                block_link_expr.name
+            )))?;
 
         let block_name = ast_block.name.clone();
-        let dyn_block_id = ast_block.dyn_block_id;
         let out_type = self.variable_type_to_loose_sig(&ast_block.outputs[0].type_.clone());
-        let block_graph = self.get_graph(&block_name, dyn_block_id)?;
+        let block_graph =
+            self.get_block_graph(&block_name, None, block_link_expr.dyn_block_version)?;
 
-        let mut outputs = graph.stitch_graph(&block_graph, args)?;
+        let mut outputs = graph.stitch_graph(block_graph, args)?;
 
         if outputs.len() != 1 {
             return Err(CompilationError::new_generic(
@@ -690,6 +752,7 @@ impl GraphCompiler {
             LooseSig::ConstantAny((id, c)) => {
                 graph.assign_anysignal(id, out_type.to_constant(*c).unwrap())
             }
+            LooseSig::Many => (),
             _ => {
                 return Err(CompilationError::new_generic(format!(
                     "Cannot coerce block output `{block_out_type}` into `{out_type}`."
@@ -818,41 +881,63 @@ impl GraphCompiler {
         }
     }
 
-    pub fn get_graph(
+    fn add_to_namespace(
+        &mut self,
+        name: String,
+        namespace: Option<String>,
+        item: NamespaceItem,
+    ) -> CompilationResult<()> {
+        let mut ret = Ok(());
+        self.namespaces
+            .entry(namespace.unwrap_or("".to_string()).to_string())
+            .and_modify(|namespace| {
+                if namespace.insert(name.clone(), item.clone()).is_some() {
+                    ret = Err(CompilationError::new_generic(format!(
+                        "Block with name '{}' already defined.",
+                        name
+                    )));
+                };
+            })
+            .or_insert({
+                let mut namespace = HashMap::new();
+                namespace.insert(name, item);
+                namespace
+            });
+        ret
+    }
+
+    fn get_namespace_item(
         &mut self,
         name: &str,
-        dyn_block_id: Option<usize>,
-    ) -> Result<Graph<LooseSig>, CompilationError> {
-        if self.ast.directives.is_empty() {
-            return Err(CompilationError::new_generic("No statements in program."));
+        namespace: Option<&str>,
+    ) -> Option<&NamespaceItem> {
+        self.namespaces.get(namespace.unwrap_or(""))?.get(name)
+    }
+
+    fn get_block_graph(
+        &mut self,
+        name: &str,
+        namespace: Option<&str>,
+        dyn_block_version: Option<DynBlockVersion>,
+    ) -> CompilationResult<&CompiledBlock> {
+        match (self.get_namespace_item(name, namespace), dyn_block_version) {
+            (Some(NamespaceItem::Block(block_graph)), None) => Ok(block_graph),
+            (Some(NamespaceItem::DynBlock(blocks)), Some(version)) => Ok(&blocks[version]),
+            (Some(NamespaceItem::Block(_)), Some(_)) => Err(CompilationError::new_generic(
+                "Internal error: Block version specified for non-dynamic block.",
+            )),
+            (Some(NamespaceItem::DynBlock(_)), None) => Err(CompilationError::new_generic(
+                "Internal error: Dynamic block version not specified.",
+            )),
+            (Some(other), _) => Err(CompilationError::new_generic(format!(
+                "'{}' is not a block. It is a `{}`.",
+                name,
+                other.type_name()
+            ))),
+            (None, _) => Err(CompilationError::new_generic(
+                format!("No block with name '{}' was found.", name), // TODO: Make localized
+            )),
         }
-
-        // TODO: Do something about the clone??
-        let block = self
-            .ast
-            .get_block_by_name(name, dyn_block_id)
-            .unwrap_or_else(|| {
-                panic!("Block '{name}' should exist. This is probably a parser bug.")
-            })
-            .clone();
-
-        let block_graph = self.compile_block(&block)?;
-
-        self.add_block_graph(name.to_string(), block_graph);
-
-        // TODO: Another expensive clone
-        Ok(self
-            .get_block_graph(name)
-            .expect("We just added it.")
-            .clone())
-    }
-
-    fn add_block_graph(&mut self, name: String, graph: Graph<LooseSig>) {
-        self.block_graphs.insert(name, graph);
-    }
-
-    fn get_block_graph(&mut self, name: &str) -> Option<&Graph<LooseSig>> {
-        self.block_graphs.get(name)
     }
 
     fn enter_scope(&mut self) {
