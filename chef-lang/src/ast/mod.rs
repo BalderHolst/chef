@@ -327,11 +327,6 @@ where
         }
     }
 
-    /// Add a statement to the [AST].
-    pub fn add_block(&mut self, block: Block<V>) {
-        self.directives.push(Directive::Block(block));
-    }
-
     fn iter_blocks(&self) -> impl Iterator<Item = DefinedBlock<V>> {
         let a = self.directives.iter().filter_map(|d| match d {
             Directive::Block(b) => Some(DefinedBlock::Block(b)),

@@ -107,10 +107,6 @@ impl Parser {
         }
     }
 
-    pub fn directives(&self) -> &Vec<Directive<MutVar>> {
-        &self.ast.directives
-    }
-
     pub fn _from_lexer(
         lexer: Lexer,
         diagnostics_bag: DiagnosticsBagRef,
