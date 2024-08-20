@@ -13,21 +13,29 @@ use super::{visitors::Visitor, DefinitionKind, DetVar, ExpressionReturnType, Var
 
 /// Type check an [AST].
 pub fn check(ast: &AST<DetVar>, diagnostics_bag: DiagnosticsBagRef) {
-    let mut checker = TypeChecker { diagnostics_bag };
-    for block in ast.iter_blocks() {
-        match block {
-            super::DefinedBlock::Block(b) => checker.visit_block(b),
-            super::DefinedBlock::DynBlock(b) => checker.visit_dyn_block(b),
-        };
-    }
+    let mut checker = TypeChecker {
+        ast,
+        diagnostics_bag,
+    };
+    checker.check();
 }
 
 /// The type checker.
-struct TypeChecker {
+struct TypeChecker<'a> {
     diagnostics_bag: DiagnosticsBagRef,
+    ast: &'a AST<DetVar>,
 }
 
-impl TypeChecker {
+impl TypeChecker<'_> {
+    fn check(&mut self) {
+        for block in self.ast.iter_blocks() {
+            match block {
+                super::DefinedBlock::Block(b) => self.visit_block(b),
+                super::DefinedBlock::DynBlock(b) => self.visit_dyn_block(b),
+            };
+        }
+    }
+
     /// Checks if a signal is a valid factorio signal.
     fn is_valid_signal(s: &str) -> bool {
         for signal_line in BASE_SIGNALS.lines() {
@@ -39,21 +47,21 @@ impl TypeChecker {
         false
     }
 
+    fn report_error(&self, span: &TextSpan, msg: &str) {
+        self.diagnostics_bag.borrow_mut().report_error(span, msg)
+    }
+
     /// Report error if the signal is invalid.
     fn report_if_invalid_signal(&self, signal: &str, span: &TextSpan) {
         if !Self::is_valid_signal(signal) {
-            self.diagnostics_bag
-                .borrow_mut()
-                .report_error(span, &format!("Invalid factorio signal: `{}`", signal))
+            self.report_error(span, &format!("Invalid factorio signal: `{}`", signal))
         }
     }
 
     /// Check the return type of an expression.
     fn check_expr_type(&mut self, t: &ExpressionReturnType, span: &TextSpan) {
         if *t == ExpressionReturnType::Infered {
-            self.diagnostics_bag
-                .borrow_mut()
-                .report_error(span, "Expression return type could not be inferred.");
+            self.report_error(span, "Expression return type could not be inferred.")
         }
     }
 
@@ -95,12 +103,12 @@ impl TypeChecker {
                 if !((var_type.is_int() && expr_type.is_int())
                     || (var_type.is_bool() && expr_type.is_bool()))
                 {
-                    self.diagnostics_bag.borrow_mut().report_error(
+                    self.report_error(
                         span,
                         &format!(
-                        "Can not convert expression returning `{}` type to variable of type `{}`.",
-                        &expr_type, &var_type
-                    ),
+                            "Can not convert expression returning `{}` type to variable of type `{}`.",
+                            &expr_type, &var_type
+                        ),
                     )
                 }
             }
@@ -127,8 +135,48 @@ impl TypeChecker {
 }
 
 // TODO: Variable ref
-impl Visitor<DetVar> for TypeChecker {
-    fn visit_block_link_expression(&mut self, _block: &super::BlockLinkExpression<DetVar>) {}
+impl Visitor<DetVar> for TypeChecker<'_> {
+    fn visit_block_link_expression(&mut self, link: &super::BlockLinkExpression<DetVar>) {
+        let block_inputs = self
+            .ast
+            .get_block_by_name(&link.name, link.dyn_block_version)
+            .expect("Block must be there after parsing.")
+            .inputs
+            .clone();
+
+        // Check if the amount of inputs match
+        if link.inputs.len() != block_inputs.len() {
+            return self.report_error(
+                &link.span,
+                &format!(
+                    "Block `{}` expected {} inputs, found {}.",
+                    &link.name,
+                    block_inputs.len(),
+                    link.inputs.len()
+                ),
+            );
+        }
+
+        // Check if the types of the inputs match
+        link.inputs
+            .iter()
+            .zip(block_inputs.iter())
+            .for_each(|(input, block_input)| {
+                self.check_direct_assign(&input.return_type(), &block_input.return_type(), || {
+                    (
+                        link.span.clone(),
+                        format!(
+                            "Incorrect argument '{}' for block `{}`. Expected `{}`, found `{}`.",
+                            &block_input.name,
+                            &link.name,
+                            &input.return_type(),
+                            &block_input.return_type()
+                        ),
+                    )
+                })
+            });
+    }
+
     fn visit_number(&mut self, _number: &i32) {}
     fn visit_bool(&mut self, _value: &bool) {}
 

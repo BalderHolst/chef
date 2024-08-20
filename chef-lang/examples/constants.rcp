@@ -1,0 +1,7 @@
+const A = 5
+const B = 2
+const C = 2+A*B
+
+block main() => (out: int(landfill)) {
+    out <<- C;
+}

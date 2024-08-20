@@ -72,7 +72,7 @@ where
     Import(Import<V>),
     Block(Block<V>),
     DynBlock(DynBlock<V>),
-    Constant,
+    Constant, // constants are stored in current scope
     Unknown,
 }
 
@@ -1030,18 +1030,25 @@ where
     pub inputs: Vec<Expression<V>>,
     pub return_type: ExpressionReturnType,
     pub dyn_block_version: Option<usize>,
+    pub span: TextSpan,
 }
 
 impl<V> BlockLinkExpression<V>
 where
     V: Variable,
 {
-    pub fn new(name: String, inputs: Vec<Expression<V>>, dyn_block_version: Option<usize>) -> Self {
+    pub fn new(
+        name: String,
+        inputs: Vec<Expression<V>>,
+        dyn_block_version: Option<usize>,
+        span: TextSpan,
+    ) -> Self {
         Self {
             name,
             inputs,
             dyn_block_version,
             return_type: ExpressionReturnType::Infered,
+            span,
         }
     }
 

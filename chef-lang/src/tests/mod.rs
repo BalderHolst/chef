@@ -45,24 +45,3 @@ fn boolean_expressions() {
     bag.borrow().print();
     assert_eq!(bag.borrow().error_count(), 0);
 }
-
-#[test]
-fn compile_constant_expressions() {
-    let code = Rc::new(SourceText::from_str(
-        "
-    const A = 5
-    const B = 2
-    const C = 2+A*B
-
-    block main() => (out: int(landfill)) {
-        out <- C;
-    }
-",
-    ));
-
-    let opts = Rc::new(Opts::new_test());
-    let bag = DiagnosticsBag::new_ref(opts.clone());
-    AST::mut_from_source(code, bag.clone(), opts);
-    bag.borrow().print();
-    assert_eq!(bag.borrow().error_count(), 0);
-}

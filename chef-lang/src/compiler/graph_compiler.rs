@@ -206,7 +206,7 @@ impl GraphCompiler {
                 }
                 Ok(())
             }
-            Directive::Constant => todo!(),
+            Directive::Constant => Ok(()),
             Directive::Unknown => todo!(),
         }
     }

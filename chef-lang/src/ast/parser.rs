@@ -1374,7 +1374,7 @@ impl Parser {
         // Get arguments
         let inputs = self.parse_dyn_block_link_arguments()?;
 
-        let args_span = TextSpan::from_spans(&start_span, &self.peak(-1).span);
+        let link_span = TextSpan::from_spans(&start_span, &self.peak(-1).span);
 
         let dyn_block =
             self.ast
@@ -1387,7 +1387,7 @@ impl Parser {
         // Generate dynamic block and store get this version number of the block
         let version = dyn_block.generate_version(
             &inputs,
-            args_span,
+            link_span.clone(),
             self.options.clone(),
             self.diagnostics_bag.clone(),
         )?;
@@ -1404,17 +1404,22 @@ impl Parser {
             dyn_block.name.clone(),
             input_exprs,
             Some(version),
+            link_span,
         ))
     }
 
     /// Parse a chef block link.
     fn parse_block_link(&mut self) -> CompilationResult<BlockLinkExpression<MutVar>> {
-        let start = self.current().span.start;
+        let start = self.current().span.clone();
         let name = self.consume_word()?.to_string();
         let inputs = self.parse_block_link_arguments()?;
-        let end = self.current().span.clone();
 
-        Ok(BlockLinkExpression::new(name, inputs, None))
+        Ok(BlockLinkExpression::new(
+            name,
+            inputs,
+            None,
+            TextSpan::from_spans(&start, &self.current().span),
+        ))
     }
 
     /// Parse tuple unpacking statement.

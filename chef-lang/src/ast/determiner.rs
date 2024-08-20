@@ -76,8 +76,8 @@ impl Determiner {
                     .collect(),
             }),
             Directive::Import(mut_import) => self.det_import(mut_import),
-            Directive::Constant => todo!("Determine constants"),
-            Directive::Unknown => todo!(),
+            Directive::Constant => Directive::Constant,
+            Directive::Unknown => Directive::Unknown,
         }
     }
 
@@ -311,6 +311,7 @@ impl Determiner {
                 .map(|e| self.det_expression(e))
                 .collect(),
             dyn_block_version: block_link.dyn_block_version,
+            span: block_link.span,
         }
     }
 

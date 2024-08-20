@@ -41,8 +41,8 @@ macro_rules! make_visitor {
                         self.visit_import(import);
                     }
                     Directive::DynBlock(dyn_block) => self.visit_dyn_block(dyn_block),
-                    Directive::Constant => todo!("Visit Constant"),
-                    Directive::Unknown => todo!("Visit Unknown"),
+                    Directive::Constant => self.visit_constant(),
+                    Directive::Unknown => self.visit_unknown(),
                 }
             }
 
@@ -59,6 +59,10 @@ macro_rules! make_visitor {
                     self.visit_block(version);
                 }
             }
+
+            fn visit_constant(&mut self) { }
+
+            fn visit_unknown(&mut self) { }
 
             fn visit_block(&mut self, block: $($ref)+ Block<V>) {
                 self.do_visit_block(block);
