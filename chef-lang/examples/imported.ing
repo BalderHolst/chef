@@ -1,3 +1,11 @@
-block imported_block() => (out: int) {
+block a() => (out: int) {
     out <- 10;
+}
+
+block b() => (out: bool) {
+    out <- false;
+}
+
+block c() => (out: int) {
+    out <- 3;
 }

@@ -305,6 +305,7 @@ impl Determiner {
         BlockLinkExpression {
             name: block_link.name,
             return_type: block_link.return_type,
+            namespace: block_link.namespace,
             inputs: block_link
                 .inputs
                 .into_iter()

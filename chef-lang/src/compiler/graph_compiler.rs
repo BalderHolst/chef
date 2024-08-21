@@ -171,24 +171,19 @@ impl GraphCompiler {
         }
     }
 
-    pub fn compile(&mut self) -> Result<&Graph<LooseSig>, CompilationError> {
+    pub fn compile(&mut self) -> Result<(), CompilationError> {
         for directive in self.ast.directives.clone() {
-            self.compile_directive(&directive, None)?
+            self.compile_directive(&directive)?
         }
-
-        self.get_block_graph("main", None, None)
+        Ok(())
     }
 
-    fn compile_directive(
-        &mut self,
-        directive: &Directive,
-        namespace: Option<String>,
-    ) -> Result<(), CompilationError> {
+    fn compile_directive(&mut self, directive: &Directive) -> Result<(), CompilationError> {
         match directive {
             Directive::Block(block) => {
                 let block_graph = self.compile_block(block)?;
                 let item = NamespaceItem::Block(block_graph);
-                self.add_to_namespace(block.name.clone(), namespace, item)
+                self.add_to_namespace(block.name.clone(), None, item)
             }
             Directive::DynBlock(dyn_block) => {
                 let graphs = dyn_block
@@ -197,12 +192,15 @@ impl GraphCompiler {
                     .map(|block| self.compile_block(block))
                     .collect::<Result<Vec<_>, _>>()?;
                 let item = NamespaceItem::DynBlock(graphs);
-                self.add_to_namespace(dyn_block.name.clone(), namespace, item)
+                self.add_to_namespace(dyn_block.name.clone(), None, item)
             }
             Directive::Import(import) => {
-                let namespace = &import.namespace;
-                for directive in &import.ast.directives {
-                    self.compile_directive(directive, namespace.clone())?;
+                let mut compiler = GraphCompiler::new(import.ast.clone());
+                compiler.compile()?;
+                let namespace = import.namespace.clone();
+                let root_items = compiler.namespaces.remove("").unwrap();
+                for (name, item) in root_items.into_iter() {
+                    self.add_to_namespace(name, namespace.clone(), item)?;
                 }
                 Ok(())
             }
@@ -301,12 +299,15 @@ impl GraphCompiler {
     ) -> Result<(), CompilationError> {
         let var = &dec_def.variable;
         let var_type = self.variable_type_to_loose_sig(&var.type_);
-        let (expr_out_nid, var_type_res) =
-            self.compile_expression(graph, &dec_def.expression, Some(var_type.clone()))?;
 
-        if cfg!(debug_assertions) && var_type != LooseSig::Many {
-            assert_eq!(var_type, var_type_res.to_signal());
-        }
+        // Infer types of constant when directly assigned to variable
+        let (expr_out_nid, _expr_type) = match &dec_def.expression.kind {
+            ExpressionKind::Int(n) => self.compile_constant(graph, *n, Some(var_type.clone()))?,
+            ExpressionKind::Bool(b) => {
+                self.compile_constant(graph, *b as i32, Some(var_type.clone()))?
+            }
+            _ => self.compile_expression(graph, &dec_def.expression, None)?,
+        };
 
         self.declare_variable(graph, var.id, var_type.clone(), var.name.clone())?;
 
@@ -714,7 +715,7 @@ impl GraphCompiler {
         block_link_expr: &BlockLinkExpression,
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
-        assert!(out_type.is_none());
+        assert!(out_type.is_none(), "found: {:?}", out_type);
 
         let mut args: Vec<(NId, LooseSig)> = Vec::new();
 
@@ -733,8 +734,11 @@ impl GraphCompiler {
 
         let block_name = ast_block.name.clone();
         let out_type = self.variable_type_to_loose_sig(&ast_block.outputs[0].type_.clone());
-        let block_graph =
-            self.get_block_graph(&block_name, None, block_link_expr.dyn_block_version)?;
+        let block_graph = self.get_block_graph(
+            &block_name,
+            block_link_expr.namespace.as_ref(),
+            block_link_expr.dyn_block_version,
+        )?;
 
         let mut outputs = graph.stitch_graph(block_graph, args)?;
 
@@ -909,15 +913,17 @@ impl GraphCompiler {
     fn get_namespace_item(
         &mut self,
         name: &str,
-        namespace: Option<&str>,
+        namespace: Option<&String>,
     ) -> Option<&NamespaceItem> {
-        self.namespaces.get(namespace.unwrap_or(""))?.get(name)
+        self.namespaces
+            .get(namespace.unwrap_or(&"".to_string()))?
+            .get(name)
     }
 
-    fn get_block_graph(
+    pub fn get_block_graph(
         &mut self,
         name: &str,
-        namespace: Option<&str>,
+        namespace: Option<&String>,
         dyn_block_version: Option<DynBlockVersion>,
     ) -> CompilationResult<&CompiledBlock> {
         match (self.get_namespace_item(name, namespace), dyn_block_version) {
@@ -934,8 +940,15 @@ impl GraphCompiler {
                 name,
                 other.type_name()
             ))),
-            (None, _) => Err(CompilationError::new_generic(
+            (None, _) if namespace.is_none() => Err(CompilationError::new_generic(
                 format!("No block with name '{}' was found.", name), // TODO: Make localized
+            )),
+            (None, _) => Err(CompilationError::new_generic(
+                format!(
+                    "No block with name '{}' was found in namespace '{}'.",
+                    name,
+                    namespace.unwrap()
+                ), // TODO: Make localized
             )),
         }
     }

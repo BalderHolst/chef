@@ -351,6 +351,14 @@ where
         a.chain(b)
     }
 
+    fn get_directive_by_name(&self, name: &str) -> Option<&Directive<V>> {
+        self.directives.iter().find(|d| match d {
+            Directive::Block(b) => b.name.as_str() == name,
+            Directive::DynBlock(b) => b.name.as_str() == name,
+            _ => false,
+        })
+    }
+
     fn get_dyn_block_mut(&mut self, name: &str) -> Option<&mut DynBlock<V>> {
         self.directives.iter_mut().find_map(|d| match d {
             Directive::DynBlock(b) if b.name == name => Some(b),
@@ -370,6 +378,13 @@ where
             (DefinedBlock::DynBlock(b), Some(n)) => Some(&b.versions[n]),
             _ => None,
         }
+    }
+
+    pub fn get_import_by_name(&self, name: &str) -> Option<&Import<V>> {
+        self.directives.iter().find_map(|d| match d {
+            Directive::Import(i) if i.namespace.as_deref() == Some(name) => Some(i),
+            _ => None,
+        })
     }
 
     /// Print the [AST] to stout.
@@ -1025,6 +1040,7 @@ where
     pub inputs: Vec<Expression<V>>,
     pub return_type: ExpressionReturnType,
     pub dyn_block_version: Option<usize>,
+    pub namespace: Option<String>,
     pub span: TextSpan,
 }
 
@@ -1041,6 +1057,7 @@ where
         Self {
             name,
             inputs,
+            namespace: None,
             dyn_block_version,
             return_type: ExpressionReturnType::Infered,
             span,

@@ -1199,10 +1199,52 @@ impl Parser {
                 Ok(Expression::bool(false, self.peak(-1).span.clone()))
             }
 
+            // If imported block
+            TokenKind::Word(_word) if self.peak(1).kind == TokenKind::DoubleColon => {
+                let import_name = self.consume_word()?.to_string();
+                self.consume_and_expect(TokenKind::DoubleColon)?;
+
+                let item_name = match &self.current().kind {
+                    TokenKind::Word(w) => w.clone(),
+                    _ => {
+                        return Err(CompilationError::new_localized(
+                            "Expected word after `::`.".to_string(),
+                            self.current().span.clone(),
+                        ))
+                    }
+                };
+
+                let import = self.ast.get_import_by_name(&import_name).ok_or({
+                    CompilationError::new_localized(
+                        format!("Import `{}` not found.", import_name),
+                        start_token.span.clone(),
+                    )
+                })?;
+                let item = import.ast.get_directive_by_name(&item_name).ok_or(
+                    CompilationError::new_localized(
+                        format!(
+                            "Item `{}` not found in import `{}`.",
+                            item_name, import_name
+                        ),
+                        TextSpan::from_spans(&start_token.span, &self.peak(1).span),
+                    ),
+                )?;
+                let mut link = match item {
+                    Directive::Block(_) => self.parse_block_link()?,
+                    Directive::DynBlock(_) => self.parse_dyn_block_link()?,
+                    other => todo!("Link to imported {:?}", other),
+                };
+                link.namespace = Some(import_name);
+                Ok(Expression {
+                    kind: ExpressionKind::BlockLink(link),
+                    span: self.get_span_from(&start_token.span),
+                })
+            }
+
             // If it is a block
             TokenKind::Word(word) if self.peak(1).kind == TokenKind::LeftParen => {
                 // Normal block
-                let block_link_expr = if self.ast.get_block_by_name(word, None).is_some() {
+                let link = if self.ast.get_block_by_name(word, None).is_some() {
                     self.parse_block_link()?
                 }
                 // Dynamic block
@@ -1210,7 +1252,7 @@ impl Parser {
                     self.parse_dyn_block_link()?
                 };
                 Ok({
-                    let kind = ExpressionKind::BlockLink(block_link_expr);
+                    let kind = ExpressionKind::BlockLink(link);
                     let span = self.get_span_from(&start_token.span);
                     Expression { kind, span }
                 })
