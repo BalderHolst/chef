@@ -150,9 +150,23 @@ impl NamespaceItem {
         }
     }
 }
-
 type CompiledBlock = Graph<LooseSig>;
-type Namespace = HashMap<String, NamespaceItem>;
+
+#[derive(Clone)]
+struct Namespace(HashMap<String, NamespaceItem>);
+impl Namespace {
+    fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    fn get(&self, name: &str) -> Option<&NamespaceItem> {
+        self.0.get(name)
+    }
+
+    fn insert(&mut self, name: String, item: NamespaceItem) -> Option<NamespaceItem> {
+        self.0.insert(name, item)
+    }
+}
 
 pub struct GraphCompiler {
     ast: AST<DetVar>,
@@ -199,7 +213,7 @@ impl GraphCompiler {
                 compiler.compile()?;
                 let namespace = import.namespace.clone();
                 let root_items = compiler.namespaces.remove("").unwrap();
-                for (name, item) in root_items.into_iter() {
+                for (name, item) in root_items.0.into_iter() {
                     self.add_to_namespace(name, namespace.clone(), item)?;
                 }
                 Ok(())
@@ -903,7 +917,7 @@ impl GraphCompiler {
                 };
             })
             .or_insert({
-                let mut namespace = HashMap::new();
+                let mut namespace = Namespace::new();
                 namespace.insert(name, item);
                 namespace
             });
