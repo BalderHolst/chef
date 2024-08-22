@@ -33,10 +33,11 @@
 
             # Development shell
             devShells.default = pkgs.mkShell {
-                buildInputs = [
-                    pkgs.cargo     # compiler and build system
-                    pkgs.graphviz  # for creating visual graphs
-                    pkgs.gnome.eog # svg viewer
+                buildInputs = with pkgs; [
+                    cargo         # compiler and build system
+                    rust-analyzer # lsp for rust
+                    graphviz      # for creating visual graphs
+                    gnome.eog     # svg viewer
                 ];
 
                 shellHook = ''
