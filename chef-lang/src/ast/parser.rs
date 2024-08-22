@@ -1,5 +1,7 @@
 //! Module for parsing a token stream into an abstract syntax tree.
 
+use static_files::StaticFile;
+
 use crate::cli::Opts;
 use crate::compiler::graph::WireKind;
 use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBagRef};
@@ -27,6 +29,9 @@ use super::{
     IndexExpression, MutVar, NegativeExpression, OperatorKind, PickExpression, SizeOfExpression,
     VarData, Variable, VariableRef, VariableSignalType, WhenStatement, AST,
 };
+
+// TODO: use import stdlib
+const _STD_LIB: StaticFile = static_files::static_file!("./stdlib");
 
 // TODO: Add example
 /// A list of statements with an optional return expression at its end.

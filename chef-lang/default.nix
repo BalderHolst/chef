@@ -8,7 +8,7 @@ pkgs.rustPlatform.buildRustPackage rec {
 
   src = ./.;
 
-  cargoHash = "sha256-3OzvKVcUDP1YqnExDvnf0kwiibk1K1Y4iNtZdD+hQ/M=";
+  cargoHash = "sha256-KmVoTs8IKdSPhAeT8eo28lteJYFylKBJKzkJFUwI2Yg=";
   cargoDepsName = pname;
   doCheck = false;
 }

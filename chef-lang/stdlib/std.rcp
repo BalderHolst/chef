@@ -1,0 +1,19 @@
+/// A simple counter block that counts from 1 to a limit repeatedly.
+block counter(limit: int) => (count: int) {
+
+    // Counter nodes
+    let input: int(signal-C);
+    let output: int(signal-C);
+
+    // Driver input
+    input <<- 1;
+
+    // Decider combinator
+    output <- ? input < limit <- input;
+
+    // Loop back
+    input <- output;
+
+    // Connect the output
+    count <<- output;
+}
