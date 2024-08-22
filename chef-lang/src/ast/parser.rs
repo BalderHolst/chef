@@ -30,7 +30,7 @@ use super::{
     VarData, Variable, VariableRef, VariableSignalType, WhenStatement, AST,
 };
 
-// TODO: use import stdlib
+// TODO: use stdlib when imported
 const _STD_LIB: StaticFile = static_files::static_file!("./stdlib");
 
 // TODO: Add example
@@ -58,6 +58,7 @@ enum Constant {
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
 pub struct Parser {
+    modules: HashMap<String, String>,
     ast: AST<MutVar>,
     tokens: Vec<Token>,
     cursor: usize,
@@ -95,6 +96,7 @@ impl Parser {
 
     /// Create a new [Parser].
     fn new(tokens: Vec<Token>, diagnostics_bag: DiagnosticsBagRef, options: Rc<Opts>) -> Self {
+        let modules = options.include.clone().unwrap_or_default();
         Self {
             ast: AST::new(diagnostics_bag.clone()),
             tokens: tokens
@@ -109,6 +111,7 @@ impl Parser {
             next_blocks: VecDeque::new(),
             next_var_id: 0,
             next_block_id: 0,
+            modules,
         }
     }
 
@@ -117,6 +120,7 @@ impl Parser {
         diagnostics_bag: DiagnosticsBagRef,
         options: Rc<Opts>,
     ) -> Self {
+        let modules = options.include.clone().unwrap_or_default();
         Self {
             ast: AST::new(diagnostics_bag.clone()),
             tokens: lexer
@@ -129,6 +133,7 @@ impl Parser {
             next_blocks: VecDeque::new(),
             next_var_id: 0,
             next_block_id: 0,
+            modules,
         }
     }
 
@@ -193,7 +198,7 @@ impl Parser {
     }
 
     /// Consume a token and expect it to be a string literal. Return the word as a slice.
-    fn consume_string_lit(&mut self) -> CompilationResult<&str> {
+    fn _consume_string_lit(&mut self) -> CompilationResult<&str> {
         let token = self.consume();
         if let TokenKind::StringLiteral(lit) = &token.kind {
             Ok(lit.as_str())
@@ -807,14 +812,34 @@ impl Parser {
 
     /// Parse chef `import`. This will parse the imported file and add its items to the scope.
     fn parse_import(&mut self) -> CompilationResult<Import<MutVar>> {
-        self.consume(); // Consume "import" word
+        self.consume_word()?; // Consume "import" word
 
         let options = self.options.clone();
-        let path = self.consume_string_lit()?;
-        let file_path = PathBuf::from(path);
+        let mut namespace = None;
 
-        let text = SourceText::from_file(path, options.clone())?;
+        // Get path directly or from module alias
+        let path = match self.consume().kind.clone() {
+            TokenKind::StringLiteral(s) => Ok(s),
+            TokenKind::Word(module) => {
+                namespace = Some(module.clone());
+                self.modules
+                    .get(&module)
+                    .cloned()
+                    .ok_or(CompilationError::new_localized(
+                        format!("Module `{}` not found.", module),
+                        self.peak(-1).span.clone(),
+                    ))
+            }
+            other => Err(CompilationError::new_localized(
+                format!("Expected path or module. Found: {}.", other),
+                self.peak(-1).span.clone(),
+            )),
+        }?;
+
+        let text = SourceText::from_file(path.as_str(), options.clone())?;
         let text = Rc::new(text);
+
+        let file_path = PathBuf::from(path);
 
         let diagnostics_bag = DiagnosticsBag::new_ref(options.clone());
         let tokens = Lexer::from_source(text).collect();
@@ -822,19 +847,13 @@ impl Parser {
         let ast = imported_ast;
 
         if self.consume_if(TokenKind::word("as")) {
-            let namespace = self.consume_word()?.to_string();
-            Ok(Import {
-                namespace: Some(namespace),
-                file_path,
-                ast,
-            })
-        } else {
-            Ok(Import {
-                namespace: None,
-                file_path,
-                ast,
-            })
+            namespace = Some(self.consume_word()?.to_string());
         }
+        Ok(Import {
+            namespace,
+            file_path,
+            ast,
+        })
     }
 
     /// Parse constant directive.

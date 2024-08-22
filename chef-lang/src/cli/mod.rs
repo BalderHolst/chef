@@ -1,8 +1,21 @@
 //! The chef cli.
 
+use std::collections::HashMap;
+
 use crate::blueprint::placement::PlacerName;
 use clap::{Parser, Subcommand};
 use termion::terminal_size;
+
+fn parse_key_value(s: &str) -> Result<HashMap<String, String>, String> {
+    let mut map = HashMap::new();
+    for pair in s.split(":") {
+        let (key, value) = pair
+            .split_once("=")
+            .ok_or(format!("Invalid key value pair: \"{}\"", pair))?;
+        map.insert(key.to_string(), value.to_string());
+    }
+    Ok(map)
+}
 
 /// Command line options for chef
 #[derive(Debug, Parser)]
@@ -22,6 +35,10 @@ pub struct Opts {
     /// Directory to store temporary files
     #[arg(short('T'), long)]
     pub(crate) tmp_dir: Option<String>,
+
+    /// Include a modules at the given path
+    #[arg(short('I'), long, value_parser = parse_key_value)]
+    pub(crate) include: Option<HashMap<String, String>>,
 
     #[command(subcommand)]
     pub(crate) command: Command,
@@ -44,6 +61,7 @@ impl Opts {
             command,
             python: None,
             tmp_dir: None,
+            include: None,
         }
     }
 }
