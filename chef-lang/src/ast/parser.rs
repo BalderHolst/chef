@@ -855,7 +855,7 @@ impl Parser {
         }?;
 
         // TODO: Make file mandetory in SourceText
-        let path = text.file().unwrap().to_string();
+        let path = text.file().to_string();
 
         let text = Rc::new(text);
         let file_path = PathBuf::from(path);

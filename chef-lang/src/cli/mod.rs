@@ -1,6 +1,6 @@
 //! The chef cli.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::blueprint::placement::PlacerName;
 use clap::{Parser, Subcommand};
@@ -33,8 +33,9 @@ pub struct Opts {
     pub(crate) python: Option<String>,
 
     /// Directory to store temporary files
-    #[arg(short('T'), long)]
-    pub(crate) tmp_dir: Option<String>,
+    // TODO: Crossplatform default
+    #[arg(short('T'), long, default_value = "/tmp/chef")]
+    pub(crate) tmp_dir: PathBuf,
 
     /// Include a modules at the given path
     #[arg(short('I'), long, value_parser = parse_key_value)]
@@ -60,7 +61,7 @@ impl Opts {
             verbose: true,
             command,
             python: None,
-            tmp_dir: None,
+            tmp_dir: PathBuf::from("/tmp/chef-test"),
             include: None,
         }
     }

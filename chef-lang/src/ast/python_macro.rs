@@ -1,7 +1,7 @@
 //! This module contains the logic for running python scripts as macros in the chef language.
 
 use std::{
-    env,
+    env, fs,
     path::{Path, PathBuf},
     process::Command,
     rc::Rc,
@@ -102,5 +102,13 @@ pub(crate) fn run_python_import(
 
     let code = String::from_utf8(output.stdout).unwrap();
 
-    Ok(SourceText::from_str(code.as_str()))
+    let tmp_dir = opts.tmp_dir.join("macros");
+    let _ = fs::create_dir_all(&tmp_dir);
+
+    let path = tmp_dir
+        .join(format!("block-{}.rcp", name))
+        .display()
+        .to_string();
+
+    Ok(SourceText::new(path, code))
 }

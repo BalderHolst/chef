@@ -112,10 +112,7 @@ impl<'a> DiagnosticsPrinter<'a> {
             .collect()
         };
 
-        let location = match source.file() {
-            Some(file) => format!("{}:{}:{}\t", file, line_nr + 1, line_pos + 1),
-            None => format!("{}:{}\t", line_nr + 1, line_pos + 1),
-        };
+        let location = format!("{}:{}:{}\t", source.file(), line_nr + 1, line_pos + 1);
 
         let message = format!("{}{}{}", Fg(color::Blue), message, Fg(color::Reset));
         format!("{} {} \t-> {}", location, code, message)

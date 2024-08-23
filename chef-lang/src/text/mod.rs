@@ -40,7 +40,7 @@ impl TextSpan {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SourceText {
-    file: Option<String>,
+    file: String,
     text: String,
     lines: Vec<usize>,
 }
@@ -50,7 +50,7 @@ impl SourceText {
     pub fn new(path: String, contents: String) -> Self {
         let lines = Self::index_text(contents.as_str());
         Self {
-            file: Some(path),
+            file: path,
             text: contents,
             lines,
         }
@@ -68,15 +68,17 @@ impl SourceText {
         Ok(Self {
             text,
             lines,
-            file: Some(path.to_string()),
+            file: path.to_string(),
         })
     }
 
-    pub fn from_str(string: &str) -> Self {
+    #[cfg(test)]
+    pub fn from_str(text: &str) -> Self {
+        let lines = Self::index_text(text);
         Self {
-            file: None,
-            text: string.to_string(),
-            lines: Self::index_text(string),
+            file: "test".to_string(),
+            text: text.to_string(),
+            lines,
         }
     }
 
@@ -114,7 +116,7 @@ impl SourceText {
         self.text.as_ref()
     }
 
-    pub fn file(&self) -> Option<&str> {
-        self.file.as_deref()
+    pub fn file(&self) -> &str {
+        &self.file
     }
 }
