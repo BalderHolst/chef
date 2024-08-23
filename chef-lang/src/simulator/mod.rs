@@ -2,7 +2,7 @@
 
 mod visualizer;
 
-use std::{fmt::Display, io};
+use std::{fmt::Display, fs, io};
 
 use crate::compiler::graph::{
     self, ArithmeticOperation, DeciderOperation, DetSig, Graph, NId, NetworkId, Operation, Signal,
@@ -360,6 +360,7 @@ impl Simulator {
     }
 
     pub fn dump_simulation(&mut self, steps: usize, our_dir: &str) {
+        let _ = fs::create_dir_all(our_dir);
         for step in 0..steps {
             let file = our_dir.to_string() + "/" + step.to_string().as_str() + ".svg";
             self.dump_state(file.as_str()).unwrap();
@@ -383,31 +384,4 @@ fn get_count(items: &Vec<Item>, iotype: &DetSig) -> i32 {
         }
     }
     0
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::compiler::graph::{Node, Operation};
-
-    #[test]
-    #[ignore = "counters are not implemented in stdlib yet"]
-    fn test_counter() {
-        let t = "s";
-        let mut g: Graph<DetSig> = Graph::new();
-        let const_nid = g.push_node(Node::Constant(DetSig::ConstantSignal((t.to_string(), 1))));
-        let (c1, c2) = g.push_operation(Operation::new_pick(DetSig::signal(t)));
-        let output = g.push_node(Node::Output {
-            kind: DetSig::Signal(t.to_string()),
-            name: "out".to_string(),
-            nr: 0,
-        });
-        g.push_wire(const_nid, c1);
-        g.push_wire(c1, c2);
-        g.push_wire(c2, output);
-
-        let mut sim = Simulator::new(g, vec![]);
-        sim.simulate(10);
-        assert_eq!(sim.get_output(), vec![vec![Item::new_signal(t, 10)]]);
-    }
 }

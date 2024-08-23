@@ -24,28 +24,24 @@ block main(input: many) => (out: int(inserter)) {
 }
 
 #[test]
-#[ignore = "counters are not implemented in stdlib yet"]
-fn counter_with_when() {
+fn counter() {
     let graph = compile_code(
         "
+import std
+
 block main() => (out: int(tank)) {
-    let c: counter(signal-T : 6);
-    let v: var(signal-V);
-    when (c == 5) {
-        v <- 1;
-    }
-    out <- v;
+    out <<- std::counter(100);
 }
 ",
     );
 
     let mut sim = Simulator::new(graph, vec![]);
 
-    sim.simulate(17);
+    sim.simulate(10);
 
     let outputs = sim.get_output();
 
-    assert_eq!(vec![outputs[0].clone()], outputs!["tank": 2],)
+    assert_eq!(vec![outputs[0].clone()], outputs!["tank": 7],)
 }
 
 #[test]
@@ -250,29 +246,6 @@ fn order_of_operations_any_signals_factorio_time() {
     let mut sim = Simulator::new(g, inputs![]);
     sim.simulate(10);
     assert_eq!(sim.get_output(), outputs!["rail": 11]);
-}
-
-#[test]
-#[ignore = "counters are not implemented in stdlib yet"]
-fn var_mutation_with_clock() {
-    let g = compile_code(
-        "
-    block main() => (out: int(signal-O)) {
-        let total: var(signal-T);
-        let c: counter(signal-C : 10);
-        when c == 1 {
-            total <- 2;
-        }
-        when c == 5 {
-            total <- -1;
-        }
-        out <<- total;
-    }
-",
-    );
-    let mut sim = Simulator::new(g, inputs![]);
-    sim.simulate(50);
-    assert_eq!(sim.get_output(), outputs!["signal-O": 5]);
 }
 
 #[test]
