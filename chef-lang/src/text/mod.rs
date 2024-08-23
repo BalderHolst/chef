@@ -47,6 +47,15 @@ pub struct SourceText {
 
 #[allow(dead_code)]
 impl SourceText {
+    pub fn new(path: String, contents: String) -> Self {
+        let lines = Self::index_text(contents.as_str());
+        Self {
+            file: Some(path),
+            text: contents,
+            lines,
+        }
+    }
+
     pub fn from_file(path: &str, opts: Rc<Opts>) -> CompilationResult<Self> {
         if path.ends_with(".py") {
             return run_python_import(opts, None, path, None, None);

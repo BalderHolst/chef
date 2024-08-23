@@ -1,53 +1,61 @@
-use std::fs;
+use std::{fs, path::PathBuf};
 
 use proc_macro::{TokenStream, TokenTree};
 use quote::quote;
 
-fn to_static_file(path_str: &String) -> proc_macro2::TokenStream {
-    let root = std::env::current_dir().expect("Could not determine current directory");
-    let path = root.join(path_str);
-    if path.is_file() {
-        let file_contents = fs::read_to_string(path).unwrap();
-        quote! {
-            static_files::StaticFile::File {
-                name: #path_str,
-                contents: #file_contents,
-            }
-        }
-    }
-    else if path.is_dir() {
-        let files = fs::read_dir(&path).unwrap().into_iter().map(|file| {
-            let file = file.unwrap();
-            let file_path = file.path();
-            let file_path = file_path.to_str().unwrap().to_string();
-            to_static_file(&file_path)
-        }).collect::<Vec<_>>();
-
-        quote! {
-            static_files::StaticFile::Directory {
-                name: #path_str,
-                files: &[#(#files),*],
-            }
-        }
-
-    }
-    else {
-        panic!("Could not read file '{}'. It is neither file or directory.", path.display());
-    }
-    .into()
-}
+/// TODO: Construct the expected tree. No paths with "/" in them!
 
 #[proc_macro]
-pub fn static_file(tokens: TokenStream) -> TokenStream {
-    let mut tokens = tokens.into_iter();
+pub fn static_files(tokens: TokenStream) -> TokenStream {
+    let mut tokens = tokens.into_iter().fuse();
+    let root = std::env::current_dir().expect("Could not determine current directory");
 
-    match tokens.next() {
-        Some(TokenTree::Literal(lit)) => {
-            let file_path = (&lit.to_string()[1..lit.to_string().len() - 1]).to_string();
-            to_static_file(&file_path).into()
-        }
-        other => {
-            panic!("Expected a string literal. Got: {:?}", other);
+    let mut paths = Vec::new();
+
+    while let Some(token) = tokens.next() {
+        match token {
+            TokenTree::Literal(literal) => {
+                let path = literal.to_string();
+                let path = path.trim_matches('"');
+                paths.push(path.to_string());
+
+                // Consume ','
+                if let Some(comma_token) = tokens.next() {
+                    if let TokenTree::Punct(p) = comma_token {
+                        if p.as_char() == ',' {
+                            continue;
+                        }
+                    }
+                    panic!("Expected a comma after path.")
+                }
+            }
+            _ => panic!("Expected a string literal"),
         }
     }
+
+    let files = paths
+        .iter()
+        .map(|vault_path| {
+            let mut path = PathBuf::from(vault_path);
+            if path.is_relative() {
+                path = root.join(path);
+            }
+            if !path.is_file() {
+                panic!("Path is not a file: {:?}", path);
+            }
+            let content = fs::read_to_string(&path).expect("Could not read file");
+            quote! {
+                static_files::File {
+                    path: #vault_path,
+                    contents: #content,
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+
+    quote! {
+        static_files::FileStash {
+            files: &[#(#files),*],
+        }
+    }.into()
 }

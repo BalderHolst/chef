@@ -1,7 +1,5 @@
 //! Module for parsing a token stream into an abstract syntax tree.
 
-use static_files::StaticFile;
-
 use crate::cli::Opts;
 use crate::compiler::graph::WireKind;
 use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBagRef};
@@ -30,8 +28,17 @@ use super::{
     VarData, Variable, VariableRef, VariableSignalType, WhenStatement, AST,
 };
 
-// TODO: use stdlib when imported
-const _STD_LIB: StaticFile = static_files::static_file!("./stdlib");
+enum Module {
+    /// Module embedded in compiler
+    Static(&'static static_files::File),
+
+    /// Module included from file
+    Dynamic(String),
+}
+
+const STD_LIB: static_files::FileStash = static_files::static_files! {
+    "stdlib/std.rcp",
+};
 
 // TODO: Add example
 /// A list of statements with an optional return expression at its end.
@@ -58,11 +65,11 @@ enum Constant {
 
 /// The parser. The parser can be used as an iterator to get statements one at a time.
 pub struct Parser {
-    modules: HashMap<String, String>,
     ast: AST<MutVar>,
     tokens: Vec<Token>,
     cursor: usize,
     scopes: Vec<HashMap<String, ScopedItem<MutVar>>>,
+    modules: HashMap<String, Module>,
     diagnostics_bag: DiagnosticsBagRef,
     options: Rc<Opts>,
     next_blocks: VecDeque<Block<MutVar>>,
@@ -96,35 +103,29 @@ impl Parser {
 
     /// Create a new [Parser].
     fn new(tokens: Vec<Token>, diagnostics_bag: DiagnosticsBagRef, options: Rc<Opts>) -> Self {
-        let modules = options.include.clone().unwrap_or_default();
+        let mut modules = HashMap::new();
+
+        modules.insert(
+            "std".to_string(),
+            Module::Static(
+                STD_LIB
+                    .get_file("stdlib/std.rcp")
+                    .expect("stdlib should be embedded"),
+            ),
+        );
+
+        if let Some(includes) = &options.include {
+            for (name, path) in includes {
+                modules.insert(name.clone(), Module::Dynamic(path.clone()));
+            }
+        }
+
         Self {
             ast: AST::new(diagnostics_bag.clone()),
             tokens: tokens
                 .iter()
                 .filter(|token| token.kind != TokenKind::Whitespace)
                 .cloned()
-                .collect(),
-            cursor: 0,
-            scopes: vec![HashMap::new()],
-            diagnostics_bag,
-            options,
-            next_blocks: VecDeque::new(),
-            next_var_id: 0,
-            next_block_id: 0,
-            modules,
-        }
-    }
-
-    pub fn _from_lexer(
-        lexer: Lexer,
-        diagnostics_bag: DiagnosticsBagRef,
-        options: Rc<Opts>,
-    ) -> Self {
-        let modules = options.include.clone().unwrap_or_default();
-        Self {
-            ast: AST::new(diagnostics_bag.clone()),
-            tokens: lexer
-                .filter(|token| token.kind != TokenKind::Whitespace)
                 .collect(),
             cursor: 0,
             scopes: vec![HashMap::new()],
@@ -810,6 +811,15 @@ impl Parser {
         Ok(statements)
     }
 
+    fn get_module(&self, module: &String) -> CompilationResult<&Module> {
+        self.modules
+            .get(module)
+            .ok_or(CompilationError::new_localized(
+                format!("Module `{}` not found.", module),
+                self.peak(-1).span.clone(),
+            ))
+    }
+
     /// Parse chef `import`. This will parse the imported file and add its items to the scope.
     fn parse_import(&mut self) -> CompilationResult<Import<MutVar>> {
         self.consume_word()?; // Consume "import" word
@@ -818,17 +828,25 @@ impl Parser {
         let mut namespace = None;
 
         // Get path directly or from module alias
-        let path = match self.consume().kind.clone() {
-            TokenKind::StringLiteral(s) => Ok(s),
+        let text = match self.consume().kind.clone() {
+            TokenKind::StringLiteral(s) => {
+                let text = SourceText::from_file(s.as_str(), options.clone())?;
+                Ok(text)
+            }
             TokenKind::Word(module) => {
                 namespace = Some(module.clone());
-                self.modules
-                    .get(&module)
-                    .cloned()
-                    .ok_or(CompilationError::new_localized(
-                        format!("Module `{}` not found.", module),
-                        self.peak(-1).span.clone(),
-                    ))
+                match self.get_module(&module)? {
+                    Module::Static(f) => {
+                        let path = f.path.to_string();
+                        let contents = f.contents.to_string();
+                        let text = SourceText::new(path, contents);
+                        Ok(text)
+                    }
+                    Module::Dynamic(path) => {
+                        let text = SourceText::from_file(path.as_str(), options.clone())?;
+                        Ok(text)
+                    }
+                }
             }
             other => Err(CompilationError::new_localized(
                 format!("Expected path or module. Found: {}.", other),
@@ -836,9 +854,10 @@ impl Parser {
             )),
         }?;
 
-        let text = SourceText::from_file(path.as_str(), options.clone())?;
-        let text = Rc::new(text);
+        // TODO: Make file mandetory in SourceText
+        let path = text.file().unwrap().to_string();
 
+        let text = Rc::new(text);
         let file_path = PathBuf::from(path);
 
         let diagnostics_bag = DiagnosticsBag::new_ref(options.clone());
