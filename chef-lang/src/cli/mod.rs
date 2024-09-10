@@ -55,6 +55,7 @@ impl Opts {
             fgraph: None,
             placer: PlacerName::default(),
             verbose: false,
+            gui: false,
         });
         Self {
             no_advice: true,
@@ -97,7 +98,7 @@ pub struct CookOpts {
     pub(crate) dot: bool,
 
     /// Output an svg to visualize the circuit.
-    #[arg(short, long)]
+    #[arg(short('g'), long)]
     pub(crate) graph: Option<String>,
 
     /// Output an svg to visualize the Factorio circuit connections.
@@ -107,6 +108,10 @@ pub struct CookOpts {
     /// Choose the placering algorithm.
     #[arg(short('p'), long, default_value = "recursive")]
     pub placer: PlacerName,
+
+    /// Show placement of combinators in gui
+    #[arg(short('V'), long)]
+    pub gui: bool,
 
     /// Be verbose
     #[arg(short('v'), long)]
@@ -121,6 +126,7 @@ impl CookOpts {
             graph: None,
             fgraph: None,
             verbose: false,
+            gui: false,
             placer: PlacerName::default(),
         }
     }

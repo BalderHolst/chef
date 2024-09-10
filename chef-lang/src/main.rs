@@ -21,6 +21,7 @@ mod text;
 mod the_chef;
 mod utils;
 
+pub mod gui;
 #[cfg(test)]
 mod tests;
 
@@ -75,8 +76,13 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
         exit(0);
     }
 
-    let blueprint_str =
-        blueprint::convert_to_graph_to_blueprint_string(&cook_opts.placer, graph).unwrap();
+    let entitites = blueprint::graph_to_entities(&cook_opts.placer, graph);
+
+    if cook_opts.gui {
+        gui::run_gui(&entitites);
+    }
+
+    let blueprint_str = blueprint::entities_to_blueprint_string(entitites).unwrap();
     println!("{blueprint_str}");
     eprintln!();
 

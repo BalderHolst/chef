@@ -40,6 +40,12 @@
                     gnome.eog     # svg viewer
                 ];
 
+                LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (with pkgs; [
+                    wayland
+                    libGL
+                    libxkbcommon
+                ]);
+
                 shellHook = ''
                     root="$(pwd)"
                     [[ ! "$(basename $root)" = "chef" ]] && echo -e "\nWARNING: Paths may are not set correctly. Please run in the 'chef' root directory."

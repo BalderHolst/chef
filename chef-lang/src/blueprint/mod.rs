@@ -822,12 +822,12 @@ impl Display for Combinator {
 /// The maxinum distanct a wire can connect two points in factorio.
 const WIRE_RANGE: f64 = 9.0;
 
-pub fn convert_to_graph_to_blueprint_string(
-    placer: &PlacerName,
-    graph: Graph,
-) -> fb::Result<String> {
-    let combinators = placer.place(graph);
-    let container = combinators_to_blueprint(combinators);
+pub fn graph_to_entities(placer: &PlacerName, graph: Graph) -> Vec<fbo::Entity> {
+    placer.place(graph)
+}
+
+pub fn entities_to_blueprint_string(entities: Vec<fbo::Entity>) -> fb::Result<String> {
+    let container = combinators_to_blueprint(entities);
     fb::BlueprintCodec::encode_string(&container)
 }
 
