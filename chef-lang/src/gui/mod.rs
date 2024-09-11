@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 use factorio_blueprint::objects as fbo;
 
 use eframe::{
@@ -59,6 +61,69 @@ fn choose_hue(name: &str) -> f32 {
     sum % 1.0
 }
 
+enum Operand {
+    Signal(String),
+    Constant(i32),
+}
+
+impl Operand {
+    fn signal<S>(s: S) -> Self
+    where
+        S: ToString,
+    {
+        Self::Signal(s.to_string())
+    }
+
+    fn constant(c: i32) -> Self {
+        Self::Constant(c)
+    }
+
+    fn unknown() -> Self {
+        Self::Signal("UNKNOWN".to_string())
+    }
+
+    fn hue(&self) -> f32 {
+        match self {
+            Self::Signal(s) => choose_hue(s),
+            Self::Constant(_) => 0.083,
+        }
+    }
+
+    fn draw(&self, painter: &Painter, cam: &Camera, pos: Pos2) {
+        let size = cam.scaled(0.30);
+        let rect = Rect::from_center_size(pos, Vec2::new(size, size));
+        let painter = painter.with_clip_rect(rect);
+        painter.rect_filled(rect, cam.scaled(0.05), Hsva::new(self.hue(), 0.8, 1.0, 1.0));
+
+        let (s, size) = match &self {
+            Self::Signal(s) => match s.strip_prefix("signal-") {
+                Some("each") => todo!(),
+                Some("anything") => todo!(),
+                Some("everything") => todo!(),
+                Some(letter) => (letter.to_string(), 0.20),
+                None => (s.replace('-', "\n"), 0.065),
+            },
+            Self::Constant(c) => {
+                let s = c.to_string();
+                let len = s.len() as f32;
+                (s, 0.20 / len.sqrt())
+            }
+        };
+
+        let offset = 0.01;
+        painter.text(
+            rect.center() + Vec2::new(0.0, cam.scaled(offset)),
+            Align2::CENTER_CENTER,
+            &s,
+            FontId {
+                size: cam.scaled(size),
+                family: FontFamily::Monospace,
+            },
+            Color32::BLACK,
+        );
+    }
+}
+
 struct GuiEntity {
     inner: fbo::Entity,
 }
@@ -82,99 +147,116 @@ impl GuiEntity {
         choose_hue(self.name())
     }
 
-    fn draw(&self, painter: &Painter, camera: &Camera) {
+    fn draw_combinator(
+        &self,
+        painter: &Painter,
+        camera: &Camera,
+        left: Operand,
+        right: Operand,
+        op: String,
+    ) {
         const MARGIN: f32 = 0.11;
-
         let canvas_pos = camera.world_to_viewport(self.pos());
 
-        macro_rules! text {
-            ($text:expr; $pos:expr; $size:expr) => {
-                painter.text(
-                    $pos,
-                    Align2::CENTER_CENTER,
-                    $text,
-                    FontId {
-                        size: camera.scale * $size,
-                        family: FontFamily::Monospace,
-                    },
-                    Color32::BLACK,
-                );
-            };
-        }
+        let size = Vec2::new(1.0, 2.0);
+        let rect = Rect::from_center_size(
+            canvas_pos,
+            (size - Vec2::new(MARGIN, MARGIN)) * camera.scale,
+        );
 
+        let painter = painter.with_clip_rect(rect);
+        painter.rect_filled(
+            rect,
+            0.05 * camera.scale,
+            Hsva::new(self.hue(), 0.5, 0.5, 1.0),
+        );
+
+        // TODO: Depend on actual direction
+        let arrow_len = 0.60;
+        let center = rect.center();
+        let vec = Vec2::new(0.0, -arrow_len) * camera.scale;
+        painter.arrow(
+            center - vec / 2.0,
+            vec,
+            Stroke::new(0.02 * camera.scale, Rgba::from_rgb(0.2, 0.2, 0.3)),
+        );
+
+        painter.text(
+            rect.center_top() + Vec2::new(0.0, 0.10) * camera.scale,
+            Align2::CENTER_CENTER,
+            self.name(),
+            FontId {
+                size: camera.scale * 0.065,
+                family: FontFamily::Monospace,
+            },
+            Color32::BLACK,
+        );
+
+        let offset = Vec2::new(0.25, 0.0) * camera.scale;
+
+        painter.text(
+            canvas_pos,
+            Align2::CENTER_CENTER,
+            op,
+            FontId {
+                size: camera.scale * 0.20,
+                family: FontFamily::Monospace,
+            },
+            Color32::BLACK,
+        );
+
+        left.draw(&painter, camera, canvas_pos - offset);
+        right.draw(&painter, camera, canvas_pos + offset);
+    }
+
+    fn draw(&self, painter: &Painter, camera: &Camera) {
         // All sizes are in taller than wide if they are not square
         match self.name() {
-            "decider-combinator" | "arithmetic-combinator" => {
-                let control = self.inner.control_behavior.as_ref().unwrap();
-
-                let (left, right, op) = match (
-                    control.decider_conditions.as_ref(),
-                    control.arithmetic_conditions.as_ref(),
-                ) {
-                    (None, Some(c)) => {
-                        let left = c.first_signal.as_ref().map_or(
-                            c.first_constant
-                                .map_or("UNKNOWN".to_string(), |n| n.to_string()),
-                            |s| s.name.clone(),
-                        );
-                        let right = c.second_signal.as_ref().map_or(
-                            c.second_constant
-                                .map_or("UNKNOWN".to_string(), |n| n.to_string()),
-                            |s| s.name.clone(),
-                        );
-                        (left, right, c.operation.clone())
-                    }
-                    (Some(c), None) => {
-                        let left = c
-                            .first_signal
-                            .as_ref()
-                            .map_or("UNKNOWN".to_string(), |s| s.name.clone());
-                        let right = c
-                            .second_signal
-                            .as_ref()
-                            .map_or("UNKNOWN".to_string(), |s| s.name.clone());
-                        (left, right, c.comparator.clone())
-                    }
-                    (None, None) => todo!(),
-                    (Some(_), Some(_)) => todo!(),
-                };
-
-                let size = Vec2::new(1.0, 2.0);
-                let rect = Rect::from_center_size(
-                    canvas_pos,
-                    (size - Vec2::new(MARGIN, MARGIN)) * camera.scale,
+            "decider-combinator" => {
+                let c = self
+                    .inner
+                    .control_behavior
+                    .as_ref()
+                    .unwrap()
+                    .decider_conditions
+                    .as_ref()
+                    .unwrap();
+                let left = c
+                    .first_signal
+                    .as_ref()
+                    .map_or(Operand::unknown(), |s| Operand::signal(&s.name));
+                let right = c
+                    .second_signal
+                    .as_ref()
+                    .map_or(Operand::unknown(), |s| Operand::signal(&s.name));
+                self.draw_combinator(painter, camera, left, right, c.comparator.clone())
+            }
+            "arithmetic-combinator" => {
+                let c = self
+                    .inner
+                    .control_behavior
+                    .as_ref()
+                    .unwrap()
+                    .arithmetic_conditions
+                    .as_ref()
+                    .unwrap();
+                let left = c.first_signal.as_ref().map_or(
+                    c.first_constant
+                        .map_or(Operand::unknown(), |n| Operand::constant(n)),
+                    |s| Operand::signal(&s.name),
                 );
-                painter.rect_filled(
-                    rect,
-                    0.05 * camera.scale,
-                    Hsva::new(self.hue(), 0.7, 0.8, 1.0),
+                let right = c.second_signal.as_ref().map_or(
+                    c.second_constant
+                        .map_or(Operand::unknown(), |n| Operand::constant(n)),
+                    |s| Operand::signal(&s.name),
                 );
-
-                // TODO: Depend on actual direction
-                let arrow_len = 0.60;
-                let center = rect.center();
-                let vec = Vec2::new(0.0, -arrow_len) * camera.scale;
-                painter.arrow(
-                    center - vec / 2.0,
-                    vec,
-                    Stroke::new(0.02 * camera.scale, Rgba::from_rgb(0.2, 0.2, 0.3)),
-                );
-
-                text!(
-                    self.name();
-                    rect.center_top() + Vec2::new(0.0, 0.10)*camera.scale;
-                    0.065
-                );
-
-                let offset = Vec2::new(0.25, 0.0) * camera.scale;
-                text!(op; canvas_pos; 0.20);
-                text!(left; canvas_pos-offset; 0.05);
-                text!(right; canvas_pos+offset; 0.05);
+                self.draw_combinator(painter, camera, left, right, c.operation.clone())
             }
             "constant-combinator" => {
                 todo!()
             }
             _ => {
+                let canvas_pos = camera.world_to_viewport(self.pos());
                 painter.circle_filled(canvas_pos, 0.4 * camera.scale, Color32::RED);
             }
         }
@@ -211,6 +293,13 @@ impl Camera {
 
     fn home(&mut self) {
         self.pos = self.home;
+    }
+
+    fn scaled<X>(&self, x: X) -> f32
+    where
+        X: Mul<f32, Output = f32>,
+    {
+        x * self.scale
     }
 
     fn world_to_viewport(&self, world_pos: Pos2) -> Pos2 {
