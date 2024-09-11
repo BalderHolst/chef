@@ -1,6 +1,11 @@
 use factorio_blueprint::objects as fbo;
 
-use eframe::egui::{self, Align2, Color32, FontFamily, FontId, Key, Pos2, Rect, Rgba, Sense, Vec2};
+use eframe::{
+    egui::{
+        self, Align2, Color32, FontFamily, FontId, Key, Painter, Pos2, Rect, Rgba, Sense, Vec2,
+    },
+    epaint::Hsva,
+};
 
 pub fn run_gui(entities: Vec<fbo::Entity>) {
     let options = eframe::NativeOptions {
@@ -64,16 +69,6 @@ impl eframe::App for App {
     }
 }
 
-fn prototype_size(name: &fbo::Prototype) -> Option<Vec2> {
-    // All sizes are in taller than wide if they are not square
-    match name.as_str() {
-        "decider-combinator" => Some(Vec2::new(1.0, 2.0)),
-        "arithmetic-combinator" => Some(Vec2::new(1.0, 2.0)),
-        "constant-combinator" => Some(Vec2::new(1.0, 1.0)),
-        _ => None,
-    }
-}
-
 fn factorio_pos_to_egui(pos: &fbo::Position) -> Pos2 {
     let x: f64 = pos.x.into();
     let y: f64 = pos.y.into();
@@ -97,6 +92,45 @@ impl App {
         canvas_pos / self.camera.scale
     }
 
+    fn draw_entity(&self, painter: &Painter, entity: &fbo::Entity) {
+        // Select font
+        let font = FontId {
+            size: self.camera.scale * 0.08,
+            family: FontFamily::default(),
+        };
+
+        macro_rules! style {
+            ([$width:expr, $height:expr]: $hue:expr) => {{
+                Some((Vec2::new($width, $height), Hsva::new($hue, 0.8, 1.0, 1.0)))
+            }};
+        }
+
+        // All sizes are in taller than wide if they are not square
+        let style = match entity.name.as_str() {
+            "decider-combinator" => style!([1.0, 2.0]: 0.80),
+            "arithmetic-combinator" => style!([1.0, 2.0]: 0.55),
+            "constant-combinator" => style!([1.0, 1.0]: 0.45),
+            _ => None,
+        };
+
+        let world_pos = factorio_pos_to_egui(&entity.position);
+        let canvas_pos = self.world_to_canvas(world_pos);
+
+        if let Some((size, color)) = style {
+            let rect = Rect::from_center_size(canvas_pos, size * 0.9 * self.camera.scale);
+            painter.rect_filled(rect, 0.05 * self.camera.scale, color);
+        } else {
+            painter.circle_filled(canvas_pos, 0.4 * self.camera.scale, Color32::RED);
+        }
+
+        painter.text(
+            canvas_pos,
+            Align2::CENTER_CENTER,
+            &entity.name,
+            font.clone(),
+            Color32::BLACK,
+        );
+    }
     fn grid(&mut self, ui: &mut egui::Ui) {
         let size = ui.available_size_before_wrap();
 
@@ -138,35 +172,12 @@ impl App {
             }
         });
 
-        // Select font
-        let font = FontId {
-            size: self.camera.scale * 0.08,
-            family: FontFamily::default(),
-        };
-
         // Draw canvas
         self.canvas = painter.clip_rect();
         painter.rect_filled(painter.clip_rect(), 0.0, Rgba::from_white_alpha(0.01));
 
         for e in &self.entities {
-            let world_pos = factorio_pos_to_egui(&e.position);
-            let canvas_pos = self.world_to_canvas(world_pos);
-            let entity_size = prototype_size(&e.name);
-
-            if let Some(s) = entity_size {
-                let rect = Rect::from_center_size(canvas_pos, s * 0.9 * self.camera.scale);
-                painter.rect_filled(rect, 0.05 * self.camera.scale, Rgba::GREEN);
-            } else {
-                painter.circle_filled(canvas_pos, 1.0, Color32::RED);
-            }
-
-            painter.text(
-                canvas_pos,
-                Align2::CENTER_CENTER,
-                &e.name,
-                font.clone(),
-                Color32::BLACK,
-            );
+            self.draw_entity(&painter, &e);
         }
     }
 }
