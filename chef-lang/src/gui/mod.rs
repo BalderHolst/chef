@@ -2,7 +2,8 @@ use factorio_blueprint::objects as fbo;
 
 use eframe::{
     egui::{
-        self, Align2, Color32, FontFamily, FontId, Key, Painter, Pos2, Rect, Rgba, Sense, Vec2,
+        self, Align2, Color32, FontFamily, FontId, Key, Painter, Pos2, Rect, Rgba, Sense, Stroke,
+        Vec2,
     },
     epaint::Hsva,
 };
@@ -93,43 +94,93 @@ impl App {
     }
 
     fn draw_entity(&self, painter: &Painter, entity: &fbo::Entity) {
-        // Select font
-        let font = FontId {
-            size: self.camera.scale * 0.08,
-            family: FontFamily::default(),
-        };
-
-        macro_rules! style {
-            ([$width:expr, $height:expr]: $hue:expr) => {{
-                Some((Vec2::new($width, $height), Hsva::new($hue, 0.8, 1.0, 1.0)))
-            }};
-        }
-
-        // All sizes are in taller than wide if they are not square
-        let style = match entity.name.as_str() {
-            "decider-combinator" => style!([1.0, 2.0]: 0.80),
-            "arithmetic-combinator" => style!([1.0, 2.0]: 0.55),
-            "constant-combinator" => style!([1.0, 1.0]: 0.45),
-            _ => None,
-        };
-
         let world_pos = factorio_pos_to_egui(&entity.position);
         let canvas_pos = self.world_to_canvas(world_pos);
 
-        if let Some((size, color)) = style {
-            let rect = Rect::from_center_size(canvas_pos, size * 0.9 * self.camera.scale);
-            painter.rect_filled(rect, 0.05 * self.camera.scale, color);
-        } else {
-            painter.circle_filled(canvas_pos, 0.4 * self.camera.scale, Color32::RED);
+        macro_rules! text {
+            ($text:expr; $pos:expr; $size:expr) => {
+                painter.text(
+                    $pos,
+                    Align2::CENTER_CENTER,
+                    $text,
+                    FontId {
+                        size: self.camera.scale * $size,
+                        family: FontFamily::Monospace,
+                    },
+                    Color32::BLACK,
+                );
+            };
         }
 
-        painter.text(
-            canvas_pos,
-            Align2::CENTER_CENTER,
-            &entity.name,
-            font.clone(),
-            Color32::BLACK,
-        );
+        // All sizes are in taller than wide if they are not square
+        match entity.name.as_str() {
+            "decider-combinator" => {
+                let size = Vec2::new(1.0, 2.0);
+                let rect = Rect::from_center_size(canvas_pos, size * 0.9 * self.camera.scale);
+                painter.rect_filled(
+                    rect,
+                    0.05 * self.camera.scale,
+                    Hsva::new(0.1, 1.0, 0.8, 1.0),
+                );
+
+                let control = entity.control_behavior.as_ref().unwrap();
+                let condition = control.decider_conditions.as_ref().unwrap();
+
+                let left = condition
+                    .first_signal
+                    .as_ref()
+                    .map_or("UNKNOWN".to_string(), |s| s.name.clone());
+
+                let right = condition
+                    .second_signal
+                    .as_ref()
+                    .map_or("UNKNOWN".to_string(), |s| s.name.clone());
+
+                let offset = Vec2::new(0.25, 0.0) * self.camera.scale;
+                text!(&condition.comparator; canvas_pos; 0.20);
+                text!(left; canvas_pos-offset; 0.05);
+                text!(right; canvas_pos+offset; 0.05);
+            }
+            "arithmetic-combinator" => {
+                let size = Vec2::new(1.0, 2.0);
+                let rect = Rect::from_center_size(canvas_pos, size * 0.9 * self.camera.scale);
+                painter.rect_filled(
+                    rect,
+                    0.05 * self.camera.scale,
+                    Hsva::new(0.5, 1.0, 0.8, 1.0),
+                );
+
+                let control = entity.control_behavior.as_ref().unwrap();
+                let condition = control.arithmetic_conditions.as_ref().unwrap();
+
+                let left = condition.first_signal.as_ref().map_or(
+                    condition
+                        .first_constant
+                        .as_ref()
+                        .map_or("UNKNOWN".to_string(), |n| n.to_string()),
+                    |s| s.name.clone(),
+                );
+
+                let right = condition.second_signal.as_ref().map_or(
+                    condition
+                        .second_constant
+                        .as_ref()
+                        .map_or("UNKNOWN".to_string(), |n| n.to_string()),
+                    |s| s.name.clone(),
+                );
+
+                let offset = Vec2::new(0.25, 0.0) * self.camera.scale;
+                text!(&condition.operation; canvas_pos; 0.20);
+                text!(left; canvas_pos-offset; 0.05);
+                text!(right; canvas_pos+offset; 0.05);
+            }
+            "constant-combinator" => {
+                todo!()
+            }
+            _ => {
+                painter.circle_filled(canvas_pos, 0.4 * self.camera.scale, Color32::RED);
+            }
+        }
     }
     fn grid(&mut self, ui: &mut egui::Ui) {
         let size = ui.available_size_before_wrap();
