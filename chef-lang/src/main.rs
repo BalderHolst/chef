@@ -79,7 +79,7 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
     let entitites = blueprint::graph_to_entities(&cook_opts.placer, graph);
 
     if cook_opts.gui {
-        gui::run_gui(&entitites);
+        gui::run_gui(entitites.clone());
     }
 
     let blueprint_str = blueprint::entities_to_blueprint_string(entitites).unwrap();
