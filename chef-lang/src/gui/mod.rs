@@ -61,12 +61,12 @@ fn choose_hue(name: &str) -> f32 {
     sum % 1.0
 }
 
-enum Operand {
+enum OpSig {
     Signal(String),
     Constant(i32),
 }
 
-impl Operand {
+impl OpSig {
     fn signal<S>(s: S) -> Self
     where
         S: ToString,
@@ -101,7 +101,7 @@ impl Operand {
                 Some("anything") => todo!(),
                 Some("everything") => todo!(),
                 Some(letter) => (letter.to_string(), 0.20),
-                None => (s.replace('-', "\n"), 0.065),
+                None => (s.replace('-', "\n"), 0.055),
             },
             Self::Constant(c) => {
                 let s = c.to_string();
@@ -163,8 +163,9 @@ impl GuiEntity {
         &self,
         painter: &Painter,
         cam: &Camera,
-        left: Operand,
-        right: Operand,
+        left: OpSig,
+        right: OpSig,
+        output: OpSig,
         op: String,
     ) {
         const MARGIN: f32 = 0.11;
@@ -177,16 +178,6 @@ impl GuiEntity {
         let painter = painter.with_clip_rect(rect);
         painter.rect_filled(rect, 0.05 * cam.scale, Hsva::new(self.hue(), 0.5, 0.5, 1.0));
 
-        // TODO: Depend on actual direction
-        let arrow_len = 0.60;
-        let center = rect.center();
-        let vec = Vec2::new(0.0, -arrow_len) * cam.scale;
-        painter.arrow(
-            center - vec / 2.0,
-            vec,
-            Stroke::new(0.02 * cam.scale, Rgba::from_rgb(0.2, 0.2, 0.3)),
-        );
-
         painter.text(
             rect.center_top() + Vec2::new(0.0, 0.10) * cam.scale,
             Align2::CENTER_CENTER,
@@ -198,22 +189,23 @@ impl GuiEntity {
             Color32::BLACK,
         );
 
-        let offset = Vec2::new(0.25, 0.0) * cam.scale;
-
-        painter.text(
-            canvas_pos,
-            Align2::CENTER_CENTER,
-            op,
-            FontId {
-                size: cam.scale * 0.20,
-                family: FontFamily::Monospace,
-            },
-            Color32::BLACK,
-        );
+        let center_y_offset = cam.scaled(0.20);
+        let operand_offset = cam.scaled(0.25);
 
         // Draw operands
-        left.draw(&painter, cam, canvas_pos - offset);
-        right.draw(&painter, cam, canvas_pos + offset);
+        left.draw(
+            &painter,
+            cam,
+            canvas_pos + Vec2::LEFT * operand_offset + Vec2::DOWN * center_y_offset,
+        );
+        right.draw(
+            &painter,
+            cam,
+            canvas_pos + Vec2::RIGHT * operand_offset + Vec2::DOWN * center_y_offset,
+        );
+
+        // Draw result
+        output.draw(&painter, cam, canvas_pos + Vec2::UP * center_y_offset);
 
         let port_size = cam.scaled(0.20);
         let fill = Color32::from_black_alpha(0x80);
@@ -225,6 +217,17 @@ impl GuiEntity {
         let output_port = cam.world_to_viewport(self.output_port());
         let rect = Rect::from_center_size(output_port, Vec2::splat(port_size));
         painter.rect(rect, 0.0, fill, stroke);
+
+        painter.text(
+            canvas_pos + Vec2::DOWN * center_y_offset,
+            Align2::CENTER_CENTER,
+            op,
+            FontId {
+                size: cam.scale * 0.30,
+                family: FontFamily::Monospace,
+            },
+            Color32::BLACK,
+        );
     }
 
     fn draw(&self, painter: &Painter, camera: &Camera) {
@@ -242,12 +245,16 @@ impl GuiEntity {
                 let left = c
                     .first_signal
                     .as_ref()
-                    .map_or(Operand::unknown(), |s| Operand::signal(&s.name));
+                    .map_or(OpSig::unknown(), |s| OpSig::signal(&s.name));
                 let right = c
                     .second_signal
                     .as_ref()
-                    .map_or(Operand::unknown(), |s| Operand::signal(&s.name));
-                self.draw_combinator(painter, camera, left, right, c.comparator.clone())
+                    .map_or(OpSig::unknown(), |s| OpSig::signal(&s.name));
+                let output = c
+                    .output_signal
+                    .as_ref()
+                    .map_or(OpSig::unknown(), |s| OpSig::signal(&s.name));
+                self.draw_combinator(painter, camera, left, right, output, c.comparator.clone())
             }
             "arithmetic-combinator" => {
                 let c = self
@@ -260,15 +267,19 @@ impl GuiEntity {
                     .unwrap();
                 let left = c.first_signal.as_ref().map_or(
                     c.first_constant
-                        .map_or(Operand::unknown(), |n| Operand::constant(n)),
-                    |s| Operand::signal(&s.name),
+                        .map_or(OpSig::unknown(), |n| OpSig::constant(n)),
+                    |s| OpSig::signal(&s.name),
                 );
                 let right = c.second_signal.as_ref().map_or(
                     c.second_constant
-                        .map_or(Operand::unknown(), |n| Operand::constant(n)),
-                    |s| Operand::signal(&s.name),
+                        .map_or(OpSig::unknown(), |n| OpSig::constant(n)),
+                    |s| OpSig::signal(&s.name),
                 );
-                self.draw_combinator(painter, camera, left, right, c.operation.clone())
+                let output = c
+                    .output_signal
+                    .as_ref()
+                    .map_or(OpSig::unknown(), |s| OpSig::signal(&s.name));
+                self.draw_combinator(painter, camera, left, right, output, c.operation.clone())
             }
             "constant-combinator" => {
                 todo!()
