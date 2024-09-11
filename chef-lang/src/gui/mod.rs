@@ -129,6 +129,8 @@ struct GuiEntity {
 }
 
 impl GuiEntity {
+    const PORT_DISTANCE: f32 = 0.6;
+
     fn new(entity: fbo::Entity) -> Self {
         Self { inner: entity }
     }
@@ -147,66 +149,82 @@ impl GuiEntity {
         choose_hue(self.name())
     }
 
+    // TODO: Use actual direction
+    fn input_port(&self) -> Pos2 {
+        self.pos() + Vec2::new(0.0, Self::PORT_DISTANCE)
+    }
+
+    // TODO: Use actual direction
+    fn output_port(&self) -> Pos2 {
+        self.pos() + Vec2::new(0.0, -Self::PORT_DISTANCE)
+    }
+
     fn draw_combinator(
         &self,
         painter: &Painter,
-        camera: &Camera,
+        cam: &Camera,
         left: Operand,
         right: Operand,
         op: String,
     ) {
         const MARGIN: f32 = 0.11;
-        let canvas_pos = camera.world_to_viewport(self.pos());
+        let canvas_pos = cam.world_to_viewport(self.pos());
 
         let size = Vec2::new(1.0, 2.0);
-        let rect = Rect::from_center_size(
-            canvas_pos,
-            (size - Vec2::new(MARGIN, MARGIN)) * camera.scale,
-        );
+        let rect =
+            Rect::from_center_size(canvas_pos, (size - Vec2::new(MARGIN, MARGIN)) * cam.scale);
 
         let painter = painter.with_clip_rect(rect);
-        painter.rect_filled(
-            rect,
-            0.05 * camera.scale,
-            Hsva::new(self.hue(), 0.5, 0.5, 1.0),
-        );
+        painter.rect_filled(rect, 0.05 * cam.scale, Hsva::new(self.hue(), 0.5, 0.5, 1.0));
 
         // TODO: Depend on actual direction
         let arrow_len = 0.60;
         let center = rect.center();
-        let vec = Vec2::new(0.0, -arrow_len) * camera.scale;
+        let vec = Vec2::new(0.0, -arrow_len) * cam.scale;
         painter.arrow(
             center - vec / 2.0,
             vec,
-            Stroke::new(0.02 * camera.scale, Rgba::from_rgb(0.2, 0.2, 0.3)),
+            Stroke::new(0.02 * cam.scale, Rgba::from_rgb(0.2, 0.2, 0.3)),
         );
 
         painter.text(
-            rect.center_top() + Vec2::new(0.0, 0.10) * camera.scale,
+            rect.center_top() + Vec2::new(0.0, 0.10) * cam.scale,
             Align2::CENTER_CENTER,
             self.name(),
             FontId {
-                size: camera.scale * 0.065,
+                size: cam.scale * 0.065,
                 family: FontFamily::Monospace,
             },
             Color32::BLACK,
         );
 
-        let offset = Vec2::new(0.25, 0.0) * camera.scale;
+        let offset = Vec2::new(0.25, 0.0) * cam.scale;
 
         painter.text(
             canvas_pos,
             Align2::CENTER_CENTER,
             op,
             FontId {
-                size: camera.scale * 0.20,
+                size: cam.scale * 0.20,
                 family: FontFamily::Monospace,
             },
             Color32::BLACK,
         );
 
-        left.draw(&painter, camera, canvas_pos - offset);
-        right.draw(&painter, camera, canvas_pos + offset);
+        // Draw operands
+        left.draw(&painter, cam, canvas_pos - offset);
+        right.draw(&painter, cam, canvas_pos + offset);
+
+        let port_size = cam.scaled(0.20);
+        let fill = Color32::from_black_alpha(0x80);
+        let stroke = Stroke::new(cam.scaled(0.02), Color32::WHITE);
+
+        // Draw ports
+        let input_port = cam.world_to_viewport(self.input_port());
+        painter.circle(input_port, port_size / 2.0, fill, stroke);
+        let output_port = cam.world_to_viewport(self.output_port());
+        let rect = Rect::from_center_size(output_port, Vec2::splat(port_size));
+        painter.rect(rect, 0.0, fill, stroke);
     }
 
     fn draw(&self, painter: &Painter, camera: &Camera) {
