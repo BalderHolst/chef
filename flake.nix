@@ -12,6 +12,7 @@
           rec {
             packages = rec {
                 chef-lang = pkgs.callPackage ./chef-lang { inherit pkgs; };
+                chef-inspector = pkgs.callPackage ./chef-inspector { inherit pkgs; };
                 chef-python = pkgs.callPackage ./chef-python { inherit pkgs; };
                 chef-mod = pkgs.callPackage ./chef-mod { inherit pkgs; };
                 default = pkgs.stdenv.mkDerivation {
@@ -20,6 +21,7 @@
                     installPhase = ''
                         mkdir $out -p
                         cp -rv ${chef-lang}/* $out
+                        cp -rv ${chef-inspector}/* $out
                         cp -rv ${chef-python}/* $out
                         mkdir $out/mod -p
                         cp -rv ${chef-mod}/* $out/mod
@@ -27,8 +29,9 @@
                 };
             };
             apps = rec {
-                chef-lang = flake-utils.lib.mkApp { drv = self.packages.${system}.chef-lang; };
-                default = chef-lang;
+                compiler = flake-utils.lib.mkApp { drv = self.packages.${system}.chef-lang; };
+                inspector = flake-utils.lib.mkApp { drv = self.packages.${system}.chef-inspector; };
+                default = compiler;
             };
 
             # Development shell
@@ -47,7 +50,7 @@
                 ]);
 
                 shellHook = ''
-                    root="$(pwd)"
+                    root="$(${pkgs.git}/bin/git rev-parse --show-toplevel)"
                     [[ ! "$(basename $root)" = "chef" ]] && echo -e "\nWARNING: Paths may are not set correctly. Please run in the 'chef' root directory."
                     export PATH="$root/chef-lang/target/debug:$PATH"
                     export PYTHONPATH="$root/chef-python/src"
