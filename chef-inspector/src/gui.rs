@@ -550,7 +550,12 @@ impl App {
 
     fn open_container(&mut self, container: Container) {
         if let Container::Blueprint(blueprint) = &container {
-            let entities: Vec<_> = blueprint.entities.clone().into_iter().map(GuiEntity::new).collect();
+            let entities: Vec<_> = blueprint
+                .entities
+                .clone()
+                .into_iter()
+                .map(GuiEntity::new)
+                .collect();
 
             // Position camera in the middle of the entities
             let cam_pos = if let Ok(len) = u16::try_from(entities.len()) {

@@ -3,8 +3,8 @@ use std::process::ExitCode;
 use clap::Parser;
 use factorio_blueprint as fb;
 
-mod gui;
 mod cli;
+mod gui;
 
 fn main() -> ExitCode {
     let opts = cli::Opts::parse();
@@ -13,7 +13,7 @@ fn main() -> ExitCode {
         Err(e) => {
             eprintln!("Invalid blueprint string: {e}.");
             return ExitCode::FAILURE;
-        },
+        }
     }
 
     ExitCode::SUCCESS
