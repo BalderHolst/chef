@@ -1,6 +1,9 @@
 use std::ops::Mul;
 
-use factorio_blueprint::objects as fbo;
+use factorio_blueprint::{
+    objects::{self as fbo, Blueprint, BlueprintBook, ConnectionPoint, OneBasedIndex},
+    Container,
+};
 
 use eframe::{
     egui::{
@@ -10,7 +13,7 @@ use eframe::{
     epaint::Hsva,
 };
 
-pub fn run_gui(entities: Vec<fbo::Entity>) {
+pub fn run(container: Container) {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
         ..Default::default()
@@ -20,22 +23,21 @@ pub fn run_gui(entities: Vec<fbo::Entity>) {
         "Chef Inspector",
         options,
         Box::new(|_cc| {
-            let entities: Vec<_> = entities.into_iter().map(GuiEntity::new).collect();
-
-            // Position camera in the middle of the entities
-            let cam_pos = if let Ok(len) = u16::try_from(entities.len()) {
-                let len = len as f32;
-                entities
-                    .iter()
-                    .map(|e| e.pos())
-                    .fold(Pos2::ZERO, |acc, p| acc + p.to_vec2())
-                    / len
-            } else {
-                Pos2::ZERO
-            };
-
-            let camera = Camera::new(cam_pos);
-            Ok(Box::new(App { entities, camera }))
+            //let entities: Vec<_> = entities.into_iter().map(GuiEntity::new).collect();
+            //
+            //// Position camera in the middle of the entities
+            //let cam_pos = if let Ok(len) = u16::try_from(entities.len()) {
+            //    let len = len as f32;
+            //    entities
+            //        .iter()
+            //        .map(|e| e.pos())
+            //        .fold(Pos2::ZERO, |acc, p| acc + p.to_vec2())
+            //        / len
+            //} else {
+            //    Pos2::ZERO
+            //};
+            //let camera = Camera::new(cam_pos);
+            Ok(Box::new(App::new(container)))
         }),
     ) {
         let m = match e {
@@ -100,7 +102,8 @@ impl OpSig {
                 Some("each") => todo!(),
                 Some("anything") => todo!(),
                 Some("everything") => todo!(),
-                Some(letter) => (letter.to_string(), 0.20),
+                Some(letter) if letter.len() == 1 => (letter.to_string(), 0.20),
+                Some(color) => (color.to_string(), 0.10),
                 None => (s.replace('-', "\n"), 0.055),
             },
             Self::Constant(c) => {
@@ -159,6 +162,18 @@ impl GuiEntity {
         self.pos() + Vec2::new(0.0, -Self::PORT_DISTANCE)
     }
 
+    // TODO: Use actual direction
+    fn port_from_index(&self, index: i32) -> Pos2 {
+        match self.name() {
+            "arithmetic-combinator" | "decider-combinator" => match index {
+                1 => self.input_port(),
+                2 => self.output_port(),
+                other => panic!("Invalid port index {other}."),
+            },
+            other => todo!("{other}"),
+        }
+    }
+
     fn draw_combinator(
         &self,
         painter: &Painter,
@@ -172,8 +187,7 @@ impl GuiEntity {
         let canvas_pos = cam.world_to_viewport(self.pos());
 
         let size = Vec2::new(1.0, 2.0);
-        let rect =
-            Rect::from_center_size(canvas_pos, (size - Vec2::new(MARGIN, MARGIN)) * cam.scale);
+        let rect = Rect::from_center_size(canvas_pos, (size - Vec2::splat(MARGIN)) * cam.scale);
 
         let painter = painter.with_clip_rect(rect);
         painter.rect_filled(rect, 0.05 * cam.scale, Hsva::new(self.hue(), 0.5, 0.5, 1.0));
@@ -348,22 +362,49 @@ impl Camera {
     }
 }
 
+enum AppScreen {
+    Blueprint(Blueprint),
+    Book(BlueprintBook),
+}
+
 struct App {
     camera: Camera,
-    entities: Vec<GuiEntity>,
+    container: Container,
+    screen: AppScreen,
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Chef Inspector");
-            self.grid(ui)
+            match &self.screen {
+                AppScreen::Blueprint(blueprint) => {
+                    self.view_blueprint(
+                        ui,
+                        blueprint.entities.iter().cloned().map(GuiEntity::new).collect(),
+                    );
+                }
+                AppScreen::Book(_) => todo!(),
+            }
         });
     }
 }
 
 impl App {
-    fn grid(&mut self, ui: &mut egui::Ui) {
+    fn new(container: Container) -> Self {
+        let screen = match &container {
+            Container::BlueprintBook(book) => AppScreen::Book(book.clone()),
+            Container::Blueprint(blueprint) => AppScreen::Blueprint(blueprint.clone()),
+        };
+
+        Self {
+            camera: Camera::new(Pos2::ZERO),
+            container,
+            screen,
+        }
+    }
+
+    fn view_blueprint(&mut self, ui: &mut egui::Ui, entities: Vec<GuiEntity>) {
         let size = ui.available_size_before_wrap();
 
         let (resp, painter) = ui.allocate_painter(size, Sense::click_and_drag());
@@ -412,8 +453,84 @@ impl App {
         self.camera.viewport = painter.clip_rect();
         painter.rect_filled(painter.clip_rect(), 0.0, Rgba::from_white_alpha(0.01));
 
-        for e in &self.entities {
+        // Draw combinators
+        for e in &entities {
             e.draw(&painter, &self.camera)
+        }
+
+        for e in &entities {
+            e.inner.connections.iter().for_each(|c| match c {
+                fbo::EntityConnections::NumberIdx(port_conns) => {
+                    for (port_index, c) in port_conns.iter() {
+                        self.draw_from_port(e, c, port_index, &entities, &painter);
+                    }
+                }
+                fbo::EntityConnections::StringIdx(port_conns) => {
+                    for (port_string, c) in port_conns.iter() {
+                        let port_index = port_string.parse::<usize>().unwrap();
+                        let port_index = OneBasedIndex::try_from(port_index).unwrap();
+                        self.draw_from_port(e, c, &port_index, &entities, &painter);
+                    }
+                }
+            })
+        }
+    }
+
+    // Draw connections
+    fn draw_from_port(
+        &self,
+        e: &GuiEntity,
+        c: &ConnectionPoint,
+        port_index: &OneBasedIndex,
+        others: &Vec<GuiEntity>,
+        painter: &Painter,
+    ) {
+        let this_port = e.port_from_index(usize::from(*port_index) as i32);
+        let red_offset = Vec2::RIGHT * 0.02;
+        if let Some(red) = c.red.as_ref() {
+            for red_con in red {
+                if let Some(other_port_index) = red_con.circuit_id {
+                    let other_entity = others
+                        .iter()
+                        .find(|e| e.inner.entity_number == red_con.entity_id)
+                        .expect("Entity not found");
+                    let other_port = other_entity.port_from_index(other_port_index);
+                    painter.line_segment(
+                        [
+                            self.camera.world_to_viewport(this_port + red_offset),
+                            self.camera.world_to_viewport(other_port + red_offset),
+                        ],
+                        Stroke::new(
+                            0.02 * self.camera.scale,
+                            Rgba::from_rgba_unmultiplied(1.0, 0.0, 0.0, 0.5),
+                        ),
+                    );
+                }
+            }
+        }
+
+        let green_offset = Vec2::LEFT * 0.02;
+        if let Some(green) = c.green.as_ref() {
+            for green_con in green {
+                dbg!(&green_con);
+                if let Some(other_port_index) = green_con.circuit_id {
+                    let other_entity = others
+                        .iter()
+                        .find(|e| e.inner.entity_number == green_con.entity_id)
+                        .expect("Entity not found");
+                    let other_port = other_entity.port_from_index(other_port_index);
+                    painter.line_segment(
+                        [
+                            self.camera.world_to_viewport(this_port + green_offset),
+                            self.camera.world_to_viewport(other_port + green_offset),
+                        ],
+                        Stroke::new(
+                            0.02 * self.camera.scale,
+                            Rgba::from_rgba_unmultiplied(0.0, 1.0, 0.0, 0.5),
+                        ),
+                    );
+                }
+            }
         }
     }
 }

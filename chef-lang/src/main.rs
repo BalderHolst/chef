@@ -21,7 +21,6 @@ mod text;
 mod the_chef;
 mod utils;
 
-pub mod gui;
 #[cfg(test)]
 mod tests;
 
