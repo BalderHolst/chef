@@ -19,7 +19,9 @@ test-python:
 
 lint:
 	cargo fmt --check $(chef_lang)
+	cargo fmt --check $(chef_inspector)
 	cargo clippy $(chef_lang)
+	cargo clippy $(chef_inspector)
 
 build:
 	cargo build --release $(chef_lang)
