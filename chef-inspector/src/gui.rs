@@ -7,8 +7,8 @@ use factorio_blueprint::{
 
 use eframe::{
     egui::{
-        self, Align2, Color32, FontFamily, FontId, Key, Painter, Pos2, Rect, Rgba, Sense, Stroke,
-        Vec2,
+        self, Align, Align2, Area, Color32, FontFamily, FontId, Frame, InnerResponse, Key, Label,
+        Layout, Margin, Painter, Pos2, Rangef, Rect, Rgba, ScrollArea, Sense, Stroke, Vec2,
     },
     epaint::Hsva,
 };
@@ -22,23 +22,7 @@ pub fn run(container: Container) {
     if let Err(e) = eframe::run_native(
         "Chef Inspector",
         options,
-        Box::new(|_cc| {
-            //let entities: Vec<_> = entities.into_iter().map(GuiEntity::new).collect();
-            //
-            //// Position camera in the middle of the entities
-            //let cam_pos = if let Ok(len) = u16::try_from(entities.len()) {
-            //    let len = len as f32;
-            //    entities
-            //        .iter()
-            //        .map(|e| e.pos())
-            //        .fold(Pos2::ZERO, |acc, p| acc + p.to_vec2())
-            //        / len
-            //} else {
-            //    Pos2::ZERO
-            //};
-            //let camera = Camera::new(cam_pos);
-            Ok(Box::new(App::new(container)))
-        }),
+        Box::new(|_cc| Ok(Box::new(App::new(container)))),
     ) {
         let m = match e {
             eframe::Error::AppCreation(_) => todo!(),
@@ -99,9 +83,9 @@ impl OpSig {
 
         let (s, size) = match &self {
             Self::Signal(s) => match s.strip_prefix("signal-") {
-                Some("each") => todo!(),
-                Some("anything") => todo!(),
-                Some("everything") => todo!(),
+                //Some("each") => todo!(),
+                //Some("anything") => todo!(),
+                //Some("everything") => todo!(),
                 Some(letter) if letter.len() == 1 => (letter.to_string(), 0.20),
                 Some(color) => (color.to_string(), 0.10),
                 None => (s.replace('-', "\n"), 0.055),
@@ -154,12 +138,22 @@ impl GuiEntity {
 
     // TODO: Use actual direction
     fn input_port(&self) -> Pos2 {
-        self.pos() + Vec2::new(0.0, Self::PORT_DISTANCE)
+        match self.name() {
+            "arithmetic-combinator" | "decider-combinator" => {
+                self.pos() + Vec2::new(0.0, Self::PORT_DISTANCE)
+            }
+            _ => self.pos(),
+        }
     }
 
     // TODO: Use actual direction
     fn output_port(&self) -> Pos2 {
-        self.pos() + Vec2::new(0.0, -Self::PORT_DISTANCE)
+        match self.name() {
+            "arithmetic-combinator" | "decider-combinator" => {
+                self.pos() + Vec2::new(0.0, -Self::PORT_DISTANCE)
+            }
+            _ => self.pos(),
+        }
     }
 
     // TODO: Use actual direction
@@ -170,6 +164,7 @@ impl GuiEntity {
                 2 => self.output_port(),
                 other => panic!("Invalid port index {other}."),
             },
+            "constant-combinator" => self.pos(),
             other => todo!("{other}"),
         }
     }
@@ -295,9 +290,9 @@ impl GuiEntity {
                     .map_or(OpSig::unknown(), |s| OpSig::signal(&s.name));
                 self.draw_combinator(painter, camera, left, right, output, c.operation.clone())
             }
-            "constant-combinator" => {
-                todo!()
-            }
+            //"constant-combinator" => {
+            //    todo!()
+            //}
             _ => {
                 let canvas_pos = camera.world_to_viewport(self.pos());
                 painter.circle_filled(canvas_pos, 0.4 * camera.scale, Color32::RED);
@@ -362,6 +357,7 @@ impl Camera {
     }
 }
 
+#[derive(Clone)]
 enum AppScreen {
     Blueprint(Blueprint),
     Book(BlueprintBook),
@@ -369,42 +365,51 @@ enum AppScreen {
 
 struct App {
     camera: Camera,
-    container: Container,
-    screen: AppScreen,
+    stack: Vec<Container>,
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Chef Inspector");
-            match &self.screen {
-                AppScreen::Blueprint(blueprint) => {
-                    self.view_blueprint(
-                        ui,
-                        blueprint.entities.iter().cloned().map(GuiEntity::new).collect(),
-                    );
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        egui::TopBottomPanel::top("right-panel")
+            .frame(Frame {
+                inner_margin: Margin::symmetric(4.0, 4.0),
+                fill: Hsva::new(0.0, 0.0, 0.005, 1.0).into(),
+                ..Default::default()
+            })
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.heading("Chef Inspector");
+                    ui.button("Back").clicked().then(|| {
+                        self.close_container();
+                    });
+                });
+            });
+
+        egui::CentralPanel::default()
+            .frame(Frame {
+                fill: Hsva::new(0.0, 0.0, 0.01, 1.0).into(),
+                ..Default::default()
+            })
+            .show(ctx, |ui| match self.stack.last().unwrap() {
+                Container::Blueprint(blueprint) => {
+                    self.view_blueprint(ui, blueprint.entities.clone())
                 }
-                AppScreen::Book(_) => todo!(),
-            }
-        });
+                Container::BlueprintBook(book) => self.view_book(ui, book.clone()),
+            });
     }
 }
 
 impl App {
     fn new(container: Container) -> Self {
-        let screen = match &container {
-            Container::BlueprintBook(book) => AppScreen::Book(book.clone()),
-            Container::Blueprint(blueprint) => AppScreen::Blueprint(blueprint.clone()),
-        };
-
         Self {
             camera: Camera::new(Pos2::ZERO),
-            container,
-            screen,
+            stack: vec![container],
         }
     }
 
-    fn view_blueprint(&mut self, ui: &mut egui::Ui, entities: Vec<GuiEntity>) {
+    fn view_blueprint(&mut self, ui: &mut egui::Ui, entities: Vec<fbo::Entity>) {
+        let entities: Vec<_> = entities.iter().cloned().map(GuiEntity::new).collect();
+
         let size = ui.available_size_before_wrap();
 
         let (resp, painter) = ui.allocate_painter(size, Sense::click_and_drag());
@@ -512,7 +517,6 @@ impl App {
         let green_offset = Vec2::LEFT * 0.02;
         if let Some(green) = c.green.as_ref() {
             for green_con in green {
-                dbg!(&green_con);
                 if let Some(other_port_index) = green_con.circuit_id {
                     let other_entity = others
                         .iter()
@@ -532,5 +536,86 @@ impl App {
                 }
             }
         }
+    }
+
+    fn at_top_level(&self) -> bool {
+        self.stack.len() == 1
+    }
+
+    fn close_container(&mut self) {
+        if !self.at_top_level() {
+            self.stack.pop();
+        }
+    }
+
+    fn open_container(&mut self, container: Container) {
+        if let Container::Blueprint(blueprint) = &container {
+            let entities: Vec<_> = blueprint.entities.clone().into_iter().map(GuiEntity::new).collect();
+
+            // Position camera in the middle of the entities
+            let cam_pos = if let Ok(len) = u16::try_from(entities.len()) {
+                let len = len as f32;
+                entities
+                    .iter()
+                    .map(|e| e.pos())
+                    .fold(Pos2::ZERO, |acc, p| acc + p.to_vec2())
+                    / len
+            } else {
+                Pos2::ZERO
+            };
+            self.camera = Camera::new(cam_pos);
+        }
+
+        self.stack.push(container);
+    }
+
+    fn view_book(&mut self, ui: &mut egui::Ui, book: BlueprintBook) {
+        const ITEM_MIN_HEIGHT: f32 = 200.0;
+        const ITEM_MAX_WIDTH: f32 = 800.0;
+
+        ui.vertical(|ui| {
+            ScrollArea::vertical().show(ui, |ui| {
+                ui.vertical_centered(|ui| {
+                    for item in &book.blueprints {
+                        let container = &item.item;
+                        let name = match container {
+                            Container::BlueprintBook(b) => {
+                                b.label.clone().unwrap_or("No Name".to_string())
+                            }
+                            Container::Blueprint(b) => b.label.clone(),
+                        };
+
+                        let (rect, response) = ui.allocate_at_least(
+                            Vec2::new(ui.available_width().min(ITEM_MAX_WIDTH), ITEM_MIN_HEIGHT),
+                            Sense::click(),
+                        );
+
+                        ui.add_space(ITEM_MIN_HEIGHT * 0.06);
+
+                        let p = ui.painter();
+                        p.rect_filled(rect, 10.0, Hsva::new(choose_hue(&name), 0.5, 0.1, 1.0));
+
+                        p.text(
+                            rect.left_top() + Vec2::splat(10.0),
+                            Align2::LEFT_TOP,
+                            &name,
+                            FontId {
+                                size: 24.0,
+                                family: FontFamily::Monospace,
+                            },
+                            Color32::WHITE,
+                        );
+
+                        if response.clicked() {
+                            self.open_container(container.clone());
+                        }
+
+                        if response.hovered() {
+                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                        }
+                    }
+                });
+            });
+        });
     }
 }
