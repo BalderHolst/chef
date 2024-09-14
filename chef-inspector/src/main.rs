@@ -1,3 +1,4 @@
+use std::fs;
 use std::process::ExitCode;
 
 use clap::Parser;
@@ -7,7 +8,12 @@ mod cli;
 mod gui;
 
 fn main() -> ExitCode {
-    let opts = cli::Opts::parse();
+    let mut opts = cli::Opts::parse();
+
+    if let Ok(p) = fs::read_to_string(&opts.blueprint) {
+        opts.blueprint = p;
+    }
+
     match fb::BlueprintCodec::decode_string(&opts.blueprint) {
         Ok(container) => gui::run(container),
         Err(e) => {
