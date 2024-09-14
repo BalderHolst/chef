@@ -8,9 +8,9 @@ use factorio_blueprint::{
 use eframe::{
     egui::{
         self, Align, Align2, Area, Color32, FontFamily, FontId, Frame, InnerResponse, Key, Label,
-        Layout, Margin, Painter, Pos2, Rangef, Rect, Rgba, ScrollArea, Sense, Stroke, Vec2,
+        Layout, Margin, Painter, Pos2, Rangef, Rect, Rgba, ScrollArea, Sense, Shape, Stroke, Vec2,
     },
-    epaint::Hsva,
+    epaint::{CubicBezierShape, Hsva},
 };
 
 pub fn run(container: Container) {
@@ -490,8 +490,15 @@ impl App {
         others: &Vec<GuiEntity>,
         painter: &Painter,
     ) {
+        const GREEN_SAG: f32 = 0.19;
+        const RED_SAG: f32 = 0.22;
+        const WIRE_OPACITY: f32 = 0.6;
+
+        let red_wire_color = Rgba::from_rgba_unmultiplied(1.0, 0.0, 0.0, WIRE_OPACITY);
+        let green_wire_color = Rgba::from_rgba_unmultiplied(0.0, 1.0, 0.0, WIRE_OPACITY);
+
         let this_port = e.port_from_index(usize::from(*port_index) as i32);
-        let red_offset = Vec2::RIGHT * 0.02;
+
         if let Some(red) = c.red.as_ref() {
             for red_con in red {
                 if let Some(other_port_index) = red_con.circuit_id {
@@ -500,21 +507,24 @@ impl App {
                         .find(|e| e.inner.entity_number == red_con.entity_id)
                         .expect("Entity not found");
                     let other_port = other_entity.port_from_index(other_port_index);
-                    painter.line_segment(
-                        [
-                            self.camera.world_to_viewport(this_port + red_offset),
-                            self.camera.world_to_viewport(other_port + red_offset),
-                        ],
-                        Stroke::new(
-                            0.02 * self.camera.scale,
-                            Rgba::from_rgba_unmultiplied(1.0, 0.0, 0.0, 0.5),
-                        ),
-                    );
+
+                    // Draw wire
+                    let from = self.camera.world_to_viewport(this_port);
+                    let to = self.camera.world_to_viewport(other_port);
+
+                    let target =
+                        (from + to.to_vec2()) / 2.0 + Vec2::DOWN * self.camera.scaled(RED_SAG);
+
+                    painter.add(Shape::CubicBezier(CubicBezierShape::from_points_stroke(
+                        [from, target.clone(), target, to],
+                        false,
+                        Color32::TRANSPARENT,
+                        Stroke::new(self.camera.scaled(0.02), red_wire_color),
+                    )));
                 }
             }
         }
 
-        let green_offset = Vec2::LEFT * 0.02;
         if let Some(green) = c.green.as_ref() {
             for green_con in green {
                 if let Some(other_port_index) = green_con.circuit_id {
@@ -523,16 +533,18 @@ impl App {
                         .find(|e| e.inner.entity_number == green_con.entity_id)
                         .expect("Entity not found");
                     let other_port = other_entity.port_from_index(other_port_index);
-                    painter.line_segment(
-                        [
-                            self.camera.world_to_viewport(this_port + green_offset),
-                            self.camera.world_to_viewport(other_port + green_offset),
-                        ],
-                        Stroke::new(
-                            0.02 * self.camera.scale,
-                            Rgba::from_rgba_unmultiplied(0.0, 1.0, 0.0, 0.5),
-                        ),
-                    );
+
+                    let from = self.camera.world_to_viewport(this_port);
+                    let to = self.camera.world_to_viewport(other_port);
+                    let target =
+                        (from + to.to_vec2()) / 2.0 + Vec2::DOWN * self.camera.scaled(GREEN_SAG);
+
+                    painter.add(Shape::CubicBezier(CubicBezierShape::from_points_stroke(
+                        [from, target.clone(), target, to],
+                        false,
+                        Color32::TRANSPARENT,
+                        Stroke::new(self.camera.scaled(0.02), green_wire_color),
+                    )));
                 }
             }
         }
