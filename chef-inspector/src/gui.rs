@@ -575,51 +575,65 @@ impl App {
     }
 
     fn view_book(&mut self, ui: &mut egui::Ui, book: BlueprintBook) {
-        const ITEM_MIN_HEIGHT: f32 = 200.0;
-        const ITEM_MAX_WIDTH: f32 = 800.0;
+        const SQUARE_SIZE: f32 = 140.0;
+        const TEXT_SIZE: f32 = SQUARE_SIZE * 0.14;
+        const MARGIN: f32 = 10.0;
+        const OUTER_SIZE: f32 = SQUARE_SIZE + 2.0 * MARGIN;
 
-        ui.vertical(|ui| {
-            ScrollArea::vertical().show(ui, |ui| {
-                ui.vertical_centered(|ui| {
-                    for item in &book.blueprints {
-                        let container = &item.item;
-                        let name = match container {
-                            Container::BlueprintBook(b) => {
-                                b.label.clone().unwrap_or("No Name".to_string())
-                            }
-                            Container::Blueprint(b) => b.label.clone(),
-                        };
+        ui.add_space(7.0);
+        ui.allocate_ui(Vec2::new(ui.available_width(), 30.0), |ui| {
+            ui.centered_and_justified(|ui| {
+                ui.heading(
+                    book.label
+                        .map_or("Blueprint Book".to_string(), |l| l.clone()),
+                );
+            });
+        });
+        ui.separator();
+        ui.add_space(10.0);
 
-                        let (rect, response) = ui.allocate_at_least(
-                            Vec2::new(ui.available_width().min(ITEM_MAX_WIDTH), ITEM_MIN_HEIGHT),
-                            Sense::click(),
-                        );
+        let label_font = FontId {
+            size: TEXT_SIZE,
+            family: FontFamily::Proportional,
+        };
 
-                        ui.add_space(ITEM_MIN_HEIGHT * 0.06);
-
-                        let p = ui.painter();
-                        p.rect_filled(rect, 10.0, Hsva::new(choose_hue(&name), 0.5, 0.1, 1.0));
-
-                        p.text(
-                            rect.left_top() + Vec2::splat(10.0),
-                            Align2::LEFT_TOP,
-                            &name,
-                            FontId {
-                                size: 24.0,
-                                family: FontFamily::Monospace,
-                            },
-                            Color32::WHITE,
-                        );
-
-                        if response.clicked() {
-                            self.open_container(container.clone());
+        ScrollArea::vertical().show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                for book_item in &book.blueprints {
+                    let name = match &book_item.item {
+                        Container::BlueprintBook(b) => {
+                            b.label.clone().unwrap_or("Book".to_string())
                         }
+                        Container::Blueprint(b) => b.label.clone(),
+                    };
 
-                        if response.hovered() {
-                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-                        }
-                    }
-                });
+                    let (resp, p) = ui.allocate_painter(
+                        Vec2::new(OUTER_SIZE, OUTER_SIZE + TEXT_SIZE * 2.0),
+                        Sense::click(),
+                    );
+
+                    let square = Rect::from_center_size(
+                        resp.rect.center_top() + Vec2::DOWN * OUTER_SIZE / 2.0,
+                        Vec2::splat(SQUARE_SIZE),
+                    );
+
+                    p.rect_filled(square, 10.0, Hsva::new(choose_hue(&name), 0.6, 0.3, 1.0));
+
+                    p.text(
+                        square.center_bottom() + Vec2::DOWN * 2.0,
+                        Align2::CENTER_TOP,
+                        name,
+                        label_font.clone(),
+                        Color32::WHITE,
+                    );
+
+                    resp.clicked().then(|| {
+                        self.open_container(book_item.item.clone());
+                    });
+                    resp.hovered().then(|| {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                    });
+                }
             });
         });
     }

@@ -53,6 +53,7 @@
                     root="$(${pkgs.git}/bin/git rev-parse --show-toplevel)"
                     [[ ! "$(basename $root)" = "chef" ]] && echo -e "\nWARNING: Paths may are not set correctly. Please run in the 'chef' root directory."
                     export PATH="$root/chef-lang/target/debug:$PATH"
+                    export PATH="$root/chef-inspector/target/debug:$PATH"
                     export PYTHONPATH="$root/chef-python/src"
                 '';
             };
