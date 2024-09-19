@@ -6,7 +6,7 @@ use std::{env, process::ExitCode};
 use ast::AST;
 use clap::Parser;
 use cli::{AddCommand, Command, CookOpts, Opts, SimulateOpts};
-use diagnostics::{CompilationError, CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
+use diagnostics::{CompilationResult, DiagnosticsBag, DiagnosticsBagRef};
 use simulator::Simulator;
 use text::SourceText;
 use utils::VisualizerError;
@@ -112,9 +112,7 @@ fn simulate(opts: Rc<Opts>, sim_opts: &SimulateOpts) -> CompilationResult<()> {
         .clone()
         .unwrap_or_else(|| DEFAULT_SIMULATION_DIR.to_string());
 
-    fs::create_dir_all(&out_dir).map_err(|e| {
-        CompilationError::new_generic(format!("Could not create output directory: {}", e))
-    })?;
+    fs::create_dir_all(&out_dir).map_err(|e| error!("Could not create output directory: {}", e))?;
     sim.dump_simulation(sim_opts.iterations, &out_dir);
 
     Ok(())

@@ -6,6 +6,7 @@ use crate::ast::{
 };
 use crate::compiler::graph::*;
 use crate::diagnostics::{CompilationError, CompilationResult};
+use crate::error;
 
 type Block = ast::Block<DetVar>;
 type Statement = ast::Statement<DetVar>;
@@ -49,9 +50,7 @@ impl Scope {
     ) -> CompilationResult<()> {
         let nid = graph.push_var_node(var_type.clone(), name.clone());
         match self.variables.insert(var_id, (nid, var_type)) {
-            Some(_) => Err(CompilationError::new_generic(format!(
-                "Variable '{name}' already declared in this scope."
-            ))),
+            Some(_) => Err(error!("Variable '{name}' already declared in this scope.")),
             None => Ok(()),
         }
     }
@@ -66,9 +65,7 @@ impl Scope {
     ) -> CompilationResult<()> {
         let nid = graph.push_input_node(name, var_type.clone());
         match self.variables.insert(var_id, (nid, var_type)) {
-            Some(_) => Err(CompilationError::new_generic(
-                "Variable already declared in this scope.",
-            )),
+            Some(_) => Err(error!("Variable already declared in this scope.")),
             None => Ok(()),
         }
     }
@@ -83,9 +80,7 @@ impl Scope {
     ) -> CompilationResult<()> {
         let nid = graph.push_output_node(name, var_type.clone());
         match self.variables.insert(var_id, (nid, var_type)) {
-            Some(_) => Err(CompilationError::new_generic(
-                "Variable already declared in this scope.",
-            )),
+            Some(_) => Err(error!("Variable already declared in this scope.")),
             None => Ok(()),
         }
     }
@@ -353,9 +348,9 @@ impl GraphCompiler {
         let output_nodes = graph.stitch_graph(&block, args)?;
 
         if output_nodes.len() != tuple_dec_def.defs.len() {
-            return Err(CompilationError::new_generic(
-                // TODO: Make localized
-                "Number of variables in tuple declaration does not match number of outputs.",
+            // TODO: Make localized
+            return Err(error!(
+                "Number of variables in tuple declaration does not match number of outputs."
             ));
         }
 
@@ -377,12 +372,9 @@ impl GraphCompiler {
                     )?;
                     (nid, t)
                 }
-                AssignmentType::Definition => {
-                    self.search_scope(var.id)
-                        .ok_or(CompilationError::new_generic(
-                            "Variable not declared in this scope.",
-                        ))?
-                }
+                AssignmentType::Definition => self
+                    .search_scope(var.id)
+                    .ok_or(error!("Variable not declared in this scope."))?,
             };
 
             // Convert to variable type
@@ -407,11 +399,7 @@ impl GraphCompiler {
 
         let (_var_nid, var_type) = match self.search_scope(var.id) {
             Some(t) => t,
-            None => {
-                return Err(CompilationError::new_generic(
-                    "Variable not declared in this scope.",
-                ))
-            }
+            None => return Err(error!("Variable not declared in this scope.")),
         };
 
         // Infer types of constant when directly assigned to variable
@@ -574,12 +562,11 @@ impl GraphCompiler {
         let var_ref = pick_expr.from.clone();
         let var = var_ref.var;
 
-        let (var_out_nid, _) = self
-            .search_scope(var.id)
-            .ok_or(CompilationError::new_localized(
-                format!("No variable with the name \'{}\', ", var.name),
-                var_ref.span,
-            ))?;
+        let (var_out_nid, _) = self.search_scope(var.id).ok_or(
+            error!("No variable with the name \'{}\', ", var.name
+                => var_ref.span
+            ),
+        )?;
 
         let pick_type = LooseSig::signal(pick_expr.pick_signal.clone());
 
@@ -741,10 +728,10 @@ impl GraphCompiler {
         let ast_block = self
             .ast
             .get_block_by_name(&block_link_expr.name, block_link_expr.dyn_block_version)
-            .ok_or(CompilationError::new_generic(format!(
+            .ok_or(error!(
                 "Block with name '{}' not found.", // TODO: Make localized
                 block_link_expr.name
-            )))?;
+            ))?;
 
         let block_name = ast_block.name.clone();
         let out_type = self.variable_type_to_loose_sig(&ast_block.outputs[0].type_.clone());
@@ -757,9 +744,9 @@ impl GraphCompiler {
         let mut outputs = graph.stitch_graph(block_graph, args)?;
 
         if outputs.len() != 1 {
-            return Err(CompilationError::new_generic(
-                // TODO: Make localized
-                "Blocks used withing expressions must output exactly one value.",
+            // TODO: Make localized
+            return Err(error!(
+                "Blocks used withing expressions must output exactly one value."
             ));
         }
 
@@ -772,9 +759,9 @@ impl GraphCompiler {
             }
             LooseSig::Many => (),
             _ => {
-                return Err(CompilationError::new_generic(format!(
+                return Err(error!(
                     "Cannot coerce block output `{block_out_type}` into `{out_type}`."
-                )))
+                ))
             }
         }
         Ok((block_out_nid, out_type))
@@ -910,10 +897,7 @@ impl GraphCompiler {
             .entry(namespace.unwrap_or("".to_string()).to_string())
             .and_modify(|namespace| {
                 if namespace.insert(name.clone(), item.clone()).is_some() {
-                    ret = Err(CompilationError::new_generic(format!(
-                        "Block with name '{}' already defined.",
-                        name
-                    )));
+                    ret = Err(error!("Block with name '{name}' already defined."));
                 };
             })
             .or_insert({
@@ -943,26 +927,26 @@ impl GraphCompiler {
         match (self.get_namespace_item(name, namespace), dyn_block_version) {
             (Some(NamespaceItem::Block(block_graph)), None) => Ok(block_graph),
             (Some(NamespaceItem::DynBlock(blocks)), Some(version)) => Ok(&blocks[version]),
-            (Some(NamespaceItem::Block(_)), Some(_)) => Err(CompilationError::new_generic(
-                "Internal error: Block version specified for non-dynamic block.",
+            (Some(NamespaceItem::Block(_)), Some(_)) => Err(error!(
+                "Internal error: Block version specified for non-dynamic block."
             )),
-            (Some(NamespaceItem::DynBlock(_)), None) => Err(CompilationError::new_generic(
-                "Internal error: Dynamic block version not specified.",
+            (Some(NamespaceItem::DynBlock(_)), None) => Err(error!(
+                "Internal error: Dynamic block version not specified."
             )),
-            (Some(other), _) => Err(CompilationError::new_generic(format!(
+            (Some(other), _) => Err(error!(
                 "'{}' is not a block. It is a `{}`.",
                 name,
                 other.type_name()
-            ))),
-            (None, _) if namespace.is_none() => Err(CompilationError::new_generic(
-                format!("No block with name '{}' was found.", name), // TODO: Make localized
             )),
-            (None, _) => Err(CompilationError::new_generic(
-                format!(
-                    "No block with name '{}' was found in namespace '{}'.",
-                    name,
-                    namespace.unwrap()
-                ), // TODO: Make localized
+            (None, _) if namespace.is_none() => Err(
+                // TODO: Make localized
+                error!("No block with name '{}' was found.", name),
+            ),
+            (None, _) => Err(error!(
+                // TODO: Make localized
+                "No block with name '{}' was found in namespace '{}'.",
+                name,
+                namespace.unwrap()
             )),
         }
     }

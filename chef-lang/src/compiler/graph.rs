@@ -4,7 +4,8 @@ use fnv::FnvHashMap;
 use std::fmt::Debug;
 use std::{collections::HashSet, fmt::Display};
 
-use crate::diagnostics::{CompilationError, CompilationResult};
+use crate::diagnostics::CompilationResult;
+use crate::error;
 
 use super::graph_visualizer;
 
@@ -1081,10 +1082,11 @@ where
         // This should not error. It should have been checked by the type checker.
         // TODO: Handle this with error
         if sub_graph_inputs.len() != main_outputs.len() {
-            return Err(CompilationError::new_generic(format!("Number of arguments does not match with block definition: Expected {}, found {}. This is probably a bug in the typechecker.",
+            return Err(error!(
+                "Number of arguments does not match with block definition: Expected {}, found {}. This is probably a bug in the typechecker.",
                 sub_graph_inputs.len(),
                 main_outputs.len()
-            )));
+            ));
         }
 
         // Iterate over the connections of main to sub

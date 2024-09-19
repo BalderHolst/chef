@@ -3,6 +3,7 @@
 use crate::cli::Opts;
 use crate::compiler::graph::WireKind;
 use crate::diagnostics::{CompilationError, CompilationResult, DiagnosticsBagRef};
+use crate::error;
 use crate::text::TextSpan;
 use crate::{
     ast::{
@@ -191,9 +192,10 @@ impl Parser {
         if let TokenKind::Word(word) = &token.kind {
             Ok(word.as_str())
         } else {
-            Err(CompilationError::new_localized(
-                format!("Expected 'word' but found '{}'.", token.kind),
-                token.span.clone(),
+            Err(error!(
+                "Expected 'word' but found '{}'.",
+                token.kind,
+                => token.span.clone()
             ))
         }
     }
@@ -204,9 +206,10 @@ impl Parser {
         if let TokenKind::StringLiteral(lit) = &token.kind {
             Ok(lit.as_str())
         } else {
-            Err(CompilationError::new_localized(
-                format!("Expected string literal but found '{}'.", token.kind),
-                token.span.clone(),
+            Err(error!(
+                "Expected string literal but found '{}'.",
+                token.kind
+                => token.span.clone()
             ))
         }
     }
@@ -216,9 +219,10 @@ impl Parser {
         if let TokenKind::Number(n) = &token.kind {
             Ok(*n)
         } else {
-            Err(CompilationError::new_localized(
-                format!("Expected 'word' but found '{}'.", token.kind),
-                token.span.clone(),
+            Err(error!(
+                "Expected 'word' but found '{}'.",
+                token.kind
+                => token.span.clone()
             ))
         }
     }
@@ -248,9 +252,9 @@ impl Parser {
     fn consume_and_expect_word<'a>(&mut self, word: &'a str) -> CompilationResult<&'a str> {
         match self.consume_word()? {
             s if s == word => Ok(word),
-            other => Err(CompilationError::new_localized(
-                format!("Expected '{word}' but got '{other}'."),
-                self.peak(-1).span.clone(),
+            other => Err(error!(
+                "Expected '{word}' but got '{other}'."
+                => self.peak(-1).span.clone()
             )),
         }
     }
@@ -342,9 +346,9 @@ impl Parser {
                 "dyn" => {
                     self.consume(); // Consume "dyn" word
                     if self.consume_word()? != "block" {
-                        return Err(CompilationError::new_localized(
-                            "`dyn` keyword can only be followed by `block`.",
-                            start_token.span.clone(),
+                        return Err(error!(
+                            "`dyn` keyword can only be followed by `block`."
+                            => start_token.span.clone()
                         ));
                     }
 
@@ -359,9 +363,10 @@ impl Parser {
                 "const" => self.parse_constant(),
                 _ => {
                     let token = self.consume();
-                    Err(CompilationError::new_localized(
-                        format!("Unknown keyword '{}'.", word),
-                        token.span.clone(),
+                    Err(error!(
+                        "Unknown keyword '{}'.",
+                        word,
+                        => token.span.clone()
                     ))
                 }
             },
@@ -388,9 +393,9 @@ impl Parser {
                     _ if self.is_at_definition_statment() => self.parse_definition_statement(),
                     _ => {
                         self.consume_bad_statement();
-                        Err(CompilationError::new_localized(
-                            "Invalid statement.",
-                            TextSpan::from_spans(&start_token.span, &self.current().span),
+                        Err(error!(
+                            "Invalid statement."
+                            => TextSpan::from_spans(&start_token.span, &self.current().span)
                         ))
                     }
                 };
@@ -421,9 +426,9 @@ impl Parser {
             TokenKind::RightCurly => None,
             _ => {
                 self.consume_bad_statement();
-                Some(Err(CompilationError::new_localized(
-                    "Statements have to begin with a `word`.",
-                    start_token.span,
+                Some(Err(error!(
+                    "Statements have to begin with a `word`."
+                    => start_token.span
                 )))
             }
         }
@@ -504,9 +509,10 @@ impl Parser {
             TokenKind::LeftCurlyDoubleArrow => Ok(DefinitionKind::Convert(WireKind::Green)),
             TokenKind::Equals => Ok(DefinitionKind::Equal),
 
-            other => Err(CompilationError::new_localized(
-                format!("'{}' is not a valid assignment operator.", other),
-                start_span.clone(),
+            other => Err(error!(
+                "'{}' is not a valid assignment operator.",
+                other,
+                => start_span.clone()
             )),
         }?;
 
@@ -521,13 +527,14 @@ impl Parser {
 
         let var = match self.search_scope(&name) {
             Some(ScopedItem::Var(v)) => Ok(v),
-            Some(_) => Err(CompilationError::new_localized(
-                "Only variables can be assigned to.".to_string(),
-                start_span.clone(),
+            Some(_) => Err(error!(
+                "Only variables can be assigned to."
+                => start_span.clone()
             )),
-            None => Err(CompilationError::new_localized(
-                format!("Variable `{}` not defined.", name),
-                start_span.clone(),
+            None => Err(error!(
+                "Variable `{}` not defined.",
+                name,
+                => start_span.clone()
             )),
         }?;
 
@@ -590,12 +597,11 @@ impl Parser {
 
         // If variable reference
         if self.current().kind != TokenKind::Colon {
-            let item = self
-                .search_scope(&name)
-                .ok_or(CompilationError::new_localized(
-                    format!("Variable `{}` not defined.", name),
-                    start_token.span.clone(),
-                ))?;
+            let item = self.search_scope(&name).ok_or(error!(
+                "Variable `{}` not defined."
+                name,
+                => start_token.span.clone()
+            ))?;
             Ok(match item {
                 ScopedItem::Var(v) => ParsedVariable::Ref(VariableRef::new(v, start_token.span)),
                 ScopedItem::Const(c) => ParsedVariable::Const(c),
@@ -624,14 +630,12 @@ impl Parser {
                 "int" => Ok(VariableType::Int(self.parse_variable_type_signal()?)),
                 "var" => Ok(VariableType::Var(self.parse_variable_type_signal()?)),
                 "many" => Ok(VariableType::Many),
-                w => Err(CompilationError::new_localized(
-                    format!("Unknown type `{}`.", w),
-                    token.span.clone(),
-                )),
+                w => Err(error!("Unknown type `{}`.", w => token.span.clone())),
             },
-            _ => Err(CompilationError::new_localized(
-                format!("Expected variable type to be word, not `{}`", token.kind),
-                token.span.clone(),
+            _ => Err(error!(
+                "Expected variable type to be word, not `{}`",
+                token.kind,
+                => token.span.clone()
             )),
         }
     }
@@ -653,9 +657,9 @@ impl Parser {
                     break;
                 }
                 TokenKind::End => {
-                    return Err(CompilationError::new_localized(
-                        "Runaway literal.",
-                        TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
+                    return Err(error!(
+                        "Runaway literal."
+                        => TextSpan::from_spans(&start_token.span, &self.peak(-1).span)
                     ))
                 }
                 _ => {
@@ -680,14 +684,14 @@ impl Parser {
                 ParsedVariable::Dec(v) => Ok(Rc::new(RefCell::new(v))),
 
                 // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
-                ParsedVariable::Ref(_) => Err(CompilationError::new_localized(
-                    "Please give variable a type.".to_string(),
-                    var_span,
+                ParsedVariable::Ref(_) => Err(error!(
+                    "Please give variable a type."
+                    => var_span
                 )),
 
-                ParsedVariable::Const(_) => Err(CompilationError::new_localized(
-                    "Constants cannot be block inputs.".to_string(),
-                    var_span,
+                ParsedVariable::Const(_) => Err(error!(
+                    "Constants cannot be block inputs."
+                    => var_span
                 )),
             }?;
 
@@ -712,14 +716,14 @@ impl Parser {
                 Ok(ParsedVariable::Dec(v)) => Ok(DynBlockArg::Var(Rc::new(RefCell::new(v)))),
 
                 // TODO: this will never happen as parse_variable_type til return an error on undefined variables.
-                Ok(ParsedVariable::Ref(_)) => Err(CompilationError::new_localized(
-                    "Please give variable a type.".to_string(),
-                    var_span,
+                Ok(ParsedVariable::Ref(_)) => Err(error!(
+                    "Please give variable a type."
+                    => var_span
                 )),
 
-                Ok(ParsedVariable::Const(_)) => Err(CompilationError::new_localized(
-                    "Constants cannot be block inputs.".to_string(),
-                    var_span,
+                Ok(ParsedVariable::Const(_)) => Err(error!(
+                    "Constants cannot be block inputs."
+                    => var_span
                 )),
 
                 // Parse literal
@@ -730,9 +734,10 @@ impl Parser {
                     let type_ = self.consume_word()?.to_string();
 
                     if &type_ != "lit" {
-                        return Err(CompilationError::new_localized(
-                            format!("Invalid type '{}'.", type_),
-                            TextSpan::from_spans(&var_span, &self.peak(-1).span),
+                        return Err(error!(
+                            "Invalid type '{}'.",
+                            type_
+                            => TextSpan::from_spans(&var_span, &self.peak(-1).span)
                         ));
                     }
                     Ok(DynBlockArg::Literal(name))
@@ -758,9 +763,9 @@ impl Parser {
             match arg {
                 BlockLinkArg::Expr(e) => inputs.push(e),
                 BlockLinkArg::Literal(span) => {
-                    return Err(CompilationError::new_localized(
-                        "Literal arguments are only allowed in dynamic block links.".to_string(),
-                        span,
+                    return Err(error!(
+                        "Literal arguments are only allowed in dynamic block links."
+                        => span
                     ))
                 }
             }
@@ -812,12 +817,10 @@ impl Parser {
     }
 
     fn get_module(&self, module: &String) -> CompilationResult<&Module> {
-        self.modules
-            .get(module)
-            .ok_or(CompilationError::new_localized(
-                format!("Module `{}` not found.", module),
-                self.peak(-1).span.clone(),
-            ))
+        self.modules.get(module).ok_or(error!(
+            "Module `{}` not found.", module
+            => self.peak(-1).span.clone()
+        ))
     }
 
     /// Parse chef `import`. This will parse the imported file and add its items to the scope.
@@ -848,9 +851,10 @@ impl Parser {
                     }
                 }
             }
-            other => Err(CompilationError::new_localized(
-                format!("Expected path or module. Found: {}.", other),
-                self.peak(-1).span.clone(),
+            other => Err(error!(
+                "Expected path or module. Found: {}.",
+                other,
+                => self.peak(-1).span.clone()
             )),
         }?;
 
@@ -993,13 +997,12 @@ impl Parser {
                     {
                         code = code + &line[leading_whitespace..] + "\n";
                     } else {
-                        return Err(CompilationError::new_localized(
-                            format!("Not enough whitespace in front of line {}.", n),
-                            TextSpan {
+                        return Err(error!("Not enough whitespace in front of line {}.", n
+                            => TextSpan {
                                 start: code_start,
                                 end: code_end,
                                 text: self.current().span.text.clone(),
-                            },
+                            }
                         ));
                     }
                 }
@@ -1007,9 +1010,8 @@ impl Parser {
                 let block_span = TextSpan::from_spans(&start_token.span, &self.peak(-1).span);
 
                 fs::write(&python_file_path, code).map_err(|e| {
-                    CompilationError::new_localized(
-                        format!("Could not write to file: {}", e),
-                        block_span.clone(),
+                    error!("Could not write to file: {}", e
+                        => block_span.clone()
                     )
                 })?;
 
@@ -1022,19 +1024,17 @@ impl Parser {
                 )
             }
             TokenKind::RightFatArrow => {
-                return Err(CompilationError::new_localized(
-                    "Outputs of dynamic blocks should be declared by the genated code.",
-                    self.current().span.clone(),
+                return Err(error!(
+                    "Outputs of dynamic blocks should be declared by the genated code."
+                    => self.current().span.clone()
                 ))
             }
 
             other => {
-                return Err(CompilationError::new_localized(
-                    format!(
-                        "Expected '{{' or '<' after dynamic block name, found: {}",
-                        other
-                    ),
-                    self.current().span.clone(),
+                return Err(error!(
+                    "Expected '{{' or '<' after dynamic block name, found: {}",
+                    other
+                    => self.current().span.clone()
                 ))
             }
         };
@@ -1071,9 +1071,9 @@ impl Parser {
             }
             TokenKind::LeftCurly => vec![],
             _ => {
-                return Err(CompilationError::new_localized(
-                    "Expected '=>' or '{' after block name.".to_string(),
-                    self.current().span.clone(),
+                return Err(error!(
+                    "Expected '=>' or '{{' after block name."
+                    => self.current().span.clone()
                 ))
             }
         };
@@ -1184,13 +1184,11 @@ impl Parser {
             let return_type = op
                 .return_type(left.return_type(), right.return_type())
                 .map_err(|_| {
-                    CompilationError::new_localized(
-                        format!(
-                            "Invalid operation between `{}` and `{}`.",
-                            left.return_type(),
-                            right.return_type()
-                        ),
-                        TextSpan::from_spans(&left.span, &right.span),
+                    error!(
+                        "Invalid operation between `{}` and `{}`.",
+                        left.return_type(),
+                        right.return_type()
+                        => TextSpan::from_spans(&left.span, &right.span)
                     )
                 })?;
 
@@ -1250,28 +1248,24 @@ impl Parser {
                 let item_name = match &self.current().kind {
                     TokenKind::Word(w) => w.clone(),
                     _ => {
-                        return Err(CompilationError::new_localized(
-                            "Expected word after `::`.".to_string(),
-                            self.current().span.clone(),
+                        return Err(error!(
+                            "Expected word after `::`."
+                            => self.current().span.clone()
                         ))
                     }
                 };
 
                 let import = self.ast.get_import_by_name(&import_name).ok_or({
-                    CompilationError::new_localized(
-                        format!("Import `{}` not found.", import_name),
-                        start_token.span.clone(),
+                    error!(
+                        "Import `{}` not found.", import_name
+                        => start_token.span.clone()
                     )
                 })?;
-                let item = import.ast.get_directive_by_name(&item_name).ok_or(
-                    CompilationError::new_localized(
-                        format!(
-                            "Item `{}` not found in import `{}`.",
-                            item_name, import_name
-                        ),
-                        TextSpan::from_spans(&start_token.span, &self.peak(1).span),
-                    ),
-                )?;
+                let item = import.ast.get_directive_by_name(&item_name).ok_or(error!(
+                    "Item `{}` not found in import `{}`.",
+                    item_name, import_name
+                    => TextSpan::from_spans(&start_token.span, &self.peak(1).span)
+                ))?;
                 let mut link = match item {
                     Directive::Block(_) => self.parse_block_link()?,
                     Directive::DynBlock(_) => self.parse_dyn_block_link()?,
@@ -1325,10 +1319,7 @@ impl Parser {
                         }
                     }
                 } else {
-                    Err(CompilationError::new_localized(
-                        format!("`{}` not defined.", word),
-                        start_token.span,
-                    ))
+                    Err(error!("`{}` not defined.", word => start_token.span))
                 }
             }
             TokenKind::LeftParen => {
@@ -1380,18 +1371,17 @@ impl Parser {
                             self.consume(); // Consume operator
                             Ok(dc)
                         } else {
-                            Err(CompilationError::new_localized(
-                                format!("Expected decider operator, found '{}'.", bin_op),
-                                self.current().span.clone(),
+                            Err(error!(
+                                "Expected decider operator, found '{}'.",
+                                bin_op,
+                                => self.current().span.clone()
                             ))
                         }
                     }
-                    None => Err(CompilationError::new_localized(
-                        format!(
+                    None => Err(error!(
                             "Expected binary operator for gate expression, found '{}'.",
                             self.current().kind
-                        ),
-                        self.current().span.clone(),
+                            => self.current().span.clone()
                     )),
                 }?;
                 let right = self.parse_primary_expression()?;
@@ -1404,12 +1394,10 @@ impl Parser {
                     TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
                 ))
             }
-            _ => Err(CompilationError::new_localized(
-                format!(
+            _ => Err(error!(
                     "Primary expressions can not start with `{}`.",
-                    start_token.kind
-                ),
-                start_token.span,
+                    start_token.kind,
+                    => start_token.span
             )),
         }
     }
@@ -1432,9 +1420,9 @@ impl Parser {
                 index: *n,
             }),
             _ => {
-                return Err(CompilationError::new_localized(
-                    "Variables can only be picked/indexed with types and numbers.",
-                    self.get_span_from(&start_span),
+                return Err(error!(
+                    "Variables can only be picked/indexed with types and numbers."
+                    => self.get_span_from(&start_span)
                 ))
             }
         };
@@ -1460,9 +1448,8 @@ impl Parser {
         let dyn_block =
             self.ast
                 .get_dyn_block_mut(&name)
-                .ok_or(CompilationError::new_localized(
-                    format!("Block `{}` not defined.", &name),
-                    start_span.clone(),
+                .ok_or(error!("Block `{}` not defined.", &name
+                    => start_span.clone()
                 ))?;
 
         // Generate dynamic block and store get this version number of the block
@@ -1536,23 +1523,20 @@ impl Parser {
             .ast
             .get_block_by_name(block_name, link.dyn_block_version)
             .ok_or_else(|| {
-                CompilationError::new_localized(
-                    format!("Block '{}' not defined.", block_name),
-                    self.peak(-1).span.clone(),
+                error!("Block '{}' not defined.", block_name
+                    => self.peak(-1).span.clone()
                 )
             })?;
 
         let block_outputs = block.outputs.clone();
 
         if block_outputs.len() != vars.len() {
-            return Err(CompilationError::new_localized(
-                format!(
+            return Err(error!(
                     "Cannot assign tuple with {} elements to block '{}', which has {} outputs.",
                     vars.len(),
                     block_name,
                     block_outputs.len()
-                ),
-                TextSpan::from_spans(&start_token.span, &self.peak(-1).span),
+                    => TextSpan::from_spans(&start_token.span, &self.peak(-1).span)
             ));
         }
 

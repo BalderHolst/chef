@@ -3,9 +3,7 @@
 use std::{cmp::max, fs, rc::Rc};
 
 use crate::{
-    ast::python_macro::run_python_import,
-    cli::Opts,
-    diagnostics::{CompilationError, CompilationResult},
+    ast::python_macro::run_python_import, cli::Opts, diagnostics::CompilationResult, error,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,7 +26,7 @@ impl TextSpan {
         }
     }
 
-    /// Get the text inside the textspan.
+    /// Get the text inside the text span.
     pub fn text(&self) -> &str {
         &self.text.text[self.start..self.end]
     }
@@ -61,9 +59,9 @@ impl SourceText {
             return run_python_import(opts, None, path, None, None);
         };
 
-        let text = fs::read_to_string(path).map_err(|e| {
-            CompilationError::new_generic(format!("Error reading file `{}`: {}", path, e))
-        })?;
+        let text =
+            fs::read_to_string(path).map_err(|e| error!("Error reading file `{}`: {}", path, e))?;
+
         let lines = Self::index_text(&text);
         Ok(Self {
             text,

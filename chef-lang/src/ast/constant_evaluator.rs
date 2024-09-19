@@ -1,6 +1,6 @@
 //! Evaluates constant expressions in the [AST].
 
-use crate::diagnostics::{CompilationError, CompilationResult};
+use crate::{diagnostics::CompilationResult, error};
 
 use super::{visitors::MutVisitor, BinaryOperator, Expression, ExpressionKind, MutVar, AST};
 
@@ -53,9 +53,9 @@ pub(crate) fn evaluate_constant_expression(
     match expr.kind {
         ExpressionKind::Bool(b) => Ok(ConstantValue::Bool(b)),
         ExpressionKind::Int(i) => Ok(ConstantValue::Int(i)),
-        _ => Err(CompilationError::new_localized(
-            "Could not evaluate constant expression.",
-            expr_span,
+        _ => Err(error!(
+            "Could not evaluate constant expression."
+            => expr_span
         )),
     }
 }

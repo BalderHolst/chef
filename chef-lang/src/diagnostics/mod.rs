@@ -13,6 +13,16 @@ use std::rc::Rc;
 
 pub type CompilationResult<T> = std::result::Result<T, CompilationError>;
 
+#[macro_export]
+macro_rules! error {
+    ($msg:literal $(,)? $($vars:expr),* $(,)?) => {
+        $crate::diagnostics::CompilationError::new_generic(format!($msg, $($vars),*))
+    };
+    ($msg:literal $(,)? $($vars:expr),* $(,)? => $loc:expr) => {
+        $crate::diagnostics::CompilationError::new_localized(format!($msg, $($vars),*), $loc)
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct CompilationError {
     pub desctiption: String,

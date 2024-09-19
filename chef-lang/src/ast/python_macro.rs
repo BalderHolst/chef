@@ -10,6 +10,7 @@ use std::{
 use crate::{
     cli::Opts,
     diagnostics::{CompilationError, CompilationResult},
+    error,
     text::{SourceText, TextSpan},
 };
 
@@ -48,7 +49,7 @@ pub(crate) fn run_python_import(
         Some(default_python) => default_python.clone(),
         None => match find_python() {
             Some(system_python) => system_python.into_os_string().into_string().unwrap(),
-            None => return Err(CompilationError::new_generic("Could not locate python executable in $PATH. You can supply one with the `--python` flag.")),
+            None => return Err(error!("Could not locate python executable in $PATH. You can supply one with the `--python` flag.")),
         },
     };
 
