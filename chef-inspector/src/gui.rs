@@ -4,14 +4,14 @@ use std::{
 };
 
 use factorio_blueprint::{
-    objects::{self as fbo, Blueprint, BlueprintBook, ConnectionPoint, OneBasedIndex},
+    objects::{self as fbo, BlueprintBook, OneBasedIndex},
     Container,
 };
 
 use eframe::{
     egui::{
-        self, Align, Align2, Area, Color32, FontFamily, FontId, Frame, InnerResponse, Key, Label,
-        Layout, Margin, Painter, Pos2, Rangef, Rect, Rgba, ScrollArea, Sense, Shape, Stroke, Vec2,
+        self, Align2, Color32, FontFamily, FontId, Frame, Key, Margin, Painter, Pos2, Rect, Rgba,
+        ScrollArea, Sense, Shape, Stroke, Vec2,
     },
     epaint::{CubicBezierShape, Hsva},
 };
@@ -240,13 +240,12 @@ impl From<fbo::Entity> for GuiEntity {
                     fbo::EntityConnections::NumberIdx(conns) => conns,
                 }
                 .into_iter()
-                .map(|(port, conn)| {
-                    let port = port.clone();
+                .flat_map(|(port, conn)| {
                     conn.red
                         .map(move |red_cons| {
                             red_cons.into_iter().map(move |red_conn| {
                                 (
-                                    port.clone(),
+                                    port,
                                     red_conn.entity_id,
                                     red_conn.circuit_id.unwrap_or(1),
                                     WireColor::Red,
@@ -260,7 +259,7 @@ impl From<fbo::Entity> for GuiEntity {
                                 .map(move |green_cons| {
                                     green_cons.into_iter().map(move |green_conn| {
                                         (
-                                            port.clone(),
+                                            port,
                                             green_conn.entity_id,
                                             green_conn.circuit_id.unwrap_or(1),
                                             WireColor::Green,
@@ -271,7 +270,6 @@ impl From<fbo::Entity> for GuiEntity {
                                 .flatten(),
                         )
                 })
-                .flatten()
                 .collect::<Vec<_>>()
             })
         })()
@@ -287,13 +285,11 @@ impl From<fbo::Entity> for GuiEntity {
                     .as_ref()
                     .unwrap();
                 let left = c.first_signal.as_ref().map_or(
-                    c.first_constant
-                        .map_or(OpSig::unknown(), |n| OpSig::constant(n)),
+                    c.first_constant.map_or(OpSig::unknown(), OpSig::constant),
                     |s| OpSig::signal(&s.name),
                 );
                 let right = c.second_signal.as_ref().map_or(
-                    c.second_constant
-                        .map_or(OpSig::unknown(), |n| OpSig::constant(n)),
+                    c.second_constant.map_or(OpSig::unknown(), OpSig::constant),
                     |s| OpSig::signal(&s.name),
                 );
                 let output = c
@@ -414,7 +410,7 @@ impl GuiEntity {
             GuiEntity::ArithmeticCombinator { name, .. }
             | GuiEntity::DeciderCombinator { name, .. }
             | GuiEntity::ConstantCombinator { name, .. }
-            | GuiEntity::Other { name, .. } => &name,
+            | GuiEntity::Other { name, .. } => name,
         }
     }
 
@@ -739,25 +735,19 @@ impl Camera {
 
     fn world_to_viewport(&self, world_pos: Pos2) -> Pos2 {
         let rel_pos = world_pos - self.pos;
-        let canvas_pos = self.viewport.center() + rel_pos * self.scale;
-        canvas_pos
+
+        self.viewport.center() + rel_pos * self.scale
     }
 
     fn _canvas_to_world(&self, canvas_pos: Pos2) -> Pos2 {
         let rel_pos = (canvas_pos - self.viewport.center()) / self.scale;
-        let world_pos = self.pos + rel_pos;
-        world_pos
+
+        self.pos + rel_pos
     }
 
     fn canvas_to_rel(&self, canvas_pos: Vec2) -> Vec2 {
         canvas_pos / self.scale
     }
-}
-
-#[derive(Clone)]
-enum AppScreen {
-    Blueprint(Blueprint),
-    Book(BlueprintBook),
 }
 
 struct App {
@@ -877,8 +867,6 @@ impl App {
         wire: WireColor,
         painter: &Painter,
     ) {
-        const GREEN_SAG: f32 = 0.19;
-        const RED_SAG: f32 = 0.22;
         const WIRE_OPACITY: f32 = 0.6;
 
         let this_port = e.port_from_index(usize::from(this_port) as i32);
@@ -894,15 +882,21 @@ impl App {
         let from = self.camera.world_to_viewport(this_port);
         let to = self.camera.world_to_viewport(other_port);
 
-        let target = (from + to.to_vec2()) / 2.0 + Vec2::DOWN * self.camera.scaled(RED_SAG);
-
-        let color = match wire {
-            WireColor::Red => Rgba::from_rgba_unmultiplied(1.0, 0.0, 0.0, WIRE_OPACITY),
-            WireColor::Green => Rgba::from_rgba_unmultiplied(0.0, 1.0, 0.0, WIRE_OPACITY),
+        let (color, sag) = match wire {
+            WireColor::Red => (
+                Rgba::from_rgba_unmultiplied(1.0, 0.0, 0.0, WIRE_OPACITY),
+                0.22,
+            ),
+            WireColor::Green => (
+                Rgba::from_rgba_unmultiplied(0.0, 1.0, 0.0, WIRE_OPACITY),
+                0.19,
+            ),
         };
 
+        let target = (from + to.to_vec2()) / 2.0 + Vec2::DOWN * self.camera.scaled(sag);
+
         painter.add(Shape::CubicBezier(CubicBezierShape::from_points_stroke(
-            [from, target.clone(), target, to],
+            [from, target, target, to],
             false,
             Color32::TRANSPARENT,
             Stroke::new(self.camera.scaled(0.02), color),
