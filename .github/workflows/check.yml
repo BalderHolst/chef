@@ -11,7 +11,7 @@ env:
 
 jobs:
 
-  build:
+  check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -25,7 +25,7 @@ jobs:
       - name: Run cargo build
         uses: actions-rs/cargo@v1
         with:
-          command: build
+          command: check
           args: --manifest-path chef-lang/Cargo.toml 
 
   test:
@@ -84,7 +84,7 @@ jobs:
           run: cargo fmt --manifest-path chef-lang/Cargo.toml --check
 
   build-with-nix:
-    needs: build
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
