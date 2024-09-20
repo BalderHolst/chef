@@ -1,10 +1,14 @@
 #!/bin/sh
-cargo fmt --check --manifest-path chef-lang/Cargo.toml || {
+
+compiler="chef-lang"
+inspector="chef-inspector"
+
+cargo fmt --check --manifest-path $compiler/Cargo.toml || {
     echo -e "\nPlease format your files."
     exit 1
 }
 
-cargo fmt --check --manifest-path chef-inspector/Cargo.toml || {
+cargo fmt --check --manifest-path $inspector/Cargo.toml|| {
     echo -e "\nPlease format your files."
     exit 1
 }

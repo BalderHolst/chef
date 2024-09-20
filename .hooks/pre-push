@@ -1,11 +1,16 @@
 #!/bin/sh
 
-manifest="chef-lang/Cargo.toml"
+compiler="chef-lang"
+inspector="chef-inspector"
 
 echo -n "Checking format... "
 
-cargo fmt --manifest-path "$manifest" --check 2> /dev/null  || {
-    echo -e "\nPlease format your code."
+cargo fmt --manifest-path $compiler/Cargo.toml --check 2> /dev/null  || {
+    echo -e "\nPlease format your code in '$compiler'."
+    exit 1
+}
+cargo fmt --manifest-path $inspector/Cargo.toml --check 2> /dev/null  || {
+    echo -e "\nPlease format your code in '$inspector'."
     exit 1
 }
 
@@ -13,8 +18,12 @@ echo "PASSED"
 
 echo -n "Running clippy... "
 
-cargo clippy --manifest-path "$manifest" -- --deny warnings 2> /dev/null || {
-    echo -e "\nClippy is angry."
+cargo clippy --manifest-path $compiler/Cargo.toml -- --deny warnings 2> /dev/null || {
+    echo -e "\nClippy is angry in '$compiler'."
+    exit 1
+}
+cargo clippy --manifest-path $inspector/Cargo.toml -- --deny warnings 2> /dev/null || {
+    echo -e "\nClippy is angry in '$inspector'."
     exit 1
 }
 
