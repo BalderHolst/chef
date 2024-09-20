@@ -140,7 +140,13 @@ fn run() -> CompilationResult<()> {
             }
         },
         Command::Inspect(inspect_opts) => {
-            match blueprint::utils::blueprint_to_json(&inspect_opts.blueprint) {
+            let mut blueprint = inspect_opts.blueprint.clone();
+
+            if let Ok(contents) = fs::read_to_string(&blueprint) {
+                blueprint = contents;
+            }
+
+            match blueprint::utils::blueprint_to_json(&blueprint) {
                 Ok(json) => println!("{json}"),
                 Err(e) => eprintln!("{e}"),
             }
