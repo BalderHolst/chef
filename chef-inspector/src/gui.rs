@@ -767,7 +767,7 @@ struct App {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("right-panel")
             .frame(Frame {
                 inner_margin: Margin::symmetric(4.0, 4.0),
@@ -797,11 +797,13 @@ impl eframe::App for App {
 
 impl App {
     fn new(container: Container) -> Self {
-        Self {
+        let mut app = Self {
             camera: Camera::new(Pos2::ZERO),
-            stack: vec![container],
+            stack: vec![],
             entities: vec![],
-        }
+        };
+        app.open_container(container);
+        app
     }
 
     fn view_blueprint(&mut self, ui: &mut egui::Ui) {

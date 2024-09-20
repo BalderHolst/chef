@@ -50,10 +50,18 @@
                 ]);
 
                 shellHook = ''
+                    # Determine project root
                     root="$(${pkgs.git}/bin/git rev-parse --show-toplevel)"
-                    [[ ! "$(basename $root)" = "chef" ]] && echo -e "\nWARNING: Paths may are not set correctly. Please run in the 'chef' root directory."
+
+                    # Build chef-lang and chef-inspector
+                    cargo build --manifest-path "$root/chef-inspector/Cargo.toml"
+                    cargo build --manifest-path "$root/chef-lang/Cargo.toml"
+
+                    # Add chef-lang and chef-inspector to PATH
                     export PATH="$root/chef-lang/target/debug:$PATH"
                     export PATH="$root/chef-inspector/target/debug:$PATH"
+
+                    # Add the chef python module to PYTHONPATH
                     export PYTHONPATH="$root/chef-python/src"
                 '';
             };

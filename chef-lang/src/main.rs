@@ -77,11 +77,15 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
 
     let entitites = blueprint::graph_to_entities(&cook_opts.placer, graph);
 
+    let blueprint_str = blueprint::entities_to_blueprint_string(entitites).unwrap();
+
     if cook_opts.gui {
-        todo!("run external GUI")
+        std::process::Command::new("chef-inspector")
+            .arg(&blueprint_str)
+            .spawn()
+            .expect("Failed to start chef-gui");
     }
 
-    let blueprint_str = blueprint::entities_to_blueprint_string(entitites).unwrap();
     println!("{blueprint_str}");
     eprintln!();
 
