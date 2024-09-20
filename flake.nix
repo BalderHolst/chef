@@ -8,25 +8,17 @@
 
     outputs = { self , nixpkgs, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
-          let pkgs = nixpkgs.legacyPackages.${system}; in
-          rec {
-            packages = rec {
-                chef-lang = pkgs.callPackage ./chef-lang { inherit pkgs; };
-                chef-inspector = pkgs.callPackage ./chef-inspector { inherit pkgs; };
-                chef-python = pkgs.callPackage ./chef-python { inherit pkgs; };
-                chef-mod = pkgs.callPackage ./chef-mod { inherit pkgs; };
-                default = pkgs.stdenv.mkDerivation {
-                    name = "chef";
-                    unpackPhase = "true"; # no source
-                    installPhase = ''
-                        mkdir $out -p
-                        cp -rv ${chef-lang}/* $out
-                        cp -rv ${chef-inspector}/* $out
-                        cp -rv ${chef-python}/* $out
-                        mkdir $out/mod -p
-                        cp -rv ${chef-mod}/* $out/mod
-                        '';
-                };
+          let
+              pkgs = nixpkgs.legacyPackages.${system};
+              package = x: pkgs.callPackage x { inherit pkgs; };
+          in
+          {
+            packages = {
+                chef-lang      = package ./chef-lang;
+                chef-inspector = package ./chef-inspector;
+                chef-python    = package ./chef-python;
+                chef-mod       = package ./chef-mod;
+                default        = package ./.;
             };
             apps = rec {
                 compiler = flake-utils.lib.mkApp { drv = self.packages.${system}.chef-lang; };
