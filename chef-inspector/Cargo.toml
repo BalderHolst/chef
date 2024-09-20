@@ -6,6 +6,5 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.4.8", features = ["derive"]}
 factorio-blueprint = "0.3.0"
-noisy_float = "0.1" # We need this lower version to interact with 'factorio-blueprint'
-serde_json = "1.0"
+# noisy_float = "0.1" # We need this lower version to interact with 'factorio-blueprint'
 eframe = { version = "0.28.1" }

@@ -740,8 +740,6 @@ dependencies = [
  "clap",
  "eframe",
  "factorio-blueprint",
- "noisy_float",
- "serde_json",
 ]
 
 [[package]]
