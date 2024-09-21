@@ -4,7 +4,7 @@ use std::{
 };
 
 use factorio_blueprint::{
-    objects::{self as fbo, BlueprintBook, OneBasedIndex},
+    objects::{self as fbo, ArithmeticOperation, BlueprintBook, DeciderComparator, OneBasedIndex},
     Container,
 };
 
@@ -183,43 +183,33 @@ impl Copy for WireColor {}
 type EntityConnections = Vec<(fbo::OneBasedIndex, fbo::EntityNumber, i32, WireColor)>;
 
 #[derive(Debug)]
-enum GuiEntity {
+struct GuiEntity {
+    entity_number: fbo::OneBasedIndex,
+    name: String,
+    pos: Pos2,
+    direction: Vec2,
+    connections: EntityConnections,
+    kind: GuiEntityKind,
+}
+
+#[derive(Debug)]
+enum GuiEntityKind {
     ArithmeticCombinator {
-        entiry_number: fbo::OneBasedIndex,
-        name: String,
-        pos: Pos2,
-        direction: Vec2,
         left: OpSig,
         right: OpSig,
         output: OpSig,
-        operator: String,
-        connections: EntityConnections,
+        operator: ArithmeticOperation,
     },
     DeciderCombinator {
-        entity_number: fbo::OneBasedIndex,
-        name: String,
-        pos: Pos2,
-        direction: Vec2,
         left: OpSig,
         right: OpSig,
         output: OpSig,
-        operator: String,
-        connections: EntityConnections,
+        operator: DeciderComparator,
     },
     ConstantCombinator {
-        entity_number: fbo::OneBasedIndex,
-        name: String,
-        pos: Pos2,
         signals: BTreeMap<fbo::OneBasedIndex, ConstantSignal>,
-        connections: EntityConnections,
     },
-    Other {
-        en: fbo::OneBasedIndex,
-        name: String,
-        pos: Pos2,
-        direction: Vec2,
-        connections: EntityConnections,
-    },
+    Other,
 }
 
 fn pos_from_fbo_position(pos: fbo::Position) -> Pos2 {
@@ -289,7 +279,7 @@ impl From<fbo::Entity> for GuiEntity {
             fbo::Direction::NorthWest => Vec2::new(-1.0, -1.0).normalized(),
         };
 
-        match e.name.as_str() {
+        let kind = match e.name.as_str() {
             "arithmetic-combinator" => {
                 let c = e
                     .control_behavior
@@ -310,16 +300,11 @@ impl From<fbo::Entity> for GuiEntity {
                     .output_signal
                     .as_ref()
                     .map_or(OpSig::unknown(), |s| OpSig::signal(&s.name));
-                GuiEntity::ArithmeticCombinator {
-                    entiry_number: e.entity_number,
-                    name: e.name,
-                    pos: pos_from_fbo_position(e.position),
-                    direction,
+                GuiEntityKind::ArithmeticCombinator {
                     left,
                     right,
                     output,
-                    operator: c.operation.to_string(),
-                    connections,
+                    operator: c.operation.clone(),
                 }
             }
             "decider-combinator" => {
@@ -343,16 +328,11 @@ impl From<fbo::Entity> for GuiEntity {
                     .as_ref()
                     .map_or(OpSig::unknown(), |s| OpSig::signal(&s.name));
 
-                GuiEntity::DeciderCombinator {
-                    entity_number: e.entity_number,
-                    name: e.name,
-                    pos: pos_from_fbo_position(e.position),
-                    direction,
+                GuiEntityKind::DeciderCombinator {
                     left,
                     right,
                     output,
-                    operator: c.comparator.to_string(),
-                    connections,
+                    operator: c.comparator.clone(),
                 }
             }
             "constant-combinator" => {
@@ -375,22 +355,18 @@ impl From<fbo::Entity> for GuiEntity {
                 })()
                 .unwrap_or(BTreeMap::default());
 
-                GuiEntity::ConstantCombinator {
-                    entity_number: e.entity_number,
-                    name: e.name,
-                    pos: pos_from_fbo_position(e.position),
-                    signals,
-                    connections,
-                }
+                GuiEntityKind::ConstantCombinator { signals }
             }
+            _ => GuiEntityKind::Other,
+        };
 
-            name => GuiEntity::Other {
-                en: e.entity_number,
-                name: name.to_string(),
-                pos: pos_from_fbo_position(e.position),
-                direction,
-                connections,
-            },
+        GuiEntity {
+            entity_number: e.entity_number,
+            name: e.name,
+            pos: pos_from_fbo_position(e.position),
+            direction,
+            connections,
+            kind,
         }
     }
 }
@@ -398,98 +374,48 @@ impl From<fbo::Entity> for GuiEntity {
 impl GuiEntity {
     const PORT_DISTANCE: f32 = 0.6;
 
-    fn entity_number(&self) -> fbo::OneBasedIndex {
-        match self {
-            GuiEntity::ArithmeticCombinator {
-                entiry_number: en, ..
-            }
-            | GuiEntity::DeciderCombinator {
-                entity_number: en, ..
-            }
-            | GuiEntity::ConstantCombinator {
-                entity_number: en, ..
-            }
-            | GuiEntity::Other { en, .. } => *en,
-        }
-    }
-
-    fn connections(&self) -> &EntityConnections {
-        match self {
-            GuiEntity::ArithmeticCombinator { connections, .. }
-            | GuiEntity::DeciderCombinator { connections, .. }
-            | GuiEntity::ConstantCombinator { connections, .. }
-            | GuiEntity::Other { connections, .. } => connections,
-        }
-    }
-
-    fn name(&self) -> &str {
-        match self {
-            GuiEntity::ArithmeticCombinator { name, .. }
-            | GuiEntity::DeciderCombinator { name, .. }
-            | GuiEntity::ConstantCombinator { name, .. }
-            | GuiEntity::Other { name, .. } => name,
-        }
-    }
-
     fn hue(&self) -> f32 {
-        match self {
-            GuiEntity::ArithmeticCombinator { .. } => 0.1,
-            GuiEntity::DeciderCombinator { .. } => 0.8,
-            GuiEntity::ConstantCombinator { .. } => 0.5,
-            GuiEntity::Other { name, .. } => choose_hue(name),
-        }
-    }
-
-    fn pos(&self) -> Pos2 {
-        match self {
-            GuiEntity::ArithmeticCombinator { pos, .. }
-            | GuiEntity::DeciderCombinator { pos, .. }
-            | GuiEntity::ConstantCombinator { pos, .. }
-            | GuiEntity::Other { pos, .. } => *pos,
-        }
-    }
-
-    fn direction(&self) -> Vec2 {
-        match self {
-            GuiEntity::ArithmeticCombinator { direction, .. }
-            | GuiEntity::DeciderCombinator { direction, .. }
-            | GuiEntity::Other { direction, .. } => *direction,
-            GuiEntity::ConstantCombinator { .. } => Vec2::UP,
+        match &self.kind {
+            GuiEntityKind::ArithmeticCombinator { .. } => 0.1,
+            GuiEntityKind::DeciderCombinator { .. } => 0.8,
+            GuiEntityKind::ConstantCombinator { .. } => 0.5,
+            GuiEntityKind::Other => choose_hue(&self.name),
         }
     }
 
     fn input_port(&self) -> Pos2 {
-        match self {
-            GuiEntity::ArithmeticCombinator { .. } | GuiEntity::DeciderCombinator { .. } => {
-                self.pos() + self.direction() * Self::PORT_DISTANCE
+        match &self.kind {
+            GuiEntityKind::ArithmeticCombinator { .. }
+            | GuiEntityKind::DeciderCombinator { .. } => {
+                self.pos + self.direction * Self::PORT_DISTANCE
             }
-            GuiEntity::ConstantCombinator { pos, .. } => *pos + Vec2::splat(0.32),
-            GuiEntity::Other { pos, .. } => *pos,
+            GuiEntityKind::ConstantCombinator { .. } => self.pos + Vec2::splat(0.32),
+            GuiEntityKind::Other => self.pos,
         }
     }
 
     fn output_port(&self) -> Pos2 {
-        match self {
-            GuiEntity::ArithmeticCombinator { .. } | GuiEntity::DeciderCombinator { .. } => {
-                self.pos() - self.direction() * Self::PORT_DISTANCE
+        match &self.kind {
+            GuiEntityKind::ArithmeticCombinator { .. }
+            | GuiEntityKind::DeciderCombinator { .. } => {
+                self.pos - self.direction * Self::PORT_DISTANCE
             }
-            GuiEntity::ConstantCombinator { pos, .. } => *pos + Vec2::splat(0.32),
-            GuiEntity::Other { pos, .. } => *pos,
+            GuiEntityKind::ConstantCombinator { .. } => self.pos + Vec2::splat(0.32),
+            GuiEntityKind::Other => self.pos,
         }
     }
 
     // TODO: Use actual direction
     fn port_from_index(&self, index: i32) -> Pos2 {
-        match self {
-            GuiEntity::ArithmeticCombinator { .. } | GuiEntity::DeciderCombinator { .. } => {
-                match index {
-                    1 => self.input_port(),
-                    2 => self.output_port(),
-                    other => panic!("Invalid port index {other}."),
-                }
-            }
-            GuiEntity::ConstantCombinator { .. } => self.input_port(),
-            GuiEntity::Other { pos, .. } => *pos,
+        match &self.kind {
+            GuiEntityKind::ArithmeticCombinator { .. }
+            | GuiEntityKind::DeciderCombinator { .. } => match index {
+                1 => self.input_port(),
+                2 => self.output_port(),
+                other => panic!("Invalid port index {other}."),
+            },
+            GuiEntityKind::ConstantCombinator { .. } => self.input_port(),
+            GuiEntityKind::Other { .. } => self.pos,
         }
     }
 
@@ -498,27 +424,25 @@ impl GuiEntity {
 
         const MARGIN: f32 = 0.11;
 
-        match self {
-            GuiEntity::ArithmeticCombinator {
+        match &self.kind {
+            GuiEntityKind::ArithmeticCombinator {
                 left,
                 right,
                 output,
-                operator,
                 ..
             }
-            | GuiEntity::DeciderCombinator {
+            | GuiEntityKind::DeciderCombinator {
                 left,
                 right,
                 output,
-                operator,
                 ..
             } => {
-                let canvas_pos = cam.world_to_viewport(self.pos());
+                let canvas_pos = cam.world_to_viewport(self.pos);
 
                 const WIDTH: f32 = 1.0;
                 const LENGTH: f32 = 2.0;
 
-                let x_dir = self.direction();
+                let x_dir = self.direction;
                 let y_dir = x_dir.rot90().normalized();
                 let front = canvas_pos + x_dir * cam.scaled(LENGTH / 2.0 - MARGIN / 2.0);
                 let back = canvas_pos - x_dir * cam.scaled(LENGTH / 2.0 - MARGIN / 2.0);
@@ -551,7 +475,7 @@ impl GuiEntity {
                 painter.text(
                     title_pos,
                     Align2::CENTER_TOP,
-                    self.name(),
+                    &self.name,
                     FontId {
                         size: cam.scale * 0.065,
                         family: FontFamily::Monospace,
@@ -596,10 +520,16 @@ impl GuiEntity {
                 let rect = Rect::from_center_size(output_port, Vec2::splat(port_size));
                 painter.rect(rect, 0.0, fill, stroke);
 
+                let op = match &self.kind {
+                    GuiEntityKind::ArithmeticCombinator { operator, .. } => operator.to_string(),
+                    GuiEntityKind::DeciderCombinator { operator, .. } => operator.to_string(),
+                    _ => unreachable!(),
+                };
+
                 painter.text(
                     canvas_pos + Vec2::DOWN * center_y_offset,
                     Align2::CENTER_CENTER,
-                    operator,
+                    op,
                     FontId {
                         size: cam.scale * 0.30,
                         family: FontFamily::Monospace,
@@ -607,13 +537,12 @@ impl GuiEntity {
                     Color32::BLACK,
                 );
             }
-            GuiEntity::ConstantCombinator { pos, signals, .. } => {
-                let canvas_pos = cam.world_to_viewport(*pos);
+            GuiEntityKind::ConstantCombinator { signals } => {
+                let canvas_pos = cam.world_to_viewport(self.pos);
                 let size = Vec2::new(1.0, 1.0);
                 let rect =
                     Rect::from_center_size(canvas_pos, (size - Vec2::splat(MARGIN)) * cam.scale);
 
-                //let painter = painter.with_clip_rect(rect);
                 painter.rect_filled(
                     rect,
                     cam.scaled(ROUNDING),
@@ -623,7 +552,7 @@ impl GuiEntity {
                 painter.text(
                     rect.center_top() + Vec2::new(0.0, 0.04) * cam.scale,
                     Align2::CENTER_TOP,
-                    self.name(),
+                    &self.name,
                     FontId {
                         size: cam.scale * 0.065,
                         family: FontFamily::Monospace,
@@ -731,7 +660,7 @@ impl GuiEntity {
                 let port = cam.world_to_viewport(self.input_port());
                 painter.circle(port, cam.scaled(PORT_SIZE) / 2.0, fill, stroke);
             }
-            GuiEntity::Other { .. } => {} //eprintln!("cannot draw {name}."),
+            GuiEntityKind::Other => {}
         }
     }
 }
@@ -895,7 +824,7 @@ impl App {
         }
 
         for e in &self.entities {
-            for (port, other_en, other_port, wire) in e.connections() {
+            for (port, other_en, other_port, wire) in &e.connections {
                 self.draw_conn(e, *port, *other_en, *other_port, *wire, &painter)
             }
         }
@@ -917,7 +846,7 @@ impl App {
         let other_entity = self
             .entities
             .iter()
-            .find(|e| e.entity_number() == other_entity_id)
+            .find(|e| e.entity_number == other_entity_id)
             .expect("Entity not found");
 
         let other_port = other_entity.port_from_index(other_port);
@@ -978,7 +907,7 @@ impl App {
                 let len = len as f32;
                 entities
                     .iter()
-                    .map(|e| e.pos())
+                    .map(|e| e.pos)
                     .fold(Pos2::ZERO, |acc, p| acc + p.to_vec2())
                     / len
             } else {
