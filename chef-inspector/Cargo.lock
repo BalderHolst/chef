@@ -1210,14 +1210,13 @@ dependencies = [
 [[package]]
 name = "factorio-blueprint"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fcb772482c6e2c5d0f5b6bf11781dcadf473e939f9cc522c7ab784938c35210"
 dependencies = [
  "base64",
  "flate2",
  "noisy_float",
  "serde",
  "serde_json",
+ "serde_repr",
  "thiserror",
 ]
 

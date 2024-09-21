@@ -781,6 +781,8 @@ impl eframe::App for App {
             .show(ctx, |ui| match self.stack.last().unwrap() {
                 Container::Blueprint(_) => self.view_blueprint(ui),
                 Container::BlueprintBook(book) => self.view_book(ui, book.clone()),
+                Container::DeconstructionPlanner(_) => todo!(),
+                Container::UpgradePlanner(_) => todo!(),
             });
     }
 }
@@ -972,7 +974,11 @@ impl App {
                         Container::BlueprintBook(b) => {
                             b.label.clone().unwrap_or("Book".to_string())
                         }
-                        Container::Blueprint(b) => b.label.clone(),
+                        Container::Blueprint(b) => {
+                            b.label.clone().unwrap_or("Blueprint".to_string())
+                        }
+                        Container::DeconstructionPlanner(_) => todo!(),
+                        Container::UpgradePlanner(_) => todo!(),
                     };
 
                     let (resp, p) = ui.allocate_painter(

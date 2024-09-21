@@ -1,0 +1,3 @@
+[submodule "chef-inspector/external/factorio-blueprint"]
+	path = chef-inspector/external/factorio-blueprint
+	url = git@github.com:BalderHolst/factorio-blueprint
