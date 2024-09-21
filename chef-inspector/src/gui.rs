@@ -13,7 +13,7 @@ use eframe::{
         self, Align2, Color32, FontFamily, FontId, Frame, Key, Margin, Painter, Pos2, Rect, Rgba,
         ScrollArea, Sense, Shape, Stroke, Vec2,
     },
-    epaint::{CubicBezierShape, Hsva},
+    epaint::{CubicBezierShape, Hsva, PathShape},
 };
 
 const ROUNDING: f32 = 0.03;
@@ -188,6 +188,7 @@ enum GuiEntity {
         entiry_number: fbo::OneBasedIndex,
         name: String,
         pos: Pos2,
+        direction: Vec2,
         left: OpSig,
         right: OpSig,
         output: OpSig,
@@ -198,6 +199,7 @@ enum GuiEntity {
         entity_number: fbo::OneBasedIndex,
         name: String,
         pos: Pos2,
+        direction: Vec2,
         left: OpSig,
         right: OpSig,
         output: OpSig,
@@ -215,6 +217,7 @@ enum GuiEntity {
         en: fbo::OneBasedIndex,
         name: String,
         pos: Pos2,
+        direction: Vec2,
         connections: EntityConnections,
     },
 }
@@ -275,6 +278,17 @@ impl From<fbo::Entity> for GuiEntity {
         })()
         .unwrap_or(vec![]);
 
+        let direction = match &e.direction {
+            fbo::Direction::North => Vec2::new(0.0, -1.0),
+            fbo::Direction::NorthEast => Vec2::new(1.0, -1.0).normalized(),
+            fbo::Direction::East => Vec2::new(1.0, 0.0),
+            fbo::Direction::SouthEast => Vec2::new(1.0, 1.0).normalized(),
+            fbo::Direction::South => Vec2::new(0.0, 1.0),
+            fbo::Direction::SouthWest => Vec2::new(-1.0, 1.0).normalized(),
+            fbo::Direction::West => Vec2::new(-1.0, 0.0),
+            fbo::Direction::NorthWest => Vec2::new(-1.0, -1.0).normalized(),
+        };
+
         match e.name.as_str() {
             "arithmetic-combinator" => {
                 let c = e
@@ -300,10 +314,11 @@ impl From<fbo::Entity> for GuiEntity {
                     entiry_number: e.entity_number,
                     name: e.name,
                     pos: pos_from_fbo_position(e.position),
+                    direction,
                     left,
                     right,
                     output,
-                    operator: c.operation.clone(),
+                    operator: c.operation.to_string(),
                     connections,
                 }
             }
@@ -332,10 +347,11 @@ impl From<fbo::Entity> for GuiEntity {
                     entity_number: e.entity_number,
                     name: e.name,
                     pos: pos_from_fbo_position(e.position),
+                    direction,
                     left,
                     right,
                     output,
-                    operator: c.comparator.clone(),
+                    operator: c.comparator.to_string(),
                     connections,
                 }
             }
@@ -372,6 +388,7 @@ impl From<fbo::Entity> for GuiEntity {
                 en: e.entity_number,
                 name: name.to_string(),
                 pos: pos_from_fbo_position(e.position),
+                direction,
                 connections,
             },
         }
@@ -432,22 +449,29 @@ impl GuiEntity {
         }
     }
 
-    // TODO: Use actual direction
+    fn direction(&self) -> Vec2 {
+        match self {
+            GuiEntity::ArithmeticCombinator { direction, .. }
+            | GuiEntity::DeciderCombinator { direction, .. }
+            | GuiEntity::Other { direction, .. } => *direction,
+            GuiEntity::ConstantCombinator { .. } => Vec2::UP,
+        }
+    }
+
     fn input_port(&self) -> Pos2 {
         match self {
             GuiEntity::ArithmeticCombinator { .. } | GuiEntity::DeciderCombinator { .. } => {
-                self.pos() + Vec2::new(0.0, Self::PORT_DISTANCE)
+                self.pos() + self.direction() * Self::PORT_DISTANCE
             }
             GuiEntity::ConstantCombinator { pos, .. } => *pos + Vec2::splat(0.32),
             GuiEntity::Other { pos, .. } => *pos,
         }
     }
 
-    // TODO: Use actual direction
     fn output_port(&self) -> Pos2 {
         match self {
             GuiEntity::ArithmeticCombinator { .. } | GuiEntity::DeciderCombinator { .. } => {
-                self.pos() + Vec2::new(0.0, -Self::PORT_DISTANCE)
+                self.pos() - self.direction() * Self::PORT_DISTANCE
             }
             GuiEntity::ConstantCombinator { pos, .. } => *pos + Vec2::splat(0.32),
             GuiEntity::Other { pos, .. } => *pos,
@@ -491,20 +515,36 @@ impl GuiEntity {
             } => {
                 let canvas_pos = cam.world_to_viewport(self.pos());
 
-                let size = Vec2::new(1.0, 2.0);
-                let rect =
-                    Rect::from_center_size(canvas_pos, (size - Vec2::splat(MARGIN)) * cam.scale);
+                const WIDTH: f32 = 1.0;
+                const LENGTH: f32 = 2.0;
 
-                let painter = painter.with_clip_rect(rect);
-                painter.rect_filled(
-                    rect,
-                    cam.scaled(ROUNDING),
+                let x_dir = self.direction();
+                let y_dir = x_dir.rot90().normalized();
+                let front = canvas_pos + x_dir * cam.scaled(LENGTH / 2.0 - MARGIN / 2.0);
+                let back = canvas_pos - x_dir * cam.scaled(LENGTH / 2.0 - MARGIN / 2.0);
+
+                let top_front = front - y_dir * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0);
+                let bot_front = front + y_dir * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0);
+                let top_back = back - y_dir * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0);
+                let bot_back = back + y_dir * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0);
+
+                let shape = PathShape::convex_polygon(
+                    vec![top_front, bot_front, bot_back, top_back, top_front],
                     Hsva::new(self.hue(), 0.5, 0.5, 1.0),
+                    Stroke::NONE,
                 );
 
+                painter.add(shape);
+
+                let title_pos = if x_dir == Vec2::UP {
+                    canvas_pos + Vec2::UP * cam.scaled(LENGTH / 2.0 - MARGIN / 2.0 - 0.04)
+                } else {
+                    canvas_pos + Vec2::UP * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0 - 0.04)
+                };
+
                 painter.text(
-                    rect.center_top() + Vec2::new(0.0, 0.10) * cam.scale,
-                    Align2::CENTER_CENTER,
+                    title_pos,
+                    Align2::CENTER_TOP,
                     self.name(),
                     FontId {
                         size: cam.scale * 0.065,
@@ -567,7 +607,7 @@ impl GuiEntity {
                 let rect =
                     Rect::from_center_size(canvas_pos, (size - Vec2::splat(MARGIN)) * cam.scale);
 
-                let painter = painter.with_clip_rect(rect);
+                //let painter = painter.with_clip_rect(rect);
                 painter.rect_filled(
                     rect,
                     cam.scaled(ROUNDING),
@@ -575,8 +615,8 @@ impl GuiEntity {
                 );
 
                 painter.text(
-                    rect.center_top() + Vec2::new(0.0, 0.10) * cam.scale,
-                    Align2::CENTER_CENTER,
+                    rect.center_top() + Vec2::new(0.0, 0.04) * cam.scale,
+                    Align2::CENTER_TOP,
                     self.name(),
                     FontId {
                         size: cam.scale * 0.065,
@@ -587,7 +627,7 @@ impl GuiEntity {
 
                 const CENTER_OFFSET: f32 = 0.15;
                 const MAX_WIDTH: f32 = 0.9;
-                const SPACING: f32 = 0.05;
+                const SPACING: f32 = 0.15;
 
                 let origin = rect.center();
                 match signals.values().collect::<Vec<_>>().as_slice() {
@@ -665,12 +705,13 @@ impl GuiEntity {
                         let item_size = MAX_WIDTH / item_width as f32;
                         for i in 0..item_width {
                             let top_item = other[i];
-                            let bot_item = other.get(i);
-                            let x = rect.left() + item_size * i as f32 + item_size / 2.0;
-                            let pos = Pos2::new(x, origin.y - item_size / 2.0);
-                            top_item.draw(&painter, cam, pos, item_size);
+                            let bot_item = other.get(i + item_width);
+                            let x =
+                                rect.left() + cam.scaled(item_size * i as f32 + item_size / 2.0);
+                            let pos = Pos2::new(x, origin.y - cam.scaled(item_size / 2.0));
+                            top_item.draw(&painter, cam, pos, item_size * (1.0 - SPACING / 2.0));
                             if let Some(bot_item) = bot_item {
-                                let pos = Pos2::new(x, origin.y + item_size / 2.0);
+                                let pos = Pos2::new(x, origin.y + cam.scaled(item_size / 2.0));
                                 bot_item.draw(
                                     &painter,
                                     cam,
@@ -689,7 +730,7 @@ impl GuiEntity {
                 let port = cam.world_to_viewport(self.input_port());
                 painter.circle(port, cam.scaled(PORT_SIZE) / 2.0, fill, stroke);
             }
-            GuiEntity::Other { name, .. } => todo!("cannot draw {name}."),
+            GuiEntity::Other { name, .. } => {} //eprintln!("cannot draw {name}."),
         }
     }
 }
