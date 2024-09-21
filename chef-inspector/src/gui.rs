@@ -63,13 +63,13 @@ impl ConstantSignal {
         choose_hue(&self.name)
     }
 
-    fn draw(&self, painter: &Painter, cam: &Camera, pos: Pos2, size: f32) {
+    fn draw(&self, painter: &Painter, cam: &Camera, pos: Pos2, size: f32, luminance: f32) {
         let size = cam.scaled(size);
         let rect = Rect::from_center_size(pos, Vec2::new(size, size));
         painter.rect_filled(
             rect,
             cam.scaled(ROUNDING),
-            Hsva::new(self.hue(), 0.8, 1.0, 1.0),
+            Hsva::new(self.hue(), 0.8, luminance, 1.0),
         );
 
         let (s, font_size) = match self.name.strip_prefix("signal-") {
@@ -132,14 +132,14 @@ impl OpSig {
         }
     }
 
-    fn draw(&self, painter: &Painter, cam: &Camera, pos: Pos2, size: f32) {
+    fn draw(&self, painter: &Painter, cam: &Camera, pos: Pos2, size: f32, luminance: f32) {
         let size = cam.scaled(size);
         let rect = Rect::from_center_size(pos, Vec2::new(size, size));
         let painter = painter.with_clip_rect(rect);
         painter.rect_filled(
             rect,
             cam.scaled(ROUNDING),
-            Hsva::new(self.hue(), 0.8, 1.0, 1.0),
+            Hsva::new(self.hue(), 0.8, luminance, 1.0),
         );
 
         let (s, size) = match &self {
@@ -378,6 +378,7 @@ impl From<fbo::Entity> for GuiEntity {
 
 impl GuiEntity {
     const PORT_DISTANCE: f32 = 0.6;
+    const MARGIN: f32 = 0.11;
 
     fn hue(&self) -> f32 {
         match &self.kind {
@@ -386,6 +387,22 @@ impl GuiEntity {
             GuiEntityKind::ConstantCombinator { .. } => 0.5,
             GuiEntityKind::Other => choose_hue(&self.name),
         }
+    }
+
+    fn contains_point(&self, point: Pos2) -> bool {
+        let size = match &self.kind {
+            GuiEntityKind::ArithmeticCombinator { .. }
+            | GuiEntityKind::DeciderCombinator { .. } => match &self.direction {
+                &Vec2::RIGHT | &Vec2::LEFT => Vec2::new(2.0, 1.0),
+                _ => Vec2::new(1.0, 2.0),
+            },
+            _ => Vec2::splat(1.0),
+        };
+
+        let size = size - Vec2::splat(Self::MARGIN);
+
+        let rect = Rect::from_center_size(self.pos, size);
+        rect.contains(point)
     }
 
     fn input_port(&self) -> Pos2 {
@@ -424,10 +441,14 @@ impl GuiEntity {
         }
     }
 
-    fn draw(&self, painter: &Painter, cam: &Camera) {
-        // All sizes are in taller than wide if they are not square
+    fn draw(&self, app: &App, painter: &Painter, cam: &Camera) {
+        let luminance = match &app.focused_entity {
+            Some(focused) if *focused == self.entity_number => 0.5,
+            Some(_) => 0.2,
+            _ => 0.35,
+        };
 
-        const MARGIN: f32 = 0.11;
+        let icon_luminance = (luminance + 0.45_f32).min(1.0);
 
         match &self.kind {
             GuiEntityKind::ArithmeticCombinator {
@@ -449,13 +470,13 @@ impl GuiEntity {
 
                 let x_dir = self.direction;
                 let y_dir = x_dir.rot90().normalized();
-                let front = canvas_pos + x_dir * cam.scaled(LENGTH / 2.0 - MARGIN / 2.0);
-                let back = canvas_pos - x_dir * cam.scaled(LENGTH / 2.0 - MARGIN / 2.0);
+                let front = canvas_pos + x_dir * cam.scaled(LENGTH / 2.0 - Self::MARGIN / 2.0);
+                let back = canvas_pos - x_dir * cam.scaled(LENGTH / 2.0 - Self::MARGIN / 2.0);
 
-                let top_front = front - y_dir * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0);
-                let bot_front = front + y_dir * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0);
-                let top_back = back - y_dir * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0);
-                let bot_back = back + y_dir * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0);
+                let top_front = front - y_dir * cam.scaled(WIDTH / 2.0 - Self::MARGIN / 2.0);
+                let bot_front = front + y_dir * cam.scaled(WIDTH / 2.0 - Self::MARGIN / 2.0);
+                let top_back = back - y_dir * cam.scaled(WIDTH / 2.0 - Self::MARGIN / 2.0);
+                let bot_back = back + y_dir * cam.scaled(WIDTH / 2.0 - Self::MARGIN / 2.0);
 
                 let points = vec![top_front, bot_front, bot_back, top_back];
 
@@ -465,16 +486,16 @@ impl GuiEntity {
 
                 let shape = PathShape::convex_polygon(
                     points,
-                    Hsva::new(self.hue(), 0.5, 0.5, 1.0),
+                    Hsva::new(self.hue(), 0.5, luminance, 1.0),
                     Stroke::NONE,
                 );
 
                 painter.add(shape);
 
                 let title_pos = if x_dir == Vec2::UP {
-                    canvas_pos + Vec2::UP * cam.scaled(LENGTH / 2.0 - MARGIN / 2.0 - 0.04)
+                    canvas_pos + Vec2::UP * cam.scaled(LENGTH / 2.0 - Self::MARGIN / 2.0 - 0.04)
                 } else {
-                    canvas_pos + Vec2::UP * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0 - 0.04)
+                    canvas_pos + Vec2::UP * cam.scaled(WIDTH / 2.0 - Self::MARGIN / 2.0 - 0.04)
                 };
 
                 painter.text(
@@ -498,12 +519,14 @@ impl GuiEntity {
                     cam,
                     canvas_pos + Vec2::LEFT * operand_offset + Vec2::DOWN * center_y_offset,
                     ICON_SIZE,
+                    icon_luminance,
                 );
                 right.draw(
                     painter,
                     cam,
                     canvas_pos + Vec2::RIGHT * operand_offset + Vec2::DOWN * center_y_offset,
                     ICON_SIZE,
+                    icon_luminance,
                 );
 
                 // Draw result
@@ -512,6 +535,7 @@ impl GuiEntity {
                     cam,
                     canvas_pos + Vec2::UP * center_y_offset,
                     ICON_SIZE,
+                    icon_luminance,
                 );
 
                 let port_size = cam.scaled(0.20);
@@ -545,14 +569,12 @@ impl GuiEntity {
             GuiEntityKind::ConstantCombinator { signals } => {
                 let canvas_pos = cam.world_to_viewport(self.pos);
                 let size = Vec2::new(1.0, 1.0);
-                let rect =
-                    Rect::from_center_size(canvas_pos, (size - Vec2::splat(MARGIN)) * cam.scale);
-
-                painter.rect_filled(
-                    rect,
-                    cam.scaled(ROUNDING),
-                    Hsva::new(self.hue(), 0.5, 0.4, 1.0),
+                let rect = Rect::from_center_size(
+                    canvas_pos,
+                    (size - Vec2::splat(Self::MARGIN)) * cam.scale,
                 );
+
+                painter.rect_filled(rect, 0.0, Hsva::new(self.hue(), 0.5, luminance, 1.0));
 
                 painter.text(
                     rect.center_top() + Vec2::new(0.0, 0.04) * cam.scale,
@@ -574,7 +596,7 @@ impl GuiEntity {
                     [] => {}
                     [a] => {
                         const SIZE: f32 = 0.40;
-                        a.draw(painter, cam, origin, SIZE);
+                        a.draw(painter, cam, origin, SIZE, icon_luminance);
                     }
                     [a, b] => {
                         const SIZE: f32 = 0.25;
@@ -583,12 +605,14 @@ impl GuiEntity {
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, 0.0) * cam.scale,
                             SIZE,
+                            icon_luminance,
                         );
                         b.draw(
                             painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, 0.0) * cam.scale,
                             SIZE,
+                            icon_luminance,
                         );
                     }
                     [a, b, c] => {
@@ -598,18 +622,21 @@ impl GuiEntity {
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
+                            icon_luminance,
                         );
                         b.draw(
                             painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
+                            icon_luminance,
                         );
                         c.draw(
                             painter,
                             cam,
                             origin + Vec2::new(0.0, CENTER_OFFSET) * cam.scale,
                             SIZE,
+                            icon_luminance,
                         );
                     }
                     [a, b, c, d] => {
@@ -619,24 +646,28 @@ impl GuiEntity {
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
+                            icon_luminance,
                         );
                         b.draw(
                             painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
+                            icon_luminance,
                         );
                         c.draw(
                             painter,
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, CENTER_OFFSET) * cam.scale,
                             SIZE,
+                            icon_luminance,
                         );
                         d.draw(
                             painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, CENTER_OFFSET) * cam.scale,
                             SIZE,
+                            icon_luminance,
                         );
                     }
                     other => {
@@ -649,10 +680,22 @@ impl GuiEntity {
                             let x =
                                 rect.left() + cam.scaled(item_size * i as f32 + item_size / 2.0);
                             let pos = Pos2::new(x, origin.y - cam.scaled(item_size / 2.0));
-                            top_item.draw(painter, cam, pos, item_size * (1.0 - SPACING / 2.0));
+                            top_item.draw(
+                                painter,
+                                cam,
+                                pos,
+                                item_size * (1.0 - SPACING / 2.0),
+                                icon_luminance,
+                            );
                             if let Some(bot_item) = bot_item {
                                 let pos = Pos2::new(x, origin.y + cam.scaled(item_size / 2.0));
-                                bot_item.draw(painter, cam, pos, item_size * (1.0 - SPACING / 2.0));
+                                bot_item.draw(
+                                    painter,
+                                    cam,
+                                    pos,
+                                    item_size * (1.0 - SPACING / 2.0),
+                                    icon_luminance,
+                                );
                             }
                         }
                     }
@@ -715,7 +758,7 @@ impl Camera {
         self.viewport.center() + rel_pos * self.scale
     }
 
-    fn _canvas_to_world(&self, canvas_pos: Pos2) -> Pos2 {
+    fn canvas_to_world(&self, canvas_pos: Pos2) -> Pos2 {
         let rel_pos = (canvas_pos - self.viewport.center()) / self.scale;
 
         self.pos + rel_pos
@@ -726,10 +769,12 @@ impl Camera {
     }
 }
 
+#[derive(Default)]
 struct App {
     camera: Camera,
     stack: Vec<Container>,
     entities: Vec<GuiEntity>,
+    focused_entity: Option<fbo::EntityNumber>,
 }
 
 impl eframe::App for App {
@@ -765,11 +810,7 @@ impl eframe::App for App {
 
 impl App {
     fn new(container: Container) -> Self {
-        let mut app = Self {
-            camera: Camera::new(Pos2::ZERO),
-            stack: vec![],
-            entities: vec![],
-        };
+        let mut app = Self::default();
         app.open_container(container);
         app
     }
@@ -789,9 +830,21 @@ impl App {
             });
         }
 
+        // Drag view
         if resp.dragged() {
             let delta = self.camera.canvas_to_rel(resp.drag_delta());
             self.camera.pos -= delta;
+        }
+
+        if resp.clicked() {
+            if let Some(viewport_pos) = resp.interact_pointer_pos() {
+                let pos = self.camera.canvas_to_world(viewport_pos);
+                self.focused_entity = self
+                    .entities
+                    .iter()
+                    .find(|e| e.contains_point(pos))
+                    .map(|e| e.entity_number);
+            }
         }
 
         // Keys
@@ -825,12 +878,12 @@ impl App {
 
         // Draw combinators
         for e in &self.entities {
-            e.draw(&painter, &self.camera)
+            e.draw(&self, &painter, &self.camera)
         }
 
         for e in &self.entities {
             for (port, other_en, other_port, wire) in &e.connections {
-                self.draw_conn(e, *port, *other_en, *other_port, *wire, &painter)
+                self.draw_conn(e, *port, *other_en, *other_port, *wire, &self, &painter)
             }
         }
     }
@@ -838,23 +891,32 @@ impl App {
     // Draw connections
     fn draw_conn(
         &self,
-        e: &GuiEntity,
+        this_entity: &GuiEntity,
         this_port: fbo::OneBasedIndex,
-        other_entity_id: fbo::EntityNumber,
+        other_entity_number: fbo::EntityNumber,
         other_port: i32,
         wire: WireColor,
+        app: &App,
         painter: &Painter,
     ) {
-        const WIRE_OPACITY: f32 = 0.6;
-
-        let this_port = e.port_from_index(usize::from(this_port) as i32);
+        let this_port = this_entity.port_from_index(usize::from(this_port) as i32);
         let other_entity = self
             .entities
             .iter()
-            .find(|e| e.entity_number == other_entity_id)
+            .find(|e| e.entity_number == other_entity_number)
             .expect("Entity not found");
 
         let other_port = other_entity.port_from_index(other_port);
+
+        let (wire_opacity, width) = match &app.focused_entity {
+            Some(focused)
+                if *focused == this_entity.entity_number || *focused == other_entity_number =>
+            {
+                (1.0, 0.04)
+            }
+            Some(_) => (0.1, 0.01),
+            _ => (0.6, 0.02),
+        };
 
         // Draw wire
         let from = self.camera.world_to_viewport(this_port);
@@ -862,12 +924,12 @@ impl App {
 
         let (color, sag) = match wire {
             WireColor::Red => (
-                Rgba::from_rgba_unmultiplied(1.0, 0.0, 0.0, WIRE_OPACITY),
-                0.22,
+                Rgba::from_rgba_unmultiplied(1.0, 0.0, 0.0, wire_opacity),
+                0.23,
             ),
             WireColor::Green => (
-                Rgba::from_rgba_unmultiplied(0.0, 1.0, 0.0, WIRE_OPACITY),
-                0.19,
+                Rgba::from_rgba_unmultiplied(0.0, 1.0, 0.0, wire_opacity),
+                0.18,
             ),
         };
 
@@ -884,7 +946,7 @@ impl App {
             [from, target, target, to],
             false,
             Color32::TRANSPARENT,
-            Stroke::new(self.camera.scaled(0.02), color),
+            Stroke::new(self.camera.scaled(width), color),
         )));
     }
 
