@@ -559,13 +559,13 @@ impl GuiEntity {
                 // Draw operands
                 const ICON_SIZE: f32 = 0.30;
                 left.draw(
-                    &painter,
+                    painter,
                     cam,
                     canvas_pos + Vec2::LEFT * operand_offset + Vec2::DOWN * center_y_offset,
                     ICON_SIZE,
                 );
                 right.draw(
-                    &painter,
+                    painter,
                     cam,
                     canvas_pos + Vec2::RIGHT * operand_offset + Vec2::DOWN * center_y_offset,
                     ICON_SIZE,
@@ -573,7 +573,7 @@ impl GuiEntity {
 
                 // Draw result
                 output.draw(
-                    &painter,
+                    painter,
                     cam,
                     canvas_pos + Vec2::UP * center_y_offset,
                     ICON_SIZE,
@@ -634,18 +634,18 @@ impl GuiEntity {
                     [] => {}
                     [a] => {
                         const SIZE: f32 = 0.40;
-                        a.draw(&painter, cam, origin, SIZE);
+                        a.draw(painter, cam, origin, SIZE);
                     }
                     [a, b] => {
                         const SIZE: f32 = 0.25;
                         a.draw(
-                            &painter,
+                            painter,
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, 0.0) * cam.scale,
                             SIZE,
                         );
                         b.draw(
-                            &painter,
+                            painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, 0.0) * cam.scale,
                             SIZE,
@@ -654,19 +654,19 @@ impl GuiEntity {
                     [a, b, c] => {
                         const SIZE: f32 = 0.25;
                         a.draw(
-                            &painter,
+                            painter,
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
                         );
                         b.draw(
-                            &painter,
+                            painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
                         );
                         c.draw(
-                            &painter,
+                            painter,
                             cam,
                             origin + Vec2::new(0.0, CENTER_OFFSET) * cam.scale,
                             SIZE,
@@ -675,25 +675,25 @@ impl GuiEntity {
                     [a, b, c, d] => {
                         const SIZE: f32 = 0.25;
                         a.draw(
-                            &painter,
+                            painter,
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
                         );
                         b.draw(
-                            &painter,
+                            painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
                         );
                         c.draw(
-                            &painter,
+                            painter,
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, CENTER_OFFSET) * cam.scale,
                             SIZE,
                         );
                         d.draw(
-                            &painter,
+                            painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, CENTER_OFFSET) * cam.scale,
                             SIZE,
@@ -709,15 +709,10 @@ impl GuiEntity {
                             let x =
                                 rect.left() + cam.scaled(item_size * i as f32 + item_size / 2.0);
                             let pos = Pos2::new(x, origin.y - cam.scaled(item_size / 2.0));
-                            top_item.draw(&painter, cam, pos, item_size * (1.0 - SPACING / 2.0));
+                            top_item.draw(painter, cam, pos, item_size * (1.0 - SPACING / 2.0));
                             if let Some(bot_item) = bot_item {
                                 let pos = Pos2::new(x, origin.y + cam.scaled(item_size / 2.0));
-                                bot_item.draw(
-                                    &painter,
-                                    cam,
-                                    pos,
-                                    item_size * (1.0 - SPACING / 2.0),
-                                );
+                                bot_item.draw(painter, cam, pos, item_size * (1.0 - SPACING / 2.0));
                             }
                         }
                     }
@@ -730,7 +725,7 @@ impl GuiEntity {
                 let port = cam.world_to_viewport(self.input_port());
                 painter.circle(port, cam.scaled(PORT_SIZE) / 2.0, fill, stroke);
             }
-            GuiEntity::Other { name, .. } => {} //eprintln!("cannot draw {name}."),
+            GuiEntity::Other { .. } => {} //eprintln!("cannot draw {name}."),
         }
     }
 }
