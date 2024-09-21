@@ -528,8 +528,14 @@ impl GuiEntity {
                 let top_back = back - y_dir * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0);
                 let bot_back = back + y_dir * cam.scaled(WIDTH / 2.0 - MARGIN / 2.0);
 
+                let points = vec![top_front, bot_front, bot_back, top_back];
+
+                if points.iter().all(|p| !cam.viewport.contains(*p)) {
+                    return;
+                }
+
                 let shape = PathShape::convex_polygon(
-                    vec![top_front, bot_front, bot_back, top_back, top_front],
+                    points,
                     Hsva::new(self.hue(), 0.5, 0.5, 1.0),
                     Stroke::NONE,
                 );
@@ -932,6 +938,13 @@ impl App {
         };
 
         let target = (from + to.to_vec2()) / 2.0 + Vec2::DOWN * self.camera.scaled(sag);
+
+        if !self.camera.viewport.contains(from)
+            && !self.camera.viewport.contains(to)
+            && !self.camera.viewport.contains(target)
+        {
+            return;
+        }
 
         painter.add(Shape::CubicBezier(CubicBezierShape::from_points_stroke(
             [from, target, target, to],
