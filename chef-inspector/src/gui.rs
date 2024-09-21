@@ -158,6 +158,11 @@ impl OpSig {
             }
         };
 
+        let color = match self {
+            Self::Signal(_) => Color32::BLACK,
+            Self::Constant(_) => Rgba::from_rgb(0.0, 0.1, 0.4).into(),
+        };
+
         let offset = 0.01;
         painter.text(
             rect.center() + Vec2::new(0.0, cam.scaled(offset)),
@@ -167,7 +172,7 @@ impl OpSig {
                 size: cam.scaled(size),
                 family: FontFamily::Monospace,
             },
-            Color32::BLACK,
+            color,
         );
     }
 }
