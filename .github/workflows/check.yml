@@ -1,4 +1,4 @@
-name: Check chef-lang
+name: Check chef-compiler
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --manifest-path chef-lang/Cargo.toml 
+          args: --manifest-path chef-compiler/Cargo.toml 
 
   test:
     runs-on: ubuntu-latest
@@ -50,7 +50,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --manifest-path chef-lang/Cargo.toml 
+          args: --manifest-path chef-compiler/Cargo.toml 
       - name: Run python tests
         run: |
           python "${{ github.workspace }}/chef-python/test.py"
@@ -71,7 +71,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --manifest-path chef-lang/Cargo.toml -- --deny warnings
+          args: --manifest-path chef-compiler/Cargo.toml -- --deny warnings
 
   rustfmt:
     runs-on: ubuntu-latest
@@ -81,7 +81,7 @@ jobs:
           with:
               components: rustfmt
         - name: run rustfmt
-          run: cargo fmt --manifest-path chef-lang/Cargo.toml --check
+          run: cargo fmt --manifest-path chef-compiler/Cargo.toml --check
 
   build-with-nix:
     needs: check

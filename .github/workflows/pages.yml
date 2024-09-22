@@ -17,11 +17,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --manifest-path chef-lang/Cargo.toml --no-deps
+          args: --manifest-path chef-compiler/Cargo.toml --no-deps
       - name: Upload Documentation Artifacts
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./chef-lang/target/doc
+          path: ./chef-compiler/target/doc
 
   # Deploy job
   deploy:
