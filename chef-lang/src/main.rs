@@ -11,6 +11,8 @@ use simulator::Simulator;
 use text::SourceText;
 use utils::VisualizerError;
 
+use crate::utils::save_to_clipboard;
+
 mod ast;
 mod blueprint;
 mod cli;
@@ -88,6 +90,9 @@ pub fn compile(opts: Rc<Opts>, cook_opts: &CookOpts) -> CompilationResult<()> {
 
     println!("{blueprint_str}");
     eprintln!();
+
+    // Copy blueprint to clipboard
+    save_to_clipboard(&blueprint_str);
 
     Ok(())
 }
