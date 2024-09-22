@@ -39,6 +39,7 @@
             in
             pkgs.mkShell {
                 buildInputs = with pkgs; [
+                    git           # version control
                     cargo         # compiler and build system
                     rust-analyzer # lsp for rust
                     graphviz      # for creating visual graphs
@@ -58,13 +59,16 @@
 
                 shellHook = ''
                     # Determine project root
-                    root="$(${pkgs.git}/bin/git rev-parse --show-toplevel)"
+                    root="$(git rev-parse --show-toplevel)"
 
                     # Add `chef` to to path
                     export PATH="$root/chef-compiler/target/debug:$PATH"
 
                     # Add the chef python module to PYTHONPATH
                     export PYTHONPATH="$root/chef-python/src"
+
+                    # Set up git hooks
+                    git config set core.hooksPath ".hooks"
                 '';
             };
         }
