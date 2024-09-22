@@ -382,7 +382,7 @@ impl GuiEntity {
 
     fn hue(&self) -> f32 {
         match &self.kind {
-            GuiEntityKind::ArithmeticCombinator { .. } => 0.1,
+            GuiEntityKind::ArithmeticCombinator { .. } => 0.3,
             GuiEntityKind::DeciderCombinator { .. } => 0.8,
             GuiEntityKind::ConstantCombinator { .. } => 0.5,
             GuiEntityKind::Other => choose_hue(&self.name),

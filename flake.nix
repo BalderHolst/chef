@@ -33,6 +33,13 @@
                     rust-analyzer # lsp for rust
                     graphviz      # for creating visual graphs
                     gnome.eog     # svg viewer
+
+                    # Create dummy chef-inspector script that compiles it first if needed.
+                    (pkgs.writeShellScriptBin "chef-inspector" ''
+                        root="$(${pkgs.git}/bin/git rev-parse --show-toplevel)"
+                        cargo run --manifest-path "$root/chef-inspector/Cargo.toml" -- "$@"
+                    '')
+
                 ];
 
                 LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (with pkgs; [
@@ -45,13 +52,8 @@
                     # Determine project root
                     root="$(${pkgs.git}/bin/git rev-parse --show-toplevel)"
 
-                    # Build chef-lang and chef-inspector
-                    cargo build --manifest-path "$root/chef-inspector/Cargo.toml"
-                    cargo build --manifest-path "$root/chef-lang/Cargo.toml"
-
-                    # Add chef-lang and chef-inspector to PATH
+                    # Add `chef` to to path
                     export PATH="$root/chef-lang/target/debug:$PATH"
-                    export PATH="$root/chef-inspector/target/debug:$PATH"
 
                     # Add the chef python module to PYTHONPATH
                     export PYTHONPATH="$root/chef-python/src"
