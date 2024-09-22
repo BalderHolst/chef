@@ -10,8 +10,8 @@ use factorio_blueprint::{
 
 use eframe::{
     egui::{
-        self, Align2, Color32, FontFamily, FontId, Frame, Key, Margin, Painter, Pos2, Rect, Rgba,
-        ScrollArea, Sense, Shape, Stroke, Vec2,
+        self, vec2, Align2, Color32, FontFamily, FontId, Frame, Key, Margin, Painter, Pos2, Rect,
+        Rgba, ScrollArea, Sense, Shape, Stroke, Vec2,
     },
     epaint::{CubicBezierShape, Hsva, PathShape},
 };
@@ -451,10 +451,20 @@ impl GuiEntity {
     }
 
     fn draw(&self, app: &App, painter: &Painter, cam: &Camera) {
+        let mut focused = false;
+
         let luminance = match &app.focused_entity {
-            Some(focused) if *focused == self.entity_number => 0.5,
+            Some(en) if *en == self.entity_number => {
+                focused = true;
+                0.4
+            }
             Some(_) => 0.2,
             _ => 0.35,
+        };
+
+        let entity_stroke = match focused {
+            true => Stroke::new(cam.scaled(0.01), Color32::WHITE),
+            false => Stroke::NONE,
         };
 
         let icon_luminance = (luminance + 0.45_f32).min(1.0);
@@ -496,27 +506,9 @@ impl GuiEntity {
                 let shape = PathShape::convex_polygon(
                     points,
                     Hsva::new(self.hue(), 0.5, luminance, 1.0),
-                    Stroke::NONE,
+                    entity_stroke,
                 );
-
                 painter.add(shape);
-
-                let title_pos = if x_dir == Vec2::UP {
-                    canvas_pos + Vec2::UP * cam.scaled(LENGTH / 2.0 - Self::MARGIN / 2.0 - 0.04)
-                } else {
-                    canvas_pos + Vec2::UP * cam.scaled(WIDTH / 2.0 - Self::MARGIN / 2.0 - 0.04)
-                };
-
-                painter.text(
-                    title_pos,
-                    Align2::CENTER_TOP,
-                    &self.name,
-                    FontId {
-                        size: cam.scale * 0.065,
-                        family: FontFamily::Monospace,
-                    },
-                    Color32::BLACK,
-                );
 
                 let center_y_offset = cam.scaled(0.20);
                 let operand_offset = cam.scaled(0.25);
@@ -547,16 +539,32 @@ impl GuiEntity {
                     icon_luminance,
                 );
 
+                let font_id = FontId {
+                    size: cam.scaled(0.07),
+                    family: FontFamily::Monospace,
+                };
+
                 let port_size = cam.scaled(0.20);
                 let fill = Color32::from_black_alpha(0x80);
-                let stroke = Stroke::new(cam.scaled(0.02), Color32::WHITE);
+                let stroke = Stroke::new(cam.scaled(0.01), Color32::WHITE);
+
+                let draw_port_label = |label: &str, port: Pos2, direction: Vec2| {
+                    let (align, pos) = match direction {
+                        Vec2::DOWN => (Align2::CENTER_TOP, port + Vec2::DOWN * port_size / 2.0),
+                        _ => (Align2::CENTER_BOTTOM, port + Vec2::UP * port_size / 2.0),
+                    };
+                    painter.text(pos, align, label, font_id.clone(), Color32::BLACK);
+                };
 
                 // Draw ports
                 let input_port = cam.world_to_viewport(self.input_port());
                 painter.circle(input_port, port_size / 2.0, fill, stroke);
+                draw_port_label("INPUT", input_port, -self.direction);
+
                 let output_port = cam.world_to_viewport(self.output_port());
                 let rect = Rect::from_center_size(output_port, Vec2::splat(port_size));
                 painter.rect(rect, 0.0, fill, stroke);
+                draw_port_label("OUTPUT", output_port, self.direction);
 
                 let op = match &self.kind {
                     GuiEntityKind::ArithmeticCombinator { operator, .. } => operator.to_string(),
@@ -584,17 +592,6 @@ impl GuiEntity {
                 );
 
                 painter.rect_filled(rect, 0.0, Hsva::new(self.hue(), 0.5, luminance, 1.0));
-
-                painter.text(
-                    rect.center_top() + Vec2::new(0.0, 0.04) * cam.scale,
-                    Align2::CENTER_TOP,
-                    &self.name,
-                    FontId {
-                        size: cam.scale * 0.065,
-                        family: FontFamily::Monospace,
-                    },
-                    Color32::BLACK,
-                );
 
                 const CENTER_OFFSET: f32 = 0.15;
                 const MAX_WIDTH: f32 = 0.9;
@@ -717,7 +714,19 @@ impl GuiEntity {
                 let port = cam.world_to_viewport(self.input_port());
                 painter.circle(port, cam.scaled(PORT_SIZE) / 2.0, fill, stroke);
             }
-            GuiEntityKind::Other => {}
+            GuiEntityKind::Other => {
+                let pos = cam.world_to_viewport(self.pos);
+                let bounding_box = Rect::from_center_size(pos, cam.scaled(Vec2::splat(1.0)));
+                if !cam.viewport.intersects(bounding_box) {
+                    return;
+                }
+                painter.circle(
+                    pos,
+                    cam.scaled(0.4),
+                    Hsva::new(self.hue(), 0.5, luminance, 1.0),
+                    entity_stroke,
+                );
+            }
         }
     }
 }
@@ -871,23 +880,28 @@ impl App {
 
         // Keys
         ui.input(|i| {
-            let mut velocity = Vec2::ZERO;
-            if i.key_down(Key::ArrowRight) | i.key_down(Key::D) {
-                velocity.x += 1.0;
+            macro_rules! bind {
+                ($bind:tt, $($key:expr),+ => $e:expr) => {{
+                    if $(i.$bind($key))|+ {
+                        $e;
+                    }
+                }}
             }
-            if i.key_down(Key::ArrowLeft) | i.key_down(Key::A) {
-                velocity.x -= 1.0;
+            macro_rules! bind_down {
+                ($($key:expr),+ => $e:expr) => {bind!(key_down, $($key),+ => $e)}
             }
-            if i.key_down(Key::ArrowUp) | i.key_down(Key::W) {
-                velocity.y -= 1.0;
-            }
-            if i.key_down(Key::ArrowDown) | i.key_down(Key::S) {
-                velocity.y += 1.0;
+            macro_rules! bind_pressed {
+                ($($key:expr),+ => $e:expr) => {bind!(key_pressed, $($key),+ => $e)}
             }
 
-            if i.key_down(Key::H) {
-                self.camera.home()
-            }
+            let mut velocity = Vec2::ZERO;
+            bind_down!(Key::ArrowRight, Key::D => velocity.x += 1.0);
+            bind_down!(Key::ArrowLeft,  Key::A => velocity.x -= 1.0);
+            bind_down!(Key::ArrowUp,    Key::W => velocity.y -= 1.0);
+            bind_down!(Key::ArrowDown,  Key::S => velocity.y += 1.0);
+
+            bind_pressed!(Key::Escape => self.focused_entity = None);
+            bind_pressed!(Key::H => self.camera.home());
 
             if velocity != Vec2::ZERO {
                 self.camera.pos += velocity * 0.001 * self.camera.scale;
@@ -919,7 +933,7 @@ impl App {
                         if focused == this_entity.entity_number
                             || focused == *other_entity_number =>
                     {
-                        (1.0, 0.04)
+                        (0.7, 0.04)
                     }
                     Some(_) => (0.1, 0.01),
                     _ => (0.6, 0.02),
@@ -932,15 +946,15 @@ impl App {
                 let (color, sag) = match wire {
                     WireColor::Red => (
                         Rgba::from_rgba_unmultiplied(1.0, 0.0, 0.0, wire_opacity),
-                        0.23,
+                        vec2(-0.08, 0.15),
                     ),
                     WireColor::Green => (
                         Rgba::from_rgba_unmultiplied(0.0, 1.0, 0.0, wire_opacity),
-                        0.18,
+                        vec2(0.08, -0.15),
                     ),
                 };
 
-                let target = (from + to.to_vec2()) / 2.0 + Vec2::DOWN * self.camera.scaled(sag);
+                let target = (from + to.to_vec2()) / 2.0 + self.camera.scaled(sag);
 
                 if !self.camera.viewport.contains(from)
                     && !self.camera.viewport.contains(to)
