@@ -10,8 +10,8 @@ use factorio_blueprint::{
 
 use eframe::{
     egui::{
-        self, pos2, Align2, Color32, FontFamily, FontId, Frame, Key, Margin, Painter, Pos2, Rect,
-        Rgba, ScrollArea, Sense, Shape, Stroke, Vec2,
+        self, Align2, Color32, FontFamily, FontId, Frame, Key, Margin, Painter, Pos2, Rect, Rgba,
+        ScrollArea, Sense, Shape, Stroke, Vec2,
     },
     epaint::{CubicBezierShape, Hsva, PathShape},
 };
@@ -900,76 +900,63 @@ impl App {
 
         // Draw combinators
         for e in &self.entities {
-            e.draw(&self, &painter, &self.camera)
+            e.draw(self, &painter, &self.camera)
         }
 
-        for e in &self.entities {
-            for (port, other_en, other_port, wire) in &e.connections {
-                self.draw_conn(e, *port, *other_en, *other_port, *wire, &self, &painter)
+        for this_entity in &self.entities {
+            for (this_port, other_entity_number, other_port, wire) in &this_entity.connections {
+                let this_port = this_entity.port_from_index(usize::from(*this_port) as i32);
+                let other_entity = self
+                    .entities
+                    .iter()
+                    .find(|e| e.entity_number == *other_entity_number)
+                    .expect("Entity not found");
+
+                let other_port = other_entity.port_from_index(*other_port);
+
+                let (wire_opacity, width) = match self.focused_entity {
+                    Some(focused)
+                        if focused == this_entity.entity_number
+                            || focused == *other_entity_number =>
+                    {
+                        (1.0, 0.04)
+                    }
+                    Some(_) => (0.1, 0.01),
+                    _ => (0.6, 0.02),
+                };
+
+                // Draw wire
+                let from = self.camera.world_to_viewport(this_port);
+                let to = self.camera.world_to_viewport(other_port);
+
+                let (color, sag) = match wire {
+                    WireColor::Red => (
+                        Rgba::from_rgba_unmultiplied(1.0, 0.0, 0.0, wire_opacity),
+                        0.23,
+                    ),
+                    WireColor::Green => (
+                        Rgba::from_rgba_unmultiplied(0.0, 1.0, 0.0, wire_opacity),
+                        0.18,
+                    ),
+                };
+
+                let target = (from + to.to_vec2()) / 2.0 + Vec2::DOWN * self.camera.scaled(sag);
+
+                if !self.camera.viewport.contains(from)
+                    && !self.camera.viewport.contains(to)
+                    && !self.camera.viewport.contains(target)
+                {
+                    continue;
+                }
+
+                painter.add(Shape::CubicBezier(CubicBezierShape::from_points_stroke(
+                    [from, target, target, to],
+                    false,
+                    Color32::TRANSPARENT,
+                    Stroke::new(self.camera.scaled(width), color),
+                )));
             }
         }
-    }
-
-    // Draw connections
-    fn draw_conn(
-        &self,
-        this_entity: &GuiEntity,
-        this_port: fbo::OneBasedIndex,
-        other_entity_number: fbo::EntityNumber,
-        other_port: i32,
-        wire: WireColor,
-        app: &App,
-        painter: &Painter,
-    ) {
-        let this_port = this_entity.port_from_index(usize::from(this_port) as i32);
-        let other_entity = self
-            .entities
-            .iter()
-            .find(|e| e.entity_number == other_entity_number)
-            .expect("Entity not found");
-
-        let other_port = other_entity.port_from_index(other_port);
-
-        let (wire_opacity, width) = match &app.focused_entity {
-            Some(focused)
-                if *focused == this_entity.entity_number || *focused == other_entity_number =>
-            {
-                (1.0, 0.04)
-            }
-            Some(_) => (0.1, 0.01),
-            _ => (0.6, 0.02),
-        };
-
-        // Draw wire
-        let from = self.camera.world_to_viewport(this_port);
-        let to = self.camera.world_to_viewport(other_port);
-
-        let (color, sag) = match wire {
-            WireColor::Red => (
-                Rgba::from_rgba_unmultiplied(1.0, 0.0, 0.0, wire_opacity),
-                0.23,
-            ),
-            WireColor::Green => (
-                Rgba::from_rgba_unmultiplied(0.0, 1.0, 0.0, wire_opacity),
-                0.18,
-            ),
-        };
-
-        let target = (from + to.to_vec2()) / 2.0 + Vec2::DOWN * self.camera.scaled(sag);
-
-        if !self.camera.viewport.contains(from)
-            && !self.camera.viewport.contains(to)
-            && !self.camera.viewport.contains(target)
-        {
-            return;
-        }
-
-        painter.add(Shape::CubicBezier(CubicBezierShape::from_points_stroke(
-            [from, target, target, to],
-            false,
-            Color32::TRANSPARENT,
-            Stroke::new(self.camera.scaled(width), color),
-        )));
     }
 
     fn at_top_level(&self) -> bool {
