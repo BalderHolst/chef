@@ -72,7 +72,7 @@ impl Opts {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Compile source code
-    #[clap(alias = "build")]
+    #[clap(aliases = &["c", "compile", "build"])]
     Cook(CookOpts),
 
     /// Simulate a chef program

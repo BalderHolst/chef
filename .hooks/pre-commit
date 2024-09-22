@@ -1,6 +1,6 @@
 #!/bin/sh
 
-compiler="chef-lang"
+compiler="chef-compiler"
 inspector="chef-inspector"
 
 cargo fmt --check --manifest-path $compiler/Cargo.toml || {

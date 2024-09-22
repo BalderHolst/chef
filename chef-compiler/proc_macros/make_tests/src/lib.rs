@@ -19,8 +19,14 @@ fn functionify(name: String) -> String {
 /// Create test cases for each example in the `examples` directory.
 #[proc_macro]
 pub fn make_example_tests(_item: TokenStream) -> TokenStream {
+    let root: String = format!(
+        "{project_root}/../../..", // Eww...
+        project_root = env!("CARGO_MANIFEST_DIR")
+    );
 
-    fs::read_dir(EXAMPLE_DIR).unwrap().into_iter().filter_map(|file| {
+    let dir = root.clone() + "/" + EXAMPLE_DIR;
+
+    fs::read_dir(dir).unwrap().into_iter().filter_map(|file| {
         let file = file.unwrap().path();
 
         if file.extension() != Some(OsStr::new("rcp")) {
@@ -34,6 +40,7 @@ pub fn make_example_tests(_item: TokenStream) -> TokenStream {
         Some(quote! {
             #[test]
             fn #test_name() {
+                std::env::set_current_dir(std::path::Path::new(#root)).expect("Could not set current directory");
                 let file = std::path::PathBuf::from(#file);
                 let opts = std::rc::Rc::new(crate::cli::Opts::new_test());
                 let text = std::rc::Rc::new(crate::text::SourceText::from_file(file.to_str().unwrap(), opts).expect("Could not read example file"));

@@ -31,7 +31,7 @@ def parent(path: str, n=1):
 GIT_DIR = parent(__file__, 2)
 PYTHON_PACKAGE_DIR = GIT_DIR + "/chef-python"
 INCLUDE_TESTS = PYTHON_PACKAGE_DIR + "/test/includes"
-CHEF_RUST_DIR = GIT_DIR + "/chef-lang"
+CHEF_RUST_DIR = GIT_DIR + "/chef-compiler"
 CHEF_EXE = CHEF_RUST_DIR + "/target/debug/chef"
 
 info("Compiling Chef...")

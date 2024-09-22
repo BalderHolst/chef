@@ -1,4 +1,4 @@
-chef_lang = --manifest-path chef-lang/Cargo.toml
+chef_compiler = --manifest-path chef-compiler/Cargo.toml
 chef_inspector = --manifest-path chef-inspector/Cargo.toml
 
 main: build
@@ -6,28 +6,28 @@ main: build
 check: test lint
 
 test:
-	@make --silent test-lang
+	@make --silent test-compiler
 	@make --silent test-python
 
-test-lang:
+test-compiler:
 	@echo "============================== Running Language Tests =============================="
-	cargo test $(chef_lang)
+	cargo test $(chef_compiler)
 
 test-python:
 	@echo "=========================== Running Python Package Tests ==========================="
 	./chef-python/test.py
 
 lint:
-	cargo fmt --check $(chef_lang)
+	cargo fmt --check $(chef_compiler)
 	cargo fmt --check $(chef_inspector)
-	cargo clippy $(chef_lang)
+	cargo clippy $(chef_compiler)
 	cargo clippy $(chef_inspector)
 
 build:
-	cargo build --release $(chef_lang)
+	cargo build --release $(chef_compiler)
 	cargo build --release $(chef_inspector)
 	mkdir -p ./bin
-	cp ./chef-lang/target/release/chef ./bin/chef
+	cp ./chef-compiler/target/release/chef ./bin/chef
 	cp ./chef-inspector/target/release/chef-inspector ./bin/chef-inspector
 
 sym_install: build

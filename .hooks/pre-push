@@ -1,6 +1,6 @@
 #!/bin/sh
 
-compiler="chef-lang"
+compiler="chef-compiler"
 inspector="chef-inspector"
 
 echo -n "Checking format... "
@@ -31,7 +31,7 @@ echo "PASSED"
 
 echo -n "Running tests... "
 
-make test-lang > /dev/null 2>&1 || {
+make test-compiler > /dev/null 2>&1 || {
     echo -e "\nSome cargo tests have failed"
     exit 1
 }
