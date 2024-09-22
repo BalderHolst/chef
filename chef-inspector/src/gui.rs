@@ -418,7 +418,7 @@ impl GuiEntity {
         match &self.kind {
             GuiEntityKind::ArithmeticCombinator { .. }
             | GuiEntityKind::DeciderCombinator { .. } => {
-                self.pos + self.direction * Self::PORT_DISTANCE
+                self.pos - self.direction * Self::PORT_DISTANCE
             }
             GuiEntityKind::ConstantCombinator { .. } => self.pos + Vec2::splat(0.32),
             GuiEntityKind::Other => self.pos,
@@ -429,7 +429,7 @@ impl GuiEntity {
         match &self.kind {
             GuiEntityKind::ArithmeticCombinator { .. }
             | GuiEntityKind::DeciderCombinator { .. } => {
-                self.pos - self.direction * Self::PORT_DISTANCE
+                self.pos + self.direction * Self::PORT_DISTANCE
             }
             GuiEntityKind::ConstantCombinator { .. } => self.pos + Vec2::splat(0.32),
             GuiEntityKind::Other => self.pos,
