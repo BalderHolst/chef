@@ -10,8 +10,8 @@ use factorio_blueprint::{
 
 use eframe::{
     egui::{
-        self, Align2, Color32, FontFamily, FontId, Frame, Key, Margin, Painter, Pos2, Rect, Rgba,
-        ScrollArea, Sense, Shape, Stroke, Vec2,
+        self, pos2, Align2, Color32, FontFamily, FontId, Frame, Key, Margin, Painter, Pos2, Rect,
+        Rgba, ScrollArea, Sense, Shape, Stroke, Vec2,
     },
     epaint::{CubicBezierShape, Hsva, PathShape},
 };
@@ -389,6 +389,15 @@ impl GuiEntity {
         }
     }
 
+    fn display_name(&self) -> &str {
+        match &self.kind {
+            GuiEntityKind::ArithmeticCombinator { .. } => "Arithmetic Combinator",
+            GuiEntityKind::DeciderCombinator { .. } => "Decider Combinator",
+            GuiEntityKind::ConstantCombinator { .. } => "Constant Combinator",
+            GuiEntityKind::Other => self.name.as_str(),
+        }
+    }
+
     fn contains_point(&self, point: Pos2) -> bool {
         let size = match &self.kind {
             GuiEntityKind::ArithmeticCombinator { .. }
@@ -754,7 +763,6 @@ impl Camera {
 
     fn world_to_viewport(&self, world_pos: Pos2) -> Pos2 {
         let rel_pos = world_pos - self.pos;
-
         self.viewport.center() + rel_pos * self.scale
     }
 
@@ -779,7 +787,7 @@ struct App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("right-panel")
+        egui::TopBottomPanel::top("top-bar")
             .frame(Frame {
                 inner_margin: Margin::symmetric(4.0, 4.0),
                 fill: Hsva::new(0.0, 0.0, 0.005, 1.0).into(),
@@ -792,6 +800,20 @@ impl eframe::App for App {
                         self.close_container();
                     });
                 });
+            });
+
+        egui::SidePanel::right("right-panel")
+            .exact_width(150.0)
+            .resizable(false)
+            .show_animated(ctx, self.focused_entity.is_some(), |ui| {
+                if let Some(entity) = self.entities.iter().find(|e| {
+                    e.entity_number
+                        == self
+                            .focused_entity
+                            .expect("We should not be here without a focused entity.")
+                }) {
+                    ui.heading(entity.display_name());
+                }
             });
 
         egui::CentralPanel::default()
@@ -873,7 +895,7 @@ impl App {
         });
 
         // Draw canvas
-        self.camera.viewport = painter.clip_rect();
+        self.camera.viewport = ui.ctx().input(|i| i.screen_rect());
         painter.rect_filled(painter.clip_rect(), 0.0, Rgba::from_white_alpha(0.01));
 
         // Draw combinators
