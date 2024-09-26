@@ -63,7 +63,7 @@ Importing a Python script runs it and treats its standard output as input Chef c
 
 ## About the Repository
 
-This repository has three main parts:
+This repository has four main parts:
 - [The Chef Compiler](#the-compiler)
 - [A GUI program for inspecting blueprints](#chef-inspector)
 - [A Barebones Python Module for Generating Chef Code](#code-generation)
