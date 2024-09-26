@@ -8,7 +8,15 @@ pkgs.rustPlatform.buildRustPackage rec {
 
   src = ./.;
 
-  cargoHash = "sha256-cS15/CeQime2XLJHCIj/GxtdDiCxVMOO9+eQj9NVsDY=";
   cargoDepsName = pname;
+  cargoHash = "";
+
+  cargoLock = {
+    lockFile = ./Cargo.lock;
+    outputHashes = {
+      "factorio-blueprint-0.3.0" = "sha256-zc8ffweDdMYSiDbjOAhfUBWYObD0GtY9nN8nlq/B4bU=";
+    };
+  };
+
   doCheck = false;
 }
