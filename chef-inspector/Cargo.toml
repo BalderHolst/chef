@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.5.18", features = ["derive"]}
 eframe = { version = "0.28.1" }
-factorio-blueprint = { path = "./external/factorio-blueprint" }
+factorio-blueprint = { git = "https://github.com/BalderHolst/factorio-blueprint", branch = "more-enums" }
