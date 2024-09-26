@@ -680,7 +680,12 @@ impl GuiEntity {
                     (size - Vec2::splat(Self::MARGIN)) * cam.scale,
                 );
 
-                painter.rect_filled(rect, 0.0, Hsva::new(self.hue(), 0.5, luminance, 1.0));
+                painter.rect(
+                    rect,
+                    0.0,
+                    Hsva::new(self.hue(), 0.5, luminance, 1.0),
+                    entity_stroke,
+                );
 
                 const CENTER_OFFSET: f32 = 0.15;
                 const MAX_WIDTH: f32 = 0.9;
