@@ -11,6 +11,7 @@
           let
               pkgs = nixpkgs.legacyPackages.${system};
               package = x: pkgs.callPackage x { inherit pkgs; };
+              find-root = "$(${pkgs.git}/bin/git rev-parse --show-toplevel)";
           in
           {
             packages = {
@@ -25,18 +26,15 @@
                 compiler = flake-utils.lib.mkApp { drv = self.packages.${system}.chef-compiler; };
                 inspector = flake-utils.lib.mkApp { drv = self.packages.${system}.chef-inspector; };
                 gen-scripts = let
-                    jobs = import ./jobs.nix { root = "."; };
-                    script = name: script-jobs: pkgs.writeShellScript name (jobs.combine script-jobs);
-            in {
-                type = "app";
-                program = toString (pkgs.writeShellScript "gen-scripts" /*bash*/ ''
-                        mkdir -p $out/bin
-                        echo "Generating scripts..."
-
-                        cp ${ script "pre-commit" [jobs.check] } ./.hooks/pre-commit
-                        cp ${ script "pre-push" [jobs.check jobs.test] } ./.hooks/pre-push
-
-                        echo "done."
+                    job-gen = import ./job-gen.nix { inherit pkgs; root = "."; };
+                in {
+                    type = "app";
+                    program = with job-gen.jobs; toString (pkgs.writeShellScript "gen-scripts" /*bash*/ ''
+                            mkdir -p $out/bin
+                            echo "Generating scripts..."
+                            cp ${ job-gen.make-script "pre-commit" [check] } ./.hooks/pre-commit
+                            cp ${ job-gen.make-script "pre-push" [check test] } ./.hooks/pre-push
+                            echo "done."
                     '');
                 };
             };
