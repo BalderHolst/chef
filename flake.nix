@@ -12,6 +12,7 @@
               pkgs = nixpkgs.legacyPackages.${system};
               package = x: pkgs.callPackage x { inherit pkgs; };
               find-root = "$(${pkgs.git}/bin/git rev-parse --show-toplevel)";
+              job-gen = import ./job-gen.nix { inherit pkgs; root = "."; };
           in
           {
             packages = {
@@ -25,15 +26,13 @@
                 default = compiler;
                 compiler = flake-utils.lib.mkApp { drv = self.packages.${system}.chef-compiler; };
                 inspector = flake-utils.lib.mkApp { drv = self.packages.${system}.chef-inspector; };
-                gen-scripts = let
-                    job-gen = import ./job-gen.nix { inherit pkgs; root = "."; };
-                in {
+                gen-scripts = {
                     type = "app";
                     program = with job-gen.jobs; toString (pkgs.writeShellScript "gen-scripts" /*bash*/ ''
                             mkdir -p $out/bin
                             echo "Generating scripts..."
-                            cp ${ job-gen.make-script "pre-commit" [check] } ./.hooks/pre-commit
-                            cp ${ job-gen.make-script "pre-push" [check test] } ./.hooks/pre-push
+                            cp ${ job-gen.make-script "pre-commit" [check-all] } ./.hooks/pre-commit
+                            cp ${ job-gen.make-script "pre-push" [check-all test-all] } ./.hooks/pre-push
                             echo "done."
                     '');
                 };
@@ -62,7 +61,13 @@
                     (debug-bin "chef-compiler" "chef")
                     (debug-bin "chef-inspector" "chef-inspector")
 
-                ];
+                    (pkgs.writeShellScriptBin "help" ''
+                        echo "Available commands:"
+                        ${ builtins.concatStringsSep "\n" (lib.attrsets.mapAttrsToList (n: _: "echo -e '\t${n}'") job-gen.jobs) }
+                        echo -e "\nUse 'help' command to show this list."
+                    '')
+
+                ] ++ lib.attrsets.mapAttrsToList (k: v: pkgs.writeShellScriptBin k v) job-gen.jobs;
 
                 LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (with pkgs; [
                     wayland
@@ -82,6 +87,8 @@
 
                     # Set up git hooks
                     git config set core.hooksPath ".hooks"
+
+                    echo -e "\nRun 'help' to show available jobs to run.\n"
                 '';
             };
         }

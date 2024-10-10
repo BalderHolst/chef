@@ -63,7 +63,7 @@ rec {
         check-clippy-compiler = check-clippy compiler;
         check-clippy-inspector = check-clippy inspector;
 
-        check = combine [
+        check-all = combine [
             check-fmt-compiler
             check-fmt-inspector
             check-clippy-compiler
@@ -73,24 +73,24 @@ rec {
         test-compiler = test-bin compiler;
         test-inspector = test-bin inspector;
 
-        test = combine [
+        test-all = combine [
             test-compiler
             test-inspector
         ];
 
-        build-compiler = build compiler "chef";
-        build-inspector = build inspector "chef-inspector";
+        build-compiler = build-bin compiler "chef";
+        build-inspector = build-bin inspector "chef-inspector";
 
-        build = combine [
+        build-all = combine [
             build-compiler
             build-inspector
         ];
 
         install-compiler = install-bin compiler "chef";
         install-inspector = install-bin inspector "chef-inspector";
-        install-python = /*bash*/ '' pip install -e ${root}/chef-python '';
+        install-python = /*bash*/ "pip install -e ${root}/chef-python";
 
-        install = combine [
+        install-all = combine [
             install-compiler
             install-inspector
             install-python
