@@ -1,19 +1,23 @@
 #!/nix/store/1xhds5s320nfp2022yjah1h7dpv8qqns-bash-5.2p32/bin/bash
+echo "Checking formatting for chef-compiler..."
 cargo fmt --check --manifest-path "./chef-compiler/Cargo.toml" || {
     echo -e "\nPlease format your files in 'chef-compiler'."
         exit 1
 }
 
+echo "Checking formatting for chef-inspector..."
 cargo fmt --check --manifest-path "./chef-inspector/Cargo.toml" || {
     echo -e "\nPlease format your files in 'chef-inspector'."
         exit 1
 }
 
+echo "Linting chef-compiler..."
 cargo clippy --manifest-path "./chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null || {
     echo -e "\nClippy is angry in 'chef-compiler'."
     exit 1
 }
 
+echo "Linting chef-inspector..."
 cargo clippy --manifest-path "./chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null || {
     echo -e "\nClippy is angry in 'chef-inspector'."
     exit 1
