@@ -1,14 +1,21 @@
-#!/bin/sh
+#!/nix/store/1xhds5s320nfp2022yjah1h7dpv8qqns-bash-5.2p32/bin/bash
+cargo fmt --check --manifest-path "./chef-compiler/Cargo.toml" || {
+    echo -e "\nPlease format your files in 'chef-compiler'."
+        exit 1
+}
 
-compiler="chef-compiler"
-inspector="chef-inspector"
+cargo fmt --check --manifest-path "./chef-inspector/Cargo.toml" || {
+    echo -e "\nPlease format your files in 'chef-inspector'."
+        exit 1
+}
 
-cargo fmt --check --manifest-path $compiler/Cargo.toml || {
-    echo -e "\nPlease format your files."
+cargo clippy --manifest-path "./chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null || {
+    echo -e "\nClippy is angry in 'chef-compiler'."
     exit 1
 }
 
-cargo fmt --check --manifest-path $inspector/Cargo.toml|| {
-    echo -e "\nPlease format your files."
+cargo clippy --manifest-path "./chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null || {
+    echo -e "\nClippy is angry in 'chef-inspector'."
     exit 1
 }
+

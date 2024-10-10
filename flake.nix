@@ -14,16 +14,31 @@
           in
           {
             packages = {
+                default        = package ./.;
                 chef-compiler  = package ./chef-compiler;
                 chef-inspector = package ./chef-inspector;
                 chef-python    = package ./chef-python;
                 chef-mod       = package ./chef-mod;
-                default        = package ./.;
             };
             apps = rec {
+                default = compiler;
                 compiler = flake-utils.lib.mkApp { drv = self.packages.${system}.chef-compiler; };
                 inspector = flake-utils.lib.mkApp { drv = self.packages.${system}.chef-inspector; };
-                default = compiler;
+                gen-scripts = let
+                    jobs = import ./jobs.nix { root = "."; };
+                    script = name: script-jobs: pkgs.writeShellScript name (jobs.combine script-jobs);
+            in {
+                type = "app";
+                program = toString (pkgs.writeShellScript "gen-scripts" /*bash*/ ''
+                        mkdir -p $out/bin
+                        echo "Generating scripts..."
+
+                        cp ${ script "pre-commit" [jobs.check] } ./.hooks/pre-commit
+                        cp ${ script "pre-push" [jobs.check jobs.test] } ./.hooks/pre-push
+
+                        echo "done."
+                    '');
+                };
             };
 
             # Development shell
