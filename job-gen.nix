@@ -1,4 +1,4 @@
-{ pkgs, root }:
+{ pkgs, lib, root }:
 let
     compiler="chef-compiler";
     inspector="chef-inspector";
@@ -46,51 +46,63 @@ let
         ln -s ${root}/bin/${bin} /usr/local/bin/${bin}
     '';
 
+    mkJob = name: { script ? "", depends ? [], }: {
+        name = name;
+        script = script;
+        depends = depends;
+    };
+
+    jobScriptString = job: level: ''
+        echo "${ lib.strings.replicate level "  " }->> Running ${job.name}..."
+        # Dependencies for ${job.name}
+        ${builtins.concatStringsSep "\n" (map (j: jobScriptString j (level+1)) job.depends)}
+        # Run ${job.name} job
+        ${job.script}
+    '';
 
 in
 rec {
 
-    combine = jobs: builtins.concatStringsSep "\n" jobs;
-    make-script = name: script-jobs: pkgs.writeShellScript name ''
-        ${ script-msg }
-        ${ combine script-jobs }
-    '';
+    jobScriptBin = job: pkgs.writeShellScriptBin job.name (script-msg + (jobScriptString job 0));
+    jobScript    = job: pkgs.writeShellScript    job.name (script-msg + (jobScriptString job 0));
+
+    jobSeq = name: seq: mkJob name { depends = seq; };
 
     jobs = rec {
 
-        check-fmt-compiler = check-fmt compiler;
-        check-fmt-inspector = check-fmt inspector;
-        check-clippy-compiler = check-clippy compiler;
-        check-clippy-inspector = check-clippy inspector;
+        check-fmt-compiler     = mkJob "check-fmt-compiler"     { script = check-fmt    compiler;  };
+        check-fmt-inspector    = mkJob "check-fmt-inspector"    { script = check-fmt    inspector; };
+        check-clippy-compiler  = mkJob "check-clippy-compiler"  { script = check-clippy compiler;  };
+        check-clippy-inspector = mkJob "check-clippy-inspector" { script = check-clippy inspector; };
 
-        check-all = combine [
+        check-all = jobSeq "check-all" [
             check-fmt-compiler
             check-fmt-inspector
             check-clippy-compiler
             check-clippy-inspector
         ];
 
-        test-compiler = test-bin compiler;
-        test-inspector = test-bin inspector;
+        test-compiler  = mkJob "test-compiler"  { script = test-bin compiler;  };
+        test-inspector = mkJob "test-inspector" { script = test-bin inspector; };
 
-        test-all = combine [
+        test-all = jobSeq "test-all" [
             test-compiler
             test-inspector
         ];
 
-        build-compiler = build-bin compiler "chef";
-        build-inspector = build-bin inspector "chef-inspector";
+        build-compiler  = mkJob "build-compiler"  { script = build-bin compiler  "chef";           };
+        build-inspector = mkJob "build-inspector" { script = build-bin inspector "chef-inspector"; };
 
-        build-all = combine [
+        build-all = jobSeq "build-all" [
             build-compiler
             build-inspector
         ];
 
-        install-compiler = install-bin compiler "chef";
-        install-inspector = install-bin inspector "chef-inspector";
-        install-python = /*bash*/ "pip install -e ${root}/chef-python";
+        install-compiler  = mkJob "install-compiler"  { script = install-bin compiler "chef";            };
+        install-inspector = mkJob "install-inspector" { script = install-bin inspector "chef-inspector"; };
+        install-python    = mkJob "install-python"    { script = "pip install -e ${root}/chef-python";   };
 
-        install-all = combine [
+        install-all = jobSeq "install-all" [
             install-compiler
             install-inspector
             install-python
