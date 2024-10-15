@@ -31,8 +31,8 @@
                     program = with job-gen.jobs; toString (pkgs.writeShellScript "gen-scripts" /*bash*/ ''
                             mkdir -p $out/bin
                             echo "Generating scripts..."
-                            cp ${job-gen.jobScript check-all } ./.hooks/pre-commit
-                            cp ${job-gen.jobScript (job-gen.jobSeq "pre-push" [check-all test-all])} ./.hooks/pre-push
+                            cp ${job-gen.mkScript check-all } ./.hooks/pre-commit
+                            cp ${job-gen.mkScript (job-gen.jobSeq "pre-push" [check-all test-all])} ./.hooks/pre-push
                             echo "done."
                     '');
                 };
@@ -61,13 +61,9 @@
                     (debug-bin "chef-compiler" "chef")
                     (debug-bin "chef-inspector" "chef-inspector")
 
-                    (pkgs.writeShellScriptBin "help" ''
-                        echo "Available commands::"
-                        ${ builtins.concatStringsSep "\n" (lib.attrsets.mapAttrsToList (n: _: "echo -e '\t${n}'") job-gen.jobs) }
-                        echo -e "\nUse 'help' command to show this list."
-                    '')
+                    (job-gen.mkHelpScriptBin ( builtins.attrValues job-gen.jobs ))
 
-                ] ++ lib.attrsets.mapAttrsToList (_: j: job-gen.jobScriptBin j) job-gen.jobs;
+                ] ++ lib.attrsets.mapAttrsToList (_: j: job-gen.mkScriptBin j) job-gen.jobs;
 
                 LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (with pkgs; [
                     wayland

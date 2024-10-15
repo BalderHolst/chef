@@ -53,7 +53,7 @@ let
     };
 
     jobScriptString = job: level: ''
-        echo "${ lib.strings.replicate level "  " }->> Running ${job.name}..."
+        echo "${ lib.strings.replicate level "--" }->> Running ${job.name}..."
         # Dependencies for ${job.name}
         ${builtins.concatStringsSep "\n" (map (j: jobScriptString j (level+1)) job.depends)}
         # Run ${job.name} job
@@ -63,8 +63,14 @@ let
 in
 rec {
 
-    jobScriptBin = job: pkgs.writeShellScriptBin job.name (script-msg + (jobScriptString job 0));
-    jobScript    = job: pkgs.writeShellScript    job.name (script-msg + (jobScriptString job 0));
+    mkScriptBin  = job: pkgs.writeShellScriptBin job.name (script-msg + (jobScriptString job 0));
+    mkScript     = job: pkgs.writeShellScript    job.name (script-msg + (jobScriptString job 0));
+
+    mkHelpScriptBin = jobs: pkgs.writeShellScriptBin "help" ''
+        echo "Available Tasks:"
+        ${ builtins.concatStringsSep "\n" (map (j:  "echo -e '\t${j.name}'") jobs) }
+        echo -e "\nUse 'help' command to show this list."
+    '';
 
     jobSeq = name: seq: mkJob name { depends = seq; };
 
