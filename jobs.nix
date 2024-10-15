@@ -7,13 +7,13 @@ let
     compiler="chef-compiler";
     inspector="chef-inspector";
 
-    check-fmt = x: /*bash*/ ''
+    lint-fmt = x: /*bash*/ ''
         cargo fmt --check ${manifest-path x} \
             || echo -e "\nPlease format your files in '${x}'." \
             || exit 1
     '';
 
-    check-clippy = x: /*bash*/ ''
+    lint-clippy = x: /*bash*/ ''
         cargo clippy ${manifest-path x} -- --deny warnings 2> /dev/null \
             || echo -e "\nClippy is angry in '${x}'." \
             || exit 1
@@ -42,17 +42,26 @@ with job-gen;
 rec {
 
     update-scripts = mkJob "update-scripts" { script = "nix run .#gen-scripts"; };
+    check-git = mkJob "check-git" { script = ''
+        git diff --quiet \
+            || { echo -e "\nPlease commit your changes."; exit 1; }
+    ''; };
 
-    check-fmt-compiler     = mkJob "check-fmt-compiler"     { script = check-fmt    compiler;  };
-    check-fmt-inspector    = mkJob "check-fmt-inspector"    { script = check-fmt    inspector; };
-    check-clippy-compiler  = mkJob "check-clippy-compiler"  { script = check-clippy compiler;  };
-    check-clippy-inspector = mkJob "check-clippy-inspector" { script = check-clippy inspector; };
+    lint-fmt-compiler     = mkJob "lint-fmt-compiler"     { script = lint-fmt    compiler;  };
+    lint-fmt-inspector    = mkJob "lint-fmt-inspector"    { script = lint-fmt    inspector; };
+    lint-clippy-compiler  = mkJob "lint-clippy-compiler"  { script = lint-clippy compiler;  };
+    lint-clippy-inspector = mkJob "lint-clippy-inspector" { script = lint-clippy inspector; };
+
+    lint-all = jobSeq "lint-all" [
+        lint-fmt-compiler
+        lint-fmt-inspector
+        lint-clippy-compiler
+        lint-clippy-inspector
+    ];
 
     check-all = jobSeq "check-all" [
-        check-fmt-compiler
-        check-fmt-inspector
-        check-clippy-compiler
-        check-clippy-inspector
+        check-git
+        lint-all
     ];
 
     test-compiler  = mkJob "test-compiler"  { script = test-bin compiler;  };

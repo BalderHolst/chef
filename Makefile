@@ -3,7 +3,7 @@
 
 main: help
 
-all: build-all build-compiler build-inspector check-all check-clippy-compiler check-clippy-inspector check-fmt-compiler check-fmt-inspector install-all install-compiler install-inspector install-python sym-install-all sym-install-compiler sym-install-inspector sym-install-python test-all test-compiler test-inspector update-scripts
+all: build-all build-compiler build-inspector check-all check-git install-all install-compiler install-inspector install-python lint-all lint-clippy-compiler lint-clippy-inspector lint-fmt-compiler lint-fmt-inspector sym-install-all sym-install-compiler sym-install-inspector sym-install-python test-all test-compiler test-inspector update-scripts
 
 help:
 	@echo "usage: make <task>"
@@ -13,14 +13,16 @@ help:
 	@echo -e '	build-compiler'
 	@echo -e '	build-inspector'
 	@echo -e '	check-all'
-	@echo -e '	check-clippy-compiler'
-	@echo -e '	check-clippy-inspector'
-	@echo -e '	check-fmt-compiler'
-	@echo -e '	check-fmt-inspector'
+	@echo -e '	check-git'
 	@echo -e '	install-all'
 	@echo -e '	install-compiler'
 	@echo -e '	install-inspector'
 	@echo -e '	install-python'
+	@echo -e '	lint-all'
+	@echo -e '	lint-clippy-compiler'
+	@echo -e '	lint-clippy-inspector'
+	@echo -e '	lint-fmt-compiler'
+	@echo -e '	lint-fmt-inspector'
 	@echo -e '	sym-install-all'
 	@echo -e '	sym-install-compiler'
 	@echo -e '	sym-install-inspector'
@@ -50,35 +52,13 @@ build-inspector:
 	
 
 
-check-all: check-fmt-compiler check-fmt-inspector check-clippy-compiler check-clippy-inspector
+check-all: check-git lint-all
 
 
 
-check-clippy-compiler: 
-	cargo clippy --manifest-path "./chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null \
-	    || echo -e "\nClippy is angry in 'chef-compiler'." \
-	    || exit 1
-	
-
-
-check-clippy-inspector: 
-	cargo clippy --manifest-path "./chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null \
-	    || echo -e "\nClippy is angry in 'chef-inspector'." \
-	    || exit 1
-	
-
-
-check-fmt-compiler: 
-	cargo fmt --check --manifest-path "./chef-compiler/Cargo.toml" \
-	    || echo -e "\nPlease format your files in 'chef-compiler'." \
-	    || exit 1
-	
-
-
-check-fmt-inspector: 
-	cargo fmt --check --manifest-path "./chef-inspector/Cargo.toml" \
-	    || echo -e "\nPlease format your files in 'chef-inspector'." \
-	    || exit 1
+check-git: 
+	git diff --quiet \
+	    || { echo -e "\nPlease commit your changes."; exit 1; }
 	
 
 
@@ -98,6 +78,38 @@ install-inspector: build-inspector
 
 install-python: 
 	pip install -e ./chef-python
+
+
+lint-all: lint-fmt-compiler lint-fmt-inspector lint-clippy-compiler lint-clippy-inspector
+
+
+
+lint-clippy-compiler: 
+	cargo clippy --manifest-path "./chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null \
+	    || echo -e "\nClippy is angry in 'chef-compiler'." \
+	    || exit 1
+	
+
+
+lint-clippy-inspector: 
+	cargo clippy --manifest-path "./chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null \
+	    || echo -e "\nClippy is angry in 'chef-inspector'." \
+	    || exit 1
+	
+
+
+lint-fmt-compiler: 
+	cargo fmt --check --manifest-path "./chef-compiler/Cargo.toml" \
+	    || echo -e "\nPlease format your files in 'chef-compiler'." \
+	    || exit 1
+	
+
+
+lint-fmt-inspector: 
+	cargo fmt --check --manifest-path "./chef-inspector/Cargo.toml" \
+	    || echo -e "\nPlease format your files in 'chef-inspector'." \
+	    || exit 1
+	
 
 
 sym-install-all: sym-install-compiler sym-install-inspector sym-install-python

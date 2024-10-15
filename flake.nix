@@ -33,8 +33,10 @@
                     program = with jobs; toString (pkgs.writeShellScript "gen-scripts" /*bash*/ ''
                             mkdir -p $out/bin
                             echo "Generating scripts..."
-                            cp ${job-gen.mkScript check-all } "./.hooks/pre-commit"
-                            cp ${job-gen.mkScript (job-gen.jobSeq "pre-push" [check-all test-all])} "./.hooks/pre-push"
+                            cp ${job-gen.mkScript lint-all } "./.hooks/pre-commit"
+                            cp ${job-gen.mkScript (
+                                job-gen.jobSeq "pre-push" [update-scripts check-all test-all]
+                            )} "./.hooks/pre-push"
                             cp -f ${job-gen.mkMakefile (builtins.attrValues jobs) } "./Makefile"
                             echo "done."
                     '');
