@@ -3,13 +3,28 @@ use std::collections::{BTreeMap, HashMap};
 use factorio_blueprint::objects::{self as fbo, ConnectionPoint};
 use noisy_float::prelude::*;
 
-#[derive(Debug)]
+#[cfg(test)]
+mod tests;
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConstantSignal {
     pub name: String,
     pub count: i32,
 }
 
-#[derive(Debug)]
+impl ConstantSignal {
+    pub fn new<S>(name: S, count: i32) -> Self
+    where
+        S: ToString,
+    {
+        Self {
+            name: name.to_string(),
+            count,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum EntitySignal {
     Signal(String),
     Constant(i32),
@@ -32,7 +47,7 @@ impl EntitySignal {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum WireColor {
     Red,
     Green,
@@ -42,7 +57,7 @@ impl Copy for WireColor {}
 
 pub type EntityConnections = Vec<(fbo::OneBasedIndex, fbo::EntityNumber, i32, WireColor)>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Entity {
     pub entity_number: fbo::EntityNumber,
     pub name: String,
@@ -53,7 +68,7 @@ pub struct Entity {
     pub kind: EntityKind,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum EntityKind {
     ArithmeticCombinator {
         left: EntitySignal,
