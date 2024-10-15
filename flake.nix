@@ -9,10 +9,13 @@
     outputs = { self , nixpkgs, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
           let
-              pkgs = nixpkgs.legacyPackages.${system};
-              package = x: pkgs.callPackage x { inherit pkgs; };
+              pkgs      = nixpkgs.legacyPackages.${system};
+              package   = x: pkgs.callPackage x { inherit pkgs; };
               find-root = "$(${pkgs.git}/bin/git rev-parse --show-toplevel)";
-              job-gen = import ./job-gen.nix { inherit pkgs; lib = pkgs.lib; root = "."; };
+              lib       = pkgs.lib;
+              root      = find-root;
+              job-gen   = import ./job-gen.nix { inherit pkgs lib root; };
+              jobs      = import ./jobs.nix    { inherit pkgs lib root; };
           in
           {
             packages = {
@@ -28,7 +31,7 @@
                 inspector = flake-utils.lib.mkApp { drv = self.packages.${system}.chef-inspector; };
                 gen-scripts = {
                     type = "app";
-                    program = with job-gen.jobs; toString (pkgs.writeShellScript "gen-scripts" /*bash*/ ''
+                    program = with jobs; toString (pkgs.writeShellScript "gen-scripts" /*bash*/ ''
                             mkdir -p $out/bin
                             echo "Generating scripts..."
                             cp ${job-gen.mkScript check-all } ./.hooks/pre-commit
@@ -61,9 +64,9 @@
                     (debug-bin "chef-compiler" "chef")
                     (debug-bin "chef-inspector" "chef-inspector")
 
-                    (job-gen.mkHelpScriptBin ( builtins.attrValues job-gen.jobs ))
+                    (job-gen.mkHelpScriptBin ( builtins.attrValues jobs ))
 
-                ] ++ lib.attrsets.mapAttrsToList (_: j: job-gen.mkScriptBin j) job-gen.jobs;
+                ] ++ lib.attrsets.mapAttrsToList (_: j: job-gen.mkScriptBin j) jobs;
 
                 LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (with pkgs; [
                     wayland
