@@ -33,7 +33,7 @@
                             mkdir -p $out/bin
                             echo "Generating scripts..."
                             root="$(git rev-parse --show-toplevel)"
-                            cp ${job-gen.mkScript lint-all } "$root/.hooks/pre-commit"
+                            cp ${job-gen.mkScript lint-fmt } "$root/.hooks/pre-commit"
                             cp ${job-gen.mkScript (
                                 job-gen.jobSeq "pre-push" [update-scripts check-all test-all]
                             )} "$root/.hooks/pre-push"

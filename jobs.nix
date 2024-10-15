@@ -11,23 +11,23 @@ let
     inspector="chef-inspector";
     crate="factorio-circuit-networks";
 
-    lint-fmt = x: /*bash*/ ''
+    cargo-fmt = x: /*bash*/ ''
         cargo fmt --check ${manifest-path x} \
             || { echo -e "\nPlease format your files in '${x}'.";  exit 1; }
     '';
 
-    lint-clippy = x: /*bash*/ ''
+    cargo-clippy = x: /*bash*/ ''
         cargo clippy ${manifest-path x} -- --deny warnings 2> /dev/null \
             || { echo -e "\nClippy is angry in '${x}'."; exit 1; }
     '';
 
-    build-bin = dir: bin: /*bash*/ ''
+    cargo-build = dir: bin: /*bash*/ ''
         cargo build --release ${manifest-path dir}
         mkdir -p ./bin
         cp ./${dir}/target/release/${bin} ./bin/${bin}
     '';
 
-    test-bin = x: /*bash*/ ''
+    cargo-test = x: /*bash*/ ''
         cargo test ${manifest-path x}
     '';
 
@@ -49,36 +49,39 @@ rec {
             || { echo -e "\nPlease commit your changes."; exit 1; }
     ''; };
 
-    lint-fmt-compiler     = mkJob "lint-fmt-compiler"     { script = lint-fmt    compiler;  };
-    lint-fmt-inspector    = mkJob "lint-fmt-inspector"    { script = lint-fmt    inspector; };
-    lint-fmt-crate        = mkJob "lint-fmt-crate"        { script = lint-fmt    crate;     };
-    lint-clippy-compiler  = mkJob "lint-clippy-compiler"  { script = lint-clippy compiler;  };
-    lint-clippy-inspector = mkJob "lint-clippy-inspector" { script = lint-clippy inspector; };
-    lint-clippy-crate     = mkJob "lint-clippy-crate"     { script = lint-clippy crate;     };
+    lint-fmt-compiler     = mkJob "lint-fmt-compiler"     { script = cargo-fmt    compiler;  };
+    lint-fmt-inspector    = mkJob "lint-fmt-inspector"    { script = cargo-fmt    inspector; };
+    lint-fmt-crate        = mkJob "lint-fmt-crate"        { script = cargo-fmt    crate;     };
+    lint-clippy-compiler  = mkJob "lint-clippy-compiler"  { script = cargo-clippy compiler;  };
+    lint-clippy-inspector = mkJob "lint-clippy-inspector" { script = cargo-clippy inspector; };
+    lint-clippy-crate     = mkJob "lint-clippy-crate"     { script = cargo-clippy crate;     };
+
+    lint-fmt    = jobSeq "lint-fmt"    [ lint-fmt-compiler    lint-fmt-inspector    lint-fmt-crate    ];
+    lint-clippy = jobSeq "lint-clippy" [ lint-clippy-compiler lint-clippy-inspector lint-clippy-crate ];
 
     lint-compiler  = jobSeq "lint-compiler"  [ lint-fmt-compiler  lint-clippy-compiler  ];
     lint-inspector = jobSeq "lint-inspector" [ lint-fmt-inspector lint-clippy-inspector ];
     lint-crate     = jobSeq "lint-crate"     [ lint-fmt-crate     lint-clippy-crate     ];
 
-    lint-all = jobSeq "lint-all" [ lint-compiler lint-inspector lint-crate ];
+    lint-all = jobSeq "lint-all" [ lint-fmt lint-clippy ];
 
     check-all = jobSeq "check-all" [
         check-git
         lint-all
     ];
 
-    test-compiler  = mkJob "test-compiler"  { script = test-bin compiler;  };
-    test-inspector = mkJob "test-inspector" { script = test-bin inspector; };
-    test-crate     = mkJob "test-crate"     { script = test-bin crate;     };
+    test-compiler  = mkJob "test-compiler"  { script = cargo-test compiler;  };
+    test-inspector = mkJob "test-inspector" { script = cargo-test inspector; };
+    test-crate     = mkJob "test-crate"     { script = cargo-test crate;     };
 
     test-all = jobSeq "test-all" [
         test-compiler
         test-inspector
     ];
 
-    build-compiler  = mkJob "build-compiler"  { script = build-bin compiler  "chef";           };
-    build-inspector = mkJob "build-inspector" { script = build-bin inspector "chef-inspector"; };
-    build-crate     = mkJob "build-crate"     { script = build-bin crate     "chef-crate";     };
+    build-compiler  = mkJob "build-compiler"  { script = cargo-build compiler  "chef";           };
+    build-inspector = mkJob "build-inspector" { script = cargo-build inspector "chef-inspector"; };
+    build-crate     = mkJob "build-crate"     { script = cargo-build crate     "chef-crate";     };
 
     build-all = jobSeq "build-all" [
         build-compiler

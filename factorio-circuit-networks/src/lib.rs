@@ -74,11 +74,11 @@ pub enum EntityKind {
     Other,
 }
 
-impl Into<fbo::Entity> for Entity {
-    fn into(self) -> fbo::Entity {
+impl From<Entity> for fbo::Entity {
+    fn from(val: Entity) -> Self {
         let mut connections = HashMap::new();
 
-        for (this_port, other_en, other_port, wire) in &self.connections {
+        for (this_port, other_en, other_port, wire) in &val.connections {
             let data = fbo::ConnectionData {
                 entity_id: *other_en,
                 circuit_id: Some(*other_port),
@@ -116,13 +116,13 @@ impl Into<fbo::Entity> for Entity {
         ));
 
         let mut fbo_entity = fbo::Entity {
-            entity_number: self.entity_number,
-            name: self.name,
+            entity_number: val.entity_number,
+            name: val.name,
             position: fbo::Position {
-                x: r64(self.x.into()),
-                y: r64(self.y.into()),
+                x: r64(val.x.into()),
+                y: r64(val.y.into()),
             },
-            direction: Some(self.direction),
+            direction: Some(val.direction),
             orientation: None,
             connections,
             control_behavior: None,
@@ -206,7 +206,7 @@ impl Into<fbo::Entity> for Entity {
             }
         }
 
-        match self.kind {
+        match val.kind {
             EntityKind::ArithmeticCombinator {
                 left,
                 right,

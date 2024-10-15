@@ -3,7 +3,7 @@
 
 main: help
 
-all: build-all build-compiler build-crate build-inspector check-all check-git install-all install-compiler install-inspector install-python lint-all lint-clippy-compiler lint-clippy-crate lint-clippy-inspector lint-compiler lint-crate lint-fmt-compiler lint-fmt-crate lint-fmt-inspector lint-inspector sym-install-all sym-install-compiler sym-install-inspector sym-install-python test-all test-compiler test-crate test-inspector update-scripts
+all: build-all build-compiler build-crate build-inspector check-all check-git install-all install-compiler install-inspector install-python lint-all lint-clippy lint-clippy-compiler lint-clippy-crate lint-clippy-inspector lint-compiler lint-crate lint-fmt lint-fmt-compiler lint-fmt-crate lint-fmt-inspector lint-inspector sym-install-all sym-install-compiler sym-install-inspector sym-install-python test-all test-compiler test-crate test-inspector update-scripts
 
 help:
 	@echo "usage: make <task>"
@@ -20,11 +20,13 @@ help:
 	@echo -e '	install-inspector'
 	@echo -e '	install-python'
 	@echo -e '	lint-all'
+	@echo -e '	lint-clippy'
 	@echo -e '	lint-clippy-compiler'
 	@echo -e '	lint-clippy-crate'
 	@echo -e '	lint-clippy-inspector'
 	@echo -e '	lint-compiler'
 	@echo -e '	lint-crate'
+	@echo -e '	lint-fmt'
 	@echo -e '	lint-fmt-compiler'
 	@echo -e '	lint-fmt-crate'
 	@echo -e '	lint-fmt-inspector'
@@ -94,7 +96,11 @@ install-python:
 	pip install -e `git rev-parse --show-toplevel`/chef-python
 
 
-lint-all: lint-compiler lint-inspector lint-crate
+lint-all: lint-fmt lint-clippy
+
+
+
+lint-clippy: lint-clippy-compiler lint-clippy-inspector lint-clippy-crate
 
 
 
@@ -121,6 +127,10 @@ lint-compiler: lint-fmt-compiler lint-clippy-compiler
 
 
 lint-crate: lint-fmt-crate lint-clippy-crate
+
+
+
+lint-fmt: lint-fmt-compiler lint-fmt-inspector lint-fmt-crate
 
 
 
