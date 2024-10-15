@@ -6,20 +6,19 @@ let
 
     compiler="chef-compiler";
     inspector="chef-inspector";
+
     check-fmt = x: /*bash*/ ''
         echo "Checking formatting for ${x}..."
-        cargo fmt --check ${manifest-path x} || {
-            echo -e "\nPlease format your files in '${x}'."
-                exit 1
-        }
+        cargo fmt --check ${manifest-path x} \
+            || echo -e "\nPlease format your files in '${x}'." \
+            || exit 1
     '';
 
     check-clippy = x: /*bash*/ ''
         echo "Linting ${x}..."
-        cargo clippy ${manifest-path x} -- --deny warnings 2> /dev/null || {
-            echo -e "\nClippy is angry in '${x}'."
-            exit 1
-        }
+        cargo clippy ${manifest-path x} -- --deny warnings 2> /dev/null \
+            || echo -e "\nClippy is angry in '${x}'." \
+            || exit 1
     '';
 
     build-bin = dir: bin: /*bash*/ ''
@@ -36,8 +35,6 @@ let
 
     install-bin = dir: bin: /*bash*/ ''
         echo "Installing ${bin}..."
-        # Build the binary
-        ${build-bin dir bin}
         ln -s ${root}/bin/${bin} /usr/local/bin/${bin}
     '';
 
@@ -72,9 +69,17 @@ rec {
         build-inspector
     ];
 
-    install-compiler  = mkJob "install-compiler"  { script = install-bin compiler "chef";            };
-    install-inspector = mkJob "install-inspector" { script = install-bin inspector "chef-inspector"; };
-    install-python    = mkJob "install-python"    { script = "pip install -e ${root}/chef-python";   };
+    install-compiler = mkJob "install-compiler" {
+        script = install-bin compiler "chef";
+        depends = [ build-compiler ];
+    };
+    install-inspector = mkJob "install-inspector" {
+        script = install-bin inspector "chef-inspector";
+        depends = [ build-inspector ];
+    };
+    install-python  = mkJob "install-python" {
+        script = "pip install -e ${root}/chef-python";
+    };
 
     install-all = jobSeq "install-all" [
         install-compiler

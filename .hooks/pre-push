@@ -4,58 +4,54 @@
 
 echo "->> Running pre-push..."
 # Dependencies for pre-push
-echo "  ->> Running check-all..."
+echo "--->> Running check-all..."
 # Dependencies for check-all
-echo "    ->> Running check-fmt-compiler..."
+echo "----->> Running check-fmt-compiler..."
 # Dependencies for check-fmt-compiler
 
 # Run check-fmt-compiler job
 echo "Checking formatting for chef-compiler..."
-cargo fmt --check --manifest-path "./chef-compiler/Cargo.toml" || {
-    echo -e "\nPlease format your files in 'chef-compiler'."
-        exit 1
-}
+cargo fmt --check --manifest-path "./chef-compiler/Cargo.toml" \
+    || echo -e "\nPlease format your files in 'chef-compiler'." \
+    || exit 1
 
 
-echo "    ->> Running check-fmt-inspector..."
+echo "----->> Running check-fmt-inspector..."
 # Dependencies for check-fmt-inspector
 
 # Run check-fmt-inspector job
 echo "Checking formatting for chef-inspector..."
-cargo fmt --check --manifest-path "./chef-inspector/Cargo.toml" || {
-    echo -e "\nPlease format your files in 'chef-inspector'."
-        exit 1
-}
+cargo fmt --check --manifest-path "./chef-inspector/Cargo.toml" \
+    || echo -e "\nPlease format your files in 'chef-inspector'." \
+    || exit 1
 
 
-echo "    ->> Running check-clippy-compiler..."
+echo "----->> Running check-clippy-compiler..."
 # Dependencies for check-clippy-compiler
 
 # Run check-clippy-compiler job
 echo "Linting chef-compiler..."
-cargo clippy --manifest-path "./chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null || {
-    echo -e "\nClippy is angry in 'chef-compiler'."
-    exit 1
-}
+cargo clippy --manifest-path "./chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null \
+    || echo -e "\nClippy is angry in 'chef-compiler'." \
+    || exit 1
 
 
-echo "    ->> Running check-clippy-inspector..."
+echo "----->> Running check-clippy-inspector..."
 # Dependencies for check-clippy-inspector
 
 # Run check-clippy-inspector job
 echo "Linting chef-inspector..."
-cargo clippy --manifest-path "./chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null || {
-    echo -e "\nClippy is angry in 'chef-inspector'."
-    exit 1
-}
+cargo clippy --manifest-path "./chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null \
+    || echo -e "\nClippy is angry in 'chef-inspector'." \
+    || exit 1
 
 
 # Run check-all job
 
 
-echo "  ->> Running test-all..."
+echo "--->> Running test-all..."
 # Dependencies for test-all
-echo "    ->> Running test-compiler..."
+echo "----->> Running test-compiler..."
 # Dependencies for test-compiler
 
 # Run test-compiler job
@@ -63,7 +59,7 @@ echo "Testing chef-compiler..."
 cargo test --manifest-path "./chef-compiler/Cargo.toml"
 
 
-echo "    ->> Running test-inspector..."
+echo "----->> Running test-inspector..."
 # Dependencies for test-inspector
 
 # Run test-inspector job
