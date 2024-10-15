@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
-use factorio_blueprint::objects as fbo;
+use factorio_blueprint::objects::{self as fbo, ConnectionPoint};
+use noisy_float::prelude::*;
 
 #[derive(Debug)]
 pub struct ConstantSignal {
@@ -65,11 +66,206 @@ pub enum EntityKind {
         right: EntitySignal,
         output: EntitySignal,
         operator: fbo::DeciderComparator,
+        copy_count_from_input: bool,
     },
     ConstantCombinator {
         signals: BTreeMap<fbo::OneBasedIndex, ConstantSignal>,
     },
     Other,
+}
+
+impl Into<fbo::Entity> for Entity {
+    fn into(self) -> fbo::Entity {
+        let mut connections = HashMap::new();
+
+        for (this_port, other_en, other_port, wire) in &self.connections {
+            let data = fbo::ConnectionData {
+                entity_id: *other_en,
+                circuit_id: Some(*other_port),
+                wire_id: None,
+            };
+
+            connections
+                .entry(*this_port)
+                .and_modify(|c: &mut ConnectionPoint| match wire {
+                    WireColor::Red => {
+                        if let Some(v) = &mut c.red {
+                            v.push(data.clone())
+                        }
+                    }
+                    WireColor::Green => {
+                        if let Some(v) = &mut c.green {
+                            v.push(data.clone())
+                        }
+                    }
+                })
+                .or_insert({
+                    let (red, green) = match wire {
+                        WireColor::Red => (Some(vec![data]), None),
+                        WireColor::Green => (None, Some(vec![data])),
+                    };
+                    fbo::ConnectionPoint { red, green }
+                });
+        }
+
+        let connections = Some(fbo::EntityConnections::NumberIdx(
+            connections
+                .into_iter()
+                .map(|(from_port, point)| (from_port, fbo::Connection::Single(point)))
+                .collect(),
+        ));
+
+        let mut fbo_entity = fbo::Entity {
+            entity_number: self.entity_number,
+            name: self.name,
+            position: fbo::Position {
+                x: r64(self.x.into()),
+                y: r64(self.y.into()),
+            },
+            direction: Some(self.direction),
+            orientation: None,
+            connections,
+            control_behavior: None,
+            items: None,
+            recipe: None,
+            bar: None,
+            inventory: None,
+            infinity_settings: None,
+            type_: None,
+            input_priority: None,
+            output_priority: None,
+            filter: None,
+            filters: None,
+            filter_mode: None,
+            override_stack_size: None,
+            drop_position: None,
+            pickup_position: None,
+            request_filters: None,
+            request_from_buffers: None,
+            parameters: None,
+            alert_parameters: None,
+            auto_launch: None,
+            variation: None,
+            color: None,
+            station: None,
+            switch_state: None,
+            manual_trains_limit: None,
+            neighbours: None,
+        };
+
+        let mut control_behaviour = fbo::ControlBehavior {
+            connect_to_logistic_network: None,
+            arithmetic_conditions: None,
+            decider_conditions: None,
+            logistic_condition: None,
+            filters: None,
+            is_on: None,
+            use_colors: None,
+            circuit_condition: None,
+            circuit_mode_of_operation: None,
+            circuit_enable_disable: None,
+            circuit_contents_read_mode: None,
+            circuit_hand_read_mode: None,
+            circuit_read_hand_contents: None,
+            circuit_set_stack_size: None,
+            stack_control_input_signal: None,
+            circuit_parameters: None,
+            output_signal: None,
+            read_from_train: None,
+            read_stopped_train: None,
+            read_trains_count: None,
+            set_trains_limit: None,
+            send_to_train: None,
+            train_stopped_signal: None,
+            trains_count_signal: None,
+            trains_limit_signal: None,
+            read_logistics: None,
+            read_robot_stats: None,
+            available_construction_output_signal: None,
+            available_logistic_output_signal: None,
+            total_construction_output_signal: None,
+            total_logistic_output_signal: None,
+            circuit_open_gate: None,
+            circuit_read_sensor: None,
+            circuit_close_signal: None,
+            circuit_read_signal: None,
+        };
+
+        fn entity_signal_to_signal_pair(
+            signal: EntitySignal,
+        ) -> (Option<i32>, Option<fbo::SignalID>) {
+            match signal {
+                EntitySignal::Signal(s) => (
+                    None,
+                    Some(fbo::SignalID {
+                        type_: fbo::SignalIDType::Item, // TODO: Make this dynamic
+                        name: s,
+                    }),
+                ),
+                EntitySignal::Constant(c) => (Some(c), None),
+            }
+        }
+
+        match self.kind {
+            EntityKind::ArithmeticCombinator {
+                left,
+                right,
+                output,
+                operator,
+            } => {
+                let (first_constant, first_signal) = entity_signal_to_signal_pair(left);
+                let (second_constant, second_signal) = entity_signal_to_signal_pair(right);
+                let output_signal = entity_signal_to_signal_pair(output).1;
+                control_behaviour.arithmetic_conditions = Some(fbo::ArithmeticConditions {
+                    first_constant,
+                    first_signal,
+                    second_constant,
+                    second_signal,
+                    operation: operator,
+                    output_signal,
+                });
+            }
+            EntityKind::DeciderCombinator {
+                left,
+                right,
+                output,
+                operator,
+                copy_count_from_input,
+            } => {
+                let (_, first_signal) = entity_signal_to_signal_pair(left);
+                let (constant, second_signal) = entity_signal_to_signal_pair(right);
+                let output_signal = entity_signal_to_signal_pair(output).1;
+                control_behaviour.decider_conditions = Some(fbo::DeciderConditions {
+                    first_signal,
+                    second_signal,
+                    constant,
+                    output_signal,
+                    comparator: operator,
+                    copy_count_from_input: copy_count_from_input.then_some(true),
+                });
+            }
+            EntityKind::ConstantCombinator { signals } => {
+                control_behaviour.filters = Some(
+                    signals
+                        .into_iter()
+                        .map(|(index, signal)| fbo::ControlFilter {
+                            index,
+                            count: signal.count,
+                            signal: fbo::SignalID {
+                                type_: fbo::SignalIDType::Item, // TODO: Make this dynamic
+                                name: signal.name,
+                            },
+                        })
+                        .collect(),
+                );
+            }
+            EntityKind::Other => (),
+        }
+
+        fbo_entity.control_behavior = Some(control_behaviour);
+
+        fbo_entity
+    }
 }
 
 impl From<fbo::Entity> for Entity {
@@ -187,6 +383,7 @@ impl From<fbo::Entity> for Entity {
                     right,
                     output,
                     operator: c.comparator.clone(),
+                    copy_count_from_input: c.copy_count_from_input.unwrap_or_default(),
                 }
             }
             "constant-combinator" => {

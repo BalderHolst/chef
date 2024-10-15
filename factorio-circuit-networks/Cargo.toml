@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 factorio-blueprint = { git = "https://github.com/coriolinus/factorio-blueprint" }
+noisy_float = "0.1" # We need this lower version to interact with 'factorio-blueprint'

@@ -54,6 +54,7 @@ name = "factorio-circuit-networks"
 version = "0.0.1"
 dependencies = [
  "factorio-blueprint",
+ "noisy_float",
 ]
 
 [[package]]
