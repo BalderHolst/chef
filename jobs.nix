@@ -1,6 +1,9 @@
-{ pkgs, lib, root }:
+{ pkgs, lib }:
 let
-    job-gen = import ./job-gen.nix { inherit pkgs lib root; };
+
+    job-gen = import ./job-gen.nix { inherit pkgs lib; };
+
+    root = "`git rev-parse --show-toplevel`";
 
     manifest-path = x: ''--manifest-path "${root}/${x}/Cargo.toml"'';
 
@@ -50,7 +53,7 @@ rec {
     lint-clippy-compiler  = mkJob "lint-clippy-compiler"  { script = lint-clippy compiler;  };
     lint-clippy-inspector = mkJob "lint-clippy-inspector" { script = lint-clippy inspector; };
 
-    lint-compiler = jobSeq "lint-compiler"  [ lint-fmt-compiler  lint-clippy-compiler  ];
+    lint-compiler = jobSeq "lint-compiler"   [ lint-fmt-compiler  lint-clippy-compiler  ];
     lint-inspector = jobSeq "lint-inspector" [ lint-fmt-inspector lint-clippy-inspector ];
 
     lint-all = jobSeq "lint-all" [ lint-compiler lint-inspector ];

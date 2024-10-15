@@ -1,4 +1,4 @@
-{ pkgs, lib, root }:
+{ pkgs, lib }:
 let
 
     script-msg = ''

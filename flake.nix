@@ -12,9 +12,8 @@
               pkgs      = nixpkgs.legacyPackages.${system};
               package   = x: pkgs.callPackage x { inherit pkgs; };
               lib       = pkgs.lib;
-              root      = "`git rev-parse --show-toplevel`";
-              job-gen   = import ./job-gen.nix { inherit pkgs lib root; };
-              jobs      = import ./jobs.nix    { inherit pkgs lib root; };
+              job-gen   = import ./job-gen.nix { inherit pkgs lib; };
+              jobs      = import ./jobs.nix    { inherit pkgs lib; };
           in
           {
             packages = {
@@ -33,11 +32,12 @@
                     program = with jobs; toString (pkgs.writeShellScript "gen-scripts" /*bash*/ ''
                             mkdir -p $out/bin
                             echo "Generating scripts..."
-                            cp ${job-gen.mkScript lint-all } "./.hooks/pre-commit"
+                            root="$(git rev-parse --show-toplevel)"
+                            cp ${job-gen.mkScript lint-all } "$root/.hooks/pre-commit"
                             cp ${job-gen.mkScript (
                                 job-gen.jobSeq "pre-push" [update-scripts check-all test-all]
-                            )} "./.hooks/pre-push"
-                            cp -f ${job-gen.mkMakefile (builtins.attrValues jobs) } "./Makefile"
+                            )} "$root/.hooks/pre-push"
+                            cp -f ${job-gen.mkMakefile (builtins.attrValues jobs) } "$root/Makefile"
                             echo "done."
                     '');
                 };
