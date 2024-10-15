@@ -4,7 +4,9 @@
 
 echo "->> Running 'lint-all'"
 # Dependencies for lint-all
-echo "--->> Running 'lint-fmt-compiler'"
+echo "--->> Running 'lint-compiler'"
+# Dependencies for lint-compiler
+echo "----->> Running 'lint-fmt-compiler'"
 # Dependencies for lint-fmt-compiler
 
 # Run lint-fmt-compiler job
@@ -12,15 +14,7 @@ cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/chef-compiler
     || { echo -e "\nPlease format your files in 'chef-compiler'.";  exit 1; }
 
 
-echo "--->> Running 'lint-fmt-inspector'"
-# Dependencies for lint-fmt-inspector
-
-# Run lint-fmt-inspector job
-cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml" \
-    || { echo -e "\nPlease format your files in 'chef-inspector'.";  exit 1; }
-
-
-echo "--->> Running 'lint-clippy-compiler'"
+echo "----->> Running 'lint-clippy-compiler'"
 # Dependencies for lint-clippy-compiler
 
 # Run lint-clippy-compiler job
@@ -28,12 +22,28 @@ cargo clippy --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Carg
     || { echo -e "\nClippy is angry in 'chef-compiler'."; exit 1; }
 
 
-echo "--->> Running 'lint-clippy-inspector'"
+# Run lint-compiler job
+
+
+echo "--->> Running 'lint-inspector'"
+# Dependencies for lint-inspector
+echo "----->> Running 'lint-fmt-inspector'"
+# Dependencies for lint-fmt-inspector
+
+# Run lint-fmt-inspector job
+cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml" \
+    || { echo -e "\nPlease format your files in 'chef-inspector'.";  exit 1; }
+
+
+echo "----->> Running 'lint-clippy-inspector'"
 # Dependencies for lint-clippy-inspector
 
 # Run lint-clippy-inspector job
 cargo clippy --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null \
     || { echo -e "\nClippy is angry in 'chef-inspector'."; exit 1; }
+
+
+# Run lint-inspector job
 
 
 # Run lint-all job

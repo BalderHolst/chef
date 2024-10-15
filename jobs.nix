@@ -50,12 +50,10 @@ rec {
     lint-clippy-compiler  = mkJob "lint-clippy-compiler"  { script = lint-clippy compiler;  };
     lint-clippy-inspector = mkJob "lint-clippy-inspector" { script = lint-clippy inspector; };
 
-    lint-all = jobSeq "lint-all" [
-        lint-fmt-compiler
-        lint-fmt-inspector
-        lint-clippy-compiler
-        lint-clippy-inspector
-    ];
+    lint-compiler = jobSeq "lint-compiler"  [ lint-fmt-compiler  lint-clippy-compiler  ];
+    lint-inspector = jobSeq "lint-inspector" [ lint-fmt-inspector lint-clippy-inspector ];
+
+    lint-all = jobSeq "lint-all" [ lint-compiler lint-inspector ];
 
     check-all = jobSeq "check-all" [
         check-git

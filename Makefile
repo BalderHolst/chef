@@ -3,7 +3,7 @@
 
 main: help
 
-all: build-all build-compiler build-inspector check-all check-git install-all install-compiler install-inspector install-python lint-all lint-clippy-compiler lint-clippy-inspector lint-fmt-compiler lint-fmt-inspector sym-install-all sym-install-compiler sym-install-inspector sym-install-python test-all test-compiler test-inspector update-scripts
+all: build-all build-compiler build-inspector check-all check-git install-all install-compiler install-inspector install-python lint-all lint-clippy-compiler lint-clippy-inspector lint-compiler lint-fmt-compiler lint-fmt-inspector lint-inspector sym-install-all sym-install-compiler sym-install-inspector sym-install-python test-all test-compiler test-inspector update-scripts
 
 help:
 	@echo "usage: make <task>"
@@ -21,8 +21,10 @@ help:
 	@echo -e '	lint-all'
 	@echo -e '	lint-clippy-compiler'
 	@echo -e '	lint-clippy-inspector'
+	@echo -e '	lint-compiler'
 	@echo -e '	lint-fmt-compiler'
 	@echo -e '	lint-fmt-inspector'
+	@echo -e '	lint-inspector'
 	@echo -e '	sym-install-all'
 	@echo -e '	sym-install-compiler'
 	@echo -e '	sym-install-inspector'
@@ -80,7 +82,7 @@ install-python:
 	pip install -e `git rev-parse --show-toplevel`/chef-python
 
 
-lint-all: lint-fmt-compiler lint-fmt-inspector lint-clippy-compiler lint-clippy-inspector
+lint-all: lint-compiler lint-inspector
 
 
 
@@ -96,6 +98,10 @@ lint-clippy-inspector:
 	
 
 
+lint-compiler: lint-fmt-compiler lint-clippy-compiler
+
+
+
 lint-fmt-compiler: 
 	cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml" \
 	    || { echo -e "\nPlease format your files in 'chef-compiler'.";  exit 1; }
@@ -106,6 +112,10 @@ lint-fmt-inspector:
 	cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml" \
 	    || { echo -e "\nPlease format your files in 'chef-inspector'.";  exit 1; }
 	
+
+
+lint-inspector: lint-fmt-inspector lint-clippy-inspector
+
 
 
 sym-install-all: sym-install-compiler sym-install-inspector sym-install-python
