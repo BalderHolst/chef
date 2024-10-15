@@ -3,7 +3,7 @@
 
 main: help
 
-all: build-all build-compiler build-inspector check-all check-clippy-compiler check-clippy-inspector check-fmt-compiler check-fmt-inspector install-all install-compiler install-inspector install-python test-all test-compiler test-inspector
+all: build-all build-compiler build-inspector check-all check-clippy-compiler check-clippy-inspector check-fmt-compiler check-fmt-inspector install-all install-compiler install-inspector install-python sym-install-all sym-install-compiler sym-install-inspector sym-install-python test-all test-compiler test-inspector update-scripts
 
 help:
 	@echo "usage: make <task>"
@@ -21,9 +21,14 @@ help:
 	@echo -e '	install-compiler'
 	@echo -e '	install-inspector'
 	@echo -e '	install-python'
+	@echo -e '	sym-install-all'
+	@echo -e '	sym-install-compiler'
+	@echo -e '	sym-install-inspector'
+	@echo -e '	sym-install-python'
 	@echo -e '	test-all'
 	@echo -e '	test-compiler'
 	@echo -e '	test-inspector'
+	@echo -e '	update-scripts'
 	@echo -e "\nUse 'make help' command to show this list."
 	
 
@@ -82,17 +87,35 @@ install-all: install-compiler install-inspector install-python
 
 
 install-compiler: build-compiler
-	ln -s ./bin/chef /usr/local/bin/chef
+	cp -v ./bin/chef /usr/local/bin/chef
 	
 
 
 install-inspector: build-inspector
-	ln -s ./bin/chef-inspector /usr/local/bin/chef-inspector
+	cp -v ./bin/chef-inspector /usr/local/bin/chef-inspector
 	
 
 
 install-python: 
 	pip install -e ./chef-python
+
+
+sym-install-all: sym-install-compiler sym-install-inspector sym-install-python
+
+
+
+sym-install-compiler: build-compiler
+	ln -sv ./bin/chef /usr/local/bin/chef
+	
+
+
+sym-install-inspector: build-inspector
+	ln -sv ./bin/chef-inspector /usr/local/bin/chef-inspector
+	
+
+
+sym-install-python: 
+	pip sym-install -e ./chef-python
 
 
 test-all: test-compiler test-inspector
@@ -107,3 +130,7 @@ test-compiler:
 test-inspector: 
 	cargo test --manifest-path "./chef-inspector/Cargo.toml"
 	
+
+
+update-scripts: 
+	nix run .#gen-scripts

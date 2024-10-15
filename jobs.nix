@@ -30,12 +30,19 @@ let
     '';
 
     install-bin = dir: bin: /*bash*/ ''
-        ln -s ${root}/bin/${bin} /usr/local/bin/${bin}
+        cp -v ${root}/bin/${bin} /usr/local/bin/${bin}
+    '';
+
+    sym-install-bin = dir: bin: /*bash*/ ''
+        ln -sv ${root}/bin/${bin} /usr/local/bin/${bin}
     '';
 
 in
 with job-gen;
 rec {
+
+    update-scripts = mkJob "update-scripts" { script = "nix run .#gen-scripts"; };
+
     check-fmt-compiler     = mkJob "check-fmt-compiler"     { script = check-fmt    compiler;  };
     check-fmt-inspector    = mkJob "check-fmt-inspector"    { script = check-fmt    inspector; };
     check-clippy-compiler  = mkJob "check-clippy-compiler"  { script = check-clippy compiler;  };
@@ -80,5 +87,23 @@ rec {
         install-compiler
         install-inspector
         install-python
+    ];
+
+    sym-install-compiler = mkJob "sym-install-compiler" {
+        script = sym-install-bin compiler "chef";
+        depends = [ build-compiler ];
+    };
+    sym-install-inspector = mkJob "sym-install-inspector" {
+        script = sym-install-bin inspector "chef-inspector";
+        depends = [ build-inspector ];
+    };
+    sym-install-python  = mkJob "sym-install-python" {
+        script = "pip sym-install -e ${root}/chef-python";
+    };
+
+    sym-install-all = jobSeq "sym-install-all" [
+        sym-install-compiler
+        sym-install-inspector
+        sym-install-python
     ];
 }
