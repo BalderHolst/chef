@@ -26,7 +26,7 @@ echo "------->> Running 'lint-fmt-compiler'"
 # Dependencies for lint-fmt-compiler
 
 # Run lint-fmt-compiler job
-cargo fmt --check --manifest-path "./chef-compiler/Cargo.toml" \
+cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml" \
     || { echo -e "\nPlease format your files in 'chef-compiler'.";  exit 1; }
 
 
@@ -34,7 +34,7 @@ echo "------->> Running 'lint-fmt-inspector'"
 # Dependencies for lint-fmt-inspector
 
 # Run lint-fmt-inspector job
-cargo fmt --check --manifest-path "./chef-inspector/Cargo.toml" \
+cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml" \
     || { echo -e "\nPlease format your files in 'chef-inspector'.";  exit 1; }
 
 
@@ -42,7 +42,7 @@ echo "------->> Running 'lint-clippy-compiler'"
 # Dependencies for lint-clippy-compiler
 
 # Run lint-clippy-compiler job
-cargo clippy --manifest-path "./chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null \
+cargo clippy --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null \
     || { echo -e "\nClippy is angry in 'chef-compiler'."; exit 1; }
 
 
@@ -50,7 +50,7 @@ echo "------->> Running 'lint-clippy-inspector'"
 # Dependencies for lint-clippy-inspector
 
 # Run lint-clippy-inspector job
-cargo clippy --manifest-path "./chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null \
+cargo clippy --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null \
     || { echo -e "\nClippy is angry in 'chef-inspector'."; exit 1; }
 
 
@@ -66,14 +66,14 @@ echo "----->> Running 'test-compiler'"
 # Dependencies for test-compiler
 
 # Run test-compiler job
-cargo test --manifest-path "./chef-compiler/Cargo.toml"
+cargo test --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml"
 
 
 echo "----->> Running 'test-inspector'"
 # Dependencies for test-inspector
 
 # Run test-inspector job
-cargo test --manifest-path "./chef-inspector/Cargo.toml"
+cargo test --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml"
 
 
 # Run test-all job

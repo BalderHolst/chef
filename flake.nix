@@ -12,7 +12,7 @@
               pkgs      = nixpkgs.legacyPackages.${system};
               package   = x: pkgs.callPackage x { inherit pkgs; };
               lib       = pkgs.lib;
-              root      = ".";
+              root      = "`git rev-parse --show-toplevel`";
               job-gen   = import ./job-gen.nix { inherit pkgs lib root; };
               jobs      = import ./jobs.nix    { inherit pkgs lib root; };
           in

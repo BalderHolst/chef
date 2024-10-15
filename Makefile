@@ -39,14 +39,14 @@ build-all: build-compiler build-inspector
 
 
 build-compiler: 
-	cargo build --release --manifest-path "./chef-compiler/Cargo.toml"
+	cargo build --release --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml"
 	mkdir -p ./bin
 	cp ./chef-compiler/target/release/chef ./bin/chef
 	
 
 
 build-inspector: 
-	cargo build --release --manifest-path "./chef-inspector/Cargo.toml"
+	cargo build --release --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml"
 	mkdir -p ./bin
 	cp ./chef-inspector/target/release/chef-inspector ./bin/chef-inspector
 	
@@ -67,17 +67,17 @@ install-all: install-compiler install-inspector install-python
 
 
 install-compiler: build-compiler
-	cp -v ./bin/chef /usr/local/bin/chef
+	cp -v `git rev-parse --show-toplevel`/bin/chef /usr/local/bin/chef
 	
 
 
 install-inspector: build-inspector
-	cp -v ./bin/chef-inspector /usr/local/bin/chef-inspector
+	cp -v `git rev-parse --show-toplevel`/bin/chef-inspector /usr/local/bin/chef-inspector
 	
 
 
 install-python: 
-	pip install -e ./chef-python
+	pip install -e `git rev-parse --show-toplevel`/chef-python
 
 
 lint-all: lint-fmt-compiler lint-fmt-inspector lint-clippy-compiler lint-clippy-inspector
@@ -85,25 +85,25 @@ lint-all: lint-fmt-compiler lint-fmt-inspector lint-clippy-compiler lint-clippy-
 
 
 lint-clippy-compiler: 
-	cargo clippy --manifest-path "./chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null \
+	cargo clippy --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null \
 	    || { echo -e "\nClippy is angry in 'chef-compiler'."; exit 1; }
 	
 
 
 lint-clippy-inspector: 
-	cargo clippy --manifest-path "./chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null \
+	cargo clippy --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null \
 	    || { echo -e "\nClippy is angry in 'chef-inspector'."; exit 1; }
 	
 
 
 lint-fmt-compiler: 
-	cargo fmt --check --manifest-path "./chef-compiler/Cargo.toml" \
+	cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml" \
 	    || { echo -e "\nPlease format your files in 'chef-compiler'.";  exit 1; }
 	
 
 
 lint-fmt-inspector: 
-	cargo fmt --check --manifest-path "./chef-inspector/Cargo.toml" \
+	cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml" \
 	    || { echo -e "\nPlease format your files in 'chef-inspector'.";  exit 1; }
 	
 
@@ -113,17 +113,17 @@ sym-install-all: sym-install-compiler sym-install-inspector sym-install-python
 
 
 sym-install-compiler: build-compiler
-	ln -sv ./bin/chef /usr/local/bin/chef
+	ln -sv `git rev-parse --show-toplevel`/bin/chef /usr/local/bin/chef
 	
 
 
 sym-install-inspector: build-inspector
-	ln -sv ./bin/chef-inspector /usr/local/bin/chef-inspector
+	ln -sv `git rev-parse --show-toplevel`/bin/chef-inspector /usr/local/bin/chef-inspector
 	
 
 
 sym-install-python: 
-	pip sym-install -e ./chef-python
+	pip sym-install -e `git rev-parse --show-toplevel`/chef-python
 
 
 test-all: test-compiler test-inspector
@@ -131,12 +131,12 @@ test-all: test-compiler test-inspector
 
 
 test-compiler: 
-	cargo test --manifest-path "./chef-compiler/Cargo.toml"
+	cargo test --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml"
 	
 
 
 test-inspector: 
-	cargo test --manifest-path "./chef-inspector/Cargo.toml"
+	cargo test --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml"
 	
 
 
