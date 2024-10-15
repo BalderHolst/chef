@@ -32,7 +32,6 @@ build-all: build-compiler build-inspector
 
 
 build-compiler: 
-	echo "Building chef in chef-compiler..."
 	cargo build --release --manifest-path "./chef-compiler/Cargo.toml"
 	mkdir -p ./bin
 	cp ./chef-compiler/target/release/chef ./bin/chef
@@ -40,7 +39,6 @@ build-compiler:
 
 
 build-inspector: 
-	echo "Building chef-inspector in chef-inspector..."
 	cargo build --release --manifest-path "./chef-inspector/Cargo.toml"
 	mkdir -p ./bin
 	cp ./chef-inspector/target/release/chef-inspector ./bin/chef-inspector
@@ -52,7 +50,6 @@ check-all: check-fmt-compiler check-fmt-inspector check-clippy-compiler check-cl
 
 
 check-clippy-compiler: 
-	echo "Linting chef-compiler..."
 	cargo clippy --manifest-path "./chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null \
 	    || echo -e "\nClippy is angry in 'chef-compiler'." \
 	    || exit 1
@@ -60,7 +57,6 @@ check-clippy-compiler:
 
 
 check-clippy-inspector: 
-	echo "Linting chef-inspector..."
 	cargo clippy --manifest-path "./chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null \
 	    || echo -e "\nClippy is angry in 'chef-inspector'." \
 	    || exit 1
@@ -68,7 +64,6 @@ check-clippy-inspector:
 
 
 check-fmt-compiler: 
-	echo "Checking formatting for chef-compiler..."
 	cargo fmt --check --manifest-path "./chef-compiler/Cargo.toml" \
 	    || echo -e "\nPlease format your files in 'chef-compiler'." \
 	    || exit 1
@@ -76,7 +71,6 @@ check-fmt-compiler:
 
 
 check-fmt-inspector: 
-	echo "Checking formatting for chef-inspector..."
 	cargo fmt --check --manifest-path "./chef-inspector/Cargo.toml" \
 	    || echo -e "\nPlease format your files in 'chef-inspector'." \
 	    || exit 1
@@ -88,13 +82,11 @@ install-all: install-compiler install-inspector install-python
 
 
 install-compiler: build-compiler
-	echo "Installing chef..."
 	ln -s ./bin/chef /usr/local/bin/chef
 	
 
 
 install-inspector: build-inspector
-	echo "Installing chef-inspector..."
 	ln -s ./bin/chef-inspector /usr/local/bin/chef-inspector
 	
 
@@ -108,12 +100,10 @@ test-all: test-compiler test-inspector
 
 
 test-compiler: 
-	echo "Testing chef-compiler..."
 	cargo test --manifest-path "./chef-compiler/Cargo.toml"
 	
 
 
 test-inspector: 
-	echo "Testing chef-inspector..."
 	cargo test --manifest-path "./chef-inspector/Cargo.toml"
 	

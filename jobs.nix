@@ -8,33 +8,28 @@ let
     inspector="chef-inspector";
 
     check-fmt = x: /*bash*/ ''
-        echo "Checking formatting for ${x}..."
         cargo fmt --check ${manifest-path x} \
             || echo -e "\nPlease format your files in '${x}'." \
             || exit 1
     '';
 
     check-clippy = x: /*bash*/ ''
-        echo "Linting ${x}..."
         cargo clippy ${manifest-path x} -- --deny warnings 2> /dev/null \
             || echo -e "\nClippy is angry in '${x}'." \
             || exit 1
     '';
 
     build-bin = dir: bin: /*bash*/ ''
-        echo "Building ${bin} in ${dir}..."
         cargo build --release ${manifest-path dir}
         mkdir -p ./bin
         cp ./${dir}/target/release/${bin} ./bin/${bin}
     '';
 
     test-bin = x: /*bash*/ ''
-        echo "Testing ${x}..."
         cargo test ${manifest-path x}
     '';
 
     install-bin = dir: bin: /*bash*/ ''
-        echo "Installing ${bin}..."
         ln -s ${root}/bin/${bin} /usr/local/bin/${bin}
     '';
 

@@ -9,7 +9,7 @@ let
 
 
     jobScriptString = job: level: ''
-        echo "${ lib.strings.replicate level "--" }->> Running ${job.name}..."
+        echo "${ lib.strings.replicate level "--" }->> Running '${job.name}'"
         # Dependencies for ${job.name}
         ${builtins.concatStringsSep "\n" (map (j: jobScriptString j (level+1)) job.depends)}
         # Run ${job.name} job
