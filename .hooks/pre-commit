@@ -46,6 +46,27 @@ cargo clippy --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Car
 # Run lint-inspector job
 
 
+echo "--->> Running 'lint-crate'"
+# Dependencies for lint-crate
+echo "----->> Running 'lint-fmt-crate'"
+# Dependencies for lint-fmt-crate
+
+# Run lint-fmt-crate job
+cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/factorio-circuit-networks/Cargo.toml" \
+    || { echo -e "\nPlease format your files in 'factorio-circuit-networks'.";  exit 1; }
+
+
+echo "----->> Running 'lint-clippy-crate'"
+# Dependencies for lint-clippy-crate
+
+# Run lint-clippy-crate job
+cargo clippy --manifest-path "`git rev-parse --show-toplevel`/factorio-circuit-networks/Cargo.toml" -- --deny warnings 2> /dev/null \
+    || { echo -e "\nClippy is angry in 'factorio-circuit-networks'."; exit 1; }
+
+
+# Run lint-crate job
+
+
 # Run lint-all job
 
 

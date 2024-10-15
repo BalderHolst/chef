@@ -9,6 +9,7 @@ let
 
     compiler="chef-compiler";
     inspector="chef-inspector";
+    crate="factorio-circuit-networks";
 
     lint-fmt = x: /*bash*/ ''
         cargo fmt --check ${manifest-path x} \
@@ -50,13 +51,16 @@ rec {
 
     lint-fmt-compiler     = mkJob "lint-fmt-compiler"     { script = lint-fmt    compiler;  };
     lint-fmt-inspector    = mkJob "lint-fmt-inspector"    { script = lint-fmt    inspector; };
+    lint-fmt-crate        = mkJob "lint-fmt-crate"        { script = lint-fmt    crate;     };
     lint-clippy-compiler  = mkJob "lint-clippy-compiler"  { script = lint-clippy compiler;  };
     lint-clippy-inspector = mkJob "lint-clippy-inspector" { script = lint-clippy inspector; };
+    lint-clippy-crate     = mkJob "lint-clippy-crate"     { script = lint-clippy crate;     };
 
-    lint-compiler = jobSeq "lint-compiler"   [ lint-fmt-compiler  lint-clippy-compiler  ];
+    lint-compiler  = jobSeq "lint-compiler"  [ lint-fmt-compiler  lint-clippy-compiler  ];
     lint-inspector = jobSeq "lint-inspector" [ lint-fmt-inspector lint-clippy-inspector ];
+    lint-crate     = jobSeq "lint-crate"     [ lint-fmt-crate     lint-clippy-crate     ];
 
-    lint-all = jobSeq "lint-all" [ lint-compiler lint-inspector ];
+    lint-all = jobSeq "lint-all" [ lint-compiler lint-inspector lint-crate ];
 
     check-all = jobSeq "check-all" [
         check-git
@@ -65,6 +69,7 @@ rec {
 
     test-compiler  = mkJob "test-compiler"  { script = test-bin compiler;  };
     test-inspector = mkJob "test-inspector" { script = test-bin inspector; };
+    test-crate     = mkJob "test-crate"     { script = test-bin crate;     };
 
     test-all = jobSeq "test-all" [
         test-compiler
@@ -73,10 +78,12 @@ rec {
 
     build-compiler  = mkJob "build-compiler"  { script = build-bin compiler  "chef";           };
     build-inspector = mkJob "build-inspector" { script = build-bin inspector "chef-inspector"; };
+    build-crate     = mkJob "build-crate"     { script = build-bin crate     "chef-crate";     };
 
     build-all = jobSeq "build-all" [
         build-compiler
         build-inspector
+        build-crate
     ];
 
     install-compiler = mkJob "install-compiler" {

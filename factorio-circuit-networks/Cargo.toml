@@ -1,0 +1,7 @@
+[package]
+name = "factorio-circuit-networks"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+factorio-blueprint = { git = "https://github.com/coriolinus/factorio-blueprint" }

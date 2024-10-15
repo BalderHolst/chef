@@ -3,7 +3,7 @@
 
 main: help
 
-all: build-all build-compiler build-inspector check-all check-git install-all install-compiler install-inspector install-python lint-all lint-clippy-compiler lint-clippy-inspector lint-compiler lint-fmt-compiler lint-fmt-inspector lint-inspector sym-install-all sym-install-compiler sym-install-inspector sym-install-python test-all test-compiler test-inspector update-scripts
+all: build-all build-compiler build-crate build-inspector check-all check-git install-all install-compiler install-inspector install-python lint-all lint-clippy-compiler lint-clippy-crate lint-clippy-inspector lint-compiler lint-crate lint-fmt-compiler lint-fmt-crate lint-fmt-inspector lint-inspector sym-install-all sym-install-compiler sym-install-inspector sym-install-python test-all test-compiler test-crate test-inspector update-scripts
 
 help:
 	@echo "usage: make <task>"
@@ -11,6 +11,7 @@ help:
 	@echo "Available Tasks:"
 	@echo -e '	build-all'
 	@echo -e '	build-compiler'
+	@echo -e '	build-crate'
 	@echo -e '	build-inspector'
 	@echo -e '	check-all'
 	@echo -e '	check-git'
@@ -20,9 +21,12 @@ help:
 	@echo -e '	install-python'
 	@echo -e '	lint-all'
 	@echo -e '	lint-clippy-compiler'
+	@echo -e '	lint-clippy-crate'
 	@echo -e '	lint-clippy-inspector'
 	@echo -e '	lint-compiler'
+	@echo -e '	lint-crate'
 	@echo -e '	lint-fmt-compiler'
+	@echo -e '	lint-fmt-crate'
 	@echo -e '	lint-fmt-inspector'
 	@echo -e '	lint-inspector'
 	@echo -e '	sym-install-all'
@@ -31,12 +35,13 @@ help:
 	@echo -e '	sym-install-python'
 	@echo -e '	test-all'
 	@echo -e '	test-compiler'
+	@echo -e '	test-crate'
 	@echo -e '	test-inspector'
 	@echo -e '	update-scripts'
 	@echo -e "\nUse 'make help' command to show this list."
 	
 
-build-all: build-compiler build-inspector
+build-all: build-compiler build-inspector build-crate
 
 
 
@@ -44,6 +49,13 @@ build-compiler:
 	cargo build --release --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml"
 	mkdir -p ./bin
 	cp ./chef-compiler/target/release/chef ./bin/chef
+	
+
+
+build-crate: 
+	cargo build --release --manifest-path "`git rev-parse --show-toplevel`/factorio-circuit-networks/Cargo.toml"
+	mkdir -p ./bin
+	cp ./factorio-circuit-networks/target/release/chef-crate ./bin/chef-crate
 	
 
 
@@ -82,13 +94,19 @@ install-python:
 	pip install -e `git rev-parse --show-toplevel`/chef-python
 
 
-lint-all: lint-compiler lint-inspector
+lint-all: lint-compiler lint-inspector lint-crate
 
 
 
 lint-clippy-compiler: 
 	cargo clippy --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null \
 	    || { echo -e "\nClippy is angry in 'chef-compiler'."; exit 1; }
+	
+
+
+lint-clippy-crate: 
+	cargo clippy --manifest-path "`git rev-parse --show-toplevel`/factorio-circuit-networks/Cargo.toml" -- --deny warnings 2> /dev/null \
+	    || { echo -e "\nClippy is angry in 'factorio-circuit-networks'."; exit 1; }
 	
 
 
@@ -102,9 +120,19 @@ lint-compiler: lint-fmt-compiler lint-clippy-compiler
 
 
 
+lint-crate: lint-fmt-crate lint-clippy-crate
+
+
+
 lint-fmt-compiler: 
 	cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml" \
 	    || { echo -e "\nPlease format your files in 'chef-compiler'.";  exit 1; }
+	
+
+
+lint-fmt-crate: 
+	cargo fmt --check --manifest-path "`git rev-parse --show-toplevel`/factorio-circuit-networks/Cargo.toml" \
+	    || { echo -e "\nPlease format your files in 'factorio-circuit-networks'.";  exit 1; }
 	
 
 
@@ -142,6 +170,11 @@ test-all: test-compiler test-inspector
 
 test-compiler: 
 	cargo test --manifest-path "`git rev-parse --show-toplevel`/chef-compiler/Cargo.toml"
+	
+
+
+test-crate: 
+	cargo test --manifest-path "`git rev-parse --show-toplevel`/factorio-circuit-networks/Cargo.toml"
 	
 
 
