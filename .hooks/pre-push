@@ -27,8 +27,7 @@ echo "------->> Running 'lint-fmt-compiler'"
 
 # Run lint-fmt-compiler job
 cargo fmt --check --manifest-path "./chef-compiler/Cargo.toml" \
-    || echo -e "\nPlease format your files in 'chef-compiler'." \
-    || exit 1
+    || { echo -e "\nPlease format your files in 'chef-compiler'.";  exit 1; }
 
 
 echo "------->> Running 'lint-fmt-inspector'"
@@ -36,8 +35,7 @@ echo "------->> Running 'lint-fmt-inspector'"
 
 # Run lint-fmt-inspector job
 cargo fmt --check --manifest-path "./chef-inspector/Cargo.toml" \
-    || echo -e "\nPlease format your files in 'chef-inspector'." \
-    || exit 1
+    || { echo -e "\nPlease format your files in 'chef-inspector'.";  exit 1; }
 
 
 echo "------->> Running 'lint-clippy-compiler'"
@@ -45,8 +43,7 @@ echo "------->> Running 'lint-clippy-compiler'"
 
 # Run lint-clippy-compiler job
 cargo clippy --manifest-path "./chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null \
-    || echo -e "\nClippy is angry in 'chef-compiler'." \
-    || exit 1
+    || { echo -e "\nClippy is angry in 'chef-compiler'."; exit 1; }
 
 
 echo "------->> Running 'lint-clippy-inspector'"
@@ -54,8 +51,7 @@ echo "------->> Running 'lint-clippy-inspector'"
 
 # Run lint-clippy-inspector job
 cargo clippy --manifest-path "./chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null \
-    || echo -e "\nClippy is angry in 'chef-inspector'." \
-    || exit 1
+    || { echo -e "\nClippy is angry in 'chef-inspector'."; exit 1; }
 
 
 # Run lint-all job

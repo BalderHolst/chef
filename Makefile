@@ -86,29 +86,25 @@ lint-all: lint-fmt-compiler lint-fmt-inspector lint-clippy-compiler lint-clippy-
 
 lint-clippy-compiler: 
 	cargo clippy --manifest-path "./chef-compiler/Cargo.toml" -- --deny warnings 2> /dev/null \
-	    || echo -e "\nClippy is angry in 'chef-compiler'." \
-	    || exit 1
+	    || { echo -e "\nClippy is angry in 'chef-compiler'."; exit 1; }
 	
 
 
 lint-clippy-inspector: 
 	cargo clippy --manifest-path "./chef-inspector/Cargo.toml" -- --deny warnings 2> /dev/null \
-	    || echo -e "\nClippy is angry in 'chef-inspector'." \
-	    || exit 1
+	    || { echo -e "\nClippy is angry in 'chef-inspector'."; exit 1; }
 	
 
 
 lint-fmt-compiler: 
 	cargo fmt --check --manifest-path "./chef-compiler/Cargo.toml" \
-	    || echo -e "\nPlease format your files in 'chef-compiler'." \
-	    || exit 1
+	    || { echo -e "\nPlease format your files in 'chef-compiler'.";  exit 1; }
 	
 
 
 lint-fmt-inspector: 
 	cargo fmt --check --manifest-path "./chef-inspector/Cargo.toml" \
-	    || echo -e "\nPlease format your files in 'chef-inspector'." \
-	    || exit 1
+	    || { echo -e "\nPlease format your files in 'chef-inspector'.";  exit 1; }
 	
 
 

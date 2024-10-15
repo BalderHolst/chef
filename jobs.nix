@@ -9,14 +9,12 @@ let
 
     lint-fmt = x: /*bash*/ ''
         cargo fmt --check ${manifest-path x} \
-            || echo -e "\nPlease format your files in '${x}'." \
-            || exit 1
+            || { echo -e "\nPlease format your files in '${x}'.";  exit 1; }
     '';
 
     lint-clippy = x: /*bash*/ ''
         cargo clippy ${manifest-path x} -- --deny warnings 2> /dev/null \
-            || echo -e "\nClippy is angry in '${x}'." \
-            || exit 1
+            || { echo -e "\nClippy is angry in '${x}'."; exit 1; }
     '';
 
     build-bin = dir: bin: /*bash*/ ''
