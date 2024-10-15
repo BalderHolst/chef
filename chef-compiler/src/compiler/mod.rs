@@ -3,11 +3,7 @@
 
 use std::rc::Rc;
 
-use crate::{
-    ast::{DetVar, AST},
-    cli::Opts,
-    diagnostics::CompilationResult,
-};
+use crate::{ast::AST, cli::Opts, diagnostics::CompilationResult};
 
 use self::{
     graph::{DetSig, Graph},
@@ -24,7 +20,7 @@ mod signal_assigner;
 pub const RESERVED_SIGNAL: &str = "signal-dot";
 
 /// Compile and abstract syntax tree in to a graph and report errors.
-pub fn compile(ast: AST<DetVar>, opts: Rc<Opts>) -> CompilationResult<Graph<DetSig>> {
+pub fn compile(ast: AST, opts: Rc<Opts>) -> CompilationResult<Graph<DetSig>> {
     let mut graph_compiler = GraphCompiler::new(ast);
     graph_compiler.compile()?;
     let loose_graph = graph_compiler.get_block_graph("main", None, None)?;

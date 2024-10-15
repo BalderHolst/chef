@@ -1,33 +1,15 @@
 use std::collections::HashMap;
 
 use crate::ast::{
-    self, AssignmentType, BinaryOperator, DefinitionKind, DetVar, DynBlockVersion, VariableId,
-    VariableSignalType, VariableType, AST,
+    AssignmentType, BinaryExpression, BinaryOperator, Block, BlockLinkExpression, Declaration,
+    DeclarationDefinition, Definition, DefinitionKind, DelayExpression, Directive, DynBlockVersion,
+    Expression, ExpressionKind, GateExpression, IndexExpression, NegativeExpression,
+    PickExpression, SizeOfExpression, Statement, StatementKind, TupleDeclarationDefinition,
+    VariableId, VariableRef, VariableSignalType, VariableType, WhenStatement, AST,
 };
 use crate::compiler::graph::*;
 use crate::diagnostics::{CompilationError, CompilationResult};
 use crate::error;
-
-type Block = ast::Block<DetVar>;
-type Statement = ast::Statement<DetVar>;
-type Declaration = ast::Declaration<DetVar>;
-type DeclarationDefinition = ast::DeclarationDefinition<DetVar>;
-type Definition = ast::Definition<DetVar>;
-type TupleDeclarationDefinition = ast::TupleDeclarationDefinition<DetVar>;
-type BinaryExpression = ast::BinaryExpression<DetVar>;
-type BlockLinkExpression = ast::BlockLinkExpression<DetVar>;
-type DelayExpression = ast::DelayExpression<DetVar>;
-type Expression = ast::Expression<DetVar>;
-type ExpressionKind = ast::ExpressionKind<DetVar>;
-type IndexExpression = ast::IndexExpression<DetVar>;
-type NegativeExpression = ast::NegativeExpression<DetVar>;
-type PickExpression = ast::PickExpression<DetVar>;
-type SizeOfExpression = ast::SizeOfExpression<DetVar>;
-type GateExpression = ast::GateExpression<DetVar>;
-type StatementKind = ast::StatementKind<DetVar>;
-type VariableRef = ast::VariableRef<DetVar>;
-type WhenStatement = ast::WhenStatement<DetVar>;
-type Directive = ast::Directive<DetVar>;
 
 struct Scope {
     variables: HashMap<VariableId, (NId, LooseSig)>,
@@ -164,14 +146,14 @@ impl Namespace {
 }
 
 pub struct GraphCompiler {
-    ast: AST<DetVar>,
+    ast: AST,
     next_anysignal: u64,
     namespaces: HashMap<String, Namespace>,
     scopes: Vec<Scope>,
 }
 
 impl GraphCompiler {
-    pub fn new(ast: AST<DetVar>) -> Self {
+    pub fn new(ast: AST) -> Self {
         Self {
             ast,
             next_anysignal: 0,
@@ -222,11 +204,13 @@ impl GraphCompiler {
         let mut graph = Graph::new();
         self.enter_scope();
         for input_var in block.inputs.clone() {
+            let input_var = input_var.borrow();
             let t = self.variable_type_to_loose_sig(&input_var.type_);
             self.declare_input_variable(&mut graph, input_var.id, t, input_var.name.clone())?;
         }
 
         for output_var in block.outputs.clone() {
+            let output_var = output_var.borrow();
             let t = self.variable_type_to_loose_sig(&output_var.type_);
             self.declare_output_variable(&mut graph, output_var.name.clone(), output_var.id, t)?;
         }
@@ -270,7 +254,7 @@ impl GraphCompiler {
         graph: &mut Graph<LooseSig>,
         dec: Declaration,
     ) -> Result<(), CompilationError> {
-        let var = &dec.variable;
+        let var = &dec.variable.borrow();
         let var_type = self.variable_type_to_loose_sig(&var.type_);
 
         // Wire up and define memory cell variables.
@@ -306,7 +290,7 @@ impl GraphCompiler {
         dec_def: DeclarationDefinition,
         gate: Option<(NId, LooseSig)>,
     ) -> Result<(), CompilationError> {
-        let var = &dec_def.variable;
+        let var = &dec_def.variable.borrow();
         let var_type = self.variable_type_to_loose_sig(&var.type_);
 
         // Infer types of constant when directly assigned to variable
@@ -357,7 +341,7 @@ impl GraphCompiler {
         for (i, _) in output_nodes.iter().enumerate() {
             let (output_nid, out_type) = &output_nodes[i];
             let def = &tuple_dec_def.defs[i];
-            let var = &def.variable;
+            let var = &def.variable.borrow();
             let (var_nid, var_type) = match &def.assignment_type {
                 AssignmentType::Declaration => {
                     let t = self.variable_type_to_loose_sig(&var.type_);
@@ -395,7 +379,7 @@ impl GraphCompiler {
         def: Definition,
         gate: Option<(NId, LooseSig)>,
     ) -> Result<(), CompilationError> {
-        let var = &def.variable;
+        let var = &def.variable.borrow();
 
         let (_var_nid, var_type) = match self.search_scope(var.id) {
             Some(t) => t,
@@ -516,7 +500,7 @@ impl GraphCompiler {
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
         // Get the referenced variable.
-        let var = &var_ref.var;
+        let var = var_ref.var.borrow();
         let (var_ref_nid, var_type) = self
             .search_scope(var.id)
             .unwrap_or_else(|| panic!("Variable references should always point to defined variables. Could not find var '{}' with id {}.", var.name, var.id));
@@ -560,7 +544,7 @@ impl GraphCompiler {
         out_type: Option<LooseSig>,
     ) -> Result<(NId, LooseSig), CompilationError> {
         let var_ref = pick_expr.from.clone();
-        let var = var_ref.var;
+        let var = var_ref.var.borrow();
 
         let (var_out_nid, _) = self.search_scope(var.id).ok_or(
             error!("No variable with the name \'{}\', ", var.name
@@ -734,7 +718,8 @@ impl GraphCompiler {
             ))?;
 
         let block_name = ast_block.name.clone();
-        let out_type = self.variable_type_to_loose_sig(&ast_block.outputs[0].type_.clone());
+        let out = ast_block.outputs[0].borrow().clone();
+        let out_type = self.variable_type_to_loose_sig(&out.type_);
         let block_graph = self.get_block_graph(
             &block_name,
             block_link_expr.namespace.as_ref(),

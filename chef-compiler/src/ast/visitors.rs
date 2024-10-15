@@ -13,7 +13,8 @@ use super::{
     BinaryExpression, Block, BlockLinkExpression, Declaration, DeclarationDefinition, Definition,
     DelayExpression, Directive, DynBlock, Expression, ExpressionKind, GateExpression, Import,
     IndexExpression, NegativeExpression, ParenthesizedExpression, PickExpression, SizeOfExpression,
-    Statement, StatementKind, TupleDeclarationDefinition, Variable, VariableRef, WhenStatement,
+    Statement, StatementKind, TupleDeclarationDefinition, Var, Variable, VariableRef,
+    WhenStatement,
 };
 
 // For documentation references
@@ -24,15 +25,12 @@ use super::AST;
 macro_rules! make_visitor {
     {doc: $doc:literal, name: $name:ident, ref: $($ref:tt)+} => {
         #[doc = $doc]
-        pub trait $name<V>
-        where
-            V: Variable
-        {
+        pub trait $name {
 
-            fn visit_directive(&mut self, directive: $($ref)+ Directive<V>) {
+            fn visit_directive(&mut self, directive: $($ref)+ Directive) {
                 self.do_visit_directive(directive);
             }
-            fn do_visit_directive(&mut self, directive: $($ref)+ Directive<V>) {
+            fn do_visit_directive(&mut self, directive: $($ref)+ Directive) {
                 match directive {
                     Directive::Block(block) => {
                         self.visit_block(block);
@@ -46,15 +44,15 @@ macro_rules! make_visitor {
                 }
             }
 
-            fn visit_import(&mut self, import: $($ref)+ Import<V>) {
+            fn visit_import(&mut self, import: $($ref)+ Import) {
                 self.do_visit_import(import);
             }
-            fn do_visit_import(&mut self, import: $($ref)+ Import<V>) {}
+            fn do_visit_import(&mut self, import: $($ref)+ Import) {}
 
-            fn visit_dyn_block(&mut self, dyn_block: $($ref)+ DynBlock<V>) {
+            fn visit_dyn_block(&mut self, dyn_block: $($ref)+ DynBlock) {
                 self.do_visit_dyn_block(dyn_block);
             }
-            fn do_visit_dyn_block(&mut self, dyn_block: $($ref)+ DynBlock<V>) {
+            fn do_visit_dyn_block(&mut self, dyn_block: $($ref)+ DynBlock) {
                 for version in $($ref)+ dyn_block.versions {
                     self.visit_block(version);
                 }
@@ -64,10 +62,10 @@ macro_rules! make_visitor {
 
             fn visit_unknown(&mut self) { }
 
-            fn visit_block(&mut self, block: $($ref)+ Block<V>) {
+            fn visit_block(&mut self, block: $($ref)+ Block) {
                 self.do_visit_block(block);
             }
-            fn do_visit_block(&mut self, block: $($ref)+ Block<V>) {
+            fn do_visit_block(&mut self, block: $($ref)+ Block) {
                 for input in $($ref)+ block.inputs {
                     self.visit_variable(input);
                 }
@@ -79,10 +77,10 @@ macro_rules! make_visitor {
                 }
             }
 
-            fn visit_statement(&mut self, statement: $($ref)+ Statement<V>) {
+            fn visit_statement(&mut self, statement: $($ref)+ Statement) {
                 self.do_visit_statement(statement);
             }
-            fn do_visit_statement(&mut self, statement: $($ref)+ Statement<V>) {
+            fn do_visit_statement(&mut self, statement: $($ref)+ Statement) {
                 match $($ref)+ statement.kind {
                     StatementKind::Declaration(declaration) => {
                         self.visit_declaration(declaration);
@@ -102,10 +100,10 @@ macro_rules! make_visitor {
                 }
             }
 
-            fn visit_expression(&mut self, expression: $($ref)+ Expression<V>) {
+            fn visit_expression(&mut self, expression: $($ref)+ Expression) {
                 self.do_visit_expression(expression);
             }
-            fn do_visit_expression(&mut self, expression: $($ref)+ Expression<V>) {
+            fn do_visit_expression(&mut self, expression: $($ref)+ Expression) {
                 match $($ref)+ expression.kind {
                     ExpressionKind::Int(number) => {
                         self.visit_number(number);
@@ -146,58 +144,58 @@ macro_rules! make_visitor {
                 }
             }
 
-            fn visit_declaration_definition(&mut self, dec_def: $($ref)+ DeclarationDefinition<V>) {
+            fn visit_declaration_definition(&mut self, dec_def: $($ref)+ DeclarationDefinition) {
                 self.do_visit_declaration_definition(dec_def);
             }
-            fn do_visit_declaration_definition(&mut self, dec_def: $($ref)+ DeclarationDefinition<V>) {
+            fn do_visit_declaration_definition(&mut self, dec_def: $($ref)+ DeclarationDefinition) {
                 self.visit_variable($($ref)+ dec_def.variable);
                 self.visit_expression($($ref)+ dec_def.expression);
             }
 
-            fn visit_declaration(&mut self, dec: $($ref)+ Declaration<V>) {
+            fn visit_declaration(&mut self, dec: $($ref)+ Declaration) {
                 self.do_visit_declaration(dec);
             }
-            fn do_visit_declaration(&mut self, dec: $($ref)+ Declaration<V>) {
+            fn do_visit_declaration(&mut self, dec: $($ref)+ Declaration) {
                 self.visit_variable($($ref)+ dec.variable);
             }
 
-            fn visit_definition(&mut self, def: $($ref)+ Definition<V>) {
+            fn visit_definition(&mut self, def: $($ref)+ Definition) {
                 self.do_visit_definition(def);
             }
-            fn do_visit_definition(&mut self, def: $($ref)+ Definition<V>) {
+            fn do_visit_definition(&mut self, def: $($ref)+ Definition) {
                 self.visit_expression($($ref)+ def.expression);
             }
 
-            fn visit_size_of_expression(&mut self, size: $($ref)+ SizeOfExpression<V>) {
+            fn visit_size_of_expression(&mut self, size: $($ref)+ SizeOfExpression) {
                 self.do_visit_size_of_expression(size);
             }
-            fn do_visit_size_of_expression(&mut self, size: $($ref)+ SizeOfExpression<V>) {
+            fn do_visit_size_of_expression(&mut self, size: $($ref)+ SizeOfExpression) {
                 self.visit_expression($($ref)+ size.expression);
             }
 
-            fn visit_gate_expression(&mut self, gate: $($ref)+ GateExpression<V>) {
+            fn visit_gate_expression(&mut self, gate: $($ref)+ GateExpression) {
                 self.do_visit_gate_expression(gate);
             }
-            fn do_visit_gate_expression(&mut self, gate: $($ref)+ GateExpression<V>) {
+            fn do_visit_gate_expression(&mut self, gate: $($ref)+ GateExpression) {
                 self.visit_expression($($ref)+ gate.gated_expr);
                 self.visit_expression($($ref)+ gate.left);
                 self.visit_expression($($ref)+ gate.right);
             }
 
-            fn visit_when_statement(&mut self, when_statement: $($ref)+ WhenStatement<V>) {
+            fn visit_when_statement(&mut self, when_statement: $($ref)+ WhenStatement) {
                 self.do_visit_when_statement(when_statement);
             }
-            fn do_visit_when_statement(&mut self, when: $($ref)+ WhenStatement<V>) {
+            fn do_visit_when_statement(&mut self, when: $($ref)+ WhenStatement) {
                 self.visit_expression($($ref)+ when.condition);
                 for statement in $($ref)+ when.statements {
                     self.visit_statement(statement);
                 }
             }
 
-            fn visit_tuple_definition_declaration_statement(&mut self, tuple_dec_def: $($ref)+ TupleDeclarationDefinition<V>) {
+            fn visit_tuple_definition_declaration_statement(&mut self, tuple_dec_def: $($ref)+ TupleDeclarationDefinition) {
                 self.do_visit_tuple_declaration_definition_statement(tuple_dec_def);
             }
-            fn do_visit_tuple_declaration_definition_statement(&mut self, tuple_dec_def: $($ref)+ TupleDeclarationDefinition<V>) {
+            fn do_visit_tuple_declaration_definition_statement(&mut self, tuple_dec_def: $($ref)+ TupleDeclarationDefinition) {
                 for def in $($ref)+ tuple_dec_def.defs {
                     self.visit_variable($($ref)+ def.variable);
                     self.visit_variable($($ref)+ def.block_variable);
@@ -215,67 +213,67 @@ macro_rules! make_visitor {
             }
             fn do_visit_bool(&mut self, b: $($ref)+ bool) {}
 
-            fn visit_variable(&mut self, var: $($ref)+ std::rc::Rc<V>) {
+            fn visit_variable(&mut self, var: $($ref)+ std::rc::Rc<Var>) {
                 self.do_visit_variable(var);
             }
-            fn do_visit_variable(&mut self, var: $($ref)+ std::rc::Rc<V>) {}
+            fn do_visit_variable(&mut self, var: $($ref)+ std::rc::Rc<Var>) {}
 
-            fn visit_variable_ref(&mut self, var: $($ref)+ VariableRef<V>) {
+            fn visit_variable_ref(&mut self, var: $($ref)+ VariableRef) {
                 self.do_visit_variable_ref(var);
             }
-            fn do_visit_variable_ref(&mut self, var: $($ref)+ VariableRef<V>) {
+            fn do_visit_variable_ref(&mut self, var: $($ref)+ VariableRef) {
                 self.visit_variable($($ref)+ var.var);
             }
 
-            fn visit_binary_expression(&mut self, bin_expr: $($ref)+ BinaryExpression<V>) {
+            fn visit_binary_expression(&mut self, bin_expr: $($ref)+ BinaryExpression) {
                 self.do_visit_binary_expression(bin_expr);
             }
-            fn do_visit_binary_expression(&mut self, bin_expr: $($ref)+ BinaryExpression<V>) {
+            fn do_visit_binary_expression(&mut self, bin_expr: $($ref)+ BinaryExpression) {
                 self.visit_expression($($ref)+ bin_expr.left);
                 self.visit_expression($($ref)+ bin_expr.right);
             }
 
-            fn visit_parenthesized_expression(&mut self, paren_expr: $($ref)+ ParenthesizedExpression<V>) {
+            fn visit_parenthesized_expression(&mut self, paren_expr: $($ref)+ ParenthesizedExpression) {
                 self.do_visit_parenthesized_expression(paren_expr);
             }
-            fn do_visit_parenthesized_expression(&mut self, paren_expr: $($ref)+ ParenthesizedExpression<V>) {
+            fn do_visit_parenthesized_expression(&mut self, paren_expr: $($ref)+ ParenthesizedExpression) {
                 self.visit_expression($($ref)+ paren_expr.expression);
             }
 
-            fn visit_negative_expression(&mut self, neg_expr: $($ref)+ NegativeExpression<V>) {
+            fn visit_negative_expression(&mut self, neg_expr: $($ref)+ NegativeExpression) {
                 self.do_visit_negative_expression(neg_expr);
             }
-            fn do_visit_negative_expression(&mut self, neg_expr: $($ref)+ NegativeExpression<V>) {
+            fn do_visit_negative_expression(&mut self, neg_expr: $($ref)+ NegativeExpression) {
                 self.visit_expression($($ref)+ neg_expr.expression);
             }
 
-            fn visit_pick_expression(&mut self, expr: $($ref)+ PickExpression<V>) {
+            fn visit_pick_expression(&mut self, expr: $($ref)+ PickExpression) {
                 self.do_visit_pick_expression(expr);
             }
-            fn do_visit_pick_expression(&mut self, pick_expr: $($ref)+ PickExpression<V>) {
+            fn do_visit_pick_expression(&mut self, pick_expr: $($ref)+ PickExpression) {
                 self.visit_variable_ref($($ref)+ pick_expr.from);
             }
 
-            fn visit_index_expression(&mut self, expr: $($ref)+ IndexExpression<V>) {
+            fn visit_index_expression(&mut self, expr: $($ref)+ IndexExpression) {
                 self.do_visit_index_expression(expr);
             }
-            fn do_visit_index_expression(&mut self, index_expr: $($ref)+ IndexExpression<V>) {
+            fn do_visit_index_expression(&mut self, index_expr: $($ref)+ IndexExpression) {
                 self.visit_variable_ref($($ref)+ index_expr.var_ref);
             }
 
-            fn visit_block_link_expression(&mut self, link: $($ref)+ BlockLinkExpression<V>) {
+            fn visit_block_link_expression(&mut self, link: $($ref)+ BlockLinkExpression) {
                 self.do_visit_block_link_expression(link);
             }
-            fn do_visit_block_link_expression(&mut self, link_expr: $($ref)+ BlockLinkExpression<V>) {
+            fn do_visit_block_link_expression(&mut self, link_expr: $($ref)+ BlockLinkExpression) {
                 for input in $($ref)+ link_expr.inputs {
                     self.visit_expression(input);
                 }
             }
 
-            fn visit_delay_expression(&mut self, delay: $($ref)+ DelayExpression<V>) {
+            fn visit_delay_expression(&mut self, delay: $($ref)+ DelayExpression) {
                 self.do_visit_delay_expression(delay);
             }
-            fn do_visit_delay_expression(&mut self, delay: $($ref)+ DelayExpression<V>) {
+            fn do_visit_delay_expression(&mut self, delay: $($ref)+ DelayExpression) {
                 self.visit_expression($($ref)+ delay.expression);
             }
         }

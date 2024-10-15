@@ -9,10 +9,10 @@ use std::rc::Rc;
 
 use crate::{diagnostics::DiagnosticsBagRef, text::TextSpan, utils::BASE_SIGNALS};
 
-use super::{visitors::Visitor, DefinitionKind, DetVar, ExpressionReturnType, Variable, AST};
+use super::{visitors::Visitor, DefinitionKind, ExpressionReturnType, Var, Variable, AST};
 
 /// Type check an [AST].
-pub fn check(ast: &AST<DetVar>, diagnostics_bag: DiagnosticsBagRef) {
+pub fn check(ast: &AST, diagnostics_bag: DiagnosticsBagRef) {
     let mut checker = TypeChecker {
         ast,
         diagnostics_bag,
@@ -23,7 +23,7 @@ pub fn check(ast: &AST<DetVar>, diagnostics_bag: DiagnosticsBagRef) {
 /// The type checker.
 struct TypeChecker<'a> {
     diagnostics_bag: DiagnosticsBagRef,
-    ast: &'a AST<DetVar>,
+    ast: &'a AST,
 }
 
 impl TypeChecker<'_> {
@@ -127,7 +127,8 @@ impl TypeChecker<'_> {
     }
 
     /// Check if a variable is a valid signal.
-    fn check_variable(&mut self, var: &Rc<DetVar>) {
+    fn check_variable(&mut self, var: &Rc<Var>) {
+        let var = var.borrow();
         if let Some(sig) = var.type_.signal() {
             self.report_if_invalid_signal(sig.as_str(), &var.span)
         }
@@ -135,8 +136,8 @@ impl TypeChecker<'_> {
 }
 
 // TODO: Variable ref
-impl Visitor<DetVar> for TypeChecker<'_> {
-    fn visit_block_link_expression(&mut self, link: &super::BlockLinkExpression<DetVar>) {
+impl Visitor for TypeChecker<'_> {
+    fn visit_block_link_expression(&mut self, link: &super::BlockLinkExpression) {
         let block_inputs = self
             .ast
             .get_block_by_name(&link.name, link.dyn_block_version)
@@ -167,7 +168,7 @@ impl Visitor<DetVar> for TypeChecker<'_> {
                         link.span.clone(),
                         format!(
                             "Incorrect argument '{}' for block `{}`. Expected `{}`, found `{}`.",
-                            &block_input.name,
+                            &block_input.borrow().name,
                             &link.name,
                             &input.return_type(),
                             &block_input.return_type()
@@ -180,14 +181,14 @@ impl Visitor<DetVar> for TypeChecker<'_> {
     fn visit_number(&mut self, _number: &i32) {}
     fn visit_bool(&mut self, _value: &bool) {}
 
-    fn visit_pick_expression(&mut self, pick: &super::PickExpression<DetVar>) {
+    fn visit_pick_expression(&mut self, pick: &super::PickExpression) {
         self.report_if_invalid_signal(&pick.pick_signal, &pick.span)
     }
 
-    fn visit_variable_ref(&mut self, _var: &super::VariableRef<DetVar>) {}
-    fn visit_index_expression(&mut self, _expr: &super::IndexExpression<DetVar>) {}
+    fn visit_variable_ref(&mut self, _var: &super::VariableRef) {}
+    fn visit_index_expression(&mut self, _expr: &super::IndexExpression) {}
 
-    fn visit_definition(&mut self, definition: &super::Definition<DetVar>) {
+    fn visit_definition(&mut self, definition: &super::Definition) {
         self.check_variable(&definition.variable);
         let expr = &definition.expression;
         let expr_type = expr.return_type();
@@ -196,7 +197,7 @@ impl Visitor<DetVar> for TypeChecker<'_> {
         self.do_visit_definition(definition);
     }
 
-    fn visit_declaration_definition(&mut self, assignment: &super::DeclarationDefinition<DetVar>) {
+    fn visit_declaration_definition(&mut self, assignment: &super::DeclarationDefinition) {
         self.check_variable(&assignment.variable);
         let expr = &assignment.expression;
         let expr_type = expr.return_type();
@@ -205,11 +206,11 @@ impl Visitor<DetVar> for TypeChecker<'_> {
         self.do_visit_declaration_definition(assignment);
     }
 
-    fn visit_statement(&mut self, statement: &super::Statement<DetVar>) {
+    fn visit_statement(&mut self, statement: &super::Statement) {
         self.do_visit_statement(statement);
     }
 
-    fn visit_block(&mut self, block: &super::Block<DetVar>) {
+    fn visit_block(&mut self, block: &super::Block) {
         for input in &block.inputs {
             self.check_variable(input)
         }
@@ -221,14 +222,14 @@ impl Visitor<DetVar> for TypeChecker<'_> {
         self.do_visit_block(block);
     }
 
-    fn visit_expression(&mut self, expression: &super::Expression<DetVar>) {
+    fn visit_expression(&mut self, expression: &super::Expression) {
         let expr_type = expression.return_type();
         self.check_expr_type(&expr_type, &expression.span);
 
         self.do_visit_expression(expression);
     }
 
-    fn visit_binary_expression(&mut self, bin_expr: &super::BinaryExpression<DetVar>) {
+    fn visit_binary_expression(&mut self, bin_expr: &super::BinaryExpression) {
         let left_type = bin_expr.left.return_type();
         let right_type = bin_expr.right.return_type();
 

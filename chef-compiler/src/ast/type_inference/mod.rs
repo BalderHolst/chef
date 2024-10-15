@@ -2,19 +2,19 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::ast::{ExpressionReturnType, VariableType};
 
-use super::{visitors::MutVisitor, Directive, DynBlockVersion, MutVar, AST};
+use super::{visitors::MutVisitor, Directive, DynBlockVersion, Var, AST};
 
-pub fn infer(ast: &mut AST<MutVar>) {
+pub fn infer(ast: &mut AST) {
     TypeInferer::infer(ast)
 }
 
 struct TypeInferer {
     did_work: bool,
-    block_outputs: HashMap<(String, Option<DynBlockVersion>), Vec<Rc<MutVar>>>,
+    block_outputs: HashMap<(String, Option<DynBlockVersion>), Vec<Rc<Var>>>,
 }
 
 impl TypeInferer {
-    fn infer(ast: &mut AST<MutVar>) {
+    fn infer(ast: &mut AST) {
         let mut inferer = Self::new();
 
         for block in ast.iter_blocks() {
@@ -48,7 +48,7 @@ impl TypeInferer {
         }
     }
 
-    fn infer_block(&mut self, block: &mut super::Block<MutVar>) {
+    fn infer_block(&mut self, block: &mut super::Block) {
         loop {
             if !self.did_work {
                 self.did_work = true;
@@ -62,8 +62,8 @@ impl TypeInferer {
     }
 }
 
-impl MutVisitor<MutVar> for TypeInferer {
-    fn visit_declaration_definition(&mut self, dec_def: &mut super::DeclarationDefinition<MutVar>) {
+impl MutVisitor for TypeInferer {
+    fn visit_declaration_definition(&mut self, dec_def: &mut super::DeclarationDefinition) {
         {
             let var = &dec_def.variable;
             let var_type = var.borrow().type_.clone();
@@ -77,7 +77,7 @@ impl MutVisitor<MutVar> for TypeInferer {
         self.do_visit_declaration_definition(dec_def);
     }
 
-    fn visit_definition(&mut self, def: &mut super::Definition<MutVar>) {
+    fn visit_definition(&mut self, def: &mut super::Definition) {
         {
             let var = &def.variable;
             let var_type = var.borrow().type_.clone();
@@ -93,7 +93,7 @@ impl MutVisitor<MutVar> for TypeInferer {
         self.do_visit_definition(def);
     }
 
-    fn visit_block_link_expression(&mut self, link: &mut super::BlockLinkExpression<MutVar>) {
+    fn visit_block_link_expression(&mut self, link: &mut super::BlockLinkExpression) {
         if link.return_type == ExpressionReturnType::Infered {
             let outputs = self
                 .block_outputs
@@ -116,7 +116,7 @@ impl MutVisitor<MutVar> for TypeInferer {
         self.do_visit_block_link_expression(link);
     }
 
-    fn visit_binary_expression(&mut self, bin_expr: &mut super::BinaryExpression<MutVar>) {
+    fn visit_binary_expression(&mut self, bin_expr: &mut super::BinaryExpression) {
         if bin_expr.return_type == ExpressionReturnType::Infered {
             let left_type = bin_expr.left.return_type();
             let right_type = bin_expr.right.return_type();
