@@ -1,6 +1,8 @@
 use clap::Parser;
+use clap_stdin::MaybeStdin;
 
 #[derive(Debug, Parser)]
 pub struct Opts {
-    pub blueprint: String,
+    #[clap(default_value = "-")]
+    pub blueprint: MaybeStdin<String>,
 }

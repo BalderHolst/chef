@@ -8,13 +8,15 @@ mod cli;
 mod gui;
 
 fn main() -> ExitCode {
-    let mut opts = cli::Opts::parse();
+    let opts = cli::Opts::parse();
 
-    if let Ok(p) = fs::read_to_string(&opts.blueprint) {
-        opts.blueprint = p;
+    let mut blueprint = opts.blueprint.to_string();
+
+    if let Ok(p) = fs::read_to_string(&blueprint) {
+        blueprint = p;
     }
 
-    match fb::BlueprintCodec::decode_string(&opts.blueprint) {
+    match fb::BlueprintCodec::decode_string(&blueprint) {
         Ok(container) => gui::run(container),
         Err(e) => {
             eprintln!("Invalid blueprint string: {e}.");
