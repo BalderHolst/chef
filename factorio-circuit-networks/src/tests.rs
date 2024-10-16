@@ -69,46 +69,46 @@ fn single_roundtrip() {
 #[test]
 fn roundtrip_combinators() {
     let kinds = vec![
-        EntityKind::ArithmeticCombinator {
+        EntityKind::ArithmeticCombinator(ArithmeticCombinator {
             left: EntitySignal::constant(10),
             right: EntitySignal::constant(-200),
             output: EntitySignal::signal("signal-A"),
             operator: fbo::ArithmeticOperation::Modulo,
-        },
-        EntityKind::ArithmeticCombinator {
+        }),
+        EntityKind::ArithmeticCombinator(ArithmeticCombinator {
             left: EntitySignal::signal("car"),
             right: EntitySignal::constant(28),
             output: EntitySignal::signal("signal-A"),
             operator: fbo::ArithmeticOperation::Subtract,
-        },
-        EntityKind::ArithmeticCombinator {
+        }),
+        EntityKind::ArithmeticCombinator(ArithmeticCombinator {
             left: EntitySignal::signal("locomotive"),
             right: EntitySignal::constant(-421589),
             output: EntitySignal::signal("oil"),
             operator: fbo::ArithmeticOperation::LeftShift,
-        },
-        EntityKind::DeciderCombinator {
+        }),
+        EntityKind::DeciderCombinator(DeciderCombinator {
             left: EntitySignal::signal("signal-8"),
             right: EntitySignal::constant(-12),
             output: EntitySignal::signal("signal-Q"),
             operator: fbo::DeciderComparator::GreaterThanOrEqual,
             copy_count_from_input: false,
-        },
-        EntityKind::DeciderCombinator {
+        }),
+        EntityKind::DeciderCombinator(DeciderCombinator {
             left: EntitySignal::signal("signal-A"),
             right: EntitySignal::constant(-1002),
             output: EntitySignal::signal("signal-G"),
             operator: fbo::DeciderComparator::LessThan,
             copy_count_from_input: false,
-        },
-        EntityKind::DeciderCombinator {
+        }),
+        EntityKind::DeciderCombinator(DeciderCombinator {
             left: EntitySignal::signal("something"),
             right: EntitySignal::constant(-19310212),
             output: EntitySignal::signal("signal-Q"),
             operator: fbo::DeciderComparator::GreaterThanOrEqual,
             copy_count_from_input: true,
-        },
-        EntityKind::ConstantCombinator {
+        }),
+        EntityKind::ConstantCombinator(ConstantCombinator {
             signals: {
                 let mut s = BTreeMap::new();
                 s.insert(
@@ -125,8 +125,8 @@ fn roundtrip_combinators() {
                 );
                 s
             },
-        },
-        EntityKind::ConstantCombinator {
+        }),
+        EntityKind::ConstantCombinator(ConstantCombinator {
             signals: {
                 let mut s = BTreeMap::new();
                 s.insert(
@@ -143,7 +143,7 @@ fn roundtrip_combinators() {
                 );
                 s
             },
-        },
+        }),
     ];
 
     kinds.into_iter().for_each(|kind| {

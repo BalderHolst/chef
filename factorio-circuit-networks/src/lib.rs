@@ -74,32 +74,41 @@ impl Entity {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ArithmeticCombinator {
+    left: EntitySignal,
+    right: EntitySignal,
+    output: EntitySignal,
+    operator: fbo::ArithmeticOperation,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DeciderCombinator {
+    left: EntitySignal,
+    right: EntitySignal,
+    output: EntitySignal,
+    operator: fbo::DeciderComparator,
+    copy_count_from_input: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConstantCombinator {
+    signals: BTreeMap<fbo::OneBasedIndex, ConstantSignal>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum EntityKind {
-    ArithmeticCombinator {
-        left: EntitySignal,
-        right: EntitySignal,
-        output: EntitySignal,
-        operator: fbo::ArithmeticOperation,
-    },
-    DeciderCombinator {
-        left: EntitySignal,
-        right: EntitySignal,
-        output: EntitySignal,
-        operator: fbo::DeciderComparator,
-        copy_count_from_input: bool,
-    },
-    ConstantCombinator {
-        signals: BTreeMap<fbo::OneBasedIndex, ConstantSignal>,
-    },
+    ArithmeticCombinator(ArithmeticCombinator),
+    DeciderCombinator(DeciderCombinator),
+    ConstantCombinator(ConstantCombinator),
     Other(String),
 }
 
 impl EntityKind {
     pub fn name(&self) -> &str {
         match self {
-            EntityKind::ArithmeticCombinator { .. } => "arithmetic-combinator",
-            EntityKind::DeciderCombinator { .. } => "decider-combinator",
-            EntityKind::ConstantCombinator { .. } => "constant-combinator",
+            EntityKind::ArithmeticCombinator(_) => "arithmetic-combinator",
+            EntityKind::DeciderCombinator(_) => "decider-combinator",
+            EntityKind::ConstantCombinator(_) => "constant-combinator",
             EntityKind::Other(name) => name.as_str(),
         }
     }
@@ -242,12 +251,12 @@ impl From<Entity> for fbo::Entity {
         }
 
         match entity.kind {
-            EntityKind::ArithmeticCombinator {
+            EntityKind::ArithmeticCombinator(ArithmeticCombinator {
                 left,
                 right,
                 output,
                 operator,
-            } => {
+            }) => {
                 let (first_constant, first_signal) = entity_signal_to_signal_pair(left);
                 let (second_constant, second_signal) = entity_signal_to_signal_pair(right);
                 let output_signal = entity_signal_to_signal_pair(output).1;
@@ -260,13 +269,13 @@ impl From<Entity> for fbo::Entity {
                     output_signal,
                 });
             }
-            EntityKind::DeciderCombinator {
+            EntityKind::DeciderCombinator(DeciderCombinator {
                 left,
                 right,
                 output,
                 operator,
                 copy_count_from_input,
-            } => {
+            }) => {
                 let (first_constant, first_signal) = entity_signal_to_signal_pair(left);
                 assert_eq!(
                     first_constant, None,
@@ -284,7 +293,7 @@ impl From<Entity> for fbo::Entity {
                     copy_count_from_input: copy_count_from_input.then_some(true),
                 });
             }
-            EntityKind::ConstantCombinator { signals } => {
+            EntityKind::ConstantCombinator(ConstantCombinator { signals }) => {
                 control_behaviour.filters = Some(
                     signals
                         .into_iter()
@@ -390,12 +399,12 @@ impl From<fbo::Entity> for Entity {
                     .output_signal
                     .as_ref()
                     .map_or(EntitySignal::unknown(), |s| EntitySignal::signal(&s.name));
-                EntityKind::ArithmeticCombinator {
+                EntityKind::ArithmeticCombinator(ArithmeticCombinator {
                     left,
                     right,
                     output,
                     operator: c.operation.clone(),
-                }
+                })
             }
             "decider-combinator" => {
                 let c = fbo_entity
@@ -419,13 +428,13 @@ impl From<fbo::Entity> for Entity {
                     .as_ref()
                     .map_or(EntitySignal::unknown(), |s| EntitySignal::signal(&s.name));
 
-                EntityKind::DeciderCombinator {
+                EntityKind::DeciderCombinator(DeciderCombinator {
                     left,
                     right,
                     output,
                     operator: c.comparator.clone(),
                     copy_count_from_input: c.copy_count_from_input.unwrap_or_default(),
-                }
+                })
             }
             "constant-combinator" => {
                 let signals = (|| {
@@ -448,7 +457,7 @@ impl From<fbo::Entity> for Entity {
                 })()
                 .unwrap_or(BTreeMap::default());
 
-                EntityKind::ConstantCombinator { signals }
+                EntityKind::ConstantCombinator(ConstantCombinator { signals })
             }
             _ => EntityKind::Other(fbo_entity.name),
         };
