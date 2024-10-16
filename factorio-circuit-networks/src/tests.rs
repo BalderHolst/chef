@@ -84,7 +84,7 @@ fn roundtrip_combinators() {
             operator: fbo::ArithmeticOperation::LeftShift,
         },
         EntityKind::DeciderCombinator {
-            left: EntitySignal::constant(12),
+            left: EntitySignal::signal("signal-8"),
             right: EntitySignal::constant(-12),
             output: EntitySignal::signal("signal-Q"),
             operator: fbo::DeciderComparator::GreaterThanOrEqual,
@@ -98,8 +98,8 @@ fn roundtrip_combinators() {
             copy_count_from_input: false,
         },
         EntityKind::DeciderCombinator {
-            left: EntitySignal::constant(-19310212),
-            right: EntitySignal::constant(-1312),
+            left: EntitySignal::signal("something"),
+            right: EntitySignal::constant(-19310212),
             output: EntitySignal::signal("signal-Q"),
             operator: fbo::DeciderComparator::GreaterThanOrEqual,
             copy_count_from_input: true,

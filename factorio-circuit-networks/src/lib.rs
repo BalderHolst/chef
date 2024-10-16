@@ -267,7 +267,12 @@ impl From<Entity> for fbo::Entity {
                 operator,
                 copy_count_from_input,
             } => {
-                let (_, first_signal) = entity_signal_to_signal_pair(left);
+                let (first_constant, first_signal) = entity_signal_to_signal_pair(left);
+                assert_eq!(
+                    first_constant, None,
+                    "Decider Combinators cannot have constant on left input"
+                );
+
                 let (constant, second_signal) = entity_signal_to_signal_pair(right);
                 let output_signal = entity_signal_to_signal_pair(output).1;
                 control_behaviour.decider_conditions = Some(fbo::DeciderConditions {
@@ -404,10 +409,11 @@ impl From<fbo::Entity> for Entity {
                     .first_signal
                     .as_ref()
                     .map_or(EntitySignal::unknown(), |s| EntitySignal::signal(&s.name));
-                let right = c
-                    .second_signal
-                    .as_ref()
-                    .map_or(EntitySignal::unknown(), |s| EntitySignal::signal(&s.name));
+                let right = c.second_signal.as_ref().map_or(
+                    c.constant
+                        .map_or(EntitySignal::unknown(), EntitySignal::constant),
+                    |s| EntitySignal::signal(&s.name),
+                );
                 let output = c
                     .output_signal
                     .as_ref()
