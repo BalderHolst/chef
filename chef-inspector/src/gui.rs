@@ -1,14 +1,13 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    ops::Mul,
-};
+use std::ops::Mul;
 
 use factorio_blueprint::{
-    objects::{
-        self as fbo, ArithmeticOperation, BlueprintBook, DeciderComparator, Direction,
-        OneBasedIndex,
-    },
+    objects::{self as fbo, ArithmeticOperation, BlueprintBook, DeciderComparator, Direction},
     Container,
+};
+
+use factorio_circuit_networks::{
+    self, ArithmeticCombinator, ConstantCombinator, ConstantSignal, DeciderCombinator, Entity,
+    EntityKind, EntitySignal, WireColor,
 };
 
 use eframe::{
@@ -55,325 +54,122 @@ fn choose_hue(name: &str) -> f32 {
     sum % 1.0
 }
 
-#[derive(Debug)]
-struct ConstantSignal {
-    name: String,
-    count: i32,
+fn const_sig_hue(sig: &ConstantSignal) -> f32 {
+    choose_hue(&sig.name)
 }
 
-impl ConstantSignal {
-    fn hue(&self) -> f32 {
-        choose_hue(&self.name)
+fn draw_const_sig(
+    sig: &ConstantSignal,
+    painter: &Painter,
+    cam: &Camera,
+    pos: Pos2,
+    size: f32,
+    luminance: f32,
+) {
+    let size = cam.scaled(size);
+    let rect = Rect::from_center_size(pos, Vec2::new(size, size));
+    painter.rect_filled(
+        rect,
+        cam.scaled(ROUNDING),
+        Hsva::new(const_sig_hue(sig), 0.8, luminance, 1.0),
+    );
+
+    let (s, font_size) = match sig.name.strip_prefix("signal-") {
+        Some(letter) if letter.len() == 1 => (letter.to_string(), 0.14),
+        Some(color) => (color.to_string(), 0.10),
+        None => (sig.name.replace('-', "\n"), 0.045),
+    };
+
+    let offset = 0.01;
+    painter.text(
+        rect.center() + Vec2::new(0.0, cam.scaled(offset)),
+        Align2::CENTER_CENTER,
+        &s,
+        FontId {
+            size: cam.scaled(font_size),
+            family: FontFamily::Monospace,
+        },
+        Color32::BLACK,
+    );
+
+    painter.text(
+        rect.right_bottom() + cam.scaled(Vec2::new(-0.02, -0.005)),
+        Align2::RIGHT_BOTTOM,
+        sig.count.to_string(),
+        FontId {
+            size: cam.scaled(0.05),
+            family: FontFamily::Monospace,
+        },
+        Color32::BLACK,
+    );
+}
+
+fn entity_hue(e: &EntitySignal) -> f32 {
+    match e {
+        EntitySignal::Signal(s) => choose_hue(s),
+        EntitySignal::Constant(_) => 0.083,
     }
+}
 
-    fn draw(&self, painter: &Painter, cam: &Camera, pos: Pos2, size: f32, luminance: f32) {
-        let size = cam.scaled(size);
-        let rect = Rect::from_center_size(pos, Vec2::new(size, size));
-        painter.rect_filled(
-            rect,
-            cam.scaled(ROUNDING),
-            Hsva::new(self.hue(), 0.8, luminance, 1.0),
-        );
+fn draw_entity(
+    e: &EntitySignal,
+    painter: &Painter,
+    cam: &Camera,
+    pos: Pos2,
+    size: f32,
+    luminance: f32,
+) {
+    let size = cam.scaled(size);
+    let rect = Rect::from_center_size(pos, Vec2::new(size, size));
+    let painter = painter.with_clip_rect(rect);
+    painter.rect_filled(
+        rect,
+        cam.scaled(ROUNDING),
+        Hsva::new(entity_hue(e), 0.8, luminance, 1.0),
+    );
 
-        let (s, font_size) = match self.name.strip_prefix("signal-") {
-            Some(letter) if letter.len() == 1 => (letter.to_string(), 0.14),
+    let (s, size) = match &e {
+        EntitySignal::Signal(s) => match s.strip_prefix("signal-") {
+            //Some("each") => todo!(),
+            //Some("anything") => todo!(),
+            //Some("everything") => todo!(),
+            Some(letter) if letter.len() == 1 => (letter.to_string(), 0.20),
             Some(color) => (color.to_string(), 0.10),
-            None => (self.name.replace('-', "\n"), 0.045),
-        };
-
-        let offset = 0.01;
-        painter.text(
-            rect.center() + Vec2::new(0.0, cam.scaled(offset)),
-            Align2::CENTER_CENTER,
-            &s,
-            FontId {
-                size: cam.scaled(font_size),
-                family: FontFamily::Monospace,
-            },
-            Color32::BLACK,
-        );
-
-        painter.text(
-            rect.right_bottom() + cam.scaled(Vec2::new(-0.02, -0.005)),
-            Align2::RIGHT_BOTTOM,
-            self.count.to_string(),
-            FontId {
-                size: cam.scaled(0.05),
-                family: FontFamily::Monospace,
-            },
-            Color32::BLACK,
-        );
-    }
-}
-
-#[derive(Debug)]
-enum OpSig {
-    Signal(String),
-    Constant(i32),
-}
-
-impl OpSig {
-    fn signal<S>(s: S) -> Self
-    where
-        S: ToString,
-    {
-        Self::Signal(s.to_string())
-    }
-
-    fn constant(c: i32) -> Self {
-        Self::Constant(c)
-    }
-
-    fn unknown() -> Self {
-        Self::Signal("UNKNOWN".to_string())
-    }
-
-    fn hue(&self) -> f32 {
-        match self {
-            Self::Signal(s) => choose_hue(s),
-            Self::Constant(_) => 0.083,
+            None => (s.replace('-', "\n"), 0.055),
+        },
+        EntitySignal::Constant(c) => {
+            let s = c.to_string();
+            let len = s.len() as f32;
+            (s, 0.20 / len.sqrt())
         }
-    }
+    };
 
-    fn draw(&self, painter: &Painter, cam: &Camera, pos: Pos2, size: f32, luminance: f32) {
-        let size = cam.scaled(size);
-        let rect = Rect::from_center_size(pos, Vec2::new(size, size));
-        let painter = painter.with_clip_rect(rect);
-        painter.rect_filled(
-            rect,
-            cam.scaled(ROUNDING),
-            Hsva::new(self.hue(), 0.8, luminance, 1.0),
-        );
+    let color = match e {
+        EntitySignal::Signal(_) => Color32::BLACK,
+        EntitySignal::Constant(_) => Rgba::from_rgb(0.0, 0.1, 0.4).into(),
+    };
 
-        let (s, size) = match &self {
-            Self::Signal(s) => match s.strip_prefix("signal-") {
-                //Some("each") => todo!(),
-                //Some("anything") => todo!(),
-                //Some("everything") => todo!(),
-                Some(letter) if letter.len() == 1 => (letter.to_string(), 0.20),
-                Some(color) => (color.to_string(), 0.10),
-                None => (s.replace('-', "\n"), 0.055),
-            },
-            Self::Constant(c) => {
-                let s = c.to_string();
-                let len = s.len() as f32;
-                (s, 0.20 / len.sqrt())
-            }
-        };
-
-        let color = match self {
-            Self::Signal(_) => Color32::BLACK,
-            Self::Constant(_) => Rgba::from_rgb(0.0, 0.1, 0.4).into(),
-        };
-
-        let offset = 0.01;
-        painter.text(
-            rect.center() + Vec2::new(0.0, cam.scaled(offset)),
-            Align2::CENTER_CENTER,
-            &s,
-            FontId {
-                size: cam.scaled(size),
-                family: FontFamily::Monospace,
-            },
-            color,
-        );
-    }
+    let offset = 0.01;
+    painter.text(
+        rect.center() + Vec2::new(0.0, cam.scaled(offset)),
+        Align2::CENTER_CENTER,
+        &s,
+        FontId {
+            size: cam.scaled(size),
+            family: FontFamily::Monospace,
+        },
+        color,
+    );
 }
-
-#[derive(Debug, Clone)]
-enum WireColor {
-    Red,
-    Green,
-}
-
-impl Copy for WireColor {}
-
-type EntityConnections = Vec<(fbo::OneBasedIndex, fbo::EntityNumber, i32, WireColor)>;
 
 #[derive(Debug)]
 struct GuiEntity {
-    entity_number: fbo::OneBasedIndex,
-    name: String,
-    pos: Pos2,
-    direction: Direction,
-    connections: EntityConnections,
-    kind: GuiEntityKind,
-}
-
-#[derive(Debug)]
-enum GuiEntityKind {
-    ArithmeticCombinator {
-        left: OpSig,
-        right: OpSig,
-        output: OpSig,
-        operator: ArithmeticOperation,
-    },
-    DeciderCombinator {
-        left: OpSig,
-        right: OpSig,
-        output: OpSig,
-        operator: DeciderComparator,
-    },
-    ConstantCombinator {
-        signals: BTreeMap<fbo::OneBasedIndex, ConstantSignal>,
-    },
-    Other,
-}
-
-fn pos_from_fbo_position(pos: fbo::Position) -> Pos2 {
-    let x: f64 = pos.x.into();
-    let y: f64 = pos.y.into();
-    Pos2::new(x as f32, y as f32)
+    entity: Entity,
 }
 
 impl From<fbo::Entity> for GuiEntity {
     fn from(e: fbo::Entity) -> Self {
-        let connections = (|| {
-            let conns = match e.connections?.clone() {
-                fbo::EntityConnections::StringIdx(conns) => conns
-                    .iter()
-                    .map(|(port, conn)| {
-                        let port = port.parse::<fbo::OneBasedIndex>().unwrap();
-                        (port, conn.clone())
-                    })
-                    .collect::<HashMap<OneBasedIndex, fbo::Connection>>(),
-                fbo::EntityConnections::NumberIdx(conns) => conns,
-            };
-
-            let conns = conns.into_iter().map(|(port, c)| match c {
-                fbo::Connection::Single(c) => (port, c),
-                fbo::Connection::Multiple(_) => todo!(),
-            });
-
-            Some({
-                conns
-                    .into_iter()
-                    .flat_map(|(port, conn)| {
-                        conn.red
-                            .map(move |red_cons| {
-                                red_cons.into_iter().map(move |red_conn| {
-                                    (
-                                        port,
-                                        red_conn.entity_id,
-                                        red_conn.circuit_id.unwrap_or(1),
-                                        WireColor::Red,
-                                    )
-                                })
-                            })
-                            .into_iter()
-                            .flatten()
-                            .chain(
-                                conn.green
-                                    .map(move |green_cons| {
-                                        green_cons.into_iter().map(move |green_conn| {
-                                            (
-                                                port,
-                                                green_conn.entity_id,
-                                                green_conn.circuit_id.unwrap_or(1),
-                                                WireColor::Green,
-                                            )
-                                        })
-                                    })
-                                    .into_iter()
-                                    .flatten(),
-                            )
-                    })
-                    .collect::<Vec<_>>()
-            })
-        })()
-        .unwrap_or(vec![]);
-
-        let direction = e.direction.unwrap_or_default();
-
-        let kind = match e.name.as_str() {
-            "arithmetic-combinator" => {
-                let c = e
-                    .control_behavior
-                    .as_ref()
-                    .unwrap()
-                    .arithmetic_conditions
-                    .as_ref()
-                    .unwrap();
-                let left = c.first_signal.as_ref().map_or(
-                    c.first_constant.map_or(OpSig::unknown(), OpSig::constant),
-                    |s| OpSig::signal(&s.name),
-                );
-                let right = c.second_signal.as_ref().map_or(
-                    c.second_constant.map_or(OpSig::unknown(), OpSig::constant),
-                    |s| OpSig::signal(&s.name),
-                );
-                let output = c
-                    .output_signal
-                    .as_ref()
-                    .map_or(OpSig::unknown(), |s| OpSig::signal(&s.name));
-                GuiEntityKind::ArithmeticCombinator {
-                    left,
-                    right,
-                    output,
-                    operator: c.operation.clone(),
-                }
-            }
-            "decider-combinator" => {
-                let c = e
-                    .control_behavior
-                    .as_ref()
-                    .unwrap()
-                    .decider_conditions
-                    .as_ref()
-                    .unwrap();
-                let left = c
-                    .first_signal
-                    .as_ref()
-                    .map_or(OpSig::unknown(), |s| OpSig::signal(&s.name));
-                let right = c
-                    .second_signal
-                    .as_ref()
-                    .map_or(OpSig::unknown(), |s| OpSig::signal(&s.name));
-                let output = c
-                    .output_signal
-                    .as_ref()
-                    .map_or(OpSig::unknown(), |s| OpSig::signal(&s.name));
-
-                GuiEntityKind::DeciderCombinator {
-                    left,
-                    right,
-                    output,
-                    operator: c.comparator.clone(),
-                }
-            }
-            "constant-combinator" => {
-                let signals = (|| {
-                    Some(
-                        e.control_behavior?
-                            .filters?
-                            .into_iter()
-                            .map(|filter| {
-                                (
-                                    filter.index,
-                                    ConstantSignal {
-                                        name: filter.signal.name,
-                                        count: filter.count,
-                                    },
-                                )
-                            })
-                            .collect::<BTreeMap<OneBasedIndex, ConstantSignal>>(),
-                    )
-                })()
-                .unwrap_or(BTreeMap::default());
-
-                GuiEntityKind::ConstantCombinator { signals }
-            }
-            _ => GuiEntityKind::Other,
-        };
-
-        GuiEntity {
-            entity_number: e.entity_number,
-            name: e.name,
-            pos: pos_from_fbo_position(e.position),
-            direction,
-            connections,
-            kind,
-        }
+        Self { entity: e.into() }
     }
 }
 
@@ -382,25 +178,32 @@ impl GuiEntity {
     const MARGIN: f32 = 0.11;
 
     fn hue(&self) -> f32 {
-        match &self.kind {
-            GuiEntityKind::ArithmeticCombinator { .. } => 0.3,
-            GuiEntityKind::DeciderCombinator { .. } => 0.8,
-            GuiEntityKind::ConstantCombinator { .. } => 0.5,
-            GuiEntityKind::Other => choose_hue(&self.name),
+        match &self.entity.kind {
+            EntityKind::ArithmeticCombinator(_) => 0.3,
+            EntityKind::DeciderCombinator(_) => 0.8,
+            EntityKind::ConstantCombinator(_) => 0.5,
+            EntityKind::Other(_) => choose_hue(self.entity.name()),
+        }
+    }
+
+    fn pos(&self) -> Pos2 {
+        Pos2 {
+            x: self.entity.x,
+            y: self.entity.y,
         }
     }
 
     fn display_name(&self) -> &str {
-        match &self.kind {
-            GuiEntityKind::ArithmeticCombinator { .. } => "Arithmetic Combinator",
-            GuiEntityKind::DeciderCombinator { .. } => "Decider Combinator",
-            GuiEntityKind::ConstantCombinator { .. } => "Constant Combinator",
-            GuiEntityKind::Other => self.name.as_str(),
+        match &self.entity.kind {
+            EntityKind::ArithmeticCombinator(_) => "Arithmetic Combinator",
+            EntityKind::DeciderCombinator(_) => "Decider Combinator",
+            EntityKind::ConstantCombinator(_) => "Constant Combinator",
+            EntityKind::Other(_) => self.entity.name(),
         }
     }
 
     fn direction_vec(&self) -> Vec2 {
-        match &self.direction {
+        match &self.entity.direction {
             fbo::Direction::North => Vec2::new(0.0, -1.0),
             fbo::Direction::NorthEast => Vec2::new(1.0, -1.0).normalized(),
             fbo::Direction::East => Vec2::new(1.0, 0.0),
@@ -413,37 +216,40 @@ impl GuiEntity {
     }
 
     fn contains_point(&self, point: Pos2) -> bool {
-        let size = match &self.kind {
-            GuiEntityKind::ArithmeticCombinator { .. }
-            | GuiEntityKind::DeciderCombinator { .. } => match &self.direction {
-                Direction::East | Direction::West => Vec2::new(2.0, 1.0),
-                _ => Vec2::new(1.0, 2.0),
-            },
+        let size = match &self.entity.kind {
+            EntityKind::ArithmeticCombinator(_) | EntityKind::DeciderCombinator(_) => {
+                match &self.entity.direction {
+                    Direction::East | Direction::West => Vec2::new(2.0, 1.0),
+                    _ => Vec2::new(1.0, 2.0),
+                }
+            }
             _ => Vec2::splat(1.0),
         };
 
         let size = size - Vec2::splat(Self::MARGIN);
 
-        let rect = Rect::from_center_size(self.pos, size);
+        let rect = Rect::from_center_size(self.pos(), size);
         rect.contains(point)
     }
 
     fn op_string(&self) -> &str {
-        match &self.kind {
-            GuiEntityKind::ArithmeticCombinator { operator, .. } => match operator {
-                ArithmeticOperation::Add => "+",
-                ArithmeticOperation::Subtract => "-",
-                ArithmeticOperation::Multiply => "*",
-                ArithmeticOperation::Divide => "/",
-                ArithmeticOperation::Modulo => "%",
-                ArithmeticOperation::Exponentiate => "^",
-                ArithmeticOperation::LeftShift => "<<",
-                ArithmeticOperation::RightShift => ">>",
-                ArithmeticOperation::And => "&",
-                ArithmeticOperation::Or => "|",
-                ArithmeticOperation::Xor => "XOR",
-            },
-            GuiEntityKind::DeciderCombinator { operator, .. } => match operator {
+        match &self.entity.kind {
+            EntityKind::ArithmeticCombinator(ArithmeticCombinator { operator, .. }) => {
+                match operator {
+                    ArithmeticOperation::Add => "+",
+                    ArithmeticOperation::Subtract => "-",
+                    ArithmeticOperation::Multiply => "*",
+                    ArithmeticOperation::Divide => "/",
+                    ArithmeticOperation::Modulo => "%",
+                    ArithmeticOperation::Exponentiate => "^",
+                    ArithmeticOperation::LeftShift => "<<",
+                    ArithmeticOperation::RightShift => ">>",
+                    ArithmeticOperation::And => "&",
+                    ArithmeticOperation::Or => "|",
+                    ArithmeticOperation::Xor => "XOR",
+                }
+            }
+            EntityKind::DeciderCombinator(DeciderCombinator { operator, .. }) => match operator {
                 DeciderComparator::GreaterThan => ">",
                 DeciderComparator::LessThan => "<",
                 DeciderComparator::GreaterThanOrEqual => ">=",
@@ -456,38 +262,37 @@ impl GuiEntity {
     }
 
     fn input_port(&self) -> Pos2 {
-        match &self.kind {
-            GuiEntityKind::ArithmeticCombinator { .. }
-            | GuiEntityKind::DeciderCombinator { .. } => {
-                self.pos - self.direction_vec() * Self::PORT_DISTANCE
+        match &self.entity.kind {
+            EntityKind::ArithmeticCombinator(_) | EntityKind::DeciderCombinator(_) => {
+                self.pos() - self.direction_vec() * Self::PORT_DISTANCE
             }
-            GuiEntityKind::ConstantCombinator { .. } => self.pos + Vec2::splat(0.32),
-            GuiEntityKind::Other => self.pos,
+            EntityKind::ConstantCombinator(_) => self.pos() + Vec2::splat(0.32),
+            EntityKind::Other(_) => self.pos(),
         }
     }
 
     fn output_port(&self) -> Pos2 {
-        match &self.kind {
-            GuiEntityKind::ArithmeticCombinator { .. }
-            | GuiEntityKind::DeciderCombinator { .. } => {
-                self.pos + self.direction_vec() * Self::PORT_DISTANCE
+        match &self.entity.kind {
+            EntityKind::ArithmeticCombinator(_) | EntityKind::DeciderCombinator { .. } => {
+                self.pos() + self.direction_vec() * Self::PORT_DISTANCE
             }
-            GuiEntityKind::ConstantCombinator { .. } => self.pos + Vec2::splat(0.32),
-            GuiEntityKind::Other => self.pos,
+            EntityKind::ConstantCombinator(_) => self.pos() + Vec2::splat(0.32),
+            EntityKind::Other(_) => self.pos(),
         }
     }
 
     // TODO: Use actual direction
     fn port_from_index(&self, index: i32) -> Pos2 {
-        match &self.kind {
-            GuiEntityKind::ArithmeticCombinator { .. }
-            | GuiEntityKind::DeciderCombinator { .. } => match index {
-                1 => self.input_port(),
-                2 => self.output_port(),
-                other => panic!("Invalid port index {other}."),
-            },
-            GuiEntityKind::ConstantCombinator { .. } => self.input_port(),
-            GuiEntityKind::Other { .. } => self.pos,
+        match &self.entity.kind {
+            EntityKind::ArithmeticCombinator { .. } | EntityKind::DeciderCombinator { .. } => {
+                match index {
+                    1 => self.input_port(),
+                    2 => self.output_port(),
+                    other => panic!("Invalid port index {other}."),
+                }
+            }
+            EntityKind::ConstantCombinator { .. } => self.input_port(),
+            EntityKind::Other { .. } => self.pos(),
         }
     }
 
@@ -505,42 +310,44 @@ impl GuiEntity {
             }
 
         egui::Grid::new("specific-entity-info").show(ui, |ui| {
-            row! { ui, "Entity Number", self.entity_number };
-            row! { ui, "Posititon",     self.pos           };
-            row! { ui, "Direction",     self.direction     };
+            row! { ui, "Entity Number", self.entity.entity_number };
+            row! { ui, "Posititon",     self.pos()                };
+            row! { ui, "Direction",     self.entity.direction     };
         });
 
         ui.separator();
 
-        egui::Grid::new("general-entity-info").show(ui, |ui| match &self.kind {
-            GuiEntityKind::ArithmeticCombinator {
+        egui::Grid::new("general-entity-info").show(ui, |ui| match &self.entity.kind {
+            EntityKind::ArithmeticCombinator(ArithmeticCombinator {
                 left,
                 right,
                 output,
                 operator,
-            } => {
+            }) => {
                 row! { ui, "Left",     left     };
                 row! { ui, "Right",    right    };
                 row! { ui, "Operator", operator };
                 row! { ui, "Output",   output   };
             }
-            GuiEntityKind::DeciderCombinator {
+            EntityKind::DeciderCombinator(DeciderCombinator {
                 left,
                 right,
                 output,
                 operator,
-            } => {
-                row! { ui, "Left",     left     };
-                row! { ui, "Right",    right    };
-                row! { ui, "Operator", operator };
-                row! { ui, "Output",   output   };
+                copy_count_from_input,
+            }) => {
+                row! { ui, "Left",       left                  };
+                row! { ui, "Right",      right                 };
+                row! { ui, "Operator",   operator              };
+                row! { ui, "Output",     output                };
+                row! { ui, "Copy Count", copy_count_from_input };
             }
-            GuiEntityKind::ConstantCombinator { signals } => {
+            EntityKind::ConstantCombinator(ConstantCombinator { signals }) => {
                 for s in signals.values() {
                     row! { ui, s.name, s.count }
                 }
             }
-            GuiEntityKind::Other => {}
+            EntityKind::Other(_) => {}
         });
     }
 
@@ -548,7 +355,7 @@ impl GuiEntity {
         let mut focused = false;
 
         let luminance = match &app.focused_entity {
-            Some(en) if *en == self.entity_number => {
+            Some(en) if *en == self.entity.entity_number => {
                 focused = true;
                 0.4
             }
@@ -563,20 +370,20 @@ impl GuiEntity {
 
         let icon_luminance = (luminance + 0.45_f32).min(1.0);
 
-        match &self.kind {
-            GuiEntityKind::ArithmeticCombinator {
+        match &self.entity.kind {
+            EntityKind::ArithmeticCombinator(ArithmeticCombinator {
                 left,
                 right,
                 output,
                 ..
-            }
-            | GuiEntityKind::DeciderCombinator {
+            })
+            | EntityKind::DeciderCombinator(DeciderCombinator {
                 left,
                 right,
                 output,
                 ..
-            } => {
-                let canvas_pos = cam.world_to_viewport(self.pos);
+            }) => {
+                let canvas_pos = cam.world_to_viewport(self.pos());
 
                 const WIDTH: f32 = 1.0;
                 const LENGTH: f32 = 2.0;
@@ -609,14 +416,16 @@ impl GuiEntity {
 
                 // Draw operands
                 const ICON_SIZE: f32 = 0.30;
-                left.draw(
+                draw_entity(
+                    left,
                     painter,
                     cam,
                     canvas_pos + Vec2::LEFT * operand_offset + Vec2::DOWN * center_y_offset,
                     ICON_SIZE,
                     icon_luminance,
                 );
-                right.draw(
+                draw_entity(
+                    right,
                     painter,
                     cam,
                     canvas_pos + Vec2::RIGHT * operand_offset + Vec2::DOWN * center_y_offset,
@@ -625,7 +434,8 @@ impl GuiEntity {
                 );
 
                 // Draw result
-                output.draw(
+                draw_entity(
+                    output,
                     painter,
                     cam,
                     canvas_pos + Vec2::UP * center_y_offset,
@@ -672,8 +482,8 @@ impl GuiEntity {
                     Color32::BLACK,
                 );
             }
-            GuiEntityKind::ConstantCombinator { signals } => {
-                let canvas_pos = cam.world_to_viewport(self.pos);
+            EntityKind::ConstantCombinator(ConstantCombinator { signals }) => {
+                let canvas_pos = cam.world_to_viewport(self.pos());
                 let size = Vec2::new(1.0, 1.0);
                 let rect = Rect::from_center_size(
                     canvas_pos,
@@ -696,18 +506,20 @@ impl GuiEntity {
                     [] => {}
                     [a] => {
                         const SIZE: f32 = 0.40;
-                        a.draw(painter, cam, origin, SIZE, icon_luminance);
+                        draw_const_sig(a, painter, cam, origin, SIZE, icon_luminance);
                     }
                     [a, b] => {
                         const SIZE: f32 = 0.25;
-                        a.draw(
+                        draw_const_sig(
+                            a,
                             painter,
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, 0.0) * cam.scale,
                             SIZE,
                             icon_luminance,
                         );
-                        b.draw(
+                        draw_const_sig(
+                            b,
                             painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, 0.0) * cam.scale,
@@ -717,21 +529,24 @@ impl GuiEntity {
                     }
                     [a, b, c] => {
                         const SIZE: f32 = 0.25;
-                        a.draw(
+                        draw_const_sig(
+                            a,
                             painter,
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
                             icon_luminance,
                         );
-                        b.draw(
+                        draw_const_sig(
+                            b,
                             painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
                             icon_luminance,
                         );
-                        c.draw(
+                        draw_const_sig(
+                            c,
                             painter,
                             cam,
                             origin + Vec2::new(0.0, CENTER_OFFSET) * cam.scale,
@@ -741,28 +556,32 @@ impl GuiEntity {
                     }
                     [a, b, c, d] => {
                         const SIZE: f32 = 0.25;
-                        a.draw(
+                        draw_const_sig(
+                            a,
                             painter,
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
                             icon_luminance,
                         );
-                        b.draw(
+                        draw_const_sig(
+                            b,
                             painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, -CENTER_OFFSET) * cam.scale,
                             SIZE,
                             icon_luminance,
                         );
-                        c.draw(
+                        draw_const_sig(
+                            c,
                             painter,
                             cam,
                             origin + Vec2::new(-CENTER_OFFSET, CENTER_OFFSET) * cam.scale,
                             SIZE,
                             icon_luminance,
                         );
-                        d.draw(
+                        draw_const_sig(
+                            d,
                             painter,
                             cam,
                             origin + Vec2::new(CENTER_OFFSET, CENTER_OFFSET) * cam.scale,
@@ -780,7 +599,8 @@ impl GuiEntity {
                             let x =
                                 rect.left() + cam.scaled(item_size * i as f32 + item_size / 2.0);
                             let pos = Pos2::new(x, origin.y - cam.scaled(item_size / 2.0));
-                            top_item.draw(
+                            draw_const_sig(
+                                top_item,
                                 painter,
                                 cam,
                                 pos,
@@ -789,7 +609,8 @@ impl GuiEntity {
                             );
                             if let Some(bot_item) = bot_item {
                                 let pos = Pos2::new(x, origin.y + cam.scaled(item_size / 2.0));
-                                bot_item.draw(
+                                draw_const_sig(
+                                    bot_item,
                                     painter,
                                     cam,
                                     pos,
@@ -808,8 +629,8 @@ impl GuiEntity {
                 let port = cam.world_to_viewport(self.input_port());
                 painter.circle(port, cam.scaled(PORT_SIZE) / 2.0, fill, stroke);
             }
-            GuiEntityKind::Other => {
-                let pos = cam.world_to_viewport(self.pos);
+            EntityKind::Other(_) => {
+                let pos = cam.world_to_viewport(self.pos());
                 let bounding_box = Rect::from_center_size(pos, cam.scaled(Vec2::splat(1.0)));
                 if !cam.viewport.intersects(bounding_box) {
                     return;
@@ -909,7 +730,7 @@ impl eframe::App for App {
             .resizable(true)
             .show_animated(ctx, self.focused_entity.is_some(), |ui| {
                 if let Some(entity) = self.entities.iter().find(|e| {
-                    e.entity_number
+                    e.entity.entity_number
                         == self
                             .focused_entity
                             .expect("We should not be here without a focused entity.")
@@ -967,7 +788,7 @@ impl App {
                     .entities
                     .iter()
                     .find(|e| e.contains_point(pos))
-                    .map(|e| e.entity_number);
+                    .map(|e| e.entity.entity_number);
             }
         }
 
@@ -1011,19 +832,21 @@ impl App {
         }
 
         for this_entity in &self.entities {
-            for (this_port, other_entity_number, other_port, wire) in &this_entity.connections {
+            for (this_port, other_entity_number, other_port, wire) in
+                &this_entity.entity.connections
+            {
                 let this_port = this_entity.port_from_index(usize::from(*this_port) as i32);
                 let other_entity = self
                     .entities
                     .iter()
-                    .find(|e| e.entity_number == *other_entity_number)
+                    .find(|e| e.entity.entity_number == *other_entity_number)
                     .expect("Entity not found");
 
                 let other_port = other_entity.port_from_index(*other_port);
 
                 let (wire_opacity, width) = match self.focused_entity {
                     Some(focused)
-                        if focused == this_entity.entity_number
+                        if focused == this_entity.entity.entity_number
                             || focused == *other_entity_number =>
                     {
                         (0.7, 0.04)
@@ -1090,7 +913,7 @@ impl App {
                 let len = len as f32;
                 entities
                     .iter()
-                    .map(|e| e.pos)
+                    .map(|e| e.pos())
                     .fold(Pos2::ZERO, |acc, p| acc + p.to_vec2())
                     / len
             } else {

@@ -740,6 +740,7 @@ dependencies = [
  "clap",
  "eframe",
  "factorio-blueprint",
+ "factorio-circuit-networks",
 ]
 
 [[package]]
@@ -1219,6 +1220,14 @@ dependencies = [
  "serde_json",
  "serde_repr",
  "thiserror",
+]
+
+[[package]]
+name = "factorio-circuit-networks"
+version = "0.0.1"
+dependencies = [
+ "factorio-blueprint",
+ "noisy_float",
 ]
 
 [[package]]

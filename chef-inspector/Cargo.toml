@@ -7,3 +7,4 @@ edition = "2021"
 clap = { version = "4.5.18", features = ["derive"]}
 eframe = { version = "0.28.1" }
 factorio-blueprint = { git = "https://github.com/coriolinus/factorio-blueprint" }
+factorio-circuit-networks = { path = "../factorio-circuit-networks" }

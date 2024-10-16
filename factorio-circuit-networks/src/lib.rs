@@ -75,24 +75,24 @@ impl Entity {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ArithmeticCombinator {
-    left: EntitySignal,
-    right: EntitySignal,
-    output: EntitySignal,
-    operator: fbo::ArithmeticOperation,
+    pub left: EntitySignal,
+    pub right: EntitySignal,
+    pub output: EntitySignal,
+    pub operator: fbo::ArithmeticOperation,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeciderCombinator {
-    left: EntitySignal,
-    right: EntitySignal,
-    output: EntitySignal,
-    operator: fbo::DeciderComparator,
-    copy_count_from_input: bool,
+    pub left: EntitySignal,
+    pub right: EntitySignal,
+    pub output: EntitySignal,
+    pub operator: fbo::DeciderComparator,
+    pub copy_count_from_input: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConstantCombinator {
-    signals: BTreeMap<fbo::OneBasedIndex, ConstantSignal>,
+    pub signals: BTreeMap<fbo::OneBasedIndex, ConstantSignal>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
