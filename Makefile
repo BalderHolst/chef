@@ -174,7 +174,7 @@ sym-install-python:
 	pip sym-install -e `git rev-parse --show-toplevel`/chef-python
 
 
-test-all: test-compiler test-inspector
+test-all: test-compiler test-inspector test-crate
 
 
 

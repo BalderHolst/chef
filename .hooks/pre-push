@@ -102,6 +102,13 @@ echo "----->> Running 'test-inspector'"
 cargo test --manifest-path "`git rev-parse --show-toplevel`/chef-inspector/Cargo.toml"
 
 
+echo "----->> Running 'test-crate'"
+# Dependencies for test-crate
+
+# Run test-crate job
+cargo test --manifest-path "`git rev-parse --show-toplevel`/factorio-circuit-networks/Cargo.toml"
+
+
 # Run test-all job
 
 

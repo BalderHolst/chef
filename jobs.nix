@@ -77,6 +77,7 @@ rec {
     test-all = jobSeq "test-all" [
         test-compiler
         test-inspector
+        test-crate
     ];
 
     build-compiler  = mkJob "build-compiler"  { script = cargo-build compiler  "chef";           };
