@@ -4,8 +4,11 @@ use super::*;
 use factorio_blueprint::objects::{self as fbo, EntityNumber, OneBasedIndex};
 
 fn roundtrip(entity: Entity) {
+    println!("Roundtripping: {:?}", entity);
+
     let mut entity1 = entity.clone();
     let fbo_entity = fbo::Entity::from(entity.clone());
+
     let mut entity2 = Entity::from(fbo_entity);
 
     type C = (OneBasedIndex, EntityNumber, i32, WireColor);
@@ -20,6 +23,44 @@ fn roundtrip(entity: Entity) {
     entity2.connections.sort_by(ord);
 
     assert_eq!(entity1, entity2);
+}
+
+#[test]
+fn single_roundtrip() {
+    roundtrip(Entity {
+        entity_number: EntityNumber::try_from(123).unwrap(),
+        name: "hello".to_string(),
+        x: -41.4,
+        y: 50000000.0,
+        direction: fbo::Direction::East,
+        connections: vec![
+            (
+                OneBasedIndex::try_from(1).unwrap(),
+                EntityNumber::try_from(60).unwrap(),
+                1,
+                WireColor::Green,
+            ),
+            (
+                OneBasedIndex::try_from(1).unwrap(),
+                EntityNumber::try_from(12).unwrap(),
+                0,
+                WireColor::Green,
+            ),
+            (
+                OneBasedIndex::try_from(1).unwrap(),
+                EntityNumber::try_from(96).unwrap(),
+                0,
+                WireColor::Red,
+            ),
+            (
+                OneBasedIndex::try_from(2).unwrap(),
+                EntityNumber::try_from(23).unwrap(),
+                1,
+                WireColor::Red,
+            ),
+        ],
+        kind: EntityKind::Other,
+    });
 }
 
 #[test]
@@ -122,12 +163,12 @@ fn roundtrip_combinators() {
                     0,
                     WireColor::Green,
                 ),
-                (
-                    OneBasedIndex::try_from(1).unwrap(),
-                    EntityNumber::try_from(96).unwrap(),
-                    0,
-                    WireColor::Red,
-                ),
+                //(
+                //    OneBasedIndex::try_from(1).unwrap(),
+                //    EntityNumber::try_from(96).unwrap(),
+                //    0,
+                //    WireColor::Red,
+                //),
                 (
                     OneBasedIndex::try_from(2).unwrap(),
                     EntityNumber::try_from(23).unwrap(),

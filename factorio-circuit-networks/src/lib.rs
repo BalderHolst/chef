@@ -90,10 +90,10 @@ pub enum EntityKind {
 }
 
 impl From<Entity> for fbo::Entity {
-    fn from(val: Entity) -> Self {
+    fn from(entity: Entity) -> Self {
         let mut connections = HashMap::new();
 
-        for (this_port, other_en, other_port, wire) in &val.connections {
+        for (this_port, other_en, other_port, wire) in &entity.connections {
             let data = fbo::ConnectionData {
                 entity_id: *other_en,
                 circuit_id: Some(*other_port),
@@ -106,11 +106,15 @@ impl From<Entity> for fbo::Entity {
                     WireColor::Red => {
                         if let Some(v) = &mut c.red {
                             v.push(data.clone())
+                        } else {
+                            c.red = Some(vec![data.clone()])
                         }
                     }
                     WireColor::Green => {
                         if let Some(v) = &mut c.green {
                             v.push(data.clone())
+                        } else {
+                            c.green = Some(vec![data.clone()])
                         }
                     }
                 })
@@ -131,13 +135,13 @@ impl From<Entity> for fbo::Entity {
         ));
 
         let mut fbo_entity = fbo::Entity {
-            entity_number: val.entity_number,
-            name: val.name,
+            entity_number: entity.entity_number,
+            name: entity.name,
             position: fbo::Position {
-                x: r64(val.x.into()),
-                y: r64(val.y.into()),
+                x: r64(entity.x.into()),
+                y: r64(entity.y.into()),
             },
-            direction: Some(val.direction),
+            direction: Some(entity.direction),
             orientation: None,
             connections,
             control_behavior: None,
@@ -221,7 +225,7 @@ impl From<Entity> for fbo::Entity {
             }
         }
 
-        match val.kind {
+        match entity.kind {
             EntityKind::ArithmeticCombinator {
                 left,
                 right,
