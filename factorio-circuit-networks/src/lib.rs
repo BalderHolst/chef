@@ -60,12 +60,17 @@ pub type EntityConnections = Vec<(fbo::OneBasedIndex, fbo::EntityNumber, i32, Wi
 #[derive(Debug, Clone, PartialEq)]
 pub struct Entity {
     pub entity_number: fbo::EntityNumber,
-    pub name: String,
     pub x: f32,
     pub y: f32,
     pub direction: fbo::Direction,
     pub connections: EntityConnections,
     pub kind: EntityKind,
+}
+
+impl Entity {
+    pub fn name(&self) -> &str {
+        self.kind.name()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -86,7 +91,18 @@ pub enum EntityKind {
     ConstantCombinator {
         signals: BTreeMap<fbo::OneBasedIndex, ConstantSignal>,
     },
-    Other,
+    Other(String),
+}
+
+impl EntityKind {
+    pub fn name(&self) -> &str {
+        match self {
+            EntityKind::ArithmeticCombinator { .. } => "arithmetic-combinator",
+            EntityKind::DeciderCombinator { .. } => "decider-combinator",
+            EntityKind::ConstantCombinator { .. } => "constant-combinator",
+            EntityKind::Other(name) => name.as_str(),
+        }
+    }
 }
 
 impl From<Entity> for fbo::Entity {
@@ -136,7 +152,7 @@ impl From<Entity> for fbo::Entity {
 
         let mut fbo_entity = fbo::Entity {
             entity_number: entity.entity_number,
-            name: entity.name,
+            name: entity.name().to_string(),
             position: fbo::Position {
                 x: r64(entity.x.into()),
                 y: r64(entity.y.into()),
@@ -278,7 +294,7 @@ impl From<Entity> for fbo::Entity {
                         .collect(),
                 );
             }
-            EntityKind::Other => (),
+            EntityKind::Other(_) => (),
         }
 
         fbo_entity.control_behavior = Some(control_behaviour);
@@ -428,12 +444,11 @@ impl From<fbo::Entity> for Entity {
 
                 EntityKind::ConstantCombinator { signals }
             }
-            _ => EntityKind::Other,
+            _ => EntityKind::Other(fbo_entity.name),
         };
 
         Entity {
             entity_number: fbo_entity.entity_number,
-            name: fbo_entity.name,
             x: f64::from(fbo_entity.position.x) as f32,
             y: f64::from(fbo_entity.position.y) as f32,
             direction,

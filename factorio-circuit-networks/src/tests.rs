@@ -29,7 +29,6 @@ fn roundtrip(entity: Entity) {
 fn single_roundtrip() {
     roundtrip(Entity {
         entity_number: EntityNumber::try_from(123).unwrap(),
-        name: "hello".to_string(),
         x: -41.4,
         y: 50000000.0,
         direction: fbo::Direction::East,
@@ -59,7 +58,7 @@ fn single_roundtrip() {
                 WireColor::Red,
             ),
         ],
-        kind: EntityKind::Other,
+        kind: EntityKind::Other("something-else".to_string()),
     });
 }
 
@@ -146,7 +145,6 @@ fn roundtrip_combinators() {
     kinds.into_iter().for_each(|kind| {
         roundtrip(Entity {
             entity_number: EntityNumber::try_from(123).unwrap(),
-            name: "hello".to_string(),
             x: -41.4,
             y: 50000000.0,
             direction: fbo::Direction::East,
@@ -163,12 +161,12 @@ fn roundtrip_combinators() {
                     0,
                     WireColor::Green,
                 ),
-                //(
-                //    OneBasedIndex::try_from(1).unwrap(),
-                //    EntityNumber::try_from(96).unwrap(),
-                //    0,
-                //    WireColor::Red,
-                //),
+                (
+                    OneBasedIndex::try_from(1).unwrap(),
+                    EntityNumber::try_from(96).unwrap(),
+                    0,
+                    WireColor::Red,
+                ),
                 (
                     OneBasedIndex::try_from(2).unwrap(),
                     EntityNumber::try_from(23).unwrap(),
