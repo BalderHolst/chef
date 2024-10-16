@@ -1,6 +1,10 @@
-use std::cmp::{self, Ordering};
+use std::{
+    cmp::{self, Ordering},
+    path::Path,
+};
 
 use super::*;
+use factorio_blueprint as fb;
 use factorio_blueprint::objects::{self as fbo, EntityNumber, OneBasedIndex};
 
 fn roundtrip(entity: Entity) {
@@ -177,4 +181,34 @@ fn roundtrip_combinators() {
             kind,
         });
     });
+}
+
+fn roundtrip_blueprint(blueprint: fbo::Blueprint) {
+    for fbo_entity in blueprint.entities {
+        let entity = Entity::from(fbo_entity);
+        roundtrip(entity);
+    }
+}
+
+#[test]
+fn roundtrip_blueprints() {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let blueprint_dir = Path::new(root).join("blueprints");
+
+    println!("Blueprint dir: {:?}", blueprint_dir);
+
+    for file in blueprint_dir.read_dir().unwrap() {
+        let file = file.unwrap();
+        let path = file.path();
+        println!("Blueprint file: {:?}", path);
+        let blueprint_str = std::fs::read_to_string(path).unwrap();
+
+        let container = fb::BlueprintCodec::decode_string(&blueprint_str).unwrap();
+
+        match container {
+            fb::Container::BlueprintBook(_) => todo!("Book"),
+            fb::Container::Blueprint(b) => roundtrip_blueprint(b),
+            _ => (),
+        }
+    }
 }
